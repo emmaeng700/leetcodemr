@@ -235,6 +235,8 @@ export default function HomePage() {
     })
   }, [])
 
+  const DIFF_ORDER: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
+
   const filtered = questions.filter(q => {
     if (difficulty !== 'All' && q.difficulty !== difficulty) return false
     if (source !== 'All' && !(q.source || []).includes(source)) return false
@@ -244,7 +246,7 @@ export default function HomePage() {
     if (showSolved === true && !p.solved) return false
     if (showSolved === false && p.solved) return false
     return true
-  })
+  }).sort((a, b) => (DIFF_ORDER[a.difficulty] ?? 1) - (DIFF_ORDER[b.difficulty] ?? 1))
 
   const solved = Object.values(progress).filter(p => p.solved).length
 
