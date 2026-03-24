@@ -332,7 +332,7 @@ export default function HomePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map(q => {
             const p = progress[String(q.id)] || {}
-            const isDue = (nextReview: string | undefined) => {
+            const isDue = (nextReview: string | null | undefined) => {
               if (!nextReview) return false
               const [y, m, d] = nextReview.split('-').map(Number)
               const rev = new Date(y, m - 1, d)
