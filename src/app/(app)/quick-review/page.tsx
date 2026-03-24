@@ -188,7 +188,7 @@ export default function QuickReviewPage() {
             <Zap className="text-yellow-500" /> Quick Review
           </h1>
           <p className="text-xs text-gray-400 mt-0.5">
-            Automatic · 60s question → 60s solution → next · {deck.length} questions
+            Automatic · {Q_SECS}s question → {SOL_SECS}s solution → next · {deck.length} questions
           </p>
         </div>
         <button
@@ -257,12 +257,12 @@ export default function QuickReviewPage() {
           <p className="text-sm text-gray-400 mb-2">The session runs automatically:</p>
           <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500 mb-8">
             <div className="flex flex-col items-center gap-1">
-              <span className="text-2xl font-black text-indigo-600">60s</span>
+              <span className="text-2xl font-black text-indigo-600">{Q_SECS}s</span>
               <span className="text-xs">View question</span>
             </div>
             <div className="text-gray-300 text-2xl self-center">→</div>
             <div className="flex flex-col items-center gap-1">
-              <span className="text-2xl font-black text-green-600">60s</span>
+              <span className="text-2xl font-black text-green-600">{SOL_SECS}s</span>
               <span className="text-xs">Study solution</span>
             </div>
             <div className="text-gray-300 text-2xl self-center">→</div>
