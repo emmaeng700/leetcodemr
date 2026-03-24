@@ -234,6 +234,7 @@ int main() {
       const { keymap } = viewMod
       const { Prec } = stateMod
       const { indentWithTab } = cmdMod
+      const { indentationMarkers } = await import('@replit/codemirror-indentation-markers')
       const smartEnter = (view: any) => {
         const { from } = view.state.selection.main
         const line = view.state.doc.lineAt(from)
@@ -253,7 +254,7 @@ int main() {
         { key: 'Enter', run: smartEnter },
         indentWithTab,
       ]))
-      setExtensions([lang === 'python' ? python() : cpp(), smartKeys])
+      setExtensions([lang === 'python' ? python() : cpp(), smartKeys, indentationMarkers()])
     }
     loadExtensions()
   }, [lang])
