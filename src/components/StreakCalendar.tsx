@@ -104,10 +104,8 @@ export default function StreakCalendar({ log = {}, target = 0 }: StreakCalendarP
         </div>
       </div>
       <p className="text-xs text-gray-400 mt-2">
-        {totalActive} active day{totalActive !== 1 ? 's' : ''} ·{' '}
-        {target > 0
-          ? ` green = ${target}+ solved · yellow = ${target - 1} · red = less`
-          : ' green = at least 1 question solved that day'}
+        {totalActive} active day{totalActive !== 1 ? 's' : ''}
+        {target === 0 && ' · darker green = more questions solved that day'}
       </p>
     </div>
   )
