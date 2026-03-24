@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useRef, useState, useEffect } from 'react'
+import { useMemo, useRef, useEffect } from 'react'
 
 function getWeeks(log: Record<string, number>) {
   const today = new Date()
@@ -23,17 +23,9 @@ function getWeeks(log: Record<string, number>) {
 }
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-const CELL = 12
-const GAP  = 2
+const CELL    = 12
+const GAP     = 2
 const DAY_COL = 18
-
-// How many weeks to show based on container width
-function weeksForWidth(w: number): number {
-  if (w < 480)  return 13  // ~3 months
-  if (w < 640)  return 20  // ~5 months
-  if (w < 900)  return 36  // ~9 months
-  return 52                // full year
-}
 
 interface StreakCalendarProps {
   log?: Record<string, number>
@@ -41,33 +33,25 @@ interface StreakCalendarProps {
 }
 
 export default function StreakCalendar({ log = {}, target = 0 }: StreakCalendarProps) {
-  const allWeeks = useMemo(() => getWeeks(log), [log])
+  const weeks    = useMemo(() => getWeeks(log), [log])
   const maxCount = useMemo(() => Math.max(1, ...Object.values(log).filter(v => v > 0)), [log])
+  const scrollRef = useRef<HTMLDivElement>(null)
 
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [visibleCount, setVisibleCount] = useState(52)
-
+  // On mount — snap to the right so most recent months are visible
   useEffect(() => {
-    function recalc() {
-      if (!containerRef.current) return
-      setVisibleCount(weeksForWidth(containerRef.current.clientWidth))
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth
     }
-    recalc()
-    const ro = new ResizeObserver(recalc)
-    if (containerRef.current) ro.observe(containerRef.current)
-    return () => ro.disconnect()
-  }, [])
+  }, [weeks])
 
-  // Show the most recent N weeks
-  const weeks = allWeeks.slice(-visibleCount)
   const colWidth = CELL + GAP
 
   function cellColor(count: number) {
     if (count < 0) return 'bg-gray-50'
     if (count === 0) return 'bg-gray-100'
     if (target > 0) {
-      if (count >= target) return 'bg-green-500'
-      if (count >= target - 1) return 'bg-yellow-400'
+      if (count >= target)          return 'bg-green-500'
+      if (count >= target - 1)      return 'bg-yellow-400'
       return 'bg-red-400'
     }
     const intensity = Math.min(count / Math.max(maxCount, 1), 1)
@@ -93,51 +77,55 @@ export default function StreakCalendar({ log = {}, target = 0 }: StreakCalendarP
   })
 
   const totalActive = Object.values(log).filter(v => v >= 1).length
-  const monthsShown = Math.round(visibleCount / 4.33)
 
   return (
-    <div ref={containerRef} className="w-full">
-      {/* Month labels */}
-      <div className="relative mb-1" style={{ height: '14px', paddingLeft: `${DAY_COL}px` }}>
-        {monthLabels.map(({ wi, label }) => (
-          <span
-            key={wi}
-            className="absolute text-gray-400 select-none"
-            style={{ left: `${DAY_COL + wi * colWidth}px`, fontSize: '9px', lineHeight: '14px', whiteSpace: 'nowrap' }}
-          >
-            {label}
-          </span>
-        ))}
-      </div>
-
-      {/* Grid */}
-      <div className="flex" style={{ gap: `${GAP}px` }}>
-        {/* Day labels */}
-        <div className="flex flex-col text-gray-300 shrink-0" style={{ width: `${DAY_COL}px`, gap: `${GAP}px` }}>
-          {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
-            <div key={d} className="text-center" style={{ height: `${CELL}px`, lineHeight: `${CELL}px`, fontSize: '8px' }}>
-              {['Mo','We','Fr'].includes(d) ? d : ''}
-            </div>
-          ))}
-        </div>
-
-        {/* Week columns */}
-        {weeks.map((week, wi) => (
-          <div key={wi} className="flex flex-col" style={{ gap: `${GAP}px` }}>
-            {week.map(day => (
-              <div
-                key={day.key}
-                title={day.count < 0 ? '' : day.count === 0 ? `${day.date.toDateString()} — nothing solved` : `${day.date.toDateString()} — ${day.count} solved`}
-                className={`rounded-sm ${cellColor(day.count)}`}
-                style={{ width: `${CELL}px`, height: `${CELL}px` }}
-              />
+    <div className="w-full">
+      {/* Scrollable heatmap */}
+      <div ref={scrollRef} className="overflow-x-auto scrollbar-none">
+        <div style={{ display: 'inline-block', minWidth: 'max-content' }}>
+          {/* Month labels */}
+          <div className="relative mb-1" style={{ height: '14px', paddingLeft: `${DAY_COL}px` }}>
+            {monthLabels.map(({ wi, label }) => (
+              <span
+                key={wi}
+                className="absolute text-gray-400 select-none"
+                style={{ left: `${DAY_COL + wi * colWidth}px`, fontSize: '9px', lineHeight: '14px', whiteSpace: 'nowrap' }}
+              >
+                {label}
+              </span>
             ))}
           </div>
-        ))}
+
+          {/* Grid */}
+          <div className="flex" style={{ gap: `${GAP}px` }}>
+            {/* Day labels */}
+            <div className="flex flex-col text-gray-300 shrink-0" style={{ width: `${DAY_COL}px`, gap: `${GAP}px` }}>
+              {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
+                <div key={d} className="text-center" style={{ height: `${CELL}px`, lineHeight: `${CELL}px`, fontSize: '8px' }}>
+                  {['Mo','We','Fr'].includes(d) ? d : ''}
+                </div>
+              ))}
+            </div>
+
+            {/* Week columns */}
+            {weeks.map((week, wi) => (
+              <div key={wi} className="flex flex-col" style={{ gap: `${GAP}px` }}>
+                {week.map(day => (
+                  <div
+                    key={day.key}
+                    title={day.count < 0 ? '' : day.count === 0 ? `${day.date.toDateString()} — nothing solved` : `${day.date.toDateString()} — ${day.count} solved`}
+                    className={`rounded-sm ${cellColor(day.count)}`}
+                    style={{ width: `${CELL}px`, height: `${CELL}px` }}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       <p className="text-xs text-gray-400 mt-2">
-        {totalActive} active day{totalActive !== 1 ? 's' : ''} · last {monthsShown} months shown
+        {totalActive} active day{totalActive !== 1 ? 's' : ''} · scroll left to see older months
         {target === 0 && ' · darker = more solved'}
       </p>
     </div>
