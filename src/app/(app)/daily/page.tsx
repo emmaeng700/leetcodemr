@@ -125,19 +125,10 @@ export default function DailyPage() {
   const { days: previewDays, date: previewFinish } = calcFinish(startDate, perDay, allQuestions.length)
 
   function generateOrder(questions: Question[]): number[] {
-    const easy = questions.filter(q => q.difficulty === 'Easy').map(q => q.id)
+    const easy   = questions.filter(q => q.difficulty === 'Easy').map(q => q.id)
     const medium = questions.filter(q => q.difficulty === 'Medium').map(q => q.id)
-    const hard = questions.filter(q => q.difficulty === 'Hard').map(q => q.id)
-    // Interleave: 2 easy, 1 medium, etc.
-    const order: number[] = []
-    let ei = 0, mi = 0, hi = 0
-    while (ei < easy.length || mi < medium.length || hi < hard.length) {
-      if (ei < easy.length) order.push(easy[ei++])
-      if (ei < easy.length) order.push(easy[ei++])
-      if (mi < medium.length) order.push(medium[mi++])
-      if (hi < hard.length) order.push(hard[hi++])
-    }
-    return order
+    const hard   = questions.filter(q => q.difficulty === 'Hard').map(q => q.id)
+    return [...easy, ...medium, ...hard]
   }
 
   async function handleGenerate() {
