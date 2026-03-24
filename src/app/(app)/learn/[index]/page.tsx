@@ -10,6 +10,7 @@ import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import StatusRadio from '@/components/StatusRadio'
+import PracticeEditor from '@/components/PracticeEditor'
 
 interface Question {
   id: number
@@ -375,6 +376,20 @@ export default function LearnPage() {
                 Mark this question as <strong>Solved</strong> to start spaced repetition reminders.
               </p>
             )}
+          </div>
+
+          {/* Practice editor */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-px flex-1 bg-gray-200 shrink" />
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest px-2 text-center">🧠 Practice</span>
+              <div className="h-px flex-1 bg-gray-200 shrink" />
+            </div>
+            <PracticeEditor
+              questionId={q.id}
+              starterPython={(q as any).starter_python}
+              starterCpp={(q as any).starter_cpp}
+            />
           </div>
 
           {/* Solutions */}

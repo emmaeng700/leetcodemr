@@ -9,6 +9,7 @@ import { getProgress, updateProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
+import PracticeEditor from '@/components/PracticeEditor'
 import toast from 'react-hot-toast'
 
 interface Question {
@@ -227,13 +228,27 @@ export default function QuestionPage() {
         </button>
       </div>
 
-      {/* Practice CTA */}
-      <div className="flex justify-center mt-6">
+      {/* Practice Editor */}
+      <div className="mb-5">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest px-2">🧠 Practice</span>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+        <PracticeEditor
+          questionId={question.id}
+          starterPython={question.starter_python}
+          starterCpp={question.starter_cpp}
+        />
+      </div>
+
+      {/* Practice page link */}
+      <div className="flex justify-center mt-4 mb-6">
         <Link
           href={`/practice/${question.id}`}
           className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-md"
         >
-          <Terminal size={18} /> Practice This Question
+          <Terminal size={18} /> Full Practice (Run Code)
         </Link>
       </div>
     </div>

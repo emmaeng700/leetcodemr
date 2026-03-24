@@ -1,8 +1,10 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Trophy, TrendingUp, Download, Upload, CheckCircle, AlertTriangle } from 'lucide-react'
-import { getProgress, getSolvedLog, getTimeTracking } from '@/lib/db'
+import { Trophy, TrendingUp, Download, Upload, CheckCircle, AlertTriangle, Lock, Unlock } from 'lucide-react'
+import { getProgress, getSolvedLog, getTimeTracking, getDailyTarget, setDailyTarget } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import StreakCalendar from '@/components/StreakCalendar'
+import StudyPaceCalculator from '@/components/StudyPaceCalculator'
 import toast from 'react-hot-toast'
 
 interface Question {
@@ -11,65 +13,23 @@ interface Question {
   difficulty: string
 }
 
-interface ProgressData {
-  solved: boolean
-  starred: boolean
-  notes: string
-}
-
-function ActivityHeatmap({ log }: { log: Record<string, number> }) {
-  const weeks = 52
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  // Build 52 weeks of dates (364 days back)
-  const cells: { date: string; count: number }[] = []
-  for (let i = weeks * 7 - 1; i >= 0; i--) {
-    const d = new Date(today)
-    d.setDate(d.getDate() - i)
-    const iso = d.toISOString().split('T')[0]
-    cells.push({ date: iso, count: log[iso] || 0 })
-  }
-
-  function getColor(count: number) {
-    if (count === 0) return 'bg-gray-100'
-    if (count === 1) return 'bg-green-200'
-    if (count === 2) return 'bg-green-400'
-    if (count <= 4) return 'bg-green-500'
-    return 'bg-green-700'
-  }
-
-  // Group into weeks (columns of 7)
-  const weekGroups: { date: string; count: number }[][] = []
-  for (let w = 0; w < weeks; w++) {
-    weekGroups.push(cells.slice(w * 7, (w + 1) * 7))
-  }
-
-  return (
-    <div className="flex gap-0.5 overflow-x-auto pb-2">
-      {weekGroups.map((week, wi) => (
-        <div key={wi} className="flex flex-col gap-0.5">
-          {week.map(({ date, count }) => (
-            <div
-              key={date}
-              title={`${date}: ${count} solved`}
-              className={`w-3 h-3 rounded-sm ${getColor(count)}`}
-            />
-          ))}
-        </div>
-      ))}
-    </div>
-  )
-}
-
 export default function StatsPage() {
   const [questions, setQuestions] = useState<Question[]>([])
-  const [progress, setProgress] = useState<Record<string, ProgressData>>({})
+  const [progress, setProgress] = useState<Record<string, any>>({})
   const [solvedLog, setSolvedLog] = useState<Record<string, number>>({})
   const [timeData, setTimeData] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [importStatus, setImportStatus] = useState<'ok' | 'err' | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Daily target lock state
+  const [dailyTarget, setDailyTargetState] = useState(0)
+  const [dailyLockCode, setDailyLockCode] = useState('')
+  const [targetInput, setTargetInput] = useState('')
+  const [lockCodeInput, setLockCodeInput] = useState('')
+  const [unlockAttempt, setUnlockAttempt] = useState('')
+  const [isUnlocked, setIsUnlocked] = useState(false)
+  const [unlockError, setUnlockError] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -84,16 +44,19 @@ export default function StatsPage() {
       setSolvedLog(sl)
       setTimeData(td)
       setLoading(false)
+
+      // Load daily target from Supabase
+      const dt = await getDailyTarget()
+      setDailyTargetState(dt.target || 0)
+      setDailyLockCode(dt.lock_code || '')
+      setTargetInput(dt.target > 0 ? String(dt.target) : '')
     }
     load()
   }, [])
 
-  if (loading) return <div className="text-center py-32 text-gray-400 animate-pulse text-sm">Loading...</div>
-
-  // Compute stats
   const totalQ = questions.length
-  const solvedQ = Object.values(progress).filter(p => p.solved).length
-  const starredQ = Object.values(progress).filter(p => p.starred).length
+  const solvedQ = Object.values(progress).filter((p: any) => p.solved).length
+  const starredQ = Object.values(progress).filter((p: any) => p.starred).length
   const percent = totalQ ? Math.round((solvedQ / totalQ) * 100) : 0
 
   const byDiff: Record<string, { total: number; solved: number }> = {}
@@ -103,27 +66,55 @@ export default function StatsPage() {
     if (progress[String(q.id)]?.solved) byDiff[q.difficulty].solved++
   }
 
-  const solvedQuestions = questions.filter(q => progress[String(q.id)]?.solved).slice(0, 10)
-  const totalTimeSeconds = Object.values(timeData).reduce((a, b) => a + b, 0)
+  const solvedList = questions.filter(q => progress[String(q.id)]?.solved).slice(0, 10)
+  const totalTime = Math.round(Object.values(timeData).reduce((a, b) => a + b, 0) / 60)
 
-  // Export
-  function exportData() {
-    const backup = {
-      version: 1,
-      exported: new Date().toISOString(),
-      progress,
-      solvedLog,
-      timeData,
-    }
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `leetmastery-backup-${new Date().toISOString().split('T')[0]}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success('Backup exported!')
+  async function handleSetAndLock() {
+    const n = parseInt(targetInput) || 0
+    if (!n || !lockCodeInput.trim()) return
+    await setDailyTarget(n, lockCodeInput.trim())
+    setDailyTargetState(n)
+    setDailyLockCode(lockCodeInput.trim())
+    setLockCodeInput('')
+    setIsUnlocked(false)
+    toast.success('Daily target locked!')
   }
+
+  function handleUnlock() {
+    if (unlockAttempt.trim() === dailyLockCode) {
+      setIsUnlocked(true)
+      setUnlockError(false)
+      setUnlockAttempt('')
+      setTargetInput(String(dailyTarget))
+      setLockCodeInput('')
+    } else {
+      setUnlockError(true)
+      setTimeout(() => setUnlockError(false), 2000)
+    }
+  }
+
+  async function handleUpdateAndLock() {
+    const n = parseInt(targetInput) || 0
+    if (!n || !lockCodeInput.trim()) return
+    await setDailyTarget(n, lockCodeInput.trim())
+    setDailyTargetState(n)
+    setDailyLockCode(lockCodeInput.trim())
+    setLockCodeInput('')
+    setIsUnlocked(false)
+    toast.success('Daily target updated!')
+  }
+
+  async function handleRemoveTarget() {
+    await setDailyTarget(0, '')
+    setDailyTargetState(0)
+    setDailyLockCode('')
+    setTargetInput('')
+    setLockCodeInput('')
+    setIsUnlocked(false)
+    toast.success('Daily target removed')
+  }
+
+  if (loading) return <div className="text-center py-32 text-gray-400 animate-pulse text-sm">Loading...</div>
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -145,17 +136,14 @@ export default function StatsPage() {
         ))}
       </div>
 
-      {/* Overall progress */}
+      {/* Progress bar */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
         <div className="flex justify-between text-sm font-semibold text-gray-700 mb-2">
           <span>Overall Progress</span>
           <span className="text-indigo-600">{percent}%</span>
         </div>
         <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-700"
-            style={{ width: `${percent}%` }}
-          />
+          <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-700" style={{ width: `${percent}%` }} />
         </div>
       </div>
 
@@ -174,12 +162,7 @@ export default function StatsPage() {
                   <span className="text-xs text-gray-500">{data.solved} / {data.total}</span>
                 </div>
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      diff === 'Easy' ? 'bg-green-400' : diff === 'Medium' ? 'bg-yellow-400' : 'bg-red-400'
-                    }`}
-                    style={{ width: `${pct}%` }}
-                  />
+                  <div className={`h-full rounded-full transition-all duration-500 ${diff === 'Easy' ? 'bg-green-400' : diff === 'Medium' ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${pct}%` }} />
                 </div>
               </div>
             )
@@ -187,74 +170,124 @@ export default function StatsPage() {
         </div>
       </div>
 
-      {/* Solved questions list */}
-      {solvedQuestions.length > 0 && (
+      {/* Recently solved */}
+      {solvedList.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
-          <h2 className="font-bold text-gray-700 text-sm mb-3">Solved Questions</h2>
+          <h2 className="font-bold text-gray-700 text-sm mb-3">✅ Solved Questions</h2>
           <div className="space-y-2">
-            {solvedQuestions.map(q => (
+            {solvedList.map(q => (
               <div key={q.id} className="flex items-center justify-between gap-2 text-sm min-w-0">
                 <span className="text-gray-700 truncate min-w-0">
                   <span className="text-gray-400 font-mono text-xs mr-2">#{q.id}</span>
                   {q.title}
                 </span>
-                <div className="shrink-0">
-                  <DifficultyBadge difficulty={q.difficulty} />
-                </div>
+                <div className="shrink-0"><DifficultyBadge difficulty={q.difficulty} /></div>
               </div>
             ))}
           </div>
         </div>
       )}
 
+      {/* Daily Target Lock System */}
+      <div className="bg-gray-900 rounded-xl border border-gray-700 shadow-sm p-5 mb-6">
+        <h2 className="font-bold text-white text-sm mb-1 flex items-center gap-2">🚔 LeetCode Police — Daily Target</h2>
+
+        {dailyTarget === 0 && (
+          <>
+            <p className="text-xs text-gray-400 mb-4">Commit to a daily goal and lock it with a code. You can only change it by entering that code.</p>
+            <div className="flex flex-wrap gap-3 items-end">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Questions / day</label>
+                <input type="number" min="1" max="20" value={targetInput} onChange={e => setTargetInput(e.target.value)} placeholder="e.g. 3"
+                  className="w-24 px-3 py-2 rounded-lg border border-gray-600 bg-gray-800 text-white text-sm focus:outline-none focus:border-indigo-400" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Lock code</label>
+                <input type="text" value={lockCodeInput} onChange={e => setLockCodeInput(e.target.value)} placeholder="e.g. GRIND2026"
+                  className="w-36 px-3 py-2 rounded-lg border border-gray-600 bg-gray-800 text-white text-sm focus:outline-none focus:border-indigo-400" />
+              </div>
+              <button onClick={handleSetAndLock} disabled={!targetInput || !lockCodeInput.trim()}
+                className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-40">
+                🔒 Set & Lock
+              </button>
+            </div>
+            <p className="text-xs text-gray-600 mt-2">Remember your code — there is no recovery if you forget it.</p>
+          </>
+        )}
+
+        {dailyTarget > 0 && !isUnlocked && (
+          <>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl font-black text-indigo-400">{dailyTarget}</span>
+              <div>
+                <p className="text-white text-sm font-semibold">questions / day 🔒</p>
+                <p className="text-xs text-gray-500">Goal is locked. Enter your code to change it.</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3 items-center">
+              <input type="text" value={unlockAttempt}
+                onChange={e => { setUnlockAttempt(e.target.value); setUnlockError(false) }}
+                onKeyDown={e => e.key === 'Enter' && handleUnlock()}
+                placeholder="Enter lock code"
+                className={`w-40 px-3 py-2 rounded-lg border bg-gray-800 text-white text-sm focus:outline-none transition-colors ${unlockError ? 'border-red-500' : 'border-gray-600 focus:border-indigo-400'}`} />
+              <button onClick={handleUnlock} className="px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-lg hover:bg-amber-500 transition-colors">
+                🔓 Unlock
+              </button>
+              {unlockError && <span className="text-red-400 text-xs font-semibold">Wrong code ❌</span>}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-green-500 inline-block" /> {dailyTarget}+ solved = green</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-yellow-400 inline-block" /> {dailyTarget - 1} solved = yellow</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-400 inline-block" /> less = red</span>
+            </div>
+          </>
+        )}
+
+        {dailyTarget > 0 && isUnlocked && (
+          <>
+            <p className="text-xs text-green-400 mb-4 font-semibold">🔓 Unlocked — update your goal or remove it.</p>
+            <div className="flex flex-wrap gap-3 items-end mb-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">New questions / day</label>
+                <input type="number" min="1" max="20" value={targetInput} onChange={e => setTargetInput(e.target.value)}
+                  className="w-24 px-3 py-2 rounded-lg border border-gray-600 bg-gray-800 text-white text-sm focus:outline-none focus:border-indigo-400" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">New lock code</label>
+                <input type="text" value={lockCodeInput} onChange={e => setLockCodeInput(e.target.value)} placeholder="Set new code"
+                  className="w-36 px-3 py-2 rounded-lg border border-gray-600 bg-gray-800 text-white text-sm focus:outline-none focus:border-indigo-400" />
+              </div>
+              <button onClick={handleUpdateAndLock} disabled={!targetInput || !lockCodeInput.trim()}
+                className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-40">
+                🔒 Update & Lock
+              </button>
+            </div>
+            <button onClick={handleRemoveTarget} className="px-4 py-2 bg-red-900 text-red-300 text-sm font-semibold rounded-lg hover:bg-red-800 transition-colors">
+              Remove Goal Entirely
+            </button>
+          </>
+        )}
+      </div>
+
       {/* Activity Heatmap */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
-        <h2 className="font-bold text-gray-700 text-sm mb-4">Activity Heatmap (52 weeks)</h2>
+        <h2 className="font-bold text-gray-700 text-sm mb-4 flex items-center gap-2">🔥 Activity Heatmap</h2>
         <div className="overflow-x-auto">
-          <ActivityHeatmap log={solvedLog} />
+          <StreakCalendar log={solvedLog} target={dailyTarget} />
         </div>
-        <p className="text-xs text-gray-400 mt-2">Each cell = one day · darker = more solved</p>
       </div>
 
       {/* Time Spent */}
-      {totalTimeSeconds > 0 && (
+      {totalTime > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
-          <h2 className="font-bold text-gray-700 text-sm mb-3">Time Spent</h2>
-          <div className="text-3xl font-black text-indigo-600 mb-1">
-            {Math.round(totalTimeSeconds / 60)}m
-          </div>
+          <h2 className="font-bold text-gray-700 text-sm mb-3 flex items-center gap-2">⏱ Time Spent</h2>
+          <div className="text-3xl font-black text-indigo-600 mb-1">{totalTime}m</div>
           <p className="text-xs text-gray-400">total practice time across {Object.keys(timeData).length} questions</p>
         </div>
       )}
 
-      {/* Backup & Restore */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-        <h2 className="font-bold text-gray-700 text-sm mb-1">Backup & Restore</h2>
-        <p className="text-xs text-gray-400 mb-4">
-          Export your progress data to keep it safe or transfer to another device.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={exportData}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors"
-          >
-            <Download size={15} /> Export backup
-          </button>
-        </div>
-
-        {importStatus === 'ok' && (
-          <div className="mt-3 flex items-center gap-2 text-green-600 text-sm font-semibold">
-            <CheckCircle size={15} /> Exported successfully!
-          </div>
-        )}
-        {importStatus === 'err' && (
-          <div className="mt-3 flex items-center gap-2 text-red-500 text-sm font-semibold">
-            <AlertTriangle size={15} /> Export failed.
-          </div>
-        )}
-
-        <input ref={fileRef} type="file" accept=".json" className="hidden" />
-      </div>
+      {/* Study Pace Calculator */}
+      <StudyPaceCalculator total={totalQ} solved={solvedQ} />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, Shuffle, RotateCcw, Layers, CheckCircle, Circle } from 'lucide-react'
 import { getFcVisited, addFcVisited } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import CodePanel from '@/components/CodePanel'
 
 interface Question {
   id: number
@@ -45,7 +46,6 @@ export default function FlashcardsPage() {
   const [filterSource, setFilterSource] = useState('All')
   const [isShuffled, setIsShuffled] = useState(false)
   const [visited, setVisited] = useState<Set<number>>(new Set())
-  const [codeTab, setCodeTab] = useState<'python' | 'cpp'>('python')
 
   useEffect(() => {
     async function load() {
@@ -82,7 +82,6 @@ export default function FlashcardsPage() {
     fadeSwap(() => {
       const nowFlipping = !flipped
       setFlipped(nowFlipping)
-      setCodeTab('python')
       if (nowFlipping && !visited.has(q.id)) {
         const next = new Set(visited)
         next.add(q.id)
@@ -95,7 +94,6 @@ export default function FlashcardsPage() {
   const go = useCallback((dir: number) => {
     fadeSwap(() => {
       setFlipped(false)
-      setCodeTab('python')
       setIdx(i => Math.max(0, Math.min(deck.length - 1, i + dir)))
     })
   }, [deck.length, fadeSwap])
@@ -263,36 +261,8 @@ export default function FlashcardsPage() {
                   </div>
                 </div>
 
-                {/* Code tabs */}
-                <div className="px-5 pt-4 pb-0 flex gap-2" onClick={e => e.stopPropagation()}>
-                  {q.python_solution && (
-                    <button
-                      onClick={() => setCodeTab('python')}
-                      className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
-                        codeTab === 'python' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'
-                      }`}
-                    >
-                      Python
-                    </button>
-                  )}
-                  {q.cpp_solution && (
-                    <button
-                      onClick={() => setCodeTab('cpp')}
-                      className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
-                        codeTab === 'cpp' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-500 border-gray-200 hover:border-purple-300'
-                      }`}
-                    >
-                      C++
-                    </button>
-                  )}
-                </div>
-
                 <div className="p-4" onClick={e => e.stopPropagation()}>
-                  <pre className="bg-gray-900 text-gray-100 rounded-xl p-4 overflow-x-auto text-xs leading-relaxed whitespace-pre-wrap">
-                    <code>
-                      {codeTab === 'python' ? q.python_solution : q.cpp_solution}
-                    </code>
-                  </pre>
+                  <CodePanel pythonCode={q.python_solution} cppCode={q.cpp_solution} />
                 </div>
               </div>
             )}
