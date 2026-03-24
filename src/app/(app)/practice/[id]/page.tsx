@@ -1,10 +1,11 @@
 'use client'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Play, CheckCircle, Clock, Code2, ChevronDown, ChevronUp } from 'lucide-react'
-import { getProgress, updateProgress, getPracticeSession, savePracticeSession, addTimeSpent } from '@/lib/db'
+import { ArrowLeft, CheckCircle, Clock, Code2, ChevronDown, ChevronUp } from 'lucide-react'
+import { getProgress, updateProgress, addTimeSpent } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
+import PracticeEditor from '@/components/PracticeEditor'
 import toast from 'react-hot-toast'
 
 interface Question {
@@ -17,16 +18,6 @@ interface Question {
   cpp_solution?: string
   starter_python?: string
   starter_cpp?: string
-}
-
-type Language = 'python' | 'javascript' | 'java' | 'cpp'
-
-const RUN_CODE_API = '/api/run-code'
-const LANG_CONFIG: Record<Language, { label: string; judge0Id: number; starter: string }> = {
-  python:     { label: 'Python',     judge0Id: 71,  starter: '# Write your Python solution here\n\n' },
-  javascript: { label: 'JavaScript', judge0Id: 63,  starter: '// Write your JavaScript solution here\n\n' },
-  java:       { label: 'Java',       judge0Id: 62,  starter: 'public class Main {\n    public static void main(String[] args) {\n        // Write your Java solution here\n    }\n}\n' },
-  cpp:        { label: 'C++',        judge0Id: 54,  starter: '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    // Write your C++ solution here\n    return 0;\n}\n' },
 }
 
 function formatTime(seconds: number) {
@@ -42,10 +33,6 @@ export default function PracticePage() {
 
   const [question, setQuestion] = useState<Question | null>(null)
   const [loading, setLoading] = useState(true)
-  const [lang, setLang] = useState<Language>('python')
-  const [code, setCode] = useState('')
-  const [output, setOutput] = useState('')
-  const [running, setRunning] = useState(false)
   const [solved, setSolved] = useState(false)
   const [showSolution, setShowSolution] = useState(false)
   const [timer, setTimer] = useState(0)
@@ -63,41 +50,12 @@ export default function PracticePage() {
       setQuestion(q)
       const p = prog[String(id)] || {}
       setSolved(!!p.solved)
-
-      // Load saved session
-      const session = await getPracticeSession(id, 'python')
-      if (session?.code) {
-        setCode(session.code)
-      } else {
-        setCode(q.starter_python || LANG_CONFIG.python.starter)
-      }
       setLoading(false)
     }
     load()
   }, [id])
 
-  // Change language — load saved code or starter
-  useEffect(() => {
-    if (!question) return
-    async function loadLangCode() {
-      const session = await getPracticeSession(id, lang)
-      if (session?.code) {
-        setCode(session.code)
-      } else {
-        const starters: Record<Language, string | undefined> = {
-          python: question!.starter_python,
-          cpp: question!.starter_cpp,
-          javascript: undefined,
-          java: undefined,
-        }
-        setCode(starters[lang] || LANG_CONFIG[lang].starter)
-      }
-    }
-    loadLangCode()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lang])
-
-  // Timer
+  // Timer — track time spent on question
   useEffect(() => {
     timerRef.current = setInterval(() => setTimer(t => t + 1), 1000)
     startRef.current = Date.now()
@@ -108,72 +66,28 @@ export default function PracticePage() {
     }
   }, [id])
 
-  async function runCode() {
-    setRunning(true)
-    setOutput('Running…')
-    try {
-      const cfg = LANG_CONFIG[lang]
-      const res = await fetch(RUN_CODE_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_code: code, language_id: cfg.judge0Id }),
-      })
-      const result = await res.json()
-
-      if (result?.error) {
-        setOutput(`Error: ${result.error}`)
-        setRunning(false)
-        return
-      }
-
-      const statusId = result?.status?.id ?? 0
-      const statusDesc = result?.status?.description || 'Unknown'
-      const stdout = result?.stdout || ''
-      const stderr = result?.stderr || ''
-      const compileErr = result?.compile_output || ''
-      const time = result?.time ? ` · ${result.time}s` : ''
-
-      if (statusId === 6 || compileErr) {
-        setOutput(`🔴 Compile Error:\n${compileErr || stderr}`)
-      } else if (statusId >= 7 && statusId <= 12) {
-        setOutput(`🔴 ${statusDesc}${time}${stderr ? '\n\n' + stderr : ''}`)
-      } else if (!stdout && !stderr) {
-        setOutput(`⚠️ No output — make sure to print your result.\n[${statusDesc}${time}]`)
-      } else {
-        setOutput(stdout + (stderr ? `\nSTDERR:\n${stderr}` : '') + `\n[${statusDesc}${time}]`)
-      }
-
-      await savePracticeSession(id, lang, code, result)
-      toast.success('Code executed!')
-    } catch (err) {
-      setOutput(`Error: ${err}`)
-      toast.error('Failed to run code')
-    }
-    setRunning(false)
-  }
-
   async function handleMarkSolved() {
     const newSolved = !solved
     setSolved(newSolved)
     await updateProgress(id, { solved: newSolved })
-    toast.success(newSolved ? 'Marked as solved!' : 'Unmarked')
+    toast.success(newSolved ? 'Marked as solved! 🎉' : 'Unmarked')
   }
 
   if (loading) return <div className="text-center py-32 text-gray-400 animate-pulse text-sm">Loading...</div>
   if (!question) return <div className="text-center py-32 text-red-400 text-sm">Question not found.</div>
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="max-w-3xl mx-auto px-4 py-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-700 transition-colors">
+        <div className="flex items-center gap-3 min-w-0">
+          <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-700 transition-colors shrink-0">
             <ArrowLeft size={20} />
           </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400 font-mono">#{question.id}</span>
-              <h1 className="font-bold text-gray-800 text-lg">{question.title}</h1>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-gray-400 font-mono shrink-0">#{question.id}</span>
+              <h1 className="font-bold text-gray-800 text-base leading-snug truncate">{question.title}</h1>
               <DifficultyBadge difficulty={question.difficulty} />
             </div>
             <div className="flex flex-wrap gap-1 mt-1">
@@ -184,10 +98,10 @@ export default function PracticePage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Timer */}
           <div className="flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-lg text-sm font-mono font-semibold text-gray-600">
-            <Clock size={14} />
+            <Clock size={13} />
             {formatTime(timer)}
           </div>
 
@@ -200,62 +114,18 @@ export default function PracticePage() {
                 : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-green-300'
             }`}
           >
-            <CheckCircle size={14} className={solved ? 'fill-green-500 text-white' : ''} />
+            <CheckCircle size={13} className={solved ? 'fill-green-500 text-white' : ''} />
             {solved ? 'Solved ✓' : 'Mark Solved'}
           </button>
         </div>
       </div>
 
-      {/* Editor area */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        {/* Toolbar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gray-50">
-          <div className="flex items-center gap-1">
-            <Code2 size={14} className="text-gray-400" />
-            <div className="flex gap-1">
-              {(Object.keys(LANG_CONFIG) as Language[]).map(l => (
-                <button
-                  key={l}
-                  onClick={() => setLang(l)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                    lang === l ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 border border-gray-200 hover:border-indigo-300'
-                  }`}
-                >
-                  {LANG_CONFIG[l].label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button
-            onClick={runCode}
-            disabled={running}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-green-600 text-white text-sm font-bold rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-          >
-            <Play size={14} />
-            {running ? 'Running...' : 'Run Code'}
-          </button>
-        </div>
-
-        {/* Code textarea */}
-        <textarea
-          value={code}
-          onChange={e => setCode(e.target.value)}
-          spellCheck={false}
-          className="w-full h-[500px] p-4 font-mono text-sm bg-gray-900 text-gray-100 resize-none focus:outline-none leading-relaxed"
-          placeholder="Write your code here..."
-        />
-      </div>
-
-      {/* Output panel */}
-      <div className="mt-4 bg-gray-900 rounded-xl border border-gray-700 overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-700">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Output</span>
-        </div>
-        <pre className="p-4 text-sm text-gray-200 font-mono overflow-x-auto min-h-[100px] whitespace-pre-wrap">
-          {output || 'Run your code to see output here...'}
-        </pre>
-      </div>
+      {/* Full-featured Practice Editor */}
+      <PracticeEditor
+        questionId={question.id}
+        starterPython={question.starter_python}
+        starterCpp={question.starter_cpp}
+      />
 
       {/* Solution panel */}
       {(question.python_solution || question.cpp_solution) && (
