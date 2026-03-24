@@ -331,39 +331,60 @@ export default function HomePage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map(q => {
-            const p = progress[String(q.id)] || { solved: false, starred: false, notes: '' }
+            const p = progress[String(q.id)] || {}
+            const isDue = (nextReview: string | undefined) => {
+              if (!nextReview) return false
+              const [y, m, d] = nextReview.split('-').map(Number)
+              const rev = new Date(y, m - 1, d)
+              const today = new Date(); today.setHours(0, 0, 0, 0)
+              return rev <= today
+            }
+            const STATUS_STYLES: Record<string, string> = {
+              learnt: 'bg-blue-100 text-blue-600',
+              reviewed: 'bg-yellow-100 text-yellow-600',
+              revised: 'bg-orange-100 text-orange-600',
+              mastered: 'bg-green-100 text-green-600',
+            }
             return (
-              <div key={q.id} className={'group rounded-xl border p-4 transition-all duration-150 hover:shadow-md hover:border-indigo-300 ' + (p.solved ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100')}>
+              <Link key={q.id} href={'/question/' + q.id} className={'group block rounded-xl border p-4 transition-all duration-150 hover:shadow-md hover:border-indigo-300 ' + (p.solved ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100')}>
                 <div className="flex items-start justify-between gap-2">
-                  <Link href={'/question/' + q.id} className="flex items-center gap-2 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
                     <h3 className="font-semibold text-gray-800 text-sm truncate group-hover:text-indigo-600 transition-colors">{q.title}</h3>
-                  </Link>
+                  </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={e => toggleStarred(e, q)}>
-                      <Star size={14} className={p.starred ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 hover:text-yellow-400'} />
-                    </button>
-                    <button onClick={e => toggleSolved(e, q)}>
-                      <CheckCircle2 size={14} className={p.solved ? 'text-green-500 fill-green-500' : 'text-gray-300 hover:text-green-400'} />
-                    </button>
+                    {p.starred && <Star size={14} className="text-yellow-400 fill-yellow-400" />}
+                    {p.solved && <CheckCircle size={14} className="text-green-500" />}
+                    {p.status === 'mastered' && isDue(p.next_review) && (
+                      <Brain size={14} className="text-indigo-500" title="Due for SR review" />
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
                   <DifficultyBadge difficulty={q.difficulty} />
-                  {(q.tags || []).slice(0, 2).map(tag => (
+                  {(q.tags || []).slice(0, 3).map(tag => (
                     <span key={tag} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{tag}</span>
                   ))}
-                  {q.python_solution && <span className="text-xs bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full">Py</span>}
+                  {q.python_solution && <span className="text-xs bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full">Py ✓</span>}
+                  {q.cpp_solution && <span className="text-xs bg-purple-50 text-purple-500 px-2 py-0.5 rounded-full">C++ ✓</span>}
                 </div>
-                {(q.source || []).length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1.5">
-                    {(q.source || []).map(s => (
-                      <span key={s} className="text-xs bg-indigo-50 text-indigo-400 px-2 py-0.5 rounded-full">{s}</span>
-                    ))}
+                {p.status && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className={'text-xs px-2 py-0.5 rounded-full font-semibold ' + (STATUS_STYLES[p.status] || '')}>
+                      {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+                    </span>
+                    {p.status === 'mastered' && p.next_review && !isDue(p.next_review) && (
+                      <span className="text-xs text-gray-400">
+                        📅 Review {(() => { const [y,mo,d] = (p.next_review as string).split('-').map(Number); return new Date(y,mo-1,d).toLocaleDateString(undefined,{month:'short',day:'numeric'}) })()}
+                      </span>
+                    )}
+                    {p.status === 'mastered' && isDue(p.next_review) && (
+                      <span className="text-xs text-indigo-600 font-semibold">🧠 Review due!</span>
+                    )}
                   </div>
                 )}
                 {p.notes && <p className="text-xs text-gray-400 mt-2 italic truncate">📝 {p.notes}</p>}
-              </div>
+              </Link>
             )
           })}
         </div>
