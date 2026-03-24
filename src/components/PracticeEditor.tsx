@@ -70,9 +70,52 @@ export default function PracticeEditor({ questionId, starterPython, starterCpp }
   const editorViewRef = useRef<any>(null)
 
   const storageKey = `practice_${questionId}_${lang}`
+
+  const DEFAULT_PYTHON = `from typing import List, Optional
+
+class Solution:
+    def solve(self):
+        # Write your solution here
+        pass
+
+# ── Test your solution ──────────────────────
+sol = Solution()
+# print(sol.solve())  # add your test inputs here
+`
+
+  const DEFAULT_CPP = `#include <bits/stdc++.h>
+using namespace std;
+
+class Solution {
+public:
+    void solve() {
+        // Write your solution here
+    }
+};
+
+int main() {
+    Solution sol;
+    // sol.solve();  // add your test inputs here
+    return 0;
+}
+`
+
+  function withTestHarness(base: string, language: 'python' | 'cpp'): string {
+    if (language === 'python') {
+      // append test section only if there's no existing print/test call outside the class
+      const lines = base.split('\n')
+      const hasTestCall = lines.some(l => l.trim().startsWith('print(') || (l.trim() !== '' && !l.trim().startsWith('#') && !l.trim().startsWith('class ') && !l.trim().startsWith('def ') && !l.trim().startsWith('from ') && !l.trim().startsWith('import ') && !l.startsWith(' ')))
+      if (hasTestCall) return base
+      return base.trimEnd() + '\n\n# ── Test your solution ──────────────────────\nsol = Solution()\n# print(sol.solve())  # add your test inputs here\n'
+    } else {
+      if (base.includes('int main')) return base
+      return base.trimEnd() + '\n\nint main() {\n    Solution sol;\n    // sol.solve();  // add your test inputs here\n    return 0;\n}\n'
+    }
+  }
+
   const starter = lang === 'python'
-    ? (starterPython || 'from typing import List, Optional\n\nclass Solution:\n    def solve(self):\n        # Write your solution here\n        pass\n')
-    : (starterCpp || 'class Solution {\npublic:\n    void solve() {\n        // Write your solution here\n    }\n};\n')
+    ? (starterPython ? withTestHarness(starterPython, 'python') : DEFAULT_PYTHON)
+    : (starterCpp ? withTestHarness(starterCpp, 'cpp') : DEFAULT_CPP)
 
   // Load language extensions lazily
   useEffect(() => {
@@ -138,7 +181,13 @@ export default function PracticeEditor({ questionId, starterPython, starterCpp }
       const stdout = result?.run?.stdout || ''
       const stderr = result?.run?.stderr || ''
       const exitCode = result?.run?.code ?? -1
-      setOutput(stdout + (stderr ? `\nSTDERR:\n${stderr}` : '') + `\n[Exit: ${exitCode}]`)
+      const noOutput = !stdout && !stderr
+      setOutput(
+        (noOutput ? '⚠️ No output. Make sure to call your solution and print the result.\nExample (Python): print(sol.twoSum([2,7,11,15], 9))\nExample (C++):    cout << sol.twoSum(...) << endl;\n\n' : '')
+        + stdout
+        + (stderr ? `STDERR:\n${stderr}\n` : '')
+        + `[Exit: ${exitCode}]`
+      )
     } catch (err) {
       setOutput(`Error: ${err}`)
     }
