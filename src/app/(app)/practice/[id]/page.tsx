@@ -21,11 +21,12 @@ interface Question {
 
 type Language = 'python' | 'javascript' | 'java' | 'cpp'
 
-const LANG_CONFIG: Record<Language, { label: string; pistonLang: string; pistonVersion: string; starter: string }> = {
-  python:     { label: 'Python',     pistonLang: 'python',     pistonVersion: '3.10.0', starter: '# Write your Python solution here\n\n' },
-  javascript: { label: 'JavaScript', pistonLang: 'javascript', pistonVersion: '18.15.0', starter: '// Write your JavaScript solution here\n\n' },
-  java:       { label: 'Java',       pistonLang: 'java',       pistonVersion: '15.0.2', starter: 'public class Main {\n    public static void main(String[] args) {\n        // Write your Java solution here\n    }\n}\n' },
-  cpp:        { label: 'C++',        pistonLang: 'c++',        pistonVersion: '10.2.0', starter: '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    // Write your C++ solution here\n    return 0;\n}\n' },
+const JUDGE0_URL = 'https://ce.judge0.com/submissions?base64_encoded=false&wait=true'
+const LANG_CONFIG: Record<Language, { label: string; judge0Id: number; starter: string }> = {
+  python:     { label: 'Python',     judge0Id: 71,  starter: '# Write your Python solution here\n\n' },
+  javascript: { label: 'JavaScript', judge0Id: 63,  starter: '// Write your JavaScript solution here\n\n' },
+  java:       { label: 'Java',       judge0Id: 62,  starter: 'public class Main {\n    public static void main(String[] args) {\n        // Write your Java solution here\n    }\n}\n' },
+  cpp:        { label: 'C++',        judge0Id: 54,  starter: '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    // Write your C++ solution here\n    return 0;\n}\n' },
 }
 
 function formatTime(seconds: number) {
@@ -112,22 +113,24 @@ export default function PracticePage() {
     setOutput('Running...')
     try {
       const cfg = LANG_CONFIG[lang]
-      const res = await fetch('https://emkc.org/api/v2/piston/execute', {
+      const res = await fetch(JUDGE0_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          language: cfg.pistonLang,
-          version: cfg.pistonVersion,
-          files: [{ content: code }],
-        }),
+        body: JSON.stringify({ source_code: code, language_id: cfg.judge0Id }),
       })
       const result = await res.json()
-      const stdout = result?.run?.stdout || ''
-      const stderr = result?.run?.stderr || ''
-      const exitCode = result?.run?.code ?? -1
-      setOutput(stdout + (stderr ? `\nSTDERR:\n${stderr}` : '') + `\n[Exit: ${exitCode}]`)
+      const stdout = result?.stdout || ''
+      const stderr = result?.stderr || ''
+      const compileErr = result?.compile_output || ''
+      const status = result?.status?.description || ''
+      const time = result?.time ? ` · ${result.time}s` : ''
 
-      // Save session
+      if (compileErr) {
+        setOutput(`Compile Error:\n${compileErr}`)
+      } else {
+        setOutput(stdout + (stderr ? `\nSTDERR:\n${stderr}` : '') + `\n[${status}${time}]`)
+      }
+
       await savePracticeSession(id, lang, code, result)
       toast.success('Code executed!')
     } catch (err) {

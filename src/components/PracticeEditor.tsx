@@ -3,9 +3,11 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { RotateCcw, Code2, Play, ChevronDown, ChevronUp } from 'lucide-react'
 
-const PISTON: Record<string, { lang: string; version: string }> = {
-  python: { lang: 'python',  version: '3.10.0' },
-  cpp:    { lang: 'c++',     version: '10.2.0' },
+// Judge0 CE (free, no auth needed) — language IDs
+const JUDGE0_URL = 'https://ce.judge0.com/submissions?base64_encoded=false&wait=true'
+const JUDGE0_LANG: Record<string, number> = {
+  python: 71,  // Python 3.8.1
+  cpp:    54,  // C++ (GCC 9.2.0)
 }
 
 // Dynamic import to avoid SSR issues with CodeMirror
@@ -267,29 +269,34 @@ int main() {
     setOutput('Running…')
     setShowOutput(true)
     try {
-      const cfg = PISTON[lang]
-      const res = await fetch('https://emkc.org/api/v2/piston/execute', {
+      const res = await fetch(JUDGE0_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          language: cfg.lang,
-          version: cfg.version,
-          files: [{ content: code }],
+          source_code: code,
+          language_id: JUDGE0_LANG[lang],
         }),
       })
       const result = await res.json()
-      const stdout = result?.run?.stdout || ''
-      const stderr = result?.run?.stderr || ''
-      const exitCode = result?.run?.code ?? -1
-      const noOutput = !stdout && !stderr
-      setOutput(
-        (noOutput ? '⚠️ No output. Make sure to call your solution and print the result.\nExample (Python): print(sol.twoSum([2,7,11,15], 9))\nExample (C++):    cout << sol.twoSum(...) << endl;\n\n' : '')
-        + stdout
-        + (stderr ? `STDERR:\n${stderr}\n` : '')
-        + `[Exit: ${exitCode}]`
-      )
+      const stdout = result?.stdout || ''
+      const stderr = result?.stderr || ''
+      const compileErr = result?.compile_output || ''
+      const status = result?.status?.description || ''
+      const time = result?.time ? ` · ${result.time}s` : ''
+
+      if (compileErr) {
+        setOutput(`Compile Error:\n${compileErr}`)
+      } else if (!stdout && !stderr) {
+        setOutput(`⚠️ No output — make sure to print your result.\nStatus: ${status}${time}`)
+      } else {
+        setOutput(
+          stdout
+          + (stderr ? `\nSTDERR:\n${stderr}` : '')
+          + `\n[${status}${time}]`
+        )
+      }
     } catch (err) {
-      setOutput(`Error: ${err}`)
+      setOutput(`Network error: ${err}`)
     }
     setRunning(false)
   }
