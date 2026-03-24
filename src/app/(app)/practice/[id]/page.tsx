@@ -1,9 +1,10 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Play, CheckCircle, Clock, Code2 } from 'lucide-react'
+import { ArrowLeft, Play, CheckCircle, Clock, Code2, ChevronDown, ChevronUp } from 'lucide-react'
 import { getProgress, updateProgress, getPracticeSession, savePracticeSession, addTimeSpent } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import CodePanel from '@/components/CodePanel'
 import toast from 'react-hot-toast'
 
 interface Question {
@@ -45,6 +46,7 @@ export default function PracticePage() {
   const [output, setOutput] = useState('')
   const [running, setRunning] = useState(false)
   const [solved, setSolved] = useState(false)
+  const [showSolution, setShowSolution] = useState(false)
   const [timer, setTimer] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startRef = useRef(Date.now())
@@ -239,6 +241,26 @@ export default function PracticePage() {
           {output || 'Run your code to see output here...'}
         </pre>
       </div>
+
+      {/* Solution panel */}
+      {(question.python_solution || question.cpp_solution) && (
+        <div className="mt-4 rounded-xl border border-gray-200 overflow-hidden">
+          <button
+            onClick={() => setShowSolution(s => !s)}
+            className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-sm font-semibold text-gray-600"
+          >
+            <span className="flex items-center gap-2">
+              <Code2 size={14} /> View Solution
+            </span>
+            {showSolution ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {showSolution && (
+            <div className="p-4">
+              <CodePanel pythonCode={question.python_solution} cppCode={question.cpp_solution} />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

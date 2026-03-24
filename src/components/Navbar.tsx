@@ -5,13 +5,14 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   BookOpen, Menu, X, LogOut, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
-  Calendar, Info
+  Calendar, Info, Timer
 } from 'lucide-react'
 
 const NAV_LINKS = [
   { href: '/',              label: 'Questions',    icon: Home },
   { href: '/stats',         label: 'Stats',        icon: BarChart2 },
   { href: '/flashcards',    label: 'Flashcards',   icon: Layers },
+  { href: '/mock',          label: 'Mock',         icon: Timer },
   { href: '/behavioral',    label: 'Behavioral',   icon: MessageSquare },
   { href: '/system-design', label: 'System Design',icon: Server },
   { href: '/gems',          label: 'Gems',         icon: Gem },

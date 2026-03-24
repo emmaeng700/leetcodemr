@@ -7,6 +7,8 @@ import {
 } from 'lucide-react'
 import { getProgress, updateProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import CodePanel from '@/components/CodePanel'
+import DescriptionRenderer from '@/components/DescriptionRenderer'
 import toast from 'react-hot-toast'
 
 interface Question {
@@ -42,7 +44,6 @@ export default function QuestionPage() {
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [codeTab, setCodeTab] = useState<'python' | 'cpp'>('python')
   const [imageError, setImageError] = useState(false)
 
   useEffect(() => {
@@ -183,9 +184,7 @@ export default function QuestionPage() {
           <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-3">
             <BookOpen size={14} /> Description
           </h2>
-          <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-            {question.description}
-          </div>
+          <DescriptionRenderer description={question.description} />
         </div>
       )}
 
@@ -193,9 +192,7 @@ export default function QuestionPage() {
       {question.explanation && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
           <h2 className="text-sm font-bold text-gray-700 mb-3">Approach</h2>
-          <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
-            {question.explanation}
-          </div>
+          <DescriptionRenderer explanation={question.explanation} />
         </div>
       )}
 
@@ -205,34 +202,8 @@ export default function QuestionPage() {
           <div className="flex items-center gap-2 mb-3">
             <Code2 size={14} className="text-gray-500" />
             <h2 className="text-sm font-bold text-gray-700">Solution</h2>
-            <div className="flex gap-1 ml-auto">
-              {question.python_solution && (
-                <button
-                  onClick={() => setCodeTab('python')}
-                  className={`text-xs font-semibold px-3 py-1 rounded-full transition-colors ${
-                    codeTab === 'python' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                  }`}
-                >
-                  Python
-                </button>
-              )}
-              {question.cpp_solution && (
-                <button
-                  onClick={() => setCodeTab('cpp')}
-                  className={`text-xs font-semibold px-3 py-1 rounded-full transition-colors ${
-                    codeTab === 'cpp' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                  }`}
-                >
-                  C++
-                </button>
-              )}
-            </div>
           </div>
-          <pre className="bg-gray-900 text-gray-100 rounded-xl p-4 overflow-x-auto text-xs leading-relaxed">
-            <code>
-              {codeTab === 'python' ? question.python_solution : question.cpp_solution}
-            </code>
-          </pre>
+          <CodePanel pythonCode={question.python_solution} cppCode={question.cpp_solution} />
         </div>
       )}
 
