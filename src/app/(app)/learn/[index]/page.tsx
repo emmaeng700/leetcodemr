@@ -143,7 +143,7 @@ export default function LearnPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       {/* Filter bar */}
-      <div className="flex items-center gap-2 flex-wrap mb-4 overflow-x-auto pb-1">
+      <div className="flex items-center gap-2 flex-wrap mb-4">
         {['All', 'Easy', 'Medium', 'Hard'].map(d => (
           <button
             key={d}

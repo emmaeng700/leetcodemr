@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Server, Layers, ExternalLink, Lightbulb, PenTool, Repeat2,
   Calculator, Smile, Search, Flag, ChevronLeft, ChevronRight,
@@ -113,6 +113,17 @@ function SDFlashcards() {
   const reset = () => fadeSwap(() => { setIdx(0); setFlipped(false) })
 
   const card = deck[idx] || null
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
+      if (e.key === 'ArrowRight') go(1)
+      if (e.key === 'ArrowLeft') go(-1)
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); handleFlip() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [go, handleFlip])
 
   return (
     <div className="max-w-2xl mx-auto pb-8">
