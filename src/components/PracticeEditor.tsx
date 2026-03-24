@@ -71,7 +71,7 @@ export default function PracticeEditor({ questionId, starterPython, starterCpp }
   const [showOutput, setShowOutput] = useState(false)
   const editorViewRef = useRef<any>(null)
 
-  const storageKey = `practice_v3_${questionId}_${lang}`
+  const storageKey = `practice_v4_${questionId}_${lang}`
 
   const DEFAULT_PYTHON = `from typing import List, Optional
 
