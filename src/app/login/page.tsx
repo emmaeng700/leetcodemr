@@ -1,12 +1,13 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BookOpen, Lock } from 'lucide-react'
+import { BookOpen, Lock, Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
   const [passcode, setPasscode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [show, setShow] = useState(false)
   const router = useRouter()
 
   async function handleSubmit(e: React.FormEvent) {
@@ -51,15 +52,23 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="relative">
               <input
-                type="text"
+                type={show ? 'text' : 'password'}
                 value={passcode}
                 onChange={e => setPasscode(e.target.value)}
                 placeholder="Your passcode"
                 autoFocus
-                className={`w-full px-4 py-3 border-2 rounded-xl text-sm focus:outline-none transition-colors font-mono tracking-widest text-gray-900 placeholder-gray-400 ${
+                className={`w-full px-4 py-3 border-2 rounded-xl text-sm focus:outline-none transition-colors pr-11 font-mono tracking-widest text-gray-900 placeholder-gray-400 ${
                   error ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-indigo-400 bg-white'
                 }`}
+                style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
               />
+              <button
+                type="button"
+                onClick={() => setShow(s => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800"
+              >
+                {show ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
 
             {error && (
