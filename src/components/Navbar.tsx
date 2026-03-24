@@ -10,13 +10,17 @@ import {
 
 const NAV_LINKS = [
   { href: '/',              label: 'Questions',    icon: Home },
-  { href: '/stats',         label: 'Stats',        icon: BarChart2 },
-  { href: '/flashcards',    label: 'Flashcards',   icon: Layers },
-  { href: '/mock',          label: 'Mock',         icon: Timer },
-  { href: '/behavioral',    label: 'Behavioral',   icon: MessageSquare },
-  { href: '/system-design', label: 'System Design',icon: Server },
-  { href: '/gems',          label: 'Gems',         icon: Gem },
   { href: '/daily',         label: 'Daily',        icon: Calendar },
+  { href: '/stats',         label: 'Stats',        icon: BarChart2 },
+  { href: '/review',        label: 'Reviews',      icon: Brain },
+  { href: '/learn/0',       label: 'Learn',        icon: BookOpen },
+  { href: '/flashcards',    label: 'Flashcards',   icon: Layers },
+  { href: '/quick-review',  label: 'Quick Review', icon: Clock },
+  { href: '/patterns',      label: 'Patterns',     icon: GitBranch },
+  { href: '/behavioral',    label: 'Behavioral',   icon: MessageSquare },
+  { href: '/gems',          label: 'Gems',         icon: Gem },
+  { href: '/system-design', label: 'System Design',icon: Server },
+  { href: '/mock',          label: 'Mock',         icon: Timer },
   { href: '/about',         label: 'About',        icon: Info },
 ]
 

@@ -326,6 +326,67 @@ export async function setInterviewDate(target_date: string, company: string) {
   }, { onConflict: 'user_id' })
 }
 
+// ─── Spaced Repetition ───────────────────────────────────────────────────────
+const SR_INTERVALS = [1, 3, 7, 14, 30, 60]
+
+export async function completeReview(questionId: number) {
+  const { data: existing } = await supabase
+    .from('progress')
+    .select('*')
+    .eq('user_id', USER_ID)
+    .eq('question_id', questionId)
+    .single()
+
+  const newCount = (existing?.review_count ?? 0) + 1
+  const d = new Date()
+  d.setDate(d.getDate() + SR_INTERVALS[Math.min(newCount, SR_INTERVALS.length - 1)])
+  const nextReview = d.toISOString().split('T')[0]
+
+  await supabase.from('progress').upsert({
+    ...existing,
+    user_id: USER_ID,
+    question_id: questionId,
+    review_count: newCount,
+    next_review: nextReview,
+    last_reviewed: todayISO(),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id,question_id' })
+
+  return { review_count: newCount, next_review: nextReview }
+}
+
+export async function getDueReviews(): Promise<Array<{ id: number; review_count: number; next_review: string }>> {
+  const today = todayISO()
+  const { data } = await supabase
+    .from('progress')
+    .select('question_id,next_review,review_count')
+    .eq('user_id', USER_ID)
+    .eq('solved', true)
+    .lte('next_review', today)
+
+  return (data ?? []).map((r: any) => ({ id: r.question_id, review_count: r.review_count, next_review: r.next_review }))
+}
+
+// ─── Pattern FC Visited ───────────────────────────────────────────────────────
+export async function getPatternFcVisited(): Promise<Set<number>> {
+  const { data } = await supabase
+    .from('pattern_fc_visited')
+    .select('question_ids')
+    .eq('user_id', USER_ID)
+    .single()
+  return new Set(data?.question_ids ?? [])
+}
+
+export async function addPatternFcVisited(questionId: number) {
+  const visited = await getPatternFcVisited()
+  visited.add(questionId)
+  await supabase.from('pattern_fc_visited').upsert({
+    user_id: USER_ID,
+    question_ids: [...visited],
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' })
+}
+
 // ─── FC Daily Log ─────────────────────────────────────────────────────────────
 export async function logFlashcardViewToday(questionId: number) {
   const today = todayISO()
