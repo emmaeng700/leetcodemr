@@ -89,15 +89,6 @@ export default function LearnPage() {
     setReviewDone(false)
   }, [q?.id])
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'TEXTAREA') return
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goNext()
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') goPrev()
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [safeIdx, filtered.length])
 
   const goNext = () => {
     if (safeIdx < filtered.length - 1) {
