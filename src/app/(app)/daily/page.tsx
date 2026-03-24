@@ -107,6 +107,9 @@ export default function DailyPage() {
   // Past days
   const [expandedDays, setExpandedDays] = useState<Record<number, boolean>>({})
 
+  // Extra days
+  const [extraDays, setExtraDays] = useState(0)
+
   useEffect(() => {
     async function load() {
       const [qs, prog, p] = await Promise.all([
@@ -404,6 +407,77 @@ export default function DailyPage() {
             <div className="mt-4 text-center text-green-600 font-bold text-sm">
               All done for today! See you tomorrow.
             </div>
+          )}
+
+          {/* Extra days */}
+          {Array.from({ length: extraDays }, (_, i) => {
+            const nextDayIdx = (todayInfo.dayNumber ?? 1) - 1 + i + 1
+            if (nextDayIdx >= totalDays) return null
+            const { questionIds: nextIds, questions: nextQs } = getDayInfo(plan, nextDayIdx, allQuestions, progress)
+            const nextDone = nextIds.filter(id => isSolved(id)).length
+            return (
+              <div key={nextDayIdx} className="mt-4 border-t border-gray-100 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-bold text-gray-700 text-sm flex items-center gap-2">
+                    <CalendarCheck size={14} className="text-purple-400" />
+                    Day {nextDayIdx + 1} <span className="text-xs font-normal text-gray-400">(bonus)</span>
+                  </h3>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                    nextDone === nextQs.length ? 'bg-green-100 text-green-700' :
+                    nextDone > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {nextDone}/{nextQs.length} done
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {nextQs.map(q => {
+                    const solved = isSolved(q.id)
+                    return (
+                      <div
+                        key={q.id}
+                        className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                          solved ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100 hover:border-indigo-200'
+                        }`}
+                      >
+                        <div className="shrink-0">
+                          {solved ? <CheckCircle2 size={20} className="text-green-500" /> : <Circle size={20} className="text-gray-300" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-gray-400 font-mono">#{q.id}</span>
+                            <span className={`text-sm font-semibold truncate ${solved ? 'text-green-700 line-through' : 'text-gray-800'}`}>
+                              {q.title}
+                            </span>
+                          </div>
+                          <div className="mt-1">
+                            <DifficultyBadge difficulty={q.difficulty} />
+                          </div>
+                        </div>
+                        {!solved && (
+                          <Link
+                            href={`/question/${q.id}`}
+                            className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors"
+                          >
+                            Solve <ArrowRight size={12} />
+                          </Link>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+
+          {/* Do More button — only unlocked when today is fully done */}
+          {todayDone === todayQs.length && todayQs.length > 0 &&
+           (todayInfo.dayNumber ?? 1) - 1 + extraDays + 1 < totalDays && (
+            <button
+              onClick={() => setExtraDays(e => e + 1)}
+              className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-dashed border-indigo-200 text-indigo-600 text-sm font-bold rounded-xl hover:bg-indigo-50 transition-colors"
+            >
+              Do More <ArrowRight size={14} />
+            </button>
           )}
         </div>
       )}
