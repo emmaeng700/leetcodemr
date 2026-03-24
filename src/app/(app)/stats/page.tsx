@@ -273,9 +273,7 @@ export default function StatsPage() {
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
         <h2 className="font-bold text-gray-700 text-sm mb-1 flex items-center gap-2">🔥 Activity Heatmap</h2>
         <p className="text-xs text-gray-400 mb-4">Any question solved that day shows green</p>
-        <div className="overflow-x-auto">
-          <StreakCalendar log={solvedLog} target={0} />
-        </div>
+        <StreakCalendar log={solvedLog} target={0} />
       </div>
 
       {/* Daily Police Heatmap — red/yellow/green vs daily target (default 3) */}
@@ -289,9 +287,7 @@ export default function StatsPage() {
               <span className="inline-flex items-center gap-1 mr-3"><span className="w-2.5 h-2.5 rounded-sm bg-yellow-400 inline-block" /> {policeTarget - 1} solved — partial</span>
               <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-red-400 inline-block" /> less — behind</span>
             </p>
-            <div className="overflow-x-auto">
-              <StreakCalendar log={solvedLog} target={policeTarget} />
-            </div>
+            <StreakCalendar log={solvedLog} target={policeTarget} />
           </div>
         )
       })()}

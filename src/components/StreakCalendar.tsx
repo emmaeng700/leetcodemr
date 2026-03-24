@@ -1,5 +1,5 @@
 'use client'
-import { useMemo } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 
 function getWeeks(log: Record<string, number>) {
   const today = new Date()
@@ -23,6 +23,8 @@ function getWeeks(log: Record<string, number>) {
 }
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const DAY_COL = 18  // px reserved for day labels (Mo/We/Fr)
+const GAP = 2       // px gap between cells
 
 interface StreakCalendarProps {
   log?: Record<string, number>
@@ -32,6 +34,25 @@ interface StreakCalendarProps {
 export default function StreakCalendar({ log = {}, target = 0 }: StreakCalendarProps) {
   const weeks = useMemo(() => getWeeks(log), [log])
   const maxCount = useMemo(() => Math.max(1, ...Object.values(log).filter(v => v > 0)), [log])
+
+  // Measure container width and compute cell size that fills it exactly
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [cell, setCell] = useState(12)
+
+  useEffect(() => {
+    function recalc() {
+      if (!containerRef.current) return
+      const available = containerRef.current.clientWidth - DAY_COL - weeks.length * GAP
+      const size = Math.max(4, Math.min(14, Math.floor(available / weeks.length)))
+      setCell(size)
+    }
+    recalc()
+    const ro = new ResizeObserver(recalc)
+    if (containerRef.current) ro.observe(containerRef.current)
+    return () => ro.disconnect()
+  }, [weeks.length])
+
+  const colWidth = cell + GAP
 
   function cellColor(count: number) {
     if (count < 0) return 'bg-gray-50'
@@ -64,48 +85,51 @@ export default function StreakCalendar({ log = {}, target = 0 }: StreakCalendarP
   })
 
   const totalActive = Object.values(log).filter(v => v >= 1).length
-  const CELL = 12, GAP = 2, DAY_COL = 20
-  const colWidth = CELL + GAP
 
   return (
-    <div>
-      <div className="relative">
-        <div className="relative mb-1" style={{ height: '14px', paddingLeft: `${DAY_COL}px` }}>
-          {monthLabels.map(({ wi, label }) => (
-            <span
-              key={wi}
-              className="absolute text-gray-400 select-none"
-              style={{ left: `${DAY_COL + wi * colWidth}px`, fontSize: '9px', lineHeight: '14px', whiteSpace: 'nowrap' }}
-            >
-              {label}
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-0.5">
-          <div className="flex flex-col gap-0.5 mr-1 text-xs text-gray-300" style={{ width: '16px' }}>
-            {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
-              <div key={d} className="text-center" style={{ height: '12px', lineHeight: '12px', fontSize: '9px' }}>
-                {['Mo','We','Fr'].includes(d) ? d : ''}
-              </div>
-            ))}
-          </div>
-          {weeks.map((week, wi) => (
-            <div key={wi} className="flex flex-col gap-0.5">
-              {week.map(day => (
-                <div
-                  key={day.key}
-                  title={day.count < 0 ? '' : day.count === 0 ? `${day.date.toDateString()} — nothing solved` : `${day.date.toDateString()} — ${day.count} solved`}
-                  className={`rounded-sm ${cellColor(day.count)}`}
-                  style={{ width: '12px', height: '12px' }}
-                />
-              ))}
+    <div ref={containerRef} className="w-full">
+      {/* Month labels */}
+      <div className="relative mb-1" style={{ height: '14px', paddingLeft: `${DAY_COL}px` }}>
+        {monthLabels.map(({ wi, label }) => (
+          <span
+            key={wi}
+            className="absolute text-gray-400 select-none"
+            style={{ left: `${DAY_COL + wi * colWidth}px`, fontSize: '9px', lineHeight: '14px', whiteSpace: 'nowrap' }}
+          >
+            {label}
+          </span>
+        ))}
+      </div>
+
+      {/* Grid */}
+      <div className="flex" style={{ gap: `${GAP}px` }}>
+        {/* Day labels */}
+        <div className="flex flex-col text-gray-300 shrink-0" style={{ width: `${DAY_COL}px`, gap: `${GAP}px` }}>
+          {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
+            <div key={d} className="text-center" style={{ height: `${cell}px`, lineHeight: `${cell}px`, fontSize: '8px' }}>
+              {['Mo','We','Fr'].includes(d) ? d : ''}
             </div>
           ))}
         </div>
+
+        {/* Week columns */}
+        {weeks.map((week, wi) => (
+          <div key={wi} className="flex flex-col" style={{ gap: `${GAP}px` }}>
+            {week.map(day => (
+              <div
+                key={day.key}
+                title={day.count < 0 ? '' : day.count === 0 ? `${day.date.toDateString()} — nothing solved` : `${day.date.toDateString()} — ${day.count} solved`}
+                className={`rounded-sm ${cellColor(day.count)}`}
+                style={{ width: `${cell}px`, height: `${cell}px`, flexShrink: 0 }}
+              />
+            ))}
+          </div>
+        ))}
       </div>
+
       <p className="text-xs text-gray-400 mt-2">
         {totalActive} active day{totalActive !== 1 ? 's' : ''}
-        {target === 0 && ' · darker green = more questions solved that day'}
+        {target === 0 && ' · darker green = more questions solved'}
       </p>
     </div>
   )
