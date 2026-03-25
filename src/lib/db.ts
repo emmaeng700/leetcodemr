@@ -3,7 +3,12 @@ import { supabase } from './supabase'
 const USER_ID = 'emmanuel'
 
 function todayISO() {
-  return new Date().toISOString().split('T')[0]
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function localDateISO(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 // ─── Progress ─────────────────────────────────────────────────────────────────
@@ -45,7 +50,7 @@ export async function updateProgress(questionId: number, data: any) {
     reviewCount = 0
     const d = new Date()
     d.setDate(d.getDate() + SR_INTERVALS[0])
-    nextReview = d.toISOString().split('T')[0]
+    nextReview = localDateISO(d)
     lastReviewed = todayISO()
     await logSolvedToday()
   }
@@ -396,7 +401,7 @@ export async function completeReview(questionId: number) {
   const newCount = (existing?.review_count ?? 0) + 1
   const d = new Date()
   d.setDate(d.getDate() + SR_INTERVALS[Math.min(newCount, SR_INTERVALS.length - 1)])
-  const nextReview = d.toISOString().split('T')[0]
+  const nextReview = localDateISO(d)
 
   await supabase.from('progress').upsert({
     ...existing,
