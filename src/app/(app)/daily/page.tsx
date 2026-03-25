@@ -438,68 +438,80 @@ export default function DailyPage() {
             </div>
           )}
 
-          {/* Extra days */}
+          {/* Sneak peek days */}
           {Array.from({ length: extraDays }, (_, i) => {
             const nextDayIdx = (todayInfo.dayNumber ?? 1) - 1 + i + 1
             if (nextDayIdx >= totalDays) return null
             const { questionIds: nextIds, questions: nextQs } = getDayInfo(plan, nextDayIdx, allQuestions, progress)
-            const nextDone = nextIds.filter(id => isSolved(id)).length
+            const alreadySolved = nextIds.filter(id => isSolved(id)).length
+            const allPreSolved = alreadySolved === nextQs.length
             return (
-              <div key={nextDayIdx} className="mt-4 border-t border-gray-100 pt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-gray-700 text-sm flex items-center gap-2">
-                    <CalendarCheck size={14} className="text-purple-400" />
-                    Day {nextDayIdx + 1} <span className="text-xs font-normal text-gray-400">(bonus)</span>
+              <div key={nextDayIdx} className="mt-4 border-t border-dashed border-purple-100 pt-4">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-bold text-gray-600 text-sm flex items-center gap-2">
+                    <span className="text-base">👀</span>
+                    Day {nextDayIdx + 1}
+                    <span className="text-xs font-normal text-purple-400">sneak peek</span>
                   </h3>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                    nextDone === nextQs.length ? 'bg-green-100 text-green-700' :
-                    nextDone > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    {nextDone}/{nextQs.length} done
-                  </span>
+                  {alreadySolved > 0 && (
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      allPreSolved ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-600'
+                    }`}>
+                      {alreadySolved}/{nextQs.length} pre-solved ✓
+                    </span>
+                  )}
                 </div>
-                <div className="space-y-3">
+
+                {/* Hint */}
+                <p className="text-xs text-gray-400 mb-3 italic">
+                  Start learning now — these count on their allocated day, not today.
+                </p>
+
+                <div className="space-y-2">
                   {nextQs.map(q => {
                     const solved = isSolved(q.id)
                     return (
                       <div
                         key={q.id}
                         className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                          solved ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100 hover:border-indigo-200'
+                          solved
+                            ? 'bg-green-50 border-green-200'
+                            : 'bg-purple-50/40 border-purple-100 hover:border-purple-200'
                         }`}
                       >
+                        {/* Solved indicator */}
                         <div className="shrink-0">
-                          {solved ? <CheckCircle2 size={20} className="text-green-500" /> : <Circle size={20} className="text-gray-300" />}
+                          {solved
+                            ? <CheckCircle2 size={18} className="text-green-500" />
+                            : <Circle size={18} className="text-purple-200" />}
                         </div>
+
+                        {/* Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs text-gray-400 font-mono">#{q.id}</span>
-                            <span className={`text-sm font-semibold truncate ${solved ? 'text-green-700 line-through' : 'text-gray-800'}`}>
+                            <span className={`text-sm font-medium truncate ${solved ? 'text-green-700 line-through' : 'text-gray-700'}`}>
                               {q.title}
                             </span>
-                            <a
-                              href={`https://leetcode.com/problems/${q.slug}/`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="shrink-0 text-gray-300 hover:text-orange-400 transition-colors"
-                              title="Open on LeetCode"
-                              onClick={e => e.stopPropagation()}
-                            >
-                              <ExternalLink size={11} />
-                            </a>
                           </div>
-                          <div className="mt-1">
+                          <div className="mt-1 flex items-center gap-2">
                             <DifficultyBadge difficulty={q.difficulty} />
+                            {solved && <span className="text-xs text-green-500 font-medium">already solved ✓</span>}
                           </div>
                         </div>
-                        {!solved && (
-                          <Link
-                            href={`/question/${q.id}`}
-                            className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors"
-                          >
-                            Solve <ArrowRight size={12} />
-                          </Link>
-                        )}
+
+                        {/* Preview link — read-only intent, not solve pressure */}
+                        <Link
+                          href={`/question/${q.id}`}
+                          className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                            solved
+                              ? 'border-green-200 text-green-600 bg-green-50 hover:bg-green-100'
+                              : 'border-purple-200 text-purple-600 bg-white hover:bg-purple-50'
+                          }`}
+                        >
+                          {solved ? 'Review' : 'Preview'}
+                        </Link>
                       </div>
                     )
                   })}
@@ -513,9 +525,9 @@ export default function DailyPage() {
            (todayInfo.dayNumber ?? 1) - 1 + extraDays + 1 < totalDays && (
             <button
               onClick={() => setExtraDays(e => e + 1)}
-              className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-dashed border-indigo-200 text-indigo-600 text-sm font-bold rounded-xl hover:bg-indigo-50 transition-colors"
+              className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-dashed border-purple-200 text-purple-600 text-sm font-semibold rounded-xl hover:bg-purple-50 transition-colors"
             >
-              Do More <ArrowRight size={14} />
+              👀 Sneak peek tomorrow <ArrowRight size={14} />
             </button>
           )}
         </div>
