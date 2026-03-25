@@ -1344,6 +1344,68 @@ long long fib(int n) {
         ],
       },
       {
+        name: 'Number Theory',
+        cards: [
+          {
+            id: 'math-binexp',
+            title: 'Binary Exponentiation — O(log n) Powers',
+            description: 'Efficiently computes a^n in O(log n) using the binary representation of the exponent. Each step squares the base and halves the exponent.',
+            complexity: 'Time O(log n) · Space O(1)',
+            snippets: [
+              { lang: 'C++', code: `// Basic — computes base^exp
+long long fastpow(long long base, long long exp) {
+  long long res = 1;
+  while (exp > 0) {
+    if (exp & 1) res *= base;
+    base *= base;
+    exp >>= 1;
+  }
+  return res;
+}
+
+// With modulo — prevents overflow in modular arithmetic
+long long modpow(long long base, long long exp, long long mod) {
+  base %= mod;
+  long long res = 1;
+  while (exp > 0) {
+    if (exp & 1) res = (res * base) % mod;
+    base = (base * base) % mod;
+    exp >>= 1;
+  }
+  return res;
+}
+
+// e.g., 3^13 mod 1e9+7
+// modpow(3, 13, 1e9+7)` },
+            ],
+          },
+          {
+            id: 'math-sieve-era',
+            title: 'Sieve of Eratosthenes — All Primes ≤ N',
+            description: 'Finds all prime numbers up to N. Iteratively marks multiples of each prime as composite. Outer loop runs only to √N — composites already marked by smaller primes.',
+            complexity: 'Time O(n log log n) · Space O(n)',
+            snippets: [
+              { lang: 'C++', code: `vector<bool> sieveOfEratosthenes(const int n) {
+  vector<bool> isPrime(n + 1, true);
+  isPrime[0] = isPrime[1] = false;
+  for (int i = 2; i * i <= n; i++) {
+    if (isPrime[i]) {
+      for (int j = i * i; j <= n; j += i) {
+        isPrime[j] = false;
+      }
+    }
+  }
+  return isPrime;
+}
+
+// Usage: count primes up to 10^6
+// auto p = sieveOfEratosthenes(1e6);
+// count(p.begin(), p.end(), true)  → 78498` },
+            ],
+          },
+        ],
+      },
+      {
         name: 'Prime Factors',
         cards: [
           {
