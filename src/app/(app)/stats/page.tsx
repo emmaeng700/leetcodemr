@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { Trophy, TrendingUp, Download, Upload, CheckCircle, AlertTriangle, Lock, Unlock } from 'lucide-react'
-import { getProgress, getSolvedLog, getTimeTracking, getDailyTarget, setDailyTarget } from '@/lib/db'
+import { getProgress, getSolvedLog, getTimeTracking, getDailyTarget, setDailyTarget, getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import StreakCalendar from '@/components/StreakCalendar'
 import StudyPaceCalculator from '@/components/StudyPaceCalculator'
@@ -17,6 +17,7 @@ export default function StatsPage() {
   const [questions, setQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, any>>({})
   const [solvedLog, setSolvedLog] = useState<Record<string, number>>({})
+  const [planLog, setPlanLog] = useState<Record<string, number>>({})
   const [timeData, setTimeData] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [importStatus, setImportStatus] = useState<'ok' | 'err' | null>(null)
@@ -33,11 +34,13 @@ export default function StatsPage() {
 
   useEffect(() => {
     async function load() {
-      const [qs, prog, sl, td] = await Promise.all([
+      const [qs, prog, sl, td, plan, dt] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getProgress(),
         getSolvedLog(),
         getTimeTracking(),
+        getStudyPlan(),
+        getDailyTarget(),
       ])
       setQuestions(qs)
       setProgress(prog)
@@ -45,8 +48,26 @@ export default function StatsPage() {
       setTimeData(td)
       setLoading(false)
 
-      // Load daily target from Supabase
-      const dt = await getDailyTarget()
+      // Build daily plan heatmap from plan structure + progress
+      // For each plan day: count how many of that day's questions are solved
+      if (plan?.question_order?.length && plan.start_date) {
+        const log: Record<string, number> = {}
+        const perDay = plan.per_day || 3
+        const totalDays = Math.ceil(plan.question_order.length / perDay)
+        for (let day = 0; day < totalDays; day++) {
+          const dayIds = plan.question_order.slice(day * perDay, day * perDay + perDay)
+          const solvedCount = dayIds.filter((id: number) => prog[String(id)]?.solved).length
+          if (solvedCount > 0) {
+            const date = new Date(plan.start_date + 'T00:00:00')
+            date.setDate(date.getDate() + day)
+            log[date.toISOString().split('T')[0]] = solvedCount
+          }
+        }
+        setPlanLog(log)
+      } else {
+        setPlanLog(sl) // fallback to solved_log if no plan
+      }
+
       setDailyTargetState(dt.target || 0)
       setDailyLockCode(dt.lock_code || '')
       setTargetInput(dt.target > 0 ? String(dt.target) : '')
@@ -287,7 +308,7 @@ export default function StatsPage() {
               <span className="inline-flex items-center gap-1 mr-3"><span className="w-2.5 h-2.5 rounded-sm bg-yellow-400 inline-block" /> {policeTarget - 1} solved — partial</span>
               <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-red-400 inline-block" /> less — behind</span>
             </p>
-            <StreakCalendar log={solvedLog} target={policeTarget} />
+            <StreakCalendar log={planLog} target={policeTarget} />
           </div>
         )
       })()}
