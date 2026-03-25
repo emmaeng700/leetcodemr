@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   BookOpen, Menu, X, LogOut, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
-  Calendar, Info, Timer, Code2
+  Calendar, Info, Timer, Code2, Zap
 } from 'lucide-react'
 
 const NAV_LINKS = [
@@ -22,6 +22,7 @@ const NAV_LINKS = [
   { href: '/system-design', label: 'System Design',icon: Server },
   { href: '/mock',          label: 'Mock',         icon: Timer },
   { href: '/dsa',           label: 'DSA',          icon: Code2 },
+  { href: '/leetcode-api',  label: 'LeetCode',     icon: Zap },
   { href: '/about',         label: 'About',        icon: Info },
 ]
 
