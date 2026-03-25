@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Brain, CheckCircle, Star,
   BookOpen, List, Eye, EyeOff
@@ -44,6 +44,14 @@ function formatLocalDate(dateStr: string) {
 export default function LearnPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const initDiff    = searchParams.get('diff')    || 'All'
+  const initSource  = searchParams.get('source')  || 'All'
+  const initSearch  = searchParams.get('search')  || ''
+  const initStarred = searchParams.get('starred') === '1'
+  const initSolvedParam = searchParams.get('solved')
+  const initSolved: null | boolean = initSolvedParam === 'true' ? true : initSolvedParam === 'false' ? false : null
+
   const [questions, setQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, any>>({})
   const [idx, setIdx] = useState(Number(params.index ?? 0))
@@ -53,8 +61,8 @@ export default function LearnPage() {
   const [showList, setShowList] = useState(false)
   const [reviewDone, setReviewDone] = useState(false)
   const [showSolutions, setShowSolutions] = useState(false)
-  const [filterDiff, setFilterDiff] = useState('All')
-  const [filterSource, setFilterSource] = useState('All')
+  const [filterDiff, setFilterDiff] = useState(initDiff)
+  const [filterSource, setFilterSource] = useState(initSource)
 
   useEffect(() => {
     Promise.all([
@@ -70,6 +78,11 @@ export default function LearnPage() {
   const filtered = questions.filter(q => {
     if (filterDiff !== 'All' && q.difficulty !== filterDiff) return false
     if (filterSource !== 'All' && !(q.source || []).includes(filterSource)) return false
+    if (initSearch && !q.title.toLowerCase().includes(initSearch.toLowerCase())) return false
+    const p = progress[String(q.id)] || {}
+    if (initStarred && !p.starred) return false
+    if (initSolved === true && !p.solved) return false
+    if (initSolved === false && p.solved) return false
     return true
   })
 

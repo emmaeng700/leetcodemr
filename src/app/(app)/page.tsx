@@ -219,6 +219,23 @@ function DueReviewBanner() {
   )
 }
 
+function buildStudyParams(
+  difficulty: string,
+  source: string,
+  search: string,
+  showStarred: boolean,
+  showSolved: null | boolean,
+): string {
+  const p = new URLSearchParams()
+  if (difficulty !== 'All') p.set('diff', difficulty)
+  if (source !== 'All') p.set('source', source)
+  if (search) p.set('search', search)
+  if (showStarred) p.set('starred', '1')
+  if (showSolved === true) p.set('solved', 'true')
+  if (showSolved === false) p.set('solved', 'false')
+  return p.toString()
+}
+
 export default function HomePage() {
   const [questions, setQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, ProgressData>>({})
@@ -317,10 +334,10 @@ export default function HomePage() {
         </div>
         <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
           <span className="text-xs text-gray-400 self-center">Study {filtered.length} as:</span>
-          <Link href="/flashcards" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 transition-colors">
+          <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 transition-colors">
             <Layers size={12} /> Flashcards
           </Link>
-          <Link href="/learn/0" className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors">
+          <Link href={`/learn/0?${buildStudyParams(difficulty, source, search, showStarred, showSolved)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors">
             <BookOpen size={12} /> Learn mode
           </Link>
         </div>

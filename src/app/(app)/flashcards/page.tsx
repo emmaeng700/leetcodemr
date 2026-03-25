@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Shuffle, RotateCcw, Layers, CheckCircle, Circle } from 'lucide-react'
 import { getFcVisited, addFcVisited } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -36,25 +37,35 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export default function FlashcardsPage() {
+  const searchParams = useSearchParams()
+  const initDiff    = searchParams.get('diff')    || 'All'
+  const initSource  = searchParams.get('source')  || 'All'
+  const initSearch  = searchParams.get('search')  || ''
+  const initStarred = searchParams.get('starred') === '1'
+  const initSolvedParam = searchParams.get('solved')
+  const initSolved: null | boolean = initSolvedParam === 'true' ? true : initSolvedParam === 'false' ? false : null
+
   const [all, setAll] = useState<Question[]>([])
+  const [progress, setProgress] = useState<Record<number, { solved?: boolean; starred?: boolean }>>({})
   const [deck, setDeck] = useState<Question[]>([])
   const [idx, setIdx] = useState(0)
   const [flipped, setFlipped] = useState(false)
   const [fading, setFading] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [filterDiff, setFilterDiff] = useState('All')
-  const [filterSource, setFilterSource] = useState('All')
+  const [filterDiff, setFilterDiff] = useState(initDiff)
+  const [filterSource, setFilterSource] = useState(initSource)
   const [isShuffled, setIsShuffled] = useState(false)
   const [visited, setVisited] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     async function load() {
-      const [qs, vis] = await Promise.all([
+      const [qs, vis, prog] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getFcVisited(),
+        import('@/lib/db').then(m => m.getProgress()),
       ])
       setAll(qs)
-      setDeck(qs)
+      setProgress(prog)
       setVisited(vis)
       setLoading(false)
     }
@@ -65,6 +76,10 @@ export default function FlashcardsPage() {
     let filtered = all
     if (filterDiff !== 'All') filtered = filtered.filter(q => q.difficulty === filterDiff)
     if (filterSource !== 'All') filtered = filtered.filter(q => (q.source || []).includes(filterSource))
+    if (initSearch) filtered = filtered.filter(q => q.title.toLowerCase().includes(initSearch.toLowerCase()))
+    if (initStarred) filtered = filtered.filter(q => progress[q.id]?.starred)
+    if (initSolved === true)  filtered = filtered.filter(q => progress[q.id]?.solved)
+    if (initSolved === false) filtered = filtered.filter(q => !progress[q.id]?.solved)
     setDeck(isShuffled ? shuffle(filtered) : filtered)
     setIdx(0)
     setFlipped(false)
