@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   BookOpen, Menu, X, LogOut, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
-  Calendar, Info, Timer
+  Calendar, Info, Timer, Code2
 } from 'lucide-react'
 
 const NAV_LINKS = [
@@ -21,6 +21,7 @@ const NAV_LINKS = [
   { href: '/gems',          label: 'Gems',         icon: Gem },
   { href: '/system-design', label: 'System Design',icon: Server },
   { href: '/mock',          label: 'Mock',         icon: Timer },
+  { href: '/dsa',           label: 'DSA',          icon: Code2 },
   { href: '/about',         label: 'About',        icon: Info },
 ]
 
