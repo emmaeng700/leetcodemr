@@ -6,7 +6,7 @@ import { getProgress, updateProgress, addTimeSpent } from '@/lib/db'
 import { formatTime } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
-import PracticeEditor from '@/components/PracticeEditor'
+import LeetCodeEditor from '@/components/LeetCodeEditor'
 import toast from 'react-hot-toast'
 
 interface Question {
@@ -116,12 +116,7 @@ export default function PracticePage() {
       </div>
 
       {/* Full-featured Practice Editor */}
-      <PracticeEditor
-        questionId={question.id}
-        slug={question.slug}
-        starterPython={question.starter_python}
-        starterCpp={question.starter_cpp}
-      />
+      <LeetCodeEditor appQuestionId={question.id} slug={question.slug} />
 
       {/* Solution panel */}
       {(question.python_solution || question.cpp_solution) && (

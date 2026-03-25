@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { getProgress, updateProgress, getMockSessions, saveMockSession, type MockSessionRecord } from '@/lib/db'
 import { formatTime } from '@/lib/utils'
-import PracticeEditor from '@/components/PracticeEditor'
+import LeetCodeEditor from '@/components/LeetCodeEditor'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import CodePanel from '@/components/CodePanel'
@@ -359,12 +359,7 @@ export default function MockInterviewPage() {
           )}
 
           {/* Practice Editor — full features */}
-          <PracticeEditor
-            questionId={question.id}
-            slug={question.slug}
-            starterPython={question.starter_python}
-            starterCpp={question.starter_cpp}
-          />
+          <LeetCodeEditor appQuestionId={question.id} slug={question.slug} />
 
           {/* Answer section — locked until reveal threshold */}
           <div className="rounded-xl border overflow-hidden">

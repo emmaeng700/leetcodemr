@@ -11,7 +11,7 @@ import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import StatusRadio from '@/components/StatusRadio'
-import PracticeEditor from '@/components/PracticeEditor'
+import LeetCodeEditor from '@/components/LeetCodeEditor'
 
 interface Question {
   id: number
@@ -376,12 +376,7 @@ function LearnInner() {
               <span className="text-xs font-bold text-gray-400 uppercase tracking-widest px-2 text-center">🧠 Practice</span>
               <div className="h-px flex-1 bg-gray-200 shrink" />
             </div>
-            <PracticeEditor
-              questionId={q.id}
-              slug={q.slug}
-              starterPython={(q as any).starter_python}
-              starterCpp={(q as any).starter_cpp}
-            />
+            <LeetCodeEditor appQuestionId={q.id} slug={q.slug} />
           </div>
 
           {/* Solutions */}

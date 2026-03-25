@@ -9,7 +9,7 @@ import { getProgress, updateProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
-import PracticeEditor from '@/components/PracticeEditor'
+import LeetCodeEditor from '@/components/LeetCodeEditor'
 import toast from 'react-hot-toast'
 
 interface Question {
@@ -256,12 +256,7 @@ export default function QuestionPage() {
           <span className="text-xs font-bold text-gray-400 uppercase tracking-widest px-2">🧠 Practice</span>
           <div className="h-px flex-1 bg-gray-200" />
         </div>
-        <PracticeEditor
-          questionId={question.id}
-          slug={question.slug}
-          starterPython={question.starter_python}
-          starterCpp={question.starter_cpp}
-        />
+        <LeetCodeEditor appQuestionId={question.id} slug={question.slug} />
       </div>
 
     </div>
