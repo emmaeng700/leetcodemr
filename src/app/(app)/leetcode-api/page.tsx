@@ -1,14 +1,55 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import {
   Search, Trophy, CheckCircle, XCircle, Loader2, User,
   Play, Send, Key, Eye, EyeOff, ChevronDown, ChevronUp,
   AlertCircle, Clock, Cpu, Info, Calendar, ExternalLink,
-  Tag, RefreshCw, ChevronRight,
+  Tag, ChevronRight,
 } from 'lucide-react'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
+
+/* ─── Toolbar config (same as PracticeEditor) ────────────── */
+const NAV_ROW = [
+  { k: '⏎', action: 'newline' },
+  { k: '⇤', action: 'dedent' },
+  { k: '⇥', action: 'indent' },
+  { k: '←', action: 'arrow-left' },
+  { k: '→', action: 'arrow-right' },
+  { k: '↑', action: 'arrow-up' },
+  { k: '↓', action: 'arrow-down' },
+]
+const TOOLBAR: Record<string, { row1: { k: string; v: string; c: number }[]; row2: { k: string; v: string; c: number }[] }> = {
+  python3: {
+    row1: [
+      { k: '()', v: '()', c: 1 }, { k: '[]', v: '[]', c: 1 }, { k: '{}', v: '{}', c: 1 },
+      { k: '""', v: '""', c: 1 }, { k: "''", v: "''", c: 1 }, { k: ':', v: ':', c: 1 },
+      { k: ',', v: ', ', c: 2 }, { k: '.', v: '.', c: 1 }, { k: '_', v: '_', c: 1 }, { k: '#', v: '# ', c: 2 },
+    ],
+    row2: [
+      { k: '=', v: ' = ', c: 3 }, { k: '==', v: ' == ', c: 4 }, { k: '!=', v: ' != ', c: 4 },
+      { k: '+=', v: ' += ', c: 4 }, { k: '->', v: ' -> ', c: 4 }, { k: '**', v: '**', c: 2 },
+      { k: '//', v: '//', c: 2 }, { k: 'self.', v: 'self.', c: 5 }, { k: 'None', v: 'None', c: 4 },
+      { k: 'True', v: 'True', c: 4 }, { k: 'False', v: 'False', c: 5 }, { k: 'and', v: ' and ', c: 5 },
+      { k: 'or', v: ' or ', c: 4 }, { k: 'not', v: 'not ', c: 4 }, { k: 'in', v: ' in ', c: 4 },
+    ],
+  },
+  cpp: {
+    row1: [
+      { k: '()', v: '()', c: 1 }, { k: '[]', v: '[]', c: 1 }, { k: '{}', v: '{}', c: 1 },
+      { k: '<>', v: '<>', c: 1 }, { k: '""', v: '""', c: 1 }, { k: ';', v: ';', c: 1 },
+      { k: ',', v: ', ', c: 2 }, { k: '.', v: '.', c: 1 }, { k: '_', v: '_', c: 1 }, { k: '//', v: '// ', c: 3 },
+    ],
+    row2: [
+      { k: '=', v: ' = ', c: 3 }, { k: '==', v: ' == ', c: 4 }, { k: '!=', v: ' != ', c: 4 },
+      { k: '->', v: '->', c: 2 }, { k: '::', v: '::', c: 2 }, { k: '<<', v: ' << ', c: 4 },
+      { k: '>>', v: ' >> ', c: 4 }, { k: '++', v: '++', c: 2 }, { k: '--', v: '--', c: 2 },
+      { k: 'nullptr', v: 'nullptr', c: 7 }, { k: 'true', v: 'true', c: 4 }, { k: 'false', v: 'false', c: 5 },
+      { k: 'auto', v: 'auto ', c: 5 }, { k: 'int', v: 'int ', c: 4 },
+    ],
+  },
+}
 
 /* ─── Types ─────────────────────────────────────────────── */
 interface DailyChallenge {
@@ -100,6 +141,9 @@ export default function LeetCodePage() {
   /* Editor */
   const [lang, setLang]             = useState<'python3' | 'cpp'>('python3')
   const [code, setCode]             = useState('')
+  const [extensions, setExtensions] = useState<any[]>([])
+  const [editorTheme, setEditorTheme] = useState<any>(null)
+  const editorViewRef               = useRef<any>(null)
 
   /* Bottom panel */
   const [bottomTab,  setBottomTab]  = useState<'testcase' | 'result'>('testcase')
@@ -133,6 +177,69 @@ export default function LeetCodePage() {
     fetchDailyInternal()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  /* ── Load CodeMirror extensions (lang-aware) ── */
+  useEffect(() => {
+    async function loadExts() {
+      const [{ python }, { cpp }, { oneDark }, viewMod, stateMod, cmdMod] = await Promise.all([
+        import('@codemirror/lang-python'),
+        import('@codemirror/lang-cpp'),
+        import('@codemirror/theme-one-dark'),
+        import('@codemirror/view'),
+        import('@codemirror/state'),
+        import('@codemirror/commands'),
+      ])
+      setEditorTheme(oneDark)
+      const { keymap } = viewMod
+      const { Prec } = stateMod
+      const { indentWithTab } = cmdMod
+      const { indentationMarkers } = await import('@replit/codemirror-indentation-markers')
+      const smartEnter = (view: any) => {
+        const { from } = view.state.selection.main
+        const line = view.state.doc.lineAt(from)
+        const baseIndent = line.text.match(/^(\s*)/)?.[1] ?? ''
+        const extra = (line.text.trimEnd().endsWith(':') || line.text.trimEnd().endsWith('{')) ? '    ' : ''
+        const ins = '\n' + baseIndent + extra
+        view.dispatch({ changes: { from, to: from, insert: ins }, selection: { anchor: from + ins.length } })
+        return true
+      }
+      const smartKeys = Prec.highest(keymap.of([{ key: 'Enter', run: smartEnter }, indentWithTab]))
+      setExtensions([lang === 'python3' ? python() : cpp(), smartKeys, indentationMarkers()])
+    }
+    loadExts()
+  }, [lang])
+
+  const getLineIndent = useCallback((view: any) => {
+    const { from } = view.state.selection.main
+    return view.state.doc.lineAt(from).text.match(/^(\s*)/)?.[1] ?? ''
+  }, [])
+
+  const insertSnippet = useCallback((key: { k: string; v?: string; c?: number; action?: string }) => {
+    const view = editorViewRef.current
+    if (!view) return
+    if (key.action === 'newline') {
+      const { from } = view.state.selection.main
+      const ins = '\n' + getLineIndent(view)
+      view.dispatch({ changes: { from, to: from, insert: ins }, selection: { anchor: from + ins.length } })
+    } else if (key.action === 'indent') {
+      const { from, to } = view.state.selection.main
+      view.dispatch({ changes: { from, to, insert: '    ' }, selection: { anchor: from + 4 } })
+    } else if (key.action === 'dedent') {
+      const { from } = view.state.selection.main
+      const line = view.state.doc.lineAt(from)
+      let sp = 0
+      for (let i = 0; i < Math.min(4, line.text.length); i++) { if (line.text[i] === ' ') sp++; else break }
+      if (sp) view.dispatch({ changes: { from: line.from, to: line.from + sp, insert: '' }, selection: { anchor: Math.max(line.from, from - sp) } })
+    } else if (key.action === 'arrow-left')  { import('@codemirror/commands').then(({ cursorCharLeft })  => cursorCharLeft(view)) }
+    else if (key.action === 'arrow-right')   { import('@codemirror/commands').then(({ cursorCharRight }) => cursorCharRight(view)) }
+    else if (key.action === 'arrow-up')      { import('@codemirror/commands').then(({ cursorLineUp })    => cursorLineUp(view)) }
+    else if (key.action === 'arrow-down')    { import('@codemirror/commands').then(({ cursorLineDown })  => cursorLineDown(view)) }
+    else if (key.v !== undefined && key.c !== undefined) {
+      const { from, to } = view.state.selection.main
+      view.dispatch({ changes: { from, to, insert: key.v }, selection: { anchor: from + key.c } })
+    }
+    view.focus()
+  }, [getLineIndent])
 
   const saveSession = () => {
     localStorage.setItem('lc_session', session.trim())
@@ -487,13 +594,42 @@ export default function LeetCodePage() {
             {/* CodeMirror editor */}
             <div className="flex-1 overflow-hidden min-h-0">
               <CodeMirror
-                value={code} onChange={setCode}
+                value={code}
+                onChange={setCode}
                 height="100%"
-                theme="dark"
-                basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: true }}
+                theme={editorTheme ?? 'dark'}
+                extensions={extensions}
+                basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
                 style={{ height: '100%', fontSize: '13px' }}
+                onCreateEditor={view => { editorViewRef.current = view }}
               />
             </div>
+
+            {/* Mobile-style toolbar */}
+            {TOOLBAR[lang] && (
+              <div className="shrink-0 border-t border-gray-700/50 bg-[#111827]">
+                {/* Nav row */}
+                <div className="flex gap-1 px-2 py-1 border-b border-gray-700/30 overflow-x-auto">
+                  {NAV_ROW.map(key => (
+                    <button key={key.k} onMouseDown={e => { e.preventDefault(); insertSnippet(key) }}
+                      className="shrink-0 px-2.5 py-1 bg-gray-700/60 text-gray-300 text-xs rounded hover:bg-gray-600 transition font-mono">
+                      {key.k}
+                    </button>
+                  ))}
+                </div>
+                {/* Symbol rows */}
+                {(['row1', 'row2'] as const).map(row => (
+                  <div key={row} className="flex gap-1 px-2 py-1 overflow-x-auto border-b border-gray-700/20 last:border-0">
+                    {TOOLBAR[lang][row].map(key => (
+                      <button key={key.k} onMouseDown={e => { e.preventDefault(); insertSnippet(key) }}
+                        className="shrink-0 px-2.5 py-1 bg-gray-700/50 text-gray-300 text-xs rounded hover:bg-gray-600 transition font-mono whitespace-nowrap">
+                        {key.k}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Bottom panel — Testcase / Result */}
             <div className="h-52 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
