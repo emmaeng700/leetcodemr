@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Star, CheckCircle, ExternalLink, BookOpen, Code2, Terminal
+  ArrowLeft, Star, CheckCircle, ExternalLink, BookOpen, Code2, Terminal, Eye, EyeOff
 } from 'lucide-react'
 import { getProgress, updateProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -46,6 +46,7 @@ export default function QuestionPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [imageError, setImageError] = useState(false)
+  const [showSolution, setShowSolution] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -199,14 +200,32 @@ export default function QuestionPage() {
         </div>
       )}
 
-      {/* Solution Code */}
+      {/* Solution Code — hidden until revealed */}
       {(question.python_solution || question.cpp_solution) && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Code2 size={14} className="text-gray-500" />
-            <h2 className="text-sm font-bold text-gray-700">Solution</h2>
-          </div>
-          <CodePanel pythonCode={question.python_solution} cppCode={question.cpp_solution} />
+          <button
+            onClick={() => setShowSolution(v => !v)}
+            className="w-full flex items-center justify-between gap-2 group"
+          >
+            <div className="flex items-center gap-2">
+              <Code2 size={14} className="text-gray-500" />
+              <h2 className="text-sm font-bold text-gray-700">Solution</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400 group-hover:text-gray-600 transition-colors">
+                {showSolution ? 'click to hide' : 'try it yourself first!'}
+              </span>
+              {showSolution
+                ? <EyeOff size={15} className="text-gray-400 group-hover:text-gray-600 transition-colors" />
+                : <Eye size={15} className="text-indigo-400 group-hover:text-indigo-600 transition-colors" />
+              }
+            </div>
+          </button>
+          {showSolution && (
+            <div className="mt-3">
+              <CodePanel pythonCode={question.python_solution} cppCode={question.cpp_solution} />
+            </div>
+          )}
         </div>
       )}
 
