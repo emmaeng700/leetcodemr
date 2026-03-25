@@ -416,7 +416,40 @@ export async function completeReview(questionId: number) {
   return { review_count: newCount, next_review: nextReview }
 }
 
+// Recalculate next_review from last_reviewed for any record where
+// next_review doesn't match last_reviewed + correct interval.
+// Runs silently — fixes drift caused by timezone bugs or manual solves.
+export async function recalibrateSRDates() {
+  const { data } = await supabase
+    .from('progress')
+    .select('question_id,review_count,next_review,last_reviewed')
+    .eq('user_id', USER_ID)
+    .eq('solved', true)
+    .not('last_reviewed', 'is', null)
+
+  if (!data?.length) return
+
+  const updates: Array<{ question_id: number; next_review: string }> = []
+
+  for (const row of data) {
+    const interval = SR_INTERVALS[Math.min(row.review_count ?? 0, SR_INTERVALS.length - 1)]
+    const base = new Date(row.last_reviewed + 'T12:00:00') // noon local avoids DST edge
+    base.setDate(base.getDate() + interval)
+    const expected = localDateISO(base)
+    if (row.next_review !== expected) {
+      updates.push({ question_id: row.question_id, next_review: expected })
+    }
+  }
+
+  for (const u of updates) {
+    await supabase.from('progress').update({ next_review: u.next_review })
+      .eq('user_id', USER_ID)
+      .eq('question_id', u.question_id)
+  }
+}
+
 export async function getDueReviews(): Promise<Array<{ id: number; review_count: number; next_review: string }>> {
+  await recalibrateSRDates()
   const today = todayISO()
   const { data } = await supabase
     .from('progress')
