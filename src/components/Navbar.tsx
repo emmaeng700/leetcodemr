@@ -37,34 +37,13 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
       <div className="max-w-7xl mx-auto px-4">
+        {/* Top row: logo + logout/hamburger */}
         <div className="flex items-center justify-between h-14">
-          {/* Logo */}
           <Link href="/" className="flex items-center gap-2 font-black text-indigo-600 text-lg shrink-0">
             <BookOpen size={22} />
             <span className="hidden sm:inline">LeetMastery</span>
           </Link>
 
-          {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-1 overflow-x-auto">
-            {NAV_LINKS.map(({ href, label }) => {
-              const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                    active
-                      ? 'bg-indigo-50 text-indigo-600'
-                      : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
-                  }`}
-                >
-                  {label}
-                </Link>
-              )
-            })}
-          </div>
-
-          {/* Right actions */}
           <div className="flex items-center gap-2">
             <button
               onClick={handleLogout}
@@ -73,8 +52,6 @@ export default function Navbar() {
               <LogOut size={15} />
               <span>Logout</span>
             </button>
-
-            {/* Mobile hamburger */}
             <button
               onClick={() => setOpen(o => !o)}
               className="md:hidden p-2 text-gray-500 hover:text-gray-800 rounded-lg"
@@ -82,6 +59,26 @@ export default function Navbar() {
               {open ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>
+        </div>
+
+        {/* Desktop Nav — wraps onto next row(s) if needed, no scrollbar */}
+        <div className="hidden md:flex flex-wrap items-center gap-1 pb-2">
+          {NAV_LINKS.map(({ href, label }) => {
+            const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                  active
+                    ? 'bg-indigo-50 text-indigo-600'
+                    : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                }`}
+              >
+                {label}
+              </Link>
+            )
+          })}
         </div>
       </div>
 
