@@ -70,6 +70,33 @@ function parseSlug(input: string) {
   return m ? m[1] : input.trim().toLowerCase().replace(/\s+/g, '-')
 }
 
+/** Split exampleTestcases into individual cases using metaData param count */
+interface TestCase { params: { name: string; value: string }[]; raw: string }
+
+function parseCases(exampleTestcases: string, metaData: string): TestCase[] {
+  try {
+    const meta = JSON.parse(metaData)
+    const params: { name: string }[] = meta.params ?? []
+    const numParams = params.length
+    if (numParams === 0) return [{ params: [], raw: exampleTestcases }]
+
+    const lines = exampleTestcases.split('\n')
+    const cases: TestCase[] = []
+    for (let i = 0; i + numParams <= lines.length; i += numParams) {
+      const slice = lines.slice(i, i + numParams)
+      // Skip if all lines are empty (trailing newline)
+      if (slice.every(l => l.trim() === '')) continue
+      cases.push({
+        params: params.map((p, j) => ({ name: p.name, value: slice[j] ?? '' })),
+        raw: slice.join('\n'),
+      })
+    }
+    return cases.length ? cases : [{ params: [], raw: exampleTestcases }]
+  } catch {
+    return [{ params: [], raw: exampleTestcases }]
+  }
+}
+
 /* ─── Constants ──────────────────────────────────────────── */
 const LANG_LABEL: Record<string, string> = { python3: 'Python 3', cpp: 'C++' }
 const LC_LANG:    Record<string, string> = { python3: 'python3',  cpp: 'cpp'  }
@@ -107,6 +134,8 @@ export default function LeetCodePage() {
   /* Bottom panel */
   const [bottomTab,  setBottomTab]  = useState<'testcase' | 'result'>('testcase')
   const [testInput,  setTestInput]  = useState('')
+  const [cases,      setCases]      = useState<TestCase[]>([])
+  const [activeCase, setActiveCase] = useState(0)
   const [running,    setRunning]    = useState(false)
   const [runMode,    setRunMode]    = useState<'test' | 'submit' | null>(null)
   const [pollMsg,    setPollMsg]    = useState('')
@@ -198,7 +227,10 @@ export default function LeetCodePage() {
       if (!data.question) throw new Error('Question not found')
       const q: QuestionDetail = data.question
       setQuestion(q)
-      setTestInput(q.sampleTestCase ?? '')
+      const parsed = parseCases(q.exampleTestcases, q.metaData)
+      setCases(parsed)
+      setActiveCase(0)
+      setTestInput(parsed[0]?.raw ?? q.sampleTestCase ?? '')
       setCode(q.codeSnippets.find(s => s.langSlug === lang)?.code ?? '')
     } catch (e) { setQE(String(e)) }
     finally { setQL(false) }
@@ -234,7 +266,7 @@ export default function LeetCodePage() {
     try {
       const res = await fetch('/api/leetcode/test', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ titleSlug: question.titleSlug, questionId: question.questionId, lang: LC_LANG[lang], code, testInput: testInput || question.sampleTestCase, session, csrfToken }),
+        body: JSON.stringify({ titleSlug: question.titleSlug, questionId: question.questionId, lang: LC_LANG[lang], code, testInput: cases[activeCase]?.raw || testInput || question.sampleTestCase, session, csrfToken }),
       })
       const data = await res.json()
       if (data.error) { setResultErr(data.error); setRunning(false); setPollMsg(''); return }
@@ -558,9 +590,34 @@ export default function LeetCodePage() {
               <div className="flex-1 overflow-y-auto p-3">
                 {bottomTab === 'testcase' && (
                   <div className="space-y-2">
-                    <label className="text-xs text-gray-500 font-medium">Input</label>
-                    <textarea value={testInput} onChange={e => setTestInput(e.target.value)} rows={4}
-                      className="w-full bg-gray-800/70 border border-gray-700/50 rounded-lg px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-indigo-500 resize-none" />
+                    {/* Case tabs */}
+                    {cases.length > 0 && (
+                      <div className="flex gap-1 flex-wrap">
+                        {cases.map((_, i) => (
+                          <button key={i}
+                            onClick={() => { setActiveCase(i); setTestInput(cases[i].raw) }}
+                            className={`px-3 py-1 text-xs font-medium rounded-md transition ${activeCase === i ? 'bg-gray-600 text-white' : 'bg-gray-800/60 text-gray-400 hover:text-gray-200 hover:bg-gray-700/60'}`}>
+                            Case {i + 1}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {/* Labeled params for active case */}
+                    {cases[activeCase]?.params.length > 0 ? (
+                      <div className="space-y-2">
+                        {cases[activeCase].params.map(p => (
+                          <div key={p.name}>
+                            <p className="text-xs text-gray-500 mb-1">{p.name} =</p>
+                            <div className="bg-gray-800/70 border border-gray-700/50 rounded-lg px-3 py-2 text-xs font-mono text-gray-200">
+                              {p.value}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <textarea value={testInput} onChange={e => setTestInput(e.target.value)} rows={4}
+                        className="w-full bg-gray-800/70 border border-gray-700/50 rounded-lg px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-indigo-500 resize-none" />
+                    )}
                   </div>
                 )}
 
