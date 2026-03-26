@@ -1,8 +1,10 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { BookOpen, Shuffle, RotateCcw, ChevronLeft, ChevronRight, CheckCircle, Circle } from 'lucide-react'
+import { BookOpen, Shuffle, RotateCcw, ChevronLeft, ChevronRight, CheckCircle, Circle, RefreshCw, Loader2 } from 'lucide-react'
 import { getBehavioralVisited, addBehavioralVisited } from '@/lib/db'
 import { shuffle } from '@/lib/utils'
+import { createClient } from '@supabase/supabase-js'
+import { isAdmin } from '@/lib/auth'
 
 interface Story {
   title: string
@@ -50,20 +52,108 @@ export default function BehavioralPage() {
   const [visited, setVisited] = useState<Set<number>>(new Set())
   const [storyTab, setStoryTab] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [regenCount, setRegenCount] = useState(0)
+  const [regenerating, setRegenerating] = useState(false)
+  const [regenError, setRegenError] = useState('')
+  const [regenProgress, setRegenProgress] = useState(0)
 
   useEffect(() => {
-    async function load() {
-      const [qs, vis] = await Promise.all([
-        fetch('/behavioral_questions.json').then(r => r.json()),
-        getBehavioralVisited(),
-      ])
-      setAllQuestions(qs)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(async ({ data }) => {
+      const uid = data.user?.id ?? null
+      const email = data.user?.email ?? null
+      setUserId(uid)
+      setUserEmail(email)
+
+      if (!uid) {
+        setLoading(false)
+        return
+      }
+
+      // Fetch visited
+      const vis = await getBehavioralVisited(uid)
       setVisited(vis)
-      setDeck(qs)
+
+      // Admin: load from JSON
+      if (isAdmin(email)) {
+        const qs = await fetch('/behavioral_questions.json').then(r => r.json())
+        setAllQuestions(qs)
+        setDeck(qs)
+        setLoading(false)
+        return
+      }
+
+      // Regular user: check if they have behavioral answers in DB
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('behavioral_generated, behavioral_regen_count')
+        .eq('id', uid)
+        .single()
+
+      setRegenCount(profile?.behavioral_regen_count ?? 0)
+
+      if (profile?.behavioral_generated) {
+        // Load from DB
+        await loadUserAnswers(supabase, uid)
+      } else {
+        // Fallback to JSON
+        const qs = await fetch('/behavioral_questions.json').then(r => r.json())
+        setAllQuestions(qs)
+        setDeck(qs)
+      }
       setLoading(false)
-    }
-    load()
+    })
   }, [])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function loadUserAnswers(supabase: any, uid: string) {
+    // Load the questions template for structure
+    const [questionsTemplate, answersRes] = await Promise.all([
+      fetch('/behavioral_questions.json').then(r => r.json()),
+      supabase
+        .from('behavioral_answers')
+        .select('*')
+        .eq('user_id', uid)
+        .order('question_index', { ascending: true })
+        .order('story_index', { ascending: true }),
+    ])
+
+    const dbAnswers = answersRes.data || []
+
+    // Group answers by question_index
+    const answersByQ: Record<number, Array<{ story_index: number; situation: string; task_text: string; action: string; result: string }>> = {}
+    for (const a of dbAnswers) {
+      if (!answersByQ[a.question_index]) answersByQ[a.question_index] = []
+      answersByQ[a.question_index].push(a)
+    }
+
+    // Map to same structure as behavioral_questions.json
+    const mapped: BehavioralQuestion[] = questionsTemplate.map((q: any, i: number) => {
+      const qAnswers = answersByQ[i] || []
+      return {
+        id: q.id,
+        category: q.category,
+        question: q.question,
+        stories: qAnswers.length > 0
+          ? qAnswers.map((a, si) => ({
+              title: `Story ${si + 1}`,
+              situation: a.situation,
+              task: a.task_text,
+              action: a.action,
+              result: a.result,
+            }))
+          : q.stories, // fallback to original if no DB answers for this question
+      }
+    })
+
+    setAllQuestions(mapped)
+    setDeck(mapped)
+  }
 
   useEffect(() => {
     if (!allQuestions.length) return
@@ -91,7 +181,7 @@ export default function BehavioralPage() {
   }, [deck, fadeSwap])
 
   const handleFlip = useCallback(() => {
-    if (!card) return
+    if (!card || !userId) return
     fadeSwap(() => {
       const nowFlipping = !flipped
       setFlipped(nowFlipping)
@@ -100,15 +190,57 @@ export default function BehavioralPage() {
         const next = new Set(visited)
         next.add(card.id)
         setVisited(next)
-        addBehavioralVisited(card.id)
+        addBehavioralVisited(userId, card.id)
       }
     })
-  }, [card, flipped, fadeSwap, visited])
+  }, [card, flipped, fadeSwap, visited, userId])
 
   const reset = () => {
     setIdx(0)
     setFlipped(false)
     setStoryTab(0)
+  }
+
+  async function handleRegenerate() {
+    if (regenCount >= 3) return
+    setRegenerating(true)
+    setRegenError('')
+    setRegenProgress(0)
+
+    const savedResume = localStorage.getItem('onboarding_resume') || ''
+    if (!savedResume) {
+      setRegenError('No resume found. Please go to Profile to update your resume first.')
+      setRegenerating(false)
+      return
+    }
+
+    const interval = setInterval(() => {
+      setRegenProgress(p => Math.min(p + 2, 60))
+    }, 500)
+
+    const res = await fetch('/api/generate-behavioral', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resume_text: savedResume }),
+    })
+
+    clearInterval(interval)
+
+    if (res.ok) {
+      setRegenCount(c => c + 1)
+      setRegenProgress(63)
+      // Reload answers
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+      if (userId) await loadUserAnswers(supabase, userId)
+    } else {
+      const err = await res.json()
+      setRegenError(err.error || 'Regeneration failed')
+    }
+    setRegenerating(false)
+    setRegenProgress(0)
   }
 
   useEffect(() => {
@@ -127,10 +259,28 @@ export default function BehavioralPage() {
     <div className="max-w-3xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2 mb-0.5">
-          <BookOpen className="text-indigo-500" /> Behavioural
-        </h1>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2 mb-0.5">
+            <BookOpen className="text-indigo-500" /> Behavioural
+          </h1>
+          {!isAdmin(userEmail) && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">{regenCount}/3 regenerations used</span>
+              {regenCount < 3 && (
+                <button
+                  onClick={handleRegenerate}
+                  disabled={regenerating}
+                  className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:text-indigo-600 transition-colors disabled:opacity-50"
+                >
+                  {regenerating ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                  {regenerating ? `Regenerating... ${regenProgress}/63` : 'Regenerate from resume'}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
         <p className="text-xs text-gray-400">Tap card to reveal STAR stories · ← → to navigate · Space to flip</p>
+        {regenError && <p className="text-red-500 text-xs font-semibold mt-1">{regenError}</p>}
       </div>
 
       {/* Controls */}
@@ -191,8 +341,9 @@ export default function BehavioralPage() {
                     <button
                       onClick={e => {
                         e.stopPropagation()
+                        if (!userId) return
                         const next = new Set(visited)
-                        if (next.has(card.id)) { next.delete(card.id) } else { next.add(card.id); addBehavioralVisited(card.id) }
+                        if (next.has(card.id)) { next.delete(card.id) } else { next.add(card.id); addBehavioralVisited(userId, card.id) }
                         setVisited(next)
                       }}
                       className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors ${

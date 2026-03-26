@@ -9,6 +9,7 @@ import { getProgress, getPatternFcVisited, addPatternFcVisited } from '@/lib/db'
 import { shuffle } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
+import { createClient } from '@supabase/supabase-js'
 
 interface Question {
   id: number
@@ -273,13 +274,22 @@ export default function PatternsPage() {
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<Record<string, string>>({})
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([
-      fetch('/questions_full.json').then(r => r.json()),
-      getProgress(),
-      getPatternFcVisited(),
-    ]).then(([qs, prog, vis]) => {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(async ({ data }) => {
+      const uid = data.user?.id ?? null
+      setUserId(uid)
+      if (!uid) { setLoading(false); return }
+      const [qs, prog, vis] = await Promise.all([
+        fetch('/questions_full.json').then(r => r.json()),
+        getProgress(uid),
+        getPatternFcVisited(uid),
+      ])
       setQuestions(qs)
       setProgress(prog)
       setVisited(vis)
@@ -293,8 +303,8 @@ export default function PatternsPage() {
       s.add(id)
       return s
     })
-    await addPatternFcVisited(id)
-  }, [])
+    if (userId) await addPatternFcVisited(userId, id)
+  }, [userId])
 
   // Hooks must be before any early returns
   const patternData = useMemo(() =>

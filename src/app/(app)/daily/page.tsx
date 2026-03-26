@@ -5,6 +5,7 @@ import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, Che
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
+import { createClient } from '@supabase/supabase-js'
 
 interface Question {
   id: number
@@ -107,6 +108,7 @@ export default function DailyPage() {
   const [progress, setProgress] = useState<Record<string, ProgressData>>({})
   const [plan, setPlan] = useState<StudyPlan | null>(null)
   const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
 
   // Setup form
   const [startDate, setStartDate] = useState(todayISO())
@@ -126,18 +128,27 @@ export default function DailyPage() {
   const [extraDays, setExtraDays] = useState(0)
 
   useEffect(() => {
-    async function load() {
-      const [qs, prog, p] = await Promise.all([
-        fetch('/questions_full.json').then(r => r.json()),
-        getProgress(),
-        getStudyPlan(),
-      ])
-      setAllQuestions(qs)
-      setProgress(prog)
-      setPlan(p)
-      setLoading(false)
-    }
-    load()
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? null
+      setUserId(uid)
+      if (!uid) { setLoading(false); return }
+      async function load() {
+        const [qs, prog, p] = await Promise.all([
+          fetch('/questions_full.json').then(r => r.json()),
+          getProgress(uid!),
+          getStudyPlan(uid!),
+        ])
+        setAllQuestions(qs)
+        setProgress(prog)
+        setPlan(p)
+        setLoading(false)
+      }
+      load()
+    })
   }, [])
 
   const { days: previewDays, date: previewFinish } = calcFinish(startDate, perDay, allQuestions.length)
@@ -150,7 +161,7 @@ export default function DailyPage() {
   }
 
   async function handleGenerate() {
-    if (!planCode.trim()) return
+    if (!planCode.trim() || !userId) return
     setGenerating(true)
     const order = generateOrder(allQuestions)
     const newPlan: StudyPlan = {
@@ -159,7 +170,7 @@ export default function DailyPage() {
       question_order: order,
       lock_code: planCode.trim(),
     }
-    const ok = await saveStudyPlan(newPlan)
+    const ok = await saveStudyPlan(userId, newPlan)
     setGenerating(false)
     if (ok) {
       setPlan(newPlan)
@@ -170,9 +181,9 @@ export default function DailyPage() {
   }
 
   async function handleResetConfirm() {
-    if (!plan) return
+    if (!plan || !userId) return
     if (resetAttempt.trim() === plan.lock_code) {
-      await clearStudyPlan()
+      await clearStudyPlan(userId)
       setPlan(null)
       setShowResetPrompt(false)
       toast.success('Plan reset!')
@@ -548,7 +559,7 @@ export default function DailyPage() {
           <div className="text-4xl mb-2">🏆</div>
           <p className="font-bold text-green-800">You finished all {plan.question_order.length} questions!</p>
           <button
-            onClick={async () => { await clearStudyPlan(); setPlan(null) }}
+            onClick={async () => { if (userId) { await clearStudyPlan(userId); setPlan(null) } }}
             className="mt-3 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-colors"
           >
             Start New Plan

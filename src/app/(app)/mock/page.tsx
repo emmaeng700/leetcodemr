@@ -10,6 +10,7 @@ import LeetCodeEditor from '@/components/LeetCodeEditor'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import CodePanel from '@/components/CodePanel'
+import { createClient } from '@supabase/supabase-js'
 
 interface Question {
   id: number
@@ -55,6 +56,7 @@ export default function MockInterviewPage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef<number | null>(null)
   const [imageError, setImageError] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
 
   // Answer unlocks after 2/3 of session
   const revealThreshold = Math.floor((duration * 2) / 3)
@@ -66,11 +68,23 @@ export default function MockInterviewPage() {
   const urgent = timeLeft < 5 * 60
 
   useEffect(() => {
-    async function load() {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? null
+      setUserId(uid)
+      if (!uid) { setLoading(false); return }
+      load(uid)
+    })
+  }, [])
+
+  async function load(uid: string) {
       const [qs, prog, rawSessions] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
-        getProgress(),
-        getMockSessions(20),
+        getProgress(uid),
+        getMockSessions(uid, 20),
       ])
       setAllQuestions(qs as Question[])
       setProgress(prog)
@@ -83,9 +97,7 @@ export default function MockInterviewPage() {
         elapsedSeconds: s.elapsed_seconds,
       })))
       setLoading(false)
-    }
-    load()
-  }, [])
+  }
 
   useEffect(() => () => {
     if (intervalRef.current) clearInterval(intervalRef.current)
@@ -119,28 +131,30 @@ export default function MockInterviewPage() {
     }
 
     // Persist to Supabase
-    await saveMockSession({
-      date: session.date,
-      question_id: activeQ?.id ?? null,
-      question_title: activeQ?.title ?? null,
-      difficulty: activeQ?.difficulty ?? null,
-      outcome,
-      elapsed_seconds: elapsedSec,
-      duration_seconds: duration,
-      created_at: new Date().toISOString(),
-    })
+    if (userId) {
+      await saveMockSession(userId, {
+        date: session.date,
+        question_id: activeQ?.id ?? null,
+        question_title: activeQ?.title ?? null,
+        difficulty: activeQ?.difficulty ?? null,
+        outcome,
+        elapsed_seconds: elapsedSec,
+        duration_seconds: duration,
+        created_at: new Date().toISOString(),
+      })
+    }
 
     setSessions(prev => [session, ...prev].slice(0, 20))
 
-    if (outcome === 'solved' && activeQ) {
-      await updateProgress(activeQ.id, {
+    if (outcome === 'solved' && activeQ && userId) {
+      await updateProgress(userId, activeQ.id, {
         solved: true,
         starred: progress[String(activeQ.id)]?.starred ?? false,
         notes: progress[String(activeQ.id)]?.notes ?? '',
         status: progress[String(activeQ.id)]?.status ?? null,
       })
     }
-  }, [question, progress, duration])
+  }, [question, progress, duration, userId])
 
   const startInterview = () => {
     const q = pickQuestion()

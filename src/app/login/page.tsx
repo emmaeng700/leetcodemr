@@ -1,10 +1,13 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BookOpen, Lock, Eye, EyeOff } from 'lucide-react'
+import { BookOpen, Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { createClient } from '@supabase/supabase-js'
+import { ALLOWED_EMAILS } from '@/lib/auth'
 
 export default function LoginPage() {
-  const [passcode, setPasscode] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [show, setShow] = useState(false)
@@ -15,19 +18,31 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ passcode }),
+    // Check email whitelist
+    if (!ALLOWED_EMAILS.includes(email.toLowerCase().trim())) {
+      setError('This email is not authorized to access LeetMastery.')
+      setLoading(false)
+      return
+    }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
     })
 
-    if (res.ok) {
-      router.push('/')
-    } else {
-      setError('Wrong passcode. Try again.')
-      setPasscode('')
+    if (authError) {
+      setError(authError.message)
+      setLoading(false)
+      return
     }
-    setLoading(false)
+
+    router.push('/')
+    router.refresh()
   }
 
   return (
@@ -46,18 +61,33 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
           <div className="flex items-center gap-2 mb-6">
             <Lock size={18} className="text-indigo-600" />
-            <h2 className="font-bold text-gray-800">Enter passcode to continue</h2>
+            <h2 className="font-bold text-gray-800">Sign in to continue</h2>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="relative">
+              <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="Email address"
+                autoFocus
+                required
+                className="w-full pl-10 pr-4 py-3 border-2 rounded-xl focus:outline-none transition-colors text-gray-900 placeholder-gray-400 border-gray-200 focus:border-indigo-400 bg-white"
+                style={{ color: '#111827', WebkitTextFillColor: '#111827', fontSize: '16px' }}
+              />
+            </div>
+
+            <div className="relative">
+              <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type={show ? 'text' : 'password'}
-                value={passcode}
-                onChange={e => setPasscode(e.target.value)}
-                placeholder="Your passcode"
-                autoFocus
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors pr-11 font-mono tracking-widest text-gray-900 placeholder-gray-400 ${
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="Password"
+                required
+                className={`w-full pl-10 pr-11 py-3 border-2 rounded-xl focus:outline-none transition-colors text-gray-900 placeholder-gray-400 ${
                   error ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-indigo-400 bg-white'
                 }`}
                 style={{ color: '#111827', WebkitTextFillColor: '#111827', fontSize: '16px' }}
@@ -77,16 +107,16 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading || !passcode}
+              disabled={loading || !email || !password}
               className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
-              {loading ? 'Checking...' : 'Enter \u2192'}
+              {loading ? 'Signing in...' : 'Sign In →'}
             </button>
           </form>
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          LeetMastery &middot; Private access only
+          LeetMastery · Private access only
         </p>
       </div>
     </div>

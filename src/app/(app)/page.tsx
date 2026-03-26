@@ -6,6 +6,7 @@ import { Search, Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Cale
 import { getProgress, updateProgress, getActivityLog, getDueReviews, getInterviewDate, setInterviewDate } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
+import { createClient } from '@supabase/supabase-js'
 
 interface Question {
   id: number
@@ -90,7 +91,7 @@ function WeakestPatternWidget({ questions, progress }: { questions: Question[]; 
   )
 }
 
-function InterviewCountdownWidget({ questions, progress }: { questions: Question[]; progress: Record<string, ProgressData> }) {
+function InterviewCountdownWidget({ questions, progress, userId }: { questions: Question[]; progress: Record<string, ProgressData>; userId: string | null }) {
   const router = useRouter()
   const [date, setDate] = useState('')
   const [editing, setEditing] = useState(false)
@@ -98,14 +99,15 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   const [dailyQ, setDailyQ] = useState<Question | null>(null)
   const [loaded, setLoaded] = useState(false)
   useEffect(() => {
+    if (!userId) return
     async function load() {
-      const [log, interviewData] = await Promise.all([getActivityLog(), getInterviewDate()])
+      const [log, interviewData] = await Promise.all([getActivityLog(userId!), getInterviewDate(userId!)])
       setStreak(computeStreak(log))
       if (interviewData?.target_date) setDate(interviewData.target_date)
       setLoaded(true)
     }
     load()
-  }, [])
+  }, [userId])
   useEffect(() => {
     if (!questions.length) return
     const todayKey = 'daily_q_' + todayISO()
@@ -121,7 +123,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   }, [questions, progress])
   const handleDateSave = async (val: string) => {
     setDate(val)
-    await setInterviewDate(val, '')
+    if (userId) await setInterviewDate(userId, val, '')
     setEditing(false)
   }
   const daysLeft = date ? Math.ceil((new Date(date + 'T12:00:00').getTime() - Date.now()) / 86400000) : null
@@ -182,11 +184,13 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   )
 }
 
-function DueReviewBanner() {
+function DueReviewBanner({ userId }: { userId: string | null }) {
   const router = useRouter()
   const [due, setDue] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
   const [open, setOpen] = useState(true)
-  useEffect(() => { getDueReviews().then(setDue).catch(() => {}) }, [])
+  useEffect(() => {
+    if (userId) getDueReviews(userId).then(setDue).catch(() => {})
+  }, [userId])
   if (!due.length) return null
   function daysOverdue(nr: string) {
     const [y, m, d] = nr.split('-').map(Number)
@@ -245,10 +249,20 @@ export default function HomePage() {
   const [source, setSource] = useState('All')
   const [showStarred, setShowStarred] = useState(false)
   const [showSolved, setShowSolved] = useState<null | boolean>(null)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([fetch('/questions_full.json').then(r => r.json()), getProgress()]).then(([qs, prog]) => {
-      setQuestions(qs); setProgress(prog); setLoading(false)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? null
+      setUserId(uid)
+      if (!uid) { setLoading(false); return }
+      Promise.all([fetch('/questions_full.json').then(r => r.json()), getProgress(uid)]).then(([qs, prog]) => {
+        setQuestions(qs); setProgress(prog); setLoading(false)
+      })
     })
   }, [])
 
@@ -269,19 +283,21 @@ export default function HomePage() {
 
   async function toggleSolved(e: React.MouseEvent, q: Question) {
     e.preventDefault()
+    if (!userId) return
     const p = progress[String(q.id)] || { solved: false, starred: false, notes: '' }
     const newSolved = !p.solved
     setProgress(prev => ({ ...prev, [String(q.id)]: { ...p, solved: newSolved } }))
-    await updateProgress(q.id, { solved: newSolved })
+    await updateProgress(userId, q.id, { solved: newSolved })
     toast.success(newSolved ? 'Marked solved!' : 'Unmarked')
   }
 
   async function toggleStarred(e: React.MouseEvent, q: Question) {
     e.preventDefault()
+    if (!userId) return
     const p = progress[String(q.id)] || { solved: false, starred: false, notes: '' }
     const newStarred = !p.starred
     setProgress(prev => ({ ...prev, [String(q.id)]: { ...p, starred: newStarred } }))
-    await updateProgress(q.id, { starred: newStarred })
+    await updateProgress(userId, q.id, { starred: newStarred })
   }
 
   return (
@@ -298,8 +314,8 @@ export default function HomePage() {
         <span className="text-sm font-semibold text-indigo-600">{questions.length ? Math.round((solved / questions.length) * 100) : 0}%</span>
       </div>
 
-      {!loading && <InterviewCountdownWidget questions={questions} progress={progress} />}
-      <DueReviewBanner />
+      {!loading && <InterviewCountdownWidget questions={questions} progress={progress} userId={userId} />}
+      <DueReviewBanner userId={userId} />
       {!loading && <WeakestPatternWidget questions={questions} progress={progress} />}
 
       <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6 shadow-sm">

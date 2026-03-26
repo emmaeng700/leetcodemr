@@ -7,6 +7,7 @@ import { shuffle } from '@/lib/utils'
 import { DIFFICULTY_LEVELS, QUESTION_SOURCES } from '@/lib/constants'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
+import { createClient } from '@supabase/supabase-js'
 
 interface Question {
   id: number
@@ -40,20 +41,30 @@ function FlashcardsInner() {
   const [filterSource, setFilterSource] = useState(initSource)
   const [isShuffled, setIsShuffled] = useState(false)
   const [visited, setVisited] = useState<Set<number>>(new Set())
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    async function load() {
-      const [qs, vis, prog] = await Promise.all([
-        fetch('/questions_full.json').then(r => r.json()),
-        getFcVisited(),
-        import('@/lib/db').then(m => m.getProgress()),
-      ])
-      setAll(qs)
-      setProgress(prog)
-      setVisited(vis)
-      setLoading(false)
-    }
-    load()
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? null
+      setUserId(uid)
+      if (!uid) { setLoading(false); return }
+      async function load() {
+        const [qs, vis, prog] = await Promise.all([
+          fetch('/questions_full.json').then(r => r.json()),
+          getFcVisited(uid!),
+          import('@/lib/db').then(m => m.getProgress(uid!)),
+        ])
+        setAll(qs)
+        setProgress(prog)
+        setVisited(vis)
+        setLoading(false)
+      }
+      load()
+    })
   }, [])
 
   useEffect(() => {
@@ -85,7 +96,7 @@ function FlashcardsInner() {
         const next = new Set(visited)
         next.add(q.id)
         setVisited(next)
-        addFcVisited(q.id)
+        if (userId) addFcVisited(userId, q.id)
       }
     })
   }, [q, flipped, fadeSwap, visited])
@@ -208,7 +219,7 @@ function FlashcardsInner() {
                       onClick={e => {
                         e.stopPropagation()
                         const next = new Set(visited)
-                        if (next.has(q.id)) { next.delete(q.id) } else { next.add(q.id); addFcVisited(q.id) }
+                        if (next.has(q.id)) { next.delete(q.id) } else { next.add(q.id); if (userId) addFcVisited(userId, q.id) }
                         setVisited(next)
                       }}
                       className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors ${

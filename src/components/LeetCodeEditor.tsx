@@ -6,6 +6,7 @@ import {
   AlertCircle, Key, ChevronDown, ChevronUp, Star,
 } from 'lucide-react'
 import { getProgress, updateProgress } from '@/lib/db'
+import { createClient } from '@supabase/supabase-js'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
 
@@ -91,11 +92,19 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
   const [resultErr,  setResultErr]  = useState('')
   const [solvedStatus, setSolvedStatus] = useState<'marked' | 'already' | 'not-in-library' | null>(null)
   const [showSessionHint, setShowSessionHint] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
 
-  /* ── Load session ── */
+  /* ── Load session + userId ── */
   useEffect(() => {
     setSession(localStorage.getItem('lc_session') ?? '')
     setCsrf(localStorage.getItem('lc_csrf') ?? '')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(({ data }) => {
+      setUserId(data.user?.id ?? null)
+    })
   }, [])
 
   /* ── Load CodeMirror extensions ── */
@@ -185,15 +194,15 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
         setResult(data); setRunning(false); setPollMsg(''); setBottomTab('result')
 
         /* Sync to app on Accepted Submit */
-        if (mode === 'submit' && data.status_code === 10) {
-          const prog = await getProgress()
+        if (mode === 'submit' && data.status_code === 10 && userId) {
+          const prog = await getProgress(userId)
           const alreadySolved = Array.isArray(prog)
             ? prog.some((p: any) => p.question_id === appQuestionId && p.solved)
             : (prog as any)?.[String(appQuestionId)]?.solved
           if (alreadySolved) {
             setSolvedStatus('already')
           } else {
-            await updateProgress(appQuestionId, { solved: true })
+            await updateProgress(userId, appQuestionId, { solved: true })
             setSolvedStatus('marked')
           }
         }
@@ -201,7 +210,7 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
       }
     }
     setResultErr('Timed out.'); setRunning(false); setPollMsg('')
-  }, [session, csrf, slug, appQuestionId])
+  }, [session, csrf, slug, appQuestionId, userId])
 
   /* ── Run test ── */
   const runTest = async () => {

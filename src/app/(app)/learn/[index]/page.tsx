@@ -12,6 +12,7 @@ import CodePanel from '@/components/CodePanel'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import StatusRadio from '@/components/StatusRadio'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
+import { createClient } from '@supabase/supabase-js'
 
 interface Question {
   id: number
@@ -48,15 +49,25 @@ function LearnInner() {
   const [showSolutions, setShowSolutions] = useState(false)
   const [filterDiff, setFilterDiff] = useState(initDiff)
   const [filterSource, setFilterSource] = useState(initSource)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([
-      fetch('/questions_full.json').then(r => r.json()),
-      getProgress(),
-    ]).then(([qs, prog]) => {
-      setQuestions(qs)
-      setProgress(prog)
-      setLoading(false)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? null
+      setUserId(uid)
+      if (!uid) { setLoading(false); return }
+      Promise.all([
+        fetch('/questions_full.json').then(r => r.json()),
+        getProgress(uid),
+      ]).then(([qs, prog]) => {
+        setQuestions(qs)
+        setProgress(prog)
+        setLoading(false)
+      })
     })
   }, [])
 
@@ -112,17 +123,17 @@ function LearnInner() {
   }
 
   const save = async (patch: any = {}) => {
-    if (!q) return
+    if (!q || !userId) return
     setSaving(true)
     const updated = { solved, starred, notes, status, ...patch, question_id: q.id }
-    await updateProgress(q.id, updated)
+    await updateProgress(userId, q.id, updated)
     setProgress(prev => ({ ...prev, [String(q.id)]: { ...prev[String(q.id)], ...updated } }))
     setSaving(false)
   }
 
   const handleCompleteReview = async () => {
-    if (!q) return
-    const result = await completeReview(q.id)
+    if (!q || !userId) return
+    const result = await completeReview(userId, q.id)
     setProgress(prev => ({
       ...prev,
       [String(q.id)]: {

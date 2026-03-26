@@ -1,12 +1,14 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   BookOpen, Menu, X, LogOut, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
-  Calendar, Info, Timer, Code2, Zap
+  Calendar, Info, Timer, Code2, Zap, User, Shield
 } from 'lucide-react'
+import { createClient } from '@supabase/supabase-js'
+import { isAdmin } from '@/lib/auth'
 
 const NAV_LINKS = [
   { href: '/',              label: 'Questions',    icon: Home },
@@ -30,10 +32,22 @@ export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? null)
+    })
+  }, [])
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
     router.push('/login')
+    router.refresh()
   }
 
   return (
@@ -47,6 +61,26 @@ export default function Navbar() {
           </Link>
 
           <div className="flex items-center gap-2">
+            {/* Profile link */}
+            <Link
+              href="/profile"
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+            >
+              <User size={15} />
+              <span>Profile</span>
+            </Link>
+
+            {/* Admin link — only for admins */}
+            {isAdmin(userEmail) && (
+              <Link
+                href="/admin"
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+              >
+                <Shield size={15} />
+                <span>Admin</span>
+              </Link>
+            )}
+
             <button
               onClick={handleLogout}
               className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -105,6 +139,24 @@ export default function Navbar() {
               </Link>
             )
           })}
+          <Link
+            href="/profile"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
+          >
+            <User size={16} />
+            Profile
+          </Link>
+          {isAdmin(userEmail) && (
+            <Link
+              href="/admin"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-purple-600 hover:bg-purple-50"
+            >
+              <Shield size={16} />
+              Admin
+            </Link>
+          )}
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 w-full transition-colors"

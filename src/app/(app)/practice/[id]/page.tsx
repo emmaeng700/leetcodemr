@@ -8,6 +8,7 @@ import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import toast from 'react-hot-toast'
+import { createClient } from '@supabase/supabase-js'
 
 interface Question {
   id: number
@@ -33,21 +34,33 @@ export default function PracticePage() {
   const [timer, setTimer] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startRef = useRef(Date.now())
+  const [userId, setUserId] = useState<string | null>(null)
+  const userIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    async function load() {
-      const [qs, prog] = await Promise.all([
-        fetch('/questions_full.json').then(r => r.json()),
-        getProgress(),
-      ])
-      const q = (qs as Question[]).find((q: Question) => q.id === id)
-      if (!q) { setLoading(false); return }
-      setQuestion(q)
-      const p = prog[String(id)] || {}
-      setSolved(!!p.solved)
-      setLoading(false)
-    }
-    load()
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? null
+      setUserId(uid)
+      userIdRef.current = uid
+      if (!uid) { setLoading(false); return }
+      async function load() {
+        const [qs, prog] = await Promise.all([
+          fetch('/questions_full.json').then(r => r.json()),
+          getProgress(uid!),
+        ])
+        const q = (qs as Question[]).find((q: Question) => q.id === id)
+        if (!q) { setLoading(false); return }
+        setQuestion(q)
+        const p = prog[String(id)] || {}
+        setSolved(!!p.solved)
+        setLoading(false)
+      }
+      load()
+    })
   }, [id])
 
   // Timer — track time spent on question
@@ -57,14 +70,15 @@ export default function PracticePage() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
       const elapsed = Math.round((Date.now() - startRef.current) / 1000)
-      if (elapsed > 5) addTimeSpent(id, elapsed)
+      if (elapsed > 5 && userIdRef.current) addTimeSpent(userIdRef.current, id, elapsed)
     }
   }, [id])
 
   async function handleMarkSolved() {
+    if (!userId) return
     const newSolved = !solved
     setSolved(newSolved)
-    await updateProgress(id, { solved: newSolved })
+    await updateProgress(userId, id, { solved: newSolved })
     toast.success(newSolved ? 'Marked as solved! 🎉' : 'Unmarked')
   }
 

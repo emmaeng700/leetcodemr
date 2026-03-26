@@ -6,6 +6,7 @@ import DifficultyBadge from '@/components/DifficultyBadge'
 import StreakCalendar from '@/components/StreakCalendar'
 import StudyPaceCalculator from '@/components/StudyPaceCalculator'
 import toast from 'react-hot-toast'
+import { createClient } from '@supabase/supabase-js'
 
 interface Question {
   id: number
@@ -23,6 +24,7 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(true)
   const [importStatus, setImportStatus] = useState<'ok' | 'err' | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [userId, setUserId] = useState<string | null>(null)
 
   // Daily target lock state
   const [dailyTarget, setDailyTargetState] = useState(0)
@@ -34,14 +36,26 @@ export default function StatsPage() {
   const [unlockError, setUnlockError] = useState(false)
 
   useEffect(() => {
-    async function load() {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? null
+      setUserId(uid)
+      if (!uid) { setLoading(false); return }
+      load(uid)
+    })
+  }, [])
+
+  async function load(uid: string) {
       const [qs, prog, sl, td, plan, dt] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
-        getProgress(),
-        getSolvedLog(),
-        getTimeTracking(),
-        getStudyPlan(),
-        getDailyTarget(),
+        getProgress(uid),
+        getSolvedLog(uid),
+        getTimeTracking(uid),
+        getStudyPlan(uid),
+        getDailyTarget(uid),
       ])
       setQuestions(qs)
       setProgress(prog)
@@ -77,9 +91,7 @@ export default function StatsPage() {
       setDailyTargetState(dt.target || 0)
       setDailyLockCode(dt.lock_code || '')
       setTargetInput(dt.target > 0 ? String(dt.target) : '')
-    }
-    load()
-  }, [])
+  }
 
   const totalQ = questions.length
   const solvedQ = Object.values(progress).filter((p: any) => p.solved).length
@@ -97,9 +109,10 @@ export default function StatsPage() {
   const totalTime = Math.round(Object.values(timeData).reduce((a, b) => a + b, 0) / 60)
 
   async function handleSetAndLock() {
+    if (!userId) return
     const n = parseInt(targetInput) || 0
     if (!n || !lockCodeInput.trim()) return
-    await setDailyTarget(n, lockCodeInput.trim())
+    await setDailyTarget(userId, n, lockCodeInput.trim())
     setDailyTargetState(n)
     setDailyLockCode(lockCodeInput.trim())
     setLockCodeInput('')
@@ -121,9 +134,10 @@ export default function StatsPage() {
   }
 
   async function handleUpdateAndLock() {
+    if (!userId) return
     const n = parseInt(targetInput) || 0
     if (!n || !lockCodeInput.trim()) return
-    await setDailyTarget(n, lockCodeInput.trim())
+    await setDailyTarget(userId, n, lockCodeInput.trim())
     setDailyTargetState(n)
     setDailyLockCode(lockCodeInput.trim())
     setLockCodeInput('')
@@ -132,7 +146,8 @@ export default function StatsPage() {
   }
 
   async function handleRemoveTarget() {
-    await setDailyTarget(0, '')
+    if (!userId) return
+    await setDailyTarget(userId, 0, '')
     setDailyTargetState(0)
     setDailyLockCode('')
     setTargetInput('')

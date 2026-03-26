@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { RotateCcw, Code2, Play, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import { getPracticeSession, savePracticeSession } from '@/lib/db'
+import { createClient } from '@supabase/supabase-js'
 
 // Code execution — proxied server-side through Next.js API
 const RUN_CODE_API = '/api/run-code'
@@ -73,6 +74,20 @@ export default function PracticeEditor({ questionId, slug, starterPython, starte
   const [output, setOutput] = useState<string | null>(null)
   const [showOutput, setShowOutput] = useState(false)
   const editorViewRef = useRef<any>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+  const userIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? null
+      setUserId(uid)
+      userIdRef.current = uid
+    })
+  }, [])
 
   const storageKey = `practice_v7_${questionId}_${lang}`
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -295,12 +310,14 @@ int main() {
     setCode(local !== null ? local : starter)
 
     // Async: load from Supabase and prefer it if it has saved code
-    getPracticeSession(questionId, lang).then(session => {
-      if (session?.code) {
-        setCode(session.code)
-        localStorage.setItem(storageKey, session.code)
-      }
-    })
+    if (userIdRef.current) {
+      getPracticeSession(userIdRef.current, questionId, lang).then(session => {
+        if (session?.code) {
+          setCode(session.code)
+          localStorage.setItem(storageKey, session.code)
+        }
+      })
+    }
   }, [questionId, lang])
 
   const handleChange = (val: string) => {
@@ -311,14 +328,14 @@ int main() {
     // Debounce Supabase save — write 2s after last keystroke
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
-      savePracticeSession(questionId, lang, val)
+      if (userIdRef.current) savePracticeSession(userIdRef.current, questionId, lang, val)
     }, 2000)
   }
 
   const reset = () => {
     setCode(starter)
     localStorage.setItem(storageKey, starter)
-    savePracticeSession(questionId, lang, starter)
+    if (userId) savePracticeSession(userId, questionId, lang, starter)
   }
 
   const runCode = async () => {

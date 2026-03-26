@@ -4,6 +4,7 @@ import { Gem, Copy, Check, ChevronLeft, ChevronRight, Shuffle, RotateCcw, CheckC
 import { addGemsVisited, getGemsVisited } from '@/lib/db'
 import { shuffle } from '@/lib/utils'
 import { GEMS_CARDS, GEMS_CATEGORIES, GEMS_CAT_COLOR } from '@/data/gemsCards'
+import { createClient } from '@supabase/supabase-js'
 
 interface GemCard {
   id: string
@@ -26,9 +27,21 @@ export default function GemsPage() {
   const [isShuffled, setIsShuffled] = useState(false)
   const [visited, setVisited] = useState<Set<string>>(new Set())
   const [copied, setCopied] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    getGemsVisited().then(vis => setVisited(vis))
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(async ({ data }) => {
+      const uid = data.user?.id ?? null
+      setUserId(uid)
+      if (uid) {
+        const vis = await getGemsVisited(uid)
+        setVisited(vis)
+      }
+    })
   }, [])
 
   useEffect(() => {
@@ -55,7 +68,7 @@ export default function GemsPage() {
         const next = new Set(visited)
         next.add(card.id)
         setVisited(next)
-        addGemsVisited(card.id)
+        if (userId) addGemsVisited(userId, card.id)
       }
     })
   }, [card, flipped, fadeSwap, visited])
@@ -163,7 +176,7 @@ export default function GemsPage() {
                       onClick={e => {
                         e.stopPropagation()
                         const next = new Set(visited)
-                        if (next.has(card.id)) { next.delete(card.id) } else { next.add(card.id); addGemsVisited(card.id) }
+                        if (next.has(card.id)) { next.delete(card.id) } else { next.add(card.id); if (userId) addGemsVisited(userId, card.id) }
                         setVisited(next)
                       }}
                       className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors ${

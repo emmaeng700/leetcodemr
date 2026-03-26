@@ -8,6 +8,7 @@ import {
   Tag, ChevronRight, Star,
 } from 'lucide-react'
 import { getProgress, updateProgress } from '@/lib/db'
+import { createClient } from '@supabase/supabase-js'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
 
@@ -145,11 +146,19 @@ export default function LeetCodePage() {
 
   /* App question list — loaded once to match solved-sync */
   const [appQuestions, setAppQuestions] = useState<{ id: number; slug: string }[]>([])
+  const [userId, setUserId] = useState<string | null>(null)
   useEffect(() => {
     fetch('/questions_full.json')
       .then(r => r.json())
       .then((qs: { id: number; slug: string }[]) => setAppQuestions(qs))
       .catch(() => {})
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(({ data }) => {
+      setUserId(data.user?.id ?? null)
+    })
   }, [])
   const [resultErr,  setResultErr]  = useState('')
 
@@ -272,15 +281,15 @@ export default function LeetCodePage() {
           const match = appQuestions.find(q => q.id === qFrontendId || q.slug === question.titleSlug)
           if (!match) {
             setSolvedStatus('not-in-library')
-          } else {
-            const prog = await getProgress()
+          } else if (userId) {
+            const prog = await getProgress(userId)
             const alreadySolved = Array.isArray(prog)
               ? prog.some((p: any) => p.question_id === match.id && p.solved)
               : (prog as any)?.[String(match.id)]?.solved
             if (alreadySolved) {
               setSolvedStatus('already')
             } else {
-              await updateProgress(match.id, { solved: true })
+              await updateProgress(userId, match.id, { solved: true })
               setSolvedStatus('marked')
             }
           }
@@ -289,7 +298,7 @@ export default function LeetCodePage() {
       }
     }
     setResultErr('Timed out.'); setRunning(false); setPollMsg('')
-  }, [session, csrfToken, question, appQuestions])
+  }, [session, csrfToken, question, appQuestions, userId])
 
   /* ── Run test ── */
   const runTest = async () => {

@@ -5,6 +5,7 @@ import { getProgress, getDueReviews, completeReview } from '@/lib/db'
 import { isDue, formatLocalDate } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import { Brain, CheckCircle, Clock, CalendarCheck, Flame, Trophy, TrendingUp } from 'lucide-react'
+import { createClient } from '@supabase/supabase-js'
 
 interface Question {
   id: number
@@ -37,23 +38,34 @@ export default function ReviewPage() {
   const [progress, setProgress] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState<number | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
-    Promise.all([
-      fetch('/questions_full.json').then(r => r.json()),
-      getProgress(),
-    ]).then(([qs, prog]) => {
-      setAllQ(qs)
-      setProgress(prog)
-      setLoading(false)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? null
+      setUserId(uid)
+      if (!uid) { setLoading(false); return }
+      Promise.all([
+        fetch('/questions_full.json').then(r => r.json()),
+        getProgress(uid),
+      ]).then(([qs, prog]) => {
+        setAllQ(qs)
+        setProgress(prog)
+        setLoading(false)
+      })
     })
   }, [])
 
   const handleCompleteReview = async (qId: number, e: React.MouseEvent) => {
+    if (!userId) return
     e.stopPropagation()
     setCompleting(qId)
-    const result = await completeReview(qId)
+    const result = await completeReview(userId, qId)
     setProgress(prev => ({
       ...prev,
       [String(qId)]: {
