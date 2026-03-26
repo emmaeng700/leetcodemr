@@ -23,13 +23,13 @@ const FLASHCARD_LINKS = [
   { href: '/flashcards',   label: 'Flashcards',   icon: Layers },
   { href: '/quick-review', label: 'Quick Review', icon: Clock },
   { href: '/gems',         label: 'Gems',         icon: Gem },
+  { href: '/dsa',          label: 'DSA',          icon: Code2 },
 ]
 
 // Group 3 — Deep-dive topics
 const TOPIC_LINKS = [
   { href: '/behavioral',    label: 'Behavioral',   icon: MessageSquare },
   { href: '/system-design', label: 'System Design',icon: Server },
-  { href: '/dsa',           label: 'DSA',          icon: Code2 },
 ]
 
 // Group 4 — Meta
