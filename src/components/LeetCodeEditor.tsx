@@ -259,10 +259,11 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
         @media (min-width: 1024px) { .cm-editor { font-size: 13px; } }
         .cm-scroller { overflow-x: auto !important; }
         .cm-content, .cm-line { word-break: normal; white-space: pre; }
+        .cm-editor { touch-action: pan-y; }
       `}</style>
 
       {/* ── Toolbar ── */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-[#16213e] border-b border-gray-700/50 shrink-0">
+      <div className="relative z-10 flex items-center gap-2 px-3 py-2.5 bg-[#16213e] border-b border-gray-700/50 shrink-0">
         {/* Language */}
         <div className="flex gap-1">
           {(['python3', 'cpp'] as const).map(l => (
@@ -287,12 +288,14 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
 
         {/* Run + Submit */}
         <button onClick={runTest} disabled={running || !sessionOK || !lcQ}
-          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-gray-700 text-gray-200 text-xs font-semibold rounded-lg hover:bg-gray-600 disabled:opacity-40 transition">
+          style={{ touchAction: 'manipulation' }}
+          className="flex items-center gap-1.5 px-3 py-2 min-h-[36px] bg-gray-700 text-gray-200 text-xs font-semibold rounded-lg hover:bg-gray-600 active:bg-gray-500 disabled:opacity-40 transition">
           {running && runMode === 'test' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
           Run
         </button>
         <button onClick={runSubmit} disabled={running || !sessionOK || !lcQ}
-          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-500 disabled:opacity-40 transition">
+          style={{ touchAction: 'manipulation' }}
+          className="flex items-center gap-1.5 px-3 py-2 min-h-[36px] bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-500 active:bg-green-400 disabled:opacity-40 transition">
           {running && runMode === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
           Submit
         </button>
