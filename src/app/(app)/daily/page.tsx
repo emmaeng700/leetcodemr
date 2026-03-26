@@ -419,16 +419,21 @@ export default function DailyPage() {
                       <DifficultyBadge difficulty={q.difficulty} />
                     </div>
                   </div>
-                  <Link
-                    href={`/practice/${q.id}`}
-                    className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
-                      solved
-                        ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
-                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                    }`}
-                  >
-                    {solved ? <>Revisit <RotateCcw size={11} /></> : <>Solve <ArrowRight size={12} /></>}
-                  </Link>
+                  {solved ? (
+                    <Link
+                      href={`/practice/${q.id}`}
+                      className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 text-xs font-bold rounded-lg transition-colors"
+                    >
+                      Revisit <RotateCcw size={11} />
+                    </Link>
+                  ) : (
+                    <Link
+                      href={`/question/${q.id}`}
+                      className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                      Solve <ArrowRight size={12} />
+                    </Link>
+                  )}
                 </div>
               )
             })}
