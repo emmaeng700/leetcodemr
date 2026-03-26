@@ -8,30 +8,38 @@ import {
   Calendar, Info, Timer, Code2, Zap
 } from 'lucide-react'
 
-// Practice & solving group
+// Group 1 — Practice & solving
 const PRACTICE_LINKS = [
-  { href: '/',             label: 'Questions',  icon: Home },
-  { href: '/daily',        label: 'Daily',      icon: Calendar },
-  { href: '/learn/0',      label: 'Learn',      icon: BookOpen },
-  { href: '/mock',         label: 'Mock',       icon: Timer },
-  { href: '/leetcode-api', label: 'LeetCode',   icon: Zap },
+  { href: '/',             label: 'Questions', icon: Home },
+  { href: '/daily',        label: 'Daily',     icon: Calendar },
+  { href: '/learn/0',      label: 'Learn',     icon: BookOpen },
+  { href: '/mock',         label: 'Mock',      icon: Timer },
+  { href: '/leetcode-api', label: 'LeetCode',  icon: Zap },
+  { href: '/patterns',     label: 'Patterns',  icon: GitBranch },
 ]
 
-// Study tools & resources group
-const TOOLS_LINKS = [
-  { href: '/stats',         label: 'Stats',        icon: BarChart2 },
-  { href: '/review',        label: 'Reviews',      icon: Brain },
-  { href: '/flashcards',    label: 'Flashcards',   icon: Layers },
-  { href: '/quick-review',  label: 'Quick Review', icon: Clock },
-  { href: '/patterns',      label: 'Patterns',     icon: GitBranch },
+// Group 2 — Flashcard-based study
+const FLASHCARD_LINKS = [
+  { href: '/flashcards',   label: 'Flashcards',   icon: Layers },
+  { href: '/quick-review', label: 'Quick Review', icon: Clock },
+  { href: '/gems',         label: 'Gems',         icon: Gem },
+]
+
+// Group 3 — Deep-dive topics
+const TOPIC_LINKS = [
   { href: '/behavioral',    label: 'Behavioral',   icon: MessageSquare },
-  { href: '/gems',          label: 'Gems',         icon: Gem },
   { href: '/system-design', label: 'System Design',icon: Server },
   { href: '/dsa',           label: 'DSA',          icon: Code2 },
-  { href: '/about',         label: 'About',        icon: Info },
 ]
 
-const NAV_LINKS = [...PRACTICE_LINKS, ...TOOLS_LINKS]
+// Group 4 — Meta
+const META_LINKS = [
+  { href: '/stats',  label: 'Stats',   icon: BarChart2 },
+  { href: '/review', label: 'Reviews', icon: Brain },
+  { href: '/about',  label: 'About',   icon: Info },
+]
+
+const NAV_LINKS = [...PRACTICE_LINKS, ...FLASHCARD_LINKS, ...TOPIC_LINKS, ...META_LINKS]
 
 export default function Navbar() {
   const pathname = usePathname()
@@ -72,91 +80,58 @@ export default function Navbar() {
 
         {/* Desktop Nav */}
         <div className="hidden md:flex flex-wrap items-center gap-1 pb-2">
-          {/* Practice group */}
-          {PRACTICE_LINKS.map(({ href, label }) => {
-            const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                  active
-                    ? 'bg-indigo-50 text-indigo-600'
-                    : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
-                }`}
-              >
-                {label}
-              </Link>
-            )
-          })}
-
-          {/* Divider */}
-          <span className="w-px h-4 bg-gray-200 mx-1 shrink-0" />
-
-          {/* Tools group */}
-          {TOOLS_LINKS.map(({ href, label }) => {
-            const active = pathname.startsWith(href)
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                  active
-                    ? 'bg-indigo-50 text-indigo-600'
-                    : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
-                }`}
-              >
-                {label}
-              </Link>
-            )
-          })}
+          {[PRACTICE_LINKS, FLASHCARD_LINKS, TOPIC_LINKS, META_LINKS].map((group, gi) => (
+            <>
+              {gi > 0 && <span key={`div-${gi}`} className="w-px h-4 bg-gray-200 mx-1 shrink-0" />}
+              {group.map(({ href, label }) => {
+                const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                      active ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                    }`}
+                  >
+                    {label}
+                  </Link>
+                )
+              })}
+            </>
+          ))}
         </div>
       </div>
 
       {/* Mobile menu */}
       {open && (
         <div className="md:hidden border-t border-gray-100 bg-white px-4 py-3 space-y-1">
-          {/* Practice group */}
-          <p className="px-3 pt-1 pb-0.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Practice</p>
-          {PRACTICE_LINKS.map(({ href, label, icon: Icon }) => {
-            const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
-            return (
-              <Link
-                key={href}
-                href={href}
-                onClick={() => setOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  active ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <Icon size={16} />
-                {label}
-              </Link>
-            )
-          })}
-
-          {/* Divider */}
-          <div className="h-px bg-gray-100 my-2" />
-
-          {/* Tools group */}
-          <p className="px-3 pt-1 pb-0.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Tools</p>
-          {TOOLS_LINKS.map(({ href, label, icon: Icon }) => {
-            const active = pathname.startsWith(href)
-            return (
-              <Link
-                key={href}
-                href={href}
-                onClick={() => setOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  active ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <Icon size={16} />
-                {label}
-              </Link>
-            )
-          })}
-
+          {[
+            { label: 'Practice', group: PRACTICE_LINKS },
+            { label: 'Flashcards', group: FLASHCARD_LINKS },
+            { label: 'Topics', group: TOPIC_LINKS },
+            { label: 'More', group: META_LINKS },
+          ].map(({ label, group }, gi) => (
+            <>
+              {gi > 0 && <div key={`div-${gi}`} className="h-px bg-gray-100 my-2" />}
+              <p key={`lbl-${gi}`} className="px-3 pt-1 pb-0.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
+              {group.map(({ href, label: lnk, icon: Icon }) => {
+                const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      active ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Icon size={16} />
+                    {lnk}
+                  </Link>
+                )
+              })}
+            </>
+          ))}
           <div className="h-px bg-gray-100 my-2" />
           <button
             onClick={handleLogout}
