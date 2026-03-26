@@ -252,11 +252,13 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
 
   /* ══ RENDER ══════════════════════════════════════════════ */
   return (
-    <div className="flex flex-col rounded-2xl overflow-hidden border border-gray-700/50 bg-[#1a1a2e]" style={{ height: 620 }}>
+    <div className="flex flex-col overflow-hidden rounded-none sm:rounded-xl border-0 sm:border border-gray-700/50 bg-[#1a1a2e] flex-1 min-h-[420px]">
       <style>{`
         .cm-editor { font-size: 11px; }
         @media (min-width: 640px)  { .cm-editor { font-size: 12px; } }
         @media (min-width: 1024px) { .cm-editor { font-size: 13px; } }
+        .cm-scroller { overflow-x: auto !important; }
+        .cm-content, .cm-line { word-break: normal; white-space: pre; }
       `}</style>
 
       {/* ── Toolbar ── */}
@@ -276,19 +278,21 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
         {!sessionOK && (
           <button onClick={() => setShowSessionHint(h => !h)}
             className="flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition">
-            <Key size={11} /> Setup LeetCode session
+            <Key size={11} />
+            <span className="hidden sm:inline">Setup LeetCode session</span>
+            <span className="sm:hidden">Session</span>
             {showSessionHint ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
           </button>
         )}
 
         {/* Run + Submit */}
         <button onClick={runTest} disabled={running || !sessionOK || !lcQ}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 text-gray-200 text-xs font-semibold rounded-lg hover:bg-gray-600 disabled:opacity-40 transition">
+          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-gray-700 text-gray-200 text-xs font-semibold rounded-lg hover:bg-gray-600 disabled:opacity-40 transition">
           {running && runMode === 'test' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
           Run
         </button>
         <button onClick={runSubmit} disabled={running || !sessionOK || !lcQ}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-500 disabled:opacity-40 transition">
+          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-500 disabled:opacity-40 transition">
           {running && runMode === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
           Submit
         </button>
@@ -350,7 +354,7 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
       )}
 
       {/* ── Bottom panel ── */}
-      <div className="h-48 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
+      <div className="h-36 sm:h-44 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
         {/* Tabs */}
         <div className="flex items-center border-b border-gray-700/50 shrink-0">
           {(['testcase', 'result'] as const).map(tab => (

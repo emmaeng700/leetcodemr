@@ -513,7 +513,7 @@ function LearnInner() {
           </div>
 
           {/* ── RIGHT panel — editor ── */}
-          <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-1 overflow-y-auto`}>
+          <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-1 min-h-0`}>
             <LeetCodeEditor appQuestionId={q.id} slug={q.slug} />
           </div>
         </div>
