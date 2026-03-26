@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { BookOpen, Mail, Lock, Eye, EyeOff } from 'lucide-react'
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 import { ALLOWED_EMAILS } from '@/lib/auth'
 
 export default function LoginPage() {
@@ -25,7 +25,7 @@ export default function LoginPage() {
       return
     }
 
-    const supabase = createClient(
+    const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
