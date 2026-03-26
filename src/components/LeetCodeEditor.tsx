@@ -253,6 +253,11 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
   /* ══ RENDER ══════════════════════════════════════════════ */
   return (
     <div className="flex flex-col rounded-2xl overflow-hidden border border-gray-700/50 bg-[#1a1a2e]" style={{ height: 620 }}>
+      <style>{`
+        .cm-editor { font-size: 11px; }
+        @media (min-width: 640px)  { .cm-editor { font-size: 12px; } }
+        @media (min-width: 1024px) { .cm-editor { font-size: 13px; } }
+      `}</style>
 
       {/* ── Toolbar ── */}
       <div className="flex items-center gap-2 px-3 py-2 bg-[#16213e] border-b border-gray-700/50 shrink-0">
@@ -339,7 +344,7 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
             theme={editorTheme ?? 'dark'}
             extensions={extensions}
             basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
-            style={{ height: '100%', fontSize: '13px' }}
+            style={{ height: '100%' }}
           />
         </div>
       )}

@@ -64,6 +64,9 @@ export default function DsaCodeBlock({ code, lang }: Props) {
         .dsa-hljs .hljs-punctuation { color: #abb2bf; }
         .dsa-hljs .hljs-meta      { color: #e06c75; }
         .dsa-hljs .hljs-preprocessor { color: #e06c75; }
+        .dsa-pre { font-size: 10px; }
+        @media (min-width: 640px)  { .dsa-pre { font-size: 11px; } }
+        @media (min-width: 1024px) { .dsa-pre { font-size: 12px; } }
       `}</style>
       <div className="relative group">
         <button
@@ -73,10 +76,7 @@ export default function DsaCodeBlock({ code, lang }: Props) {
           {copied ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
           {copied ? 'Copied!' : 'Copy'}
         </button>
-        <pre
-          className="overflow-x-auto leading-relaxed m-0 p-4"
-          style={{ fontSize: '11px' }}
-        >
+        <pre className="dsa-pre overflow-x-auto leading-relaxed m-0 p-4">
           <code ref={codeRef} className={`language-${resolved} dsa-hljs`}>
             {code}
           </code>
