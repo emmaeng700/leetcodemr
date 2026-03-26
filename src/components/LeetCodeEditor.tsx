@@ -162,27 +162,19 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
         setLcQ(q)
         const parsed = parseCases(q.exampleTestcases ?? '', q.metaData ?? '{}')
         setCases(parsed); setActiveCase(0); setTestInput(parsed[0]?.raw ?? '')
-        // Load saved code or fall back to LeetCode starter
-        const saved = localStorage.getItem(`lc_code_${slug}_${lang}`)
-        setCode(saved ?? q.codeSnippets?.find(s => s.langSlug === lang)?.code ?? '')
+        // Always start fresh with LeetCode's starter code
+        setCode(q.codeSnippets?.find(s => s.langSlug === lang)?.code ?? '')
       })
       .catch(e => setLcErr(String(e)))
       .finally(() => setLcLoad(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug])
 
-  /* Save code to localStorage on every change */
-  const handleCodeChange = (val: string) => {
-    setCode(val)
-    localStorage.setItem(`lc_code_${slug}_${lang}`, val)
-  }
+  const handleCodeChange = (val: string) => setCode(val)
 
   const switchLang = (l: 'python3' | 'cpp') => {
     setLang(l)
-    if (lcQ) {
-      const saved = localStorage.getItem(`lc_code_${slug}_${l}`)
-      setCode(saved ?? lcQ.codeSnippets?.find(s => s.langSlug === l)?.code ?? '')
-    }
+    if (lcQ) setCode(lcQ.codeSnippets?.find(s => s.langSlug === l)?.code ?? '')
     setResult(null)
   }
 
