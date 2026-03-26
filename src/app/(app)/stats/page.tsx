@@ -246,7 +246,7 @@ export default function StatsPage() {
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Lock code</label>
-                    <input type="text" value={lockCodeInput} onChange={e => setLockCodeInput(e.target.value)} placeholder="e.g. GRIND2026"
+                    <input type="text" value={lockCodeInput} onChange={e => setLockCodeInput(e.target.value)} placeholder="e.g. grind2026"
                       className="w-full sm:w-40 px-3 py-2 rounded-lg border border-gray-600 bg-gray-800 text-white text-sm focus:outline-none focus:border-indigo-400" />
                   </div>
                   <button onClick={handleSetAndLock} disabled={!targetInput || !lockCodeInput.trim()}

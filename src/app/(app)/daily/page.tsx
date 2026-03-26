@@ -251,7 +251,7 @@ export default function DailyPage() {
                 type="text"
                 value={planCode}
                 onChange={e => setPlanCode(e.target.value)}
-                placeholder="e.g. GRIND2026"
+                placeholder="e.g. grind2026"
                 className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-indigo-400"
               />
               <p className="text-xs text-gray-400 mt-1">You need this code to reset the plan. Do not forget it.</p>
