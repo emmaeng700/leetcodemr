@@ -6,7 +6,7 @@ import { Search, Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Cale
 import { getProgress, updateProgress, getActivityLog, getDueReviews, getInterviewDate, setInterviewDate } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface Question {
   id: number
@@ -252,7 +252,7 @@ export default function HomePage() {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    const supabase = createClient(
+    const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )

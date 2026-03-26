@@ -5,7 +5,7 @@ import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, Che
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface Question {
   id: number
@@ -128,7 +128,7 @@ export default function DailyPage() {
   const [extraDays, setExtraDays] = useState(0)
 
   useEffect(() => {
-    const supabase = createClient(
+    const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )

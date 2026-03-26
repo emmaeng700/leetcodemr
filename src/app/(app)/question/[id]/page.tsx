@@ -11,7 +11,7 @@ import CodePanel from '@/components/CodePanel'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import toast from 'react-hot-toast'
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface Question {
   id: number
@@ -51,7 +51,7 @@ export default function QuestionPage() {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    const supabase = createClient(
+    const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )

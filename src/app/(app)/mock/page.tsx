@@ -10,7 +10,7 @@ import LeetCodeEditor from '@/components/LeetCodeEditor'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import CodePanel from '@/components/CodePanel'
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface Question {
   id: number
@@ -68,7 +68,7 @@ export default function MockInterviewPage() {
   const urgent = timeLeft < 5 * 60
 
   useEffect(() => {
-    const supabase = createClient(
+    const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )

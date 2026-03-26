@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 import { User, FileText, Zap, RefreshCw, CheckCircle, Loader2, Upload, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -35,7 +35,7 @@ export default function ProfilePage() {
   const [savingNotifEmail, setSavingNotifEmail] = useState(false)
 
   useEffect(() => {
-    const supabase = createClient(
+    const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
@@ -92,7 +92,7 @@ export default function ProfilePage() {
 
   async function handleSaveResume() {
     if (!userId || !newResumeText.trim()) return
-    const supabase = createClient(
+    const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
@@ -169,7 +169,7 @@ export default function ProfilePage() {
   async function handleSaveNotifEmail() {
     if (!userId || !notificationEmail.trim()) return
     setSavingNotifEmail(true)
-    const supabase = createClient(
+    const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )

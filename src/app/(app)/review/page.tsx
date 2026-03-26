@@ -5,7 +5,7 @@ import { getProgress, getDueReviews, completeReview } from '@/lib/db'
 import { isDue, formatLocalDate } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import { Brain, CheckCircle, Clock, CalendarCheck, Flame, Trophy, TrendingUp } from 'lucide-react'
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface Question {
   id: number
@@ -42,7 +42,7 @@ export default function ReviewPage() {
   const router = useRouter()
 
   useEffect(() => {
-    const supabase = createClient(
+    const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )

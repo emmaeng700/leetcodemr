@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { BookOpen, Shuffle, RotateCcw, ChevronLeft, ChevronRight, CheckCircle, Circle, RefreshCw, Loader2 } from 'lucide-react'
 import { getBehavioralVisited, addBehavioralVisited } from '@/lib/db'
 import { shuffle } from '@/lib/utils'
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 import { isAdmin } from '@/lib/auth'
 
 interface Story {
@@ -60,7 +60,7 @@ export default function BehavioralPage() {
   const [regenProgress, setRegenProgress] = useState(0)
 
   useEffect(() => {
-    const supabase = createClient(
+    const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
@@ -230,7 +230,7 @@ export default function BehavioralPage() {
       setRegenCount(c => c + 1)
       setRegenProgress(63)
       // Reload answers
-      const supabase = createClient(
+      const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       )

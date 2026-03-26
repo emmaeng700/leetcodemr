@@ -8,7 +8,7 @@ import {
   Tag, ChevronRight, Star,
 } from 'lucide-react'
 import { getProgress, updateProgress } from '@/lib/db'
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
 
@@ -152,7 +152,7 @@ export default function LeetCodePage() {
       .then(r => r.json())
       .then((qs: { id: number; slug: string }[]) => setAppQuestions(qs))
       .catch(() => {})
-    const supabase = createClient(
+    const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )

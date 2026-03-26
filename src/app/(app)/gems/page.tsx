@@ -4,7 +4,7 @@ import { Gem, Copy, Check, ChevronLeft, ChevronRight, Shuffle, RotateCcw, CheckC
 import { addGemsVisited, getGemsVisited } from '@/lib/db'
 import { shuffle } from '@/lib/utils'
 import { GEMS_CARDS, GEMS_CATEGORIES, GEMS_CAT_COLOR } from '@/data/gemsCards'
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface GemCard {
   id: string
@@ -30,7 +30,7 @@ export default function GemsPage() {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    const supabase = createClient(
+    const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )

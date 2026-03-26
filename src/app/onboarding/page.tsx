@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 import { Upload, FileText, ChevronRight, CheckCircle, Loader2, Zap, SkipForward } from 'lucide-react'
 
 type Step = 1 | 2 | 3
@@ -34,7 +34,7 @@ export default function OnboardingPage() {
   const [lcError, setLcError] = useState('')
 
   useEffect(() => {
-    const supabase = createClient(
+    const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )

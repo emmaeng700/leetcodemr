@@ -12,7 +12,7 @@ import CodePanel from '@/components/CodePanel'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import StatusRadio from '@/components/StatusRadio'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface Question {
   id: number
@@ -52,7 +52,7 @@ function LearnInner() {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    const supabase = createClient(
+    const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
