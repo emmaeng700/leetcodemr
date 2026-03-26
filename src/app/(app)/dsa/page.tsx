@@ -148,12 +148,12 @@ export default function DSAPage() {
                   return (
                     <div
                       key={card.id}
-                      className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+                      className={`rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer ${
                         isFlipped
-                          ? 'border-indigo-300 bg-[#1e2130]'
-                          : 'border-gray-200 bg-white hover:border-indigo-300 hover:shadow-md cursor-pointer'
+                          ? 'border-indigo-300 bg-[#1e2130] hover:border-indigo-400'
+                          : 'border-gray-200 bg-white hover:border-indigo-300 hover:shadow-md'
                       }`}
-                      onClick={() => !isFlipped && toggleFlip(card.id)}
+                      onClick={() => toggleFlip(card.id)}
                     >
                       {!isFlipped ? (
                         <div className="p-5 min-h-[110px] flex flex-col justify-between">
@@ -185,7 +185,7 @@ export default function DSAPage() {
                               {card.snippets.map(s => (
                                 <button
                                   key={s.lang}
-                                  onClick={() => setActiveLang(prev => ({ ...prev, [card.id]: s.lang }))}
+                                  onClick={(e) => { e.stopPropagation(); setActiveLang(prev => ({ ...prev, [card.id]: s.lang })) }}
                                   className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors ${
                                     lang === s.lang
                                       ? 'bg-indigo-600 text-white'
@@ -196,12 +196,7 @@ export default function DSAPage() {
                                 </button>
                               ))}
                             </div>
-                            <button
-                              onClick={() => toggleFlip(card.id)}
-                              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                            >
-                              ← flip back
-                            </button>
+                            <span className="text-xs text-gray-500">click card to close ↩</span>
                           </div>
 
                           {snippet && <DsaCodeBlock code={snippet.code} lang={lang} />}
@@ -283,12 +278,12 @@ export default function DSAPage() {
                   return (
                     <div
                       key={card.id}
-                      className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+                      className={`rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer ${
                         isFlipped
-                          ? 'border-violet-300 bg-[#1e2130]'
-                          : 'border-gray-200 bg-white hover:border-violet-300 hover:shadow-md cursor-pointer'
+                          ? 'border-violet-300 bg-[#1e2130] hover:border-violet-400'
+                          : 'border-gray-200 bg-white hover:border-violet-300 hover:shadow-md'
                       }`}
-                      onClick={() => !isFlipped && toggleTutFlip(card.id)}
+                      onClick={() => toggleTutFlip(card.id)}
                     >
                       {!isFlipped ? (
                         <div className="p-5 min-h-[120px] flex flex-col justify-between">
@@ -321,7 +316,7 @@ export default function DSAPage() {
                               {card.snippets.map(s => (
                                 <button
                                   key={s.lang}
-                                  onClick={() => setTutLang(prev => ({ ...prev, [card.id]: s.lang }))}
+                                  onClick={(e) => { e.stopPropagation(); setTutLang(prev => ({ ...prev, [card.id]: s.lang })) }}
                                   className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors ${
                                     lang === s.lang
                                       ? 'bg-violet-600 text-white'
@@ -332,12 +327,7 @@ export default function DSAPage() {
                                 </button>
                               ))}
                             </div>
-                            <button
-                              onClick={() => toggleTutFlip(card.id)}
-                              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                            >
-                              ← flip back
-                            </button>
+                            <span className="text-xs text-gray-500">click card to close ↩</span>
                           </div>
 
                           {snippet && <DsaCodeBlock code={snippet.code} lang={lang} />}
