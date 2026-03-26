@@ -65,8 +65,9 @@ export async function POST(req: NextRequest) {
 
     for (let batchStart = 0; batchStart < allQuestions.length; batchStart += BATCH_SIZE) {
       const batch = allQuestions.slice(batchStart, batchStart + BATCH_SIZE)
+      // Use local indices 0-N so the AI returns 0,1,2... and we add batchStart ourselves
       const questionsJson = JSON.stringify(batch.map((q, i) => ({
-        index: batchStart + i,
+        index: i,
         question: q.question,
         category: q.category,
       })))
@@ -116,7 +117,7 @@ ${questionsJson}`
 
       // Small delay between batches to respect rate limits
       if (batchStart + BATCH_SIZE < allQuestions.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        await new Promise(resolve => setTimeout(resolve, 300))
       }
     }
 
@@ -131,11 +132,12 @@ ${questionsJson}`
       )
     }
 
-    // Update profile
+    // Update profile — also persist resume_text so the user can regenerate later
     await supabase.from('profiles').upsert({
       id: user.id,
       behavioral_generated: true,
       behavioral_regen_count: regenCount + 1,
+      resume_text: resume_text.trim(),
     }, { onConflict: 'id' })
 
     return NextResponse.json({ success: true, count: allAnswers.length })

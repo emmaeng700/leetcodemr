@@ -5,7 +5,6 @@ import { getProgress, getDueReviews, completeReview } from '@/lib/db'
 import { isDue, formatLocalDate } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import { Brain, CheckCircle, Clock, CalendarCheck, Flame, Trophy, TrendingUp } from 'lucide-react'
-import { createBrowserClient } from '@supabase/ssr'
 
 interface Question {
   id: number
@@ -42,22 +41,16 @@ export default function ReviewPage() {
   const router = useRouter()
 
   useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    supabase.auth.getUser().then(({ data }) => {
-      const uid = data.user?.id ?? null
-      setUserId(uid)
-      if (!uid) { setLoading(false); return }
-      Promise.all([
-        fetch('/questions_full.json').then(r => r.json()),
-        getProgress(uid),
-      ]).then(([qs, prog]) => {
-        setAllQ(qs)
-        setProgress(prog)
-        setLoading(false)
-      })
+    const uid = localStorage.getItem('lc_user_id')
+    setUserId(uid)
+    if (!uid) { setLoading(false); return }
+    Promise.all([
+      fetch('/questions_full.json').then(r => r.json()),
+      getProgress(uid),
+    ]).then(([qs, prog]) => {
+      setAllQ(qs)
+      setProgress(prog)
+      setLoading(false)
     })
   }, [])
 

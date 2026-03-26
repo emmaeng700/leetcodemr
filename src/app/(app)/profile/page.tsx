@@ -132,7 +132,8 @@ export default function ProfilePage() {
 
   async function handleRegenerate() {
     if (regenCount >= 3) return
-    const savedResume = localStorage.getItem('onboarding_resume') || resumeText
+    // resumeText is loaded from the DB on mount; localStorage is also kept in sync
+    const savedResume = resumeText || localStorage.getItem('onboarding_resume') || ''
     if (!savedResume.trim()) {
       toast.error('No resume found. Please update your resume first.')
       return

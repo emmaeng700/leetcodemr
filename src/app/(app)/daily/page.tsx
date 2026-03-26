@@ -5,7 +5,6 @@ import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, Che
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
-import { createBrowserClient } from '@supabase/ssr'
 
 interface Question {
   id: number
@@ -128,27 +127,21 @@ export default function DailyPage() {
   const [extraDays, setExtraDays] = useState(0)
 
   useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    supabase.auth.getUser().then(({ data }) => {
-      const uid = data.user?.id ?? null
-      setUserId(uid)
-      if (!uid) { setLoading(false); return }
-      async function load() {
-        const [qs, prog, p] = await Promise.all([
-          fetch('/questions_full.json').then(r => r.json()),
-          getProgress(uid!),
-          getStudyPlan(uid!),
-        ])
-        setAllQuestions(qs)
-        setProgress(prog)
-        setPlan(p)
-        setLoading(false)
-      }
-      load()
-    })
+    const uid = localStorage.getItem('lc_user_id')
+    setUserId(uid)
+    if (!uid) { setLoading(false); return }
+    async function load() {
+      const [qs, prog, p] = await Promise.all([
+        fetch('/questions_full.json').then(r => r.json()),
+        getProgress(uid!),
+        getStudyPlan(uid!),
+      ])
+      setAllQuestions(qs)
+      setProgress(prog)
+      setPlan(p)
+      setLoading(false)
+    }
+    load()
   }, [])
 
   const { days: previewDays, date: previewFinish } = calcFinish(startDate, perDay, allQuestions.length)

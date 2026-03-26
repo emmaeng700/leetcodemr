@@ -11,7 +11,6 @@ import CodePanel from '@/components/CodePanel'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import toast from 'react-hot-toast'
-import { createBrowserClient } from '@supabase/ssr'
 
 interface Question {
   id: number
@@ -51,29 +50,23 @@ export default function QuestionPage() {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    supabase.auth.getUser().then(({ data }) => {
-      const uid = data.user?.id ?? null
-      setUserId(uid)
-      if (!uid) { setLoading(false); return }
-      async function load() {
-        const [qs, prog] = await Promise.all([
-          fetch('/questions_full.json').then(r => r.json()),
-          getProgress(uid!),
-        ])
-        const q = (qs as Question[]).find(q => q.id === id)
-        if (!q) { setLoading(false); return }
-        setQuestion(q)
-        const p = prog[String(id)] || { solved: false, starred: false, notes: '' }
-        setProgress(p)
-        setNotes(p.notes || '')
-        setLoading(false)
-      }
-      load()
-    })
+    const uid = localStorage.getItem('lc_user_id')
+    setUserId(uid)
+    if (!uid) { setLoading(false); return }
+    async function load() {
+      const [qs, prog] = await Promise.all([
+        fetch('/questions_full.json').then(r => r.json()),
+        getProgress(uid!),
+      ])
+      const q = (qs as Question[]).find(q => q.id === id)
+      if (!q) { setLoading(false); return }
+      setQuestion(q)
+      const p = prog[String(id)] || { solved: false, starred: false, notes: '' }
+      setProgress(p)
+      setNotes(p.notes || '')
+      setLoading(false)
+    }
+    load()
   }, [id])
 
   async function save(patch: Partial<ProgressData> = {}) {

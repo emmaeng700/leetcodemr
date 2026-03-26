@@ -207,7 +207,21 @@ export default function BehavioralPage() {
     setRegenError('')
     setRegenProgress(0)
 
-    const savedResume = localStorage.getItem('onboarding_resume') || ''
+    // Try localStorage first (set during onboarding/profile update), then fall back to DB
+    let savedResume = localStorage.getItem('onboarding_resume') || ''
+    if (!savedResume && userId) {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('resume_text')
+        .eq('id', userId)
+        .single()
+      savedResume = prof?.resume_text || ''
+      if (savedResume) localStorage.setItem('onboarding_resume', savedResume)
+    }
     if (!savedResume) {
       setRegenError('No resume found. Please go to Profile to update your resume first.')
       setRegenerating(false)

@@ -10,7 +10,6 @@ import LeetCodeEditor from '@/components/LeetCodeEditor'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import CodePanel from '@/components/CodePanel'
-import { createBrowserClient } from '@supabase/ssr'
 
 interface Question {
   id: number
@@ -68,16 +67,10 @@ export default function MockInterviewPage() {
   const urgent = timeLeft < 5 * 60
 
   useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    supabase.auth.getUser().then(({ data }) => {
-      const uid = data.user?.id ?? null
-      setUserId(uid)
-      if (!uid) { setLoading(false); return }
-      load(uid)
-    })
+    const uid = localStorage.getItem('lc_user_id')
+    setUserId(uid)
+    if (!uid) { setLoading(false); return }
+    load(uid)
   }, [])
 
   async function load(uid: string) {

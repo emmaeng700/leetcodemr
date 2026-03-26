@@ -48,7 +48,6 @@ export default function AdminPage() {
       }
 
       // Get solved counts per user
-      const userIds = profiles.map(p => p.id)
       const rows: UserRow[] = []
 
       for (const p of profiles) {

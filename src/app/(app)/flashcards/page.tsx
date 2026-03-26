@@ -7,7 +7,6 @@ import { shuffle } from '@/lib/utils'
 import { DIFFICULTY_LEVELS, QUESTION_SOURCES } from '@/lib/constants'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
-import { createBrowserClient } from '@supabase/ssr'
 
 interface Question {
   id: number
@@ -44,27 +43,21 @@ function FlashcardsInner() {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    supabase.auth.getUser().then(({ data }) => {
-      const uid = data.user?.id ?? null
-      setUserId(uid)
-      if (!uid) { setLoading(false); return }
-      async function load() {
-        const [qs, vis, prog] = await Promise.all([
-          fetch('/questions_full.json').then(r => r.json()),
-          getFcVisited(uid!),
-          import('@/lib/db').then(m => m.getProgress(uid!)),
-        ])
-        setAll(qs)
-        setProgress(prog)
-        setVisited(vis)
-        setLoading(false)
-      }
-      load()
-    })
+    const uid = localStorage.getItem('lc_user_id')
+    setUserId(uid)
+    if (!uid) { setLoading(false); return }
+    async function load() {
+      const [qs, vis, prog] = await Promise.all([
+        fetch('/questions_full.json').then(r => r.json()),
+        getFcVisited(uid!),
+        import('@/lib/db').then(m => m.getProgress(uid!)),
+      ])
+      setAll(qs)
+      setProgress(prog)
+      setVisited(vis)
+      setLoading(false)
+    }
+    load()
   }, [])
 
   useEffect(() => {

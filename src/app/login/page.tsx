@@ -30,7 +30,7 @@ export default function LoginPage() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     })
@@ -39,6 +39,12 @@ export default function LoginPage() {
       setError(authError.message)
       setLoading(false)
       return
+    }
+
+    // Store userId in localStorage so all pages can read it reliably
+    if (authData.user?.id) {
+      localStorage.setItem('lc_user_id', authData.user.id)
+      localStorage.setItem('lc_user_email', authData.user.email ?? '')
     }
 
     window.location.href = '/'
