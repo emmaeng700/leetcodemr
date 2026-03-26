@@ -26,6 +26,8 @@ function FlashcardsInner() {
   const initSource  = searchParams.get('source')  || 'All'
   const initSearch  = searchParams.get('search')  || ''
   const initStarred = searchParams.get('starred') === '1'
+  const initTagsRaw = searchParams.get('tags')    || ''
+  const initTags    = initTagsRaw ? initTagsRaw.split(',') : []
   const initSolvedParam = searchParams.get('solved')
   const initSolved: null | boolean = initSolvedParam === 'true' ? true : initSolvedParam === 'false' ? false : null
 
@@ -61,6 +63,7 @@ function FlashcardsInner() {
     if (filterDiff !== 'All') filtered = filtered.filter(q => q.difficulty === filterDiff)
     if (filterSource !== 'All') filtered = filtered.filter(q => (q.source || []).includes(filterSource))
     if (initSearch) filtered = filtered.filter(q => q.title.toLowerCase().includes(initSearch.toLowerCase()))
+    if (initTags.length > 0) filtered = filtered.filter(q => (q.tags || []).some(t => initTags.includes(t)))
     if (initStarred) filtered = filtered.filter(q => progress[q.id]?.starred)
     if (initSolved === true)  filtered = filtered.filter(q => progress[q.id]?.solved)
     if (initSolved === false) filtered = filtered.filter(q => !progress[q.id]?.solved)

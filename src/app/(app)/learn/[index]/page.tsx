@@ -33,6 +33,8 @@ function LearnInner() {
   const initSource  = searchParams.get('source')  || 'All'
   const initSearch  = searchParams.get('search')  || ''
   const initStarred = searchParams.get('starred') === '1'
+  const initTagsRaw = searchParams.get('tags')    || ''
+  const initTags    = initTagsRaw ? initTagsRaw.split(',') : []
   const initSolvedParam = searchParams.get('solved')
   const initSolved: null | boolean = initSolvedParam === 'true' ? true : initSolvedParam === 'false' ? false : null
 
@@ -67,6 +69,7 @@ function LearnInner() {
     if (filterDiff !== 'All' && q.difficulty !== filterDiff) return false
     if (filterSource !== 'All' && !(q.source || []).includes(filterSource)) return false
     if (initSearch && !q.title.toLowerCase().includes(initSearch.toLowerCase())) return false
+    if (initTags.length > 0 && !(q.tags || []).some(t => initTags.includes(t))) return false
     const p = progress[String(q.id)] || {}
     if (initStarred && !p.starred) return false
     if (initSolved === true  && !p.solved) return false

@@ -225,6 +225,7 @@ function buildStudyParams(
   search: string,
   showStarred: boolean,
   showSolved: null | boolean,
+  patternTags?: string[],
 ): string {
   const p = new URLSearchParams()
   if (difficulty !== 'All') p.set('diff', difficulty)
@@ -233,6 +234,7 @@ function buildStudyParams(
   if (showStarred) p.set('starred', '1')
   if (showSolved === true) p.set('solved', 'true')
   if (showSolved === false) p.set('solved', 'false')
+  if (patternTags && patternTags.length > 0) p.set('tags', patternTags.join(','))
   return p.toString()
 }
 
@@ -245,6 +247,7 @@ export default function HomePage() {
   const [source, setSource] = useState('All')
   const [showStarred, setShowStarred] = useState(false)
   const [showSolved, setShowSolved] = useState<null | boolean>(null)
+  const [activePattern, setActivePattern] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([fetch('/questions_full.json').then(r => r.json()), getProgress()]).then(([qs, prog]) => {
@@ -254,10 +257,13 @@ export default function HomePage() {
 
   const DIFF_ORDER: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
 
+  const activePatternTags = activePattern ? (QUICK_PATTERNS.find(p => p.name === activePattern)?.tags ?? []) : []
+
   const filtered = questions.filter(q => {
     if (difficulty !== 'All' && q.difficulty !== difficulty) return false
     if (source !== 'All' && !(q.source || []).includes(source)) return false
     if (search && !q.title.toLowerCase().includes(search.toLowerCase()) && !String(q.id).includes(search)) return false
+    if (activePatternTags.length > 0 && !(q.tags || []).some(t => activePatternTags.includes(t))) return false
     const p = progress[String(q.id)] || {}
     if (showStarred && !p.starred) return false
     if (showSolved === true && !p.solved) return false
@@ -329,15 +335,49 @@ export default function HomePage() {
             {showSolved === false ? 'Unsolved' : showSolved === true ? 'Solved' : 'All'}
           </button>
         </div>
-        <div className="flex items-center justify-between mt-1">
-          <span className="text-xs text-gray-400">{filtered.length} questions</span>
+
+        {/* Pattern / category filter row */}
+        <div className="flex gap-1 overflow-x-auto pt-2 pb-1 scrollbar-none border-t border-gray-50 mt-2">
+          <span className="text-xs text-gray-400 self-center shrink-0 mr-1">Pattern:</span>
+          {activePattern && (
+            <button onClick={() => setActivePattern(null)}
+              className="px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors">
+              ✕ Clear
+            </button>
+          )}
+          {QUICK_PATTERNS.map(pat => {
+            const count = questions.filter(q => (q.tags || []).some(t => pat.tags.includes(t))).length
+            const active = activePattern === pat.name
+            return (
+              <button key={pat.name}
+                onClick={() => setActivePattern(active ? null : pat.name)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 border ${
+                  active
+                    ? 'bg-cyan-600 text-white border-cyan-600'
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-400 hover:text-cyan-600'
+                }`}>
+                {pat.name} <span className="opacity-60">·{count}</span>
+              </button>
+            )
+          })}
         </div>
+
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-xs text-gray-400">{filtered.length} questions{activePattern ? ` · ${activePattern}` : ''}</span>
+          {(activePattern || difficulty !== 'All' || source !== 'All' || showStarred || showSolved !== null || search) && (
+            <button onClick={() => { setActivePattern(null); setDifficulty('All'); setSource('All'); setShowStarred(false); setShowSolved(null); setSearch('') }}
+              className="text-xs text-gray-400 hover:text-red-500 transition-colors">
+              Clear all filters
+            </button>
+          )}
+        </div>
+
         <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
           <span className="text-xs text-gray-400 self-center">Study {filtered.length} as:</span>
-          <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 transition-colors">
+          <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePatternTags)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 transition-colors">
             <Layers size={12} /> Flashcards
           </Link>
-          <Link href={`/learn/0?${buildStudyParams(difficulty, source, search, showStarred, showSolved)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors">
+          <Link href={`/learn/0?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePatternTags)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors">
             <BookOpen size={12} /> Learn mode
           </Link>
         </div>
