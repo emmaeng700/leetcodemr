@@ -6,15 +6,25 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
 
+    // Pull session creds if client sends them (needed for premium questions)
+    const { session, csrfToken, ...graphqlBody } = body
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Referer': 'https://leetcode.com',
+      'Origin': 'https://leetcode.com',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+    }
+
+    if (session && csrfToken) {
+      headers['Cookie'] = `LEETCODE_SESSION=${session}; csrftoken=${csrfToken}`
+      headers['X-CSRFToken'] = csrfToken
+    }
+
     const res = await fetch(LEETCODE_GRAPHQL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Referer': 'https://leetcode.com',
-        'Origin': 'https://leetcode.com',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-      },
-      body: JSON.stringify(body),
+      headers,
+      body: JSON.stringify(graphqlBody),
     })
 
     if (!res.ok) {

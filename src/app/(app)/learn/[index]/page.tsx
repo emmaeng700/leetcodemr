@@ -124,11 +124,15 @@ function LearnInner() {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 8000)
 
+    const session   = localStorage.getItem('lc_session') || ''
+    const csrfToken = localStorage.getItem('lc_csrf')    || ''
+
     fetch('/api/leetcode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: ctrl.signal,
       body: JSON.stringify({
+        session, csrfToken,
         query: `query questionContent($titleSlug: String!) {
           question(titleSlug: $titleSlug) { content isPaidOnly }
         }`,

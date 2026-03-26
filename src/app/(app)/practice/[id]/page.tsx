@@ -91,11 +91,15 @@ export default function PracticePage() {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 8000)
 
+    const session  = localStorage.getItem('lc_session')  || ''
+    const csrfToken = localStorage.getItem('lc_csrf')    || ''
+
     fetch('/api/leetcode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
       body: JSON.stringify({
+        session, csrfToken,
         query: `query questionContent($titleSlug: String!) {
           question(titleSlug: $titleSlug) {
             content
