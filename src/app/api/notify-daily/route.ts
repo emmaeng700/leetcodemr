@@ -88,8 +88,6 @@ export async function GET(req: NextRequest) {
   const solvedToday = dayIds.filter(id => solvedSet.has(id)).length
   const remaining = dayIds.length - solvedToday
 
-  if (remaining === 0) return NextResponse.json({ skipped: 'All done for today!' })
-
   // ── Load questions from JSON ────────────────────────────────────────────────
   let allQuestions: any[] = []
   try {
@@ -100,6 +98,22 @@ export async function GET(req: NextRequest) {
   const qMap: Record<number, { title: string; difficulty: string; slug: string }> = {}
   for (const q of allQuestions) {
     qMap[q.id] = { title: q.title, difficulty: q.difficulty, slug: q.slug ?? '' }
+  }
+
+  // ── Load due SR reviews ─────────────────────────────────────────────────────
+  const { data: srRows } = await supabase
+    .from('progress')
+    .select('question_id,review_count,status')
+    .eq('user_id', USER_ID)
+    .eq('solved', true)
+    .not('next_review', 'is', null)
+    .lte('next_review', todayStr)
+
+  const dueReviews = srRows ?? []
+
+  // Skip only if both daily questions are done AND no SR reviews are due
+  if (remaining === 0 && dueReviews.length === 0) {
+    return NextResponse.json({ skipped: 'All done for today!' })
   }
 
   // ── Build email ─────────────────────────────────────────────────────────────
@@ -174,11 +188,55 @@ export async function GET(req: NextRequest) {
 
       <table style="width:100%;border-collapse:collapse;">${rows}</table>
 
+      ${remaining > 0 ? `
       <div style="margin-top:28px;text-align:center;">
         <a href="${appUrl}/daily"
            style="display:inline-block;background:#4f46e5;color:#fff;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:12px;font-size:15px;">
           Go Solve Now →
         </a>
+      </div>` : `
+      <div style="margin-top:16px;padding:12px 16px;background:#f0fdf4;border-radius:10px;text-align:center;">
+        <span style="color:#16a34a;font-weight:700;font-size:14px;">✅ Daily questions complete!</span>
+      </div>`}
+
+      <!-- ── Spaced Repetition Section ────────────────────────────────── -->
+      <div style="margin-top:28px;border-top:2px solid #f3f4f6;padding-top:24px;">
+        <div style="display:flex;align-items:center;margin-bottom:${dueReviews.length > 0 ? '16px' : '0'};">
+          <span style="font-size:18px;margin-right:8px;">🧠</span>
+          <span style="font-size:15px;font-weight:700;color:#111827;">Spaced Repetition</span>
+          ${dueReviews.length > 0
+            ? `<span style="margin-left:auto;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;">${dueReviews.length} due today</span>`
+            : `<span style="margin-left:auto;color:#16a34a;font-size:13px;font-weight:600;">All caught up ✓</span>`
+          }
+        </div>
+        ${dueReviews.length > 0 ? `
+        <table style="width:100%;border-collapse:collapse;">
+          ${dueReviews.map((r: any) => {
+            const q = qMap[r.question_id]
+            const diff = q?.difficulty ?? ''
+            const lcLink = q?.slug ? `https://leetcode.com/problems/${q.slug}/` : null
+            const reviewNum = (r.review_count ?? 0) + 1
+            const statusLabel = r.status ?? (reviewNum === 1 ? 'Learnt' : reviewNum === 2 ? 'Reviewed' : reviewNum === 3 ? 'Revised' : 'Mastered')
+            return `
+          <tr>
+            <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;vertical-align:middle;">
+              <span style="font-size:14px;margin-right:6px;">🔁</span>
+              <a href="${appUrl}/question/${r.question_id}" style="color:#7c3aed;text-decoration:none;font-weight:600;">#${r.question_id} ${q?.title ?? `Question ${r.question_id}`}</a>
+              ${lcLink ? `&nbsp;<a href="${lcLink}" style="color:#9ca3af;font-size:12px;text-decoration:none;">[LC ↗]</a>` : ''}
+            </td>
+            <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right;vertical-align:middle;white-space:nowrap;">
+              <span style="color:${diffColor[diff] ?? '#6b7280'};font-weight:700;font-size:12px;margin-right:6px;">${diff}</span>
+              <span style="background:#ede9fe;color:#7c3aed;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;">Review #${reviewNum}</span>
+            </td>
+          </tr>`
+          }).join('')}
+        </table>
+        <div style="margin-top:16px;text-align:center;">
+          <a href="${appUrl}/review"
+             style="display:inline-block;background:#7c3aed;color:#fff;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:12px;font-size:14px;">
+            Start Reviews →
+          </a>
+        </div>` : ''}
       </div>
     </div>
 
