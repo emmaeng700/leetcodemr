@@ -25,6 +25,26 @@ interface Question {
   doocs_url?: string
 }
 
+function PremiumBlock({ slug }: { slug?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+      <div className="text-4xl mb-3">🔒</div>
+      <h3 className="font-bold text-gray-800 text-base mb-1">LeetCode Premium Question</h3>
+      <p className="text-sm text-gray-500 mb-4 leading-relaxed max-w-xs">
+        This question requires a LeetCode Premium subscription to view the description.
+        Your subscription may have lapsed or you may not have one active.
+      </p>
+      {slug && (
+        <a href={`https://leetcode.com/problems/${slug}/`} target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition-colors">
+          Open on LeetCode ↗
+        </a>
+      )}
+      <p className="text-xs text-gray-400 mt-3">You can still use the code editor on the right to practice.</p>
+    </div>
+  )
+}
+
 function LearnInner() {
   const params = useParams()
   const router = useRouter()
@@ -54,6 +74,7 @@ function LearnInner() {
   // Live LeetCode description
   const [lcContent, setLcContent]   = useState<string | null>(null)
   const [lcLoading, setLcLoading]   = useState(false)
+  const [isPremium, setIsPremium]   = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -92,6 +113,7 @@ function LearnInner() {
     if (q) setNotes(progress[String(q.id)]?.notes || '')
     setReviewDone(false)
     setLcContent(null)
+    setIsPremium(false)
   }, [q?.id])
 
   // Fetch live LeetCode description
@@ -108,13 +130,18 @@ function LearnInner() {
       signal: ctrl.signal,
       body: JSON.stringify({
         query: `query questionContent($titleSlug: String!) {
-          question(titleSlug: $titleSlug) { content }
+          question(titleSlug: $titleSlug) { content isPaidOnly }
         }`,
         variables: { titleSlug: q.slug },
       }),
     })
       .then(r => r.json())
-      .then(data => { if (!cancelled) setLcContent(data?.data?.question?.content || null) })
+      .then(data => {
+        if (cancelled) return
+        const qd = data?.data?.question
+        if (qd?.isPaidOnly && !qd?.content) setIsPremium(true)
+        else if (qd?.content) setLcContent(qd.content)
+      })
       .catch(() => {})
       .finally(() => { clearTimeout(timer); if (!cancelled) setLcLoading(false) })
 
@@ -349,6 +376,8 @@ function LearnInner() {
                   {/* Live LeetCode description */}
                   {lcContent ? (
                     <div className="lc-description text-sm text-gray-800" dangerouslySetInnerHTML={{ __html: lcContent }} />
+                  ) : isPremium ? (
+                    <PremiumBlock slug={q.slug} />
                   ) : lcLoading ? (
                     <div className="space-y-2 animate-pulse">
                       <div className="h-3 bg-gray-100 rounded w-full" />
@@ -369,14 +398,6 @@ function LearnInner() {
                       )}
                     </div>
                   )}
-
-                  {/* Question image (show if exists) */}
-                  <img
-                    src={`/question-images/${q.id}.jpg`}
-                    alt={q.title}
-                    className="w-full rounded-xl border border-gray-100"
-                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                  />
 
                   {/* Company sources */}
                   {(q.source || []).length > 0 && (

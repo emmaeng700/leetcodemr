@@ -22,6 +22,30 @@ interface Question {
   cpp_solution?: string
 }
 
+function PremiumBlock({ slug }: { slug?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+      <div className="text-4xl mb-3">🔒</div>
+      <h3 className="font-bold text-gray-800 text-base mb-1">LeetCode Premium Question</h3>
+      <p className="text-sm text-gray-500 mb-4 leading-relaxed max-w-xs">
+        This question requires a LeetCode Premium subscription to view the description.
+        Your subscription may have lapsed or you may not have one active.
+      </p>
+      {slug && (
+        <a
+          href={`https://leetcode.com/problems/${slug}/`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition-colors"
+        >
+          Open on LeetCode ↗
+        </a>
+      )}
+      <p className="text-xs text-gray-400 mt-3">You can still use the code editor on the right to practice.</p>
+    </div>
+  )
+}
+
 export default function PracticePage() {
   const params = useParams()
   const router = useRouter()
@@ -36,6 +60,7 @@ export default function PracticePage() {
   const [lcContent, setLcContent] = useState<string | null>(null)
   const [lcLoading, setLcLoading] = useState(false)
   const [lcFailed, setLcFailed] = useState(false)
+  const [isPremium, setIsPremium] = useState(false)
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startRef = useRef(Date.now())
@@ -61,9 +86,10 @@ export default function PracticePage() {
     let cancelled = false
     setLcLoading(true)
     setLcFailed(false)
+    setIsPremium(false)
 
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 8000) // 8s timeout for slow connections
+    const timeout = setTimeout(() => controller.abort(), 8000)
 
     fetch('/api/leetcode', {
       method: 'POST',
@@ -73,6 +99,7 @@ export default function PracticePage() {
         query: `query questionContent($titleSlug: String!) {
           question(titleSlug: $titleSlug) {
             content
+            isPaidOnly
           }
         }`,
         variables: { titleSlug: question.slug },
@@ -81,9 +108,11 @@ export default function PracticePage() {
       .then(r => r.json())
       .then(data => {
         if (cancelled) return
-        const content = data?.data?.question?.content
-        if (content) {
-          setLcContent(content)
+        const q = data?.data?.question
+        if (q?.isPaidOnly && !q?.content) {
+          setIsPremium(true)
+        } else if (q?.content) {
+          setLcContent(q.content)
         } else {
           setLcFailed(true)
         }
@@ -222,12 +251,11 @@ export default function PracticePage() {
 
                 {/* Live LeetCode HTML content */}
                 {lcContent ? (
-                  <div
-                    className="prose prose-sm max-w-none text-gray-800 lc-description"
-                    dangerouslySetInnerHTML={{ __html: lcContent }}
-                  />
+                  <div className="prose prose-sm max-w-none text-gray-800 lc-description"
+                    dangerouslySetInnerHTML={{ __html: lcContent }} />
+                ) : isPremium ? (
+                  <PremiumBlock slug={question?.slug} />
                 ) : lcLoading ? (
-                  /* Skeleton while fetching */
                   <div className="space-y-3 animate-pulse">
                     <div className="h-3 bg-gray-100 rounded w-full" />
                     <div className="h-3 bg-gray-100 rounded w-5/6" />
@@ -238,19 +266,11 @@ export default function PracticePage() {
                     <div className="h-3 bg-gray-100 rounded w-5/6" />
                   </div>
                 ) : (
-                  /* Fallback — local JSON description */
                   <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
                     {question?.description || (
-                      <span className="text-gray-400 italic">
+                      <span className="text-gray-400 italic text-xs">
                         Description unavailable.{' '}
-                        <a
-                          href={`https://leetcode.com/problems/${question?.slug}/`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-indigo-500 hover:underline"
-                        >
-                          View on LeetCode ↗
-                        </a>
+                        <a href={`https://leetcode.com/problems/${question?.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
                       </span>
                     )}
                   </div>

@@ -36,6 +36,26 @@ interface SessionRecord {
   elapsedSeconds: number
 }
 
+function PremiumBlock({ slug }: { slug?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+      <div className="text-4xl mb-3">🔒</div>
+      <h3 className="font-bold text-gray-800 text-base mb-1">LeetCode Premium Question</h3>
+      <p className="text-sm text-gray-500 mb-4 leading-relaxed max-w-xs">
+        This question requires a LeetCode Premium subscription to view the description.
+        Your subscription may have lapsed or you may not have one active.
+      </p>
+      {slug && (
+        <a href={`https://leetcode.com/problems/${slug}/`} target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition-colors">
+          Open on LeetCode ↗
+        </a>
+      )}
+      <p className="text-xs text-gray-400 mt-3">You can still use the code editor on the right to practice.</p>
+    </div>
+  )
+}
+
 export default function MockInterviewPage() {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('setup')
@@ -56,6 +76,7 @@ export default function MockInterviewPage() {
   // Live LeetCode description
   const [lcContent, setLcContent] = useState<string | null>(null)
   const [lcLoading, setLcLoading] = useState(false)
+  const [isPremium, setIsPremium] = useState(false)
 
   const revealThreshold = Math.floor((duration * 2) / 3)
   const elapsed = duration - timeLeft
@@ -93,6 +114,7 @@ export default function MockInterviewPage() {
     if (!question?.slug) return
     let cancelled = false
     setLcContent(null)
+    setIsPremium(false)
     setLcLoading(true)
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 8000)
@@ -101,12 +123,17 @@ export default function MockInterviewPage() {
       headers: { 'Content-Type': 'application/json' },
       signal: ctrl.signal,
       body: JSON.stringify({
-        query: `query questionContent($titleSlug: String!) { question(titleSlug: $titleSlug) { content } }`,
+        query: `query questionContent($titleSlug: String!) { question(titleSlug: $titleSlug) { content isPaidOnly } }`,
         variables: { titleSlug: question.slug },
       }),
     })
       .then(r => r.json())
-      .then(data => { if (!cancelled) setLcContent(data?.data?.question?.content || null) })
+      .then(data => {
+        if (cancelled) return
+        const qd = data?.data?.question
+        if (qd?.isPaidOnly && !qd?.content) setIsPremium(true)
+        else if (qd?.content) setLcContent(qd.content)
+      })
       .catch(() => {})
       .finally(() => { clearTimeout(timer); if (!cancelled) setLcLoading(false) })
     return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
@@ -323,6 +350,8 @@ export default function MockInterviewPage() {
                 {/* Live LeetCode description */}
                 {lcContent ? (
                   <div className="lc-description text-sm text-gray-800" dangerouslySetInnerHTML={{ __html: lcContent }} />
+                ) : isPremium ? (
+                  <PremiumBlock slug={question.slug} />
                 ) : lcLoading ? (
                   <div className="space-y-2 animate-pulse">
                     <div className="h-3 bg-gray-100 rounded w-full" />
@@ -337,11 +366,6 @@ export default function MockInterviewPage() {
                     {question.description || <span className="text-gray-400 italic text-xs">No local description. <a href={`https://leetcode.com/problems/${question.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a></span>}
                   </div>
                 )}
-
-                {/* Question image */}
-                <img src={`/question-images/${question.id}.jpg`} alt={question.title}
-                  className="w-full rounded-xl border border-gray-100 mt-4"
-                  onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
               </div>
             )}
 
