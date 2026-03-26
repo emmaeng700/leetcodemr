@@ -133,23 +133,38 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
   useEffect(() => {
     if (!slug) return
     setLcLoad(true); setLcErr('')
+
+    // Read session from localStorage at fetch time (may have loaded after mount)
+    const lc_session  = localStorage.getItem('lc_session')  ?? ''
+    const lc_csrf     = localStorage.getItem('lc_csrf')     ?? ''
+
     fetch('/api/leetcode', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query: `query($s:String!){question(titleSlug:$s){questionId questionFrontendId titleSlug codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`,
+        session: lc_session, csrfToken: lc_csrf,
+        query: `query($s:String!){question(titleSlug:$s){questionId questionFrontendId titleSlug isPaidOnly codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`,
         variables: { s: slug },
       }),
     })
       .then(r => r.json())
       .then(json => {
         if (json.errors) throw new Error(json.errors[0]?.message)
-        const q: LCQuestion = json.data.question
+        const q: LCQuestion & { isPaidOnly?: boolean } = json.data?.question
+        if (!q) {
+          setLcErr('Could not load question data from LeetCode.')
+          return
+        }
+        // Premium question with no session / session expired
+        if (q.isPaidOnly && !q.codeSnippets?.length) {
+          setLcErr('premium')
+          return
+        }
         setLcQ(q)
-        const parsed = parseCases(q.exampleTestcases, q.metaData)
+        const parsed = parseCases(q.exampleTestcases ?? '', q.metaData ?? '{}')
         setCases(parsed); setActiveCase(0); setTestInput(parsed[0]?.raw ?? '')
         // Load saved code or fall back to LeetCode starter
         const saved = localStorage.getItem(`lc_code_${slug}_${lang}`)
-        setCode(saved ?? q.codeSnippets.find(s => s.langSlug === lang)?.code ?? '')
+        setCode(saved ?? q.codeSnippets?.find(s => s.langSlug === lang)?.code ?? '')
       })
       .catch(e => setLcErr(String(e)))
       .finally(() => setLcLoad(false))
@@ -166,7 +181,7 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
     setLang(l)
     if (lcQ) {
       const saved = localStorage.getItem(`lc_code_${slug}_${l}`)
-      setCode(saved ?? lcQ.codeSnippets.find(s => s.langSlug === l)?.code ?? '')
+      setCode(saved ?? lcQ.codeSnippets?.find(s => s.langSlug === l)?.code ?? '')
     }
     setResult(null)
   }
@@ -289,8 +304,28 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
         </div>
       )}
       {lcErr && (
-        <div className="flex-1 flex items-center justify-center text-xs text-red-400 p-4 text-center">
-          <XCircle size={14} className="mr-2 shrink-0" /> Could not load question from LeetCode: {lcErr}
+        <div className="flex-1 flex items-center justify-center p-6 text-center">
+          {lcErr === 'premium' ? (
+            <div className="space-y-2">
+              <div className="text-2xl">🔒</div>
+              <p className="text-xs text-gray-300 font-semibold">LeetCode Premium required</p>
+              <p className="text-xs text-gray-500 max-w-xs">
+                The editor needs your LeetCode session to load this question.
+                {!sessionOK && ' Add your session token using the "Setup LeetCode session" button above.'}
+              </p>
+              <a
+                href={`https://leetcode.com/problems/${slug}/`}
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-orange-500 text-white text-xs font-semibold rounded-lg hover:bg-orange-600 transition"
+              >
+                Open on LeetCode ↗
+              </a>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-red-400">
+              <XCircle size={14} className="shrink-0" /> Could not load question: {lcErr}
+            </div>
+          )}
         </div>
       )}
 
