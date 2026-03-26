@@ -32,50 +32,50 @@ const FEATURES = [
   {
     icon: Code2,
     color: 'text-blue-500',
-    label: 'Practice Editor',
-    desc: 'Write and run Python or C++ code directly in the browser using the Judge0 API (proxied server-side). Auto-generates a test harness from the solution signature. Auto-saves code per question and language. Link to the original LeetCode problem for reference.',
+    label: 'Practice Editor — Real LeetCode',
+    desc: 'Full split-panel IDE: question description on the left, real LeetCode code editor on the right. Run your code against LeetCode\'s own test cases and submit directly to LeetCode for an official verdict — using your own LeetCode session. Auto-saves code per question. Supports Python 3 and C++. Built-in solution viewer and time tracker.',
   },
   {
     icon: BookMarked,
     color: 'text-emerald-500',
     label: 'DSA Templates & Tutorials',
-    desc: 'Two-tab reference library. Templates: code snippets for common patterns (binary search, BFS/DFS, sliding window, union-find, etc.) in Python and C++. Tutorials: algorithm explanations with complexity analysis and highlighted code (Arrays, Sorting, Graphs, Math, Strings, and more).',
+    desc: 'Two-tab reference library. Templates: code snippets for common patterns (binary search, BFS/DFS, sliding window, union-find, etc.) in Python and C++. Tutorials: algorithm explanations with complexity analysis and highlighted code (Arrays, Sorting, Graphs, Math, Strings, and more). Click any card to flip open or closed.',
   },
   {
     icon: Timer,
     color: 'text-orange-500',
     label: 'Mock Interview',
-    desc: 'Simulated interview mode with a countdown timer. Pick a random or specific question, code under time pressure, and mark the outcome (solved, gave up, timeout). Session history logged with difficulty and elapsed time.',
+    desc: 'Simulated interview mode with a countdown timer. Pick a random or specific question, code under time pressure using the real LeetCode editor, and mark the outcome (solved, gave up, timeout). Session history logged with difficulty and elapsed time.',
   },
   {
     icon: Zap,
     color: 'text-yellow-500',
     label: 'Quick Review',
-    desc: 'Rapid-fire flashcard blitz — 15 seconds to read the question, 15 seconds to view the solution, then auto-advance. Filter by difficulty and source. Good for high-speed recognition drilling.',
+    desc: 'Rapid-fire flashcard blitz — 15 seconds to read the question, 15 seconds to view the solution, then auto-advance. Deck ordered Easy → Medium → Hard for progressive difficulty. Filter by difficulty and source.',
   },
   {
     icon: Brain,
     color: 'text-teal-500',
     label: 'Spaced Repetition',
-    desc: 'Mark questions solved to start scheduling. Reviews spaced at 1 → 3 → 7 → 14 → 30 → 60 day intervals. Due reviews surface as a banner on the home page. Dedicated Review page shows your full queue with overdue indicators.',
+    desc: 'Mark questions solved to start a personalised review schedule. Intervals grow gradually: 3 → 4 → 5 → 7 → 10 → 14 → 21 → 30 → 60 days. Due reviews surface as a banner on the home page. Dedicated Review page shows your full queue with overdue indicators. Timezone-aware (Central Time).',
   },
   {
     icon: Calendar,
     color: 'text-orange-400',
-    label: 'Daily Study Plan',
-    desc: 'Generate a locked daily plan across all 331 questions. Set questions per day, start date, and a lock code to hold yourself accountable. Tracks today\'s questions, past day history, and lets you do bonus days when you finish early.',
+    label: 'Daily Study Plan (LeetCode Police)',
+    desc: 'Generate a locked daily plan across all 331 questions ordered Easy → Medium → Hard. Set questions per day, start date, and a lock code to hold yourself accountable. Tracks today\'s progress, past day history (last 14 days), and unlocks sneak-peek bonus days once today is done. Daily email reminder sent at 8 AM CT.',
   },
   {
     icon: BarChart2,
     color: 'text-yellow-500',
     label: 'Stats Dashboard',
-    desc: 'Solved count, progress by difficulty, total practice time. Two heatmaps: an activity heatmap (any day you solved something goes green) and a daily plan heatmap (red/yellow/green vs your daily target). LeetCode Police: set and lock a daily question goal with a code.',
+    desc: 'Solved count, progress by difficulty, total practice time. Two heatmaps: an activity heatmap (any day you solved something goes green) and a daily plan heatmap (red/yellow/green vs your daily target). LeetCode live solve count synced from your actual LeetCode profile.',
   },
   {
     icon: MessageSquare,
     color: 'text-purple-500',
     label: 'Behavioral Prep',
-    desc: '63 behavioral questions with STAR stories. Tabbed story view for each question. Category filter and shuffle mode. Mark questions as visited to track coverage.',
+    desc: '63 behavioral questions with 3 STAR stories each covering all major categories (Leadership, Conflict, Failure, Teamwork, and more). Tabbed story view, category filter, and shuffle mode. Mark questions as visited to track coverage.',
   },
   {
     icon: Server,
@@ -95,10 +95,11 @@ const TECH_STACK = [
   { label: 'Next.js 16', desc: 'App Router · React 19 · Turbopack' },
   { label: 'TypeScript', desc: 'End-to-end type safety' },
   { label: 'Tailwind CSS 4', desc: 'Utility-first styling' },
-  { label: 'Supabase', desc: 'Postgres database & auth' },
-  { label: 'Judge0 API', desc: 'Code execution engine (proxied)' },
+  { label: 'Supabase', desc: 'Postgres database · progress & plan storage' },
+  { label: 'LeetCode GraphQL', desc: 'Real test & submit via your LC session' },
   { label: 'CodeMirror 6', desc: 'In-browser code editor' },
-  { label: 'highlight.js', desc: 'Syntax highlighting (DSA)' },
+  { label: 'highlight.js', desc: 'Syntax highlighting (DSA templates)' },
+  { label: 'Resend', desc: 'Daily email reminders (cron at 8 AM CT)' },
   { label: 'Lucide React', desc: 'Icon library' },
   { label: 'react-hot-toast', desc: 'Toast notifications' },
 ]
@@ -154,7 +155,8 @@ export default function AboutPage() {
         <div className="space-y-2 text-sm text-gray-600">
           <p>All progress — solved status, notes, spaced repetition schedules, practice code, mock sessions, and daily plan — is stored in Supabase, private to your account.</p>
           <p>Questions data is loaded from a static JSON file bundled with the app — no external API calls for question content.</p>
-          <p>Code execution is proxied through a Next.js API route to Judge0 (open source) — your code is sent to their servers to run and is not stored.</p>
+          <p>Code execution goes directly to LeetCode's own judge using your personal LeetCode session cookie. Your code is run on LeetCode's servers exactly as if you submitted on the site — no third-party execution engine involved.</p>
+          <p>Your LeetCode session token is stored in your browser only and never sent to our servers beyond proxying the request.</p>
         </div>
       </div>
     </div>
