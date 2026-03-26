@@ -215,7 +215,7 @@ function PatternFlashcards({
                 <DifficultyBadge difficulty={card.difficulty} />
                 <span
                   className="text-sm font-bold text-indigo-800 truncate cursor-pointer hover:underline"
-                  onClick={e => { e.stopPropagation(); router.push(`/question/${card.id}`) }}
+                  onClick={e => { e.stopPropagation(); router.push(`/practice/${card.id}`) }}
                 >
                   {card.title} ↗
                 </span>
@@ -249,7 +249,7 @@ function PatternFlashcards({
           <ChevronLeft size={14} /> Prev
         </button>
         <button
-          onClick={e => { e.stopPropagation(); router.push(`/question/${card.id}`) }}
+          onClick={e => { e.stopPropagation(); router.push(`/practice/${card.id}`) }}
           className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors text-xs font-medium"
         >
           Open question ↗
@@ -393,7 +393,7 @@ export default function PatternsPage() {
                         return (
                           <div
                             key={q.id}
-                            onClick={() => router.push(`/question/${q.id}`)}
+                            onClick={() => router.push(`/practice/${q.id}`)}
                             className="flex items-center gap-2 px-3 sm:px-5 py-2.5 cursor-pointer hover:bg-white/90 transition-colors group"
                           >
                             <span className={`w-2 h-2 rounded-full shrink-0 ${prog.solved ? 'bg-green-500' : 'bg-gray-300'}`} />

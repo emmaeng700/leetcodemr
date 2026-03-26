@@ -419,21 +419,16 @@ export default function DailyPage() {
                       <DifficultyBadge difficulty={q.difficulty} />
                     </div>
                   </div>
-                  {solved ? (
-                    <Link
-                      href={`/practice/${q.id}`}
-                      className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 text-xs font-bold rounded-lg transition-colors"
-                    >
-                      Revisit <RotateCcw size={11} />
-                    </Link>
-                  ) : (
-                    <Link
-                      href={`/question/${q.id}`}
-                      className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors"
-                    >
-                      Solve <ArrowRight size={12} />
-                    </Link>
-                  )}
+                  <Link
+                    href={`/practice/${q.id}`}
+                    className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                      solved
+                        ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
+                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    }`}
+                  >
+                    {solved ? <><RotateCcw size={11} /> Revisit</> : <>Solve <ArrowRight size={12} /></>}
+                  </Link>
                 </div>
               )
             })}
@@ -510,7 +505,7 @@ export default function DailyPage() {
 
                         {/* Preview link — read-only intent, not solve pressure */}
                         <Link
-                          href={`/question/${q.id}`}
+                          href={`/practice/${q.id}`}
                           className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
                             solved
                               ? 'border-green-200 text-green-600 bg-green-50 hover:bg-green-100'
@@ -596,7 +591,7 @@ export default function DailyPage() {
                             ? <CheckCircle2 size={14} className="text-green-500 shrink-0" />
                             : <Circle size={14} className="text-gray-300 shrink-0" />
                           }
-                          <Link href={`/question/${q.id}`} className="text-gray-700 hover:text-indigo-600 truncate flex-1 min-w-0">
+                          <Link href={`/practice/${q.id}`} className="text-gray-700 hover:text-indigo-600 truncate flex-1 min-w-0">
                             {q.title}
                           </Link>
                           <a

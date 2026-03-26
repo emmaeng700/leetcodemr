@@ -172,7 +172,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
               <span className={'text-xs font-bold px-2 py-0.5 rounded-full border shrink-0 mt-0.5 ' + (diffColor[dailyQ.difficulty] || 'bg-gray-100 text-gray-600 border-gray-200')}>{dailyQ.difficulty}</span>
               <span className="text-sm font-semibold text-gray-800 leading-snug">{dailyQ.title}</span>
             </div>
-            <button onClick={() => router.push('/question/' + dailyQ.id)} className="flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
+            <button onClick={() => router.push('/practice/' + dailyQ.id)} className="flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
               Solve now <ChevronRight size={13} />
             </button>
           </div>
@@ -207,7 +207,7 @@ function DueReviewBanner() {
       {open && (
         <div className="px-4 pb-3 flex flex-wrap gap-2">
           {due.map(q => (
-            <button key={q.id} onClick={() => router.push('/question/' + q.id)}
+            <button key={q.id} onClick={() => router.push('/practice/' + q.id)}
               className="flex items-center gap-2 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs hover:border-indigo-400 hover:shadow-sm transition-all text-left">
               <span className="text-gray-400 font-mono">#{q.id}</span>
               <span className="text-indigo-400 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
@@ -363,7 +363,7 @@ export default function HomePage() {
               mastered: 'bg-green-100 text-green-600',
             }
             return (
-              <Link key={q.id} href={'/question/' + q.id} className={'group block rounded-xl border p-4 transition-all duration-150 hover:shadow-md hover:border-indigo-300 ' + (p.solved ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100')}>
+              <Link key={q.id} href={'/practice/' + q.id} className={'group block rounded-xl border p-4 transition-all duration-150 hover:shadow-md hover:border-indigo-300 ' + (p.solved ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100')}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>

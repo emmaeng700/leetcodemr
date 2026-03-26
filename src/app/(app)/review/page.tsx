@@ -141,7 +141,7 @@ export default function ReviewPage() {
             {due.map(q => (
               <div
                 key={q.id}
-                onClick={() => router.push(`/question/${q.id}`)}
+                onClick={() => router.push(`/practice/${q.id}`)}
                 className="flex items-center justify-between gap-2 flex-wrap bg-indigo-50 border border-indigo-200 rounded-xl px-3 sm:px-4 py-3 cursor-pointer hover:border-indigo-400 hover:shadow-sm transition-all group"
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -195,7 +195,7 @@ export default function ReviewPage() {
                   {questions.map(q => (
                     <div
                       key={q.id}
-                      onClick={() => router.push(`/question/${q.id}`)}
+                      onClick={() => router.push(`/practice/${q.id}`)}
                       className="flex items-center justify-between gap-2 flex-wrap bg-white border border-gray-100 rounded-xl px-3 sm:px-4 py-2.5 cursor-pointer hover:border-indigo-300 hover:shadow-sm transition-all group"
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -243,7 +243,7 @@ export default function ReviewPage() {
                 {qs.map(q => (
                   <div
                     key={q.id}
-                    onClick={() => router.push(`/question/${q.id}`)}
+                    onClick={() => router.push(`/practice/${q.id}`)}
                     className="flex items-center justify-between gap-2 flex-wrap bg-white border border-gray-100 rounded-xl px-3 sm:px-4 py-2.5 cursor-pointer hover:border-indigo-300 hover:shadow-sm transition-all group"
                   >
                     <div className="flex items-center gap-2 min-w-0 flex-1">

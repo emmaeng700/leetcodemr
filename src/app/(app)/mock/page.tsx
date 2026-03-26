@@ -434,7 +434,7 @@ export default function MockInterviewPage() {
                 <RotateCcw size={15} /> Try Another
               </button>
               <button
-                onClick={() => router.push(`/question/${question.id}`)}
+                onClick={() => router.push(`/practice/${question.id}`)}
                 className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl hover:border-gray-400 transition-colors"
               >
                 <Trophy size={15} /> View Full Question
