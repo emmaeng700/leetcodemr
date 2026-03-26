@@ -150,15 +150,15 @@ export default function StatsPage() {
       </h1>
 
       {/* Big number cards */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-8">
         {[
           { label: 'Solved', value: solvedQ, color: 'text-green-600', bg: 'bg-green-50 border-green-200' },
           { label: 'Total', value: totalQ, color: 'text-gray-700', bg: 'bg-gray-50 border-gray-200' },
           { label: 'Starred', value: starredQ, color: 'text-yellow-600', bg: 'bg-yellow-50 border-yellow-200' },
         ].map(c => (
-          <div key={c.label} className={`rounded-xl border p-3 sm:p-5 text-center ${c.bg}`}>
+          <div key={c.label} className={`rounded-xl border p-3 sm:p-5 flex sm:block items-center gap-3 sm:text-center ${c.bg}`}>
             <div className={`text-3xl sm:text-4xl font-black ${c.color}`}>{c.value}</div>
-            <div className="text-xs text-gray-500 mt-1 font-medium">{c.label}</div>
+            <div className="text-xs text-gray-500 sm:mt-1 font-medium">{c.label}</div>
           </div>
         ))}
       </div>

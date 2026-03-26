@@ -58,7 +58,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-14">
           <Link href="/" className="flex items-center gap-2 font-black text-indigo-600 text-lg shrink-0">
             <BookOpen size={22} />
-            <span className="hidden sm:inline">LeetMastery</span>
+            <span>LeetMastery</span>
           </Link>
 
           <div className="flex items-center gap-2">
@@ -104,7 +104,7 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="md:hidden border-t border-gray-100 bg-white px-4 py-3 space-y-1">
+        <div className="md:hidden border-t border-gray-100 bg-white px-4 py-3 space-y-1 max-h-[80vh] overflow-y-auto">
           {[
             { label: 'Practice', group: PRACTICE_LINKS },
             { label: 'Flashcards', group: FLASHCARD_LINKS },

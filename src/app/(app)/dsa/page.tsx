@@ -107,7 +107,7 @@ export default function DSAPage() {
       {mode === 'templates' && (
         <>
           {/* Category tabs */}
-          <div className="flex flex-wrap gap-2 mb-6">
+          <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-none">
             {DSA_CATEGORIES.map(cat => (
               <button
                 key={cat.name}
@@ -156,7 +156,7 @@ export default function DSAPage() {
                       onClick={() => toggleFlip(card.id)}
                     >
                       {!isFlipped ? (
-                        <div className="p-5 min-h-[110px] flex flex-col justify-between">
+                        <div className="p-4 sm:p-5 min-h-[80px] sm:min-h-[110px] flex flex-col justify-between">
                           <div>
                             <p className="font-bold text-gray-900 text-sm leading-snug">{card.title}</p>
                             {card.description && (
@@ -215,7 +215,7 @@ export default function DSAPage() {
       {mode === 'tutorials' && (
         <>
           {/* Section tabs */}
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-none">
             {TUTORIAL_SECTIONS.map(sec => (
               <button
                 key={sec.section}
@@ -236,7 +236,7 @@ export default function DSAPage() {
 
           {/* Category sub-tabs */}
           {currentSection && (
-            <div className="flex flex-wrap gap-2 mb-6">
+            <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-none">
               {currentSection.categories.map(cat => (
                 <button
                   key={cat.name}
@@ -286,7 +286,7 @@ export default function DSAPage() {
                       onClick={() => toggleTutFlip(card.id)}
                     >
                       {!isFlipped ? (
-                        <div className="p-5 min-h-[120px] flex flex-col justify-between">
+                        <div className="p-4 sm:p-5 min-h-[80px] sm:min-h-[120px] flex flex-col justify-between">
                           <div>
                             <p className="font-bold text-gray-900 text-sm leading-snug">{card.title}</p>
                             <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{card.description}</p>

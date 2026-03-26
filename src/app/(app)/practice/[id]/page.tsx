@@ -54,6 +54,7 @@ export default function PracticePage() {
   const [question, setQuestion] = useState<Question | null>(null)
   const [solved, setSolved] = useState(false)
   const [leftTab, setLeftTab] = useState<'description' | 'solution'>('description')
+  const [mobilePanel, setMobilePanel] = useState<'description' | 'editor'>('description')
   const [timer, setTimer] = useState(0)
 
   // LeetCode live description state
@@ -160,28 +161,28 @@ export default function PracticePage() {
     <div className="flex flex-col h-[calc(100vh-56px)]">
 
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-white shrink-0 gap-3 flex-wrap">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 border-b border-gray-100 bg-white shrink-0 gap-2 sm:gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-700 transition-colors shrink-0">
             <ArrowLeft size={18} />
           </button>
           {question ? (
             <>
-              <span className="text-xs text-gray-400 font-mono shrink-0">#{question.id}</span>
+              <span className="text-xs text-gray-400 font-mono shrink-0 hidden sm:inline">#{question.id}</span>
               <h1 className="font-bold text-gray-800 text-sm leading-snug truncate">{question.title}</h1>
-              <DifficultyBadge difficulty={question.difficulty} />
+              <div className="shrink-0 hidden sm:block"><DifficultyBadge difficulty={question.difficulty} /></div>
               <a
                 href={`https://leetcode.com/problems/${question.slug}/`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 text-gray-300 hover:text-orange-400 transition-colors"
+                className="shrink-0 text-gray-300 hover:text-orange-400 transition-colors hidden sm:inline"
                 title="Open on LeetCode"
               >
                 <ExternalLink size={12} />
               </a>
             </>
           ) : (
-            <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
+            <div className="h-4 w-32 sm:w-48 bg-gray-100 rounded animate-pulse" />
           )}
         </div>
 
@@ -193,23 +194,36 @@ export default function PracticePage() {
           <button
             onClick={handleMarkSolved}
             disabled={!question}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors border disabled:opacity-40 ${
+            className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-colors border disabled:opacity-40 ${
               solved
                 ? 'bg-green-50 text-green-600 border-green-200'
                 : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-green-300'
             }`}
           >
             <CheckCircle size={13} className={solved ? 'fill-green-500 text-white' : ''} />
-            {solved ? 'Solved ✓' : 'Mark Solved'}
+            <span className="hidden sm:inline">{solved ? 'Solved ✓' : 'Mark Solved'}</span>
+            <span className="sm:hidden">{solved ? '✓' : 'Solve'}</span>
           </button>
         </div>
+      </div>
+
+      {/* Mobile panel tabs */}
+      <div className="flex md:hidden border-b border-gray-100 bg-white shrink-0">
+        <button onClick={() => setMobilePanel('description')}
+          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400'}`}>
+          📖 Description
+        </button>
+        <button onClick={() => setMobilePanel('editor')}
+          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'editor' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400'}`}>
+          💻 Editor
+        </button>
       </div>
 
       {/* Split layout */}
       <div className="flex flex-1 overflow-hidden">
 
         {/* LEFT — Question description */}
-        <div className="w-[42%] shrink-0 flex flex-col border-r border-gray-100 overflow-hidden">
+        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-gray-100 overflow-hidden`}>
           {/* Tab bar */}
           <div className="flex border-b border-gray-100 bg-white shrink-0 items-center">
             <button
@@ -301,7 +315,7 @@ export default function PracticePage() {
         </div>
 
         {/* RIGHT — LeetCode editor + tests */}
-        <div className="flex-1 overflow-y-auto">
+        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-1 overflow-y-auto`}>
           {question ? (
             <LeetCodeEditor appQuestionId={question.id} slug={question.slug} />
           ) : (

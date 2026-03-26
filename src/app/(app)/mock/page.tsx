@@ -70,6 +70,7 @@ export default function MockInterviewPage() {
   const [loading, setLoading] = useState(true)
   const [sessions, setSessions] = useState<SessionRecord[]>([])
   const [leftTab, setLeftTab] = useState<'description' | 'solution'>('description')
+  const [mobilePanel, setMobilePanel] = useState<'description' | 'editor'>('description')
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef<number | null>(null)
 
@@ -278,7 +279,7 @@ export default function MockInterviewPage() {
     <div className="flex flex-col h-[calc(100vh-56px)]">
 
       {/* Timer top bar */}
-      <div className={`flex items-center gap-3 px-4 py-2.5 border-b shrink-0 flex-wrap ${urgent ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-200'}`}>
+      <div className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 border-b shrink-0 flex-wrap ${urgent ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-200'}`}>
         {/* Countdown */}
         <div className={`text-2xl font-black font-mono shrink-0 ${urgent ? 'text-red-600 animate-pulse' : 'text-indigo-700'}`}>
           {formatTime(timeLeft)}
@@ -291,15 +292,15 @@ export default function MockInterviewPage() {
         </div>
 
         {/* Lock status */}
-        <div className="text-xs shrink-0">
+        <div className="text-xs shrink-0 hidden sm:block">
           {answerUnlocked
             ? <span className="text-green-600 font-semibold flex items-center gap-1"><Unlock size={11} /> Solution visible</span>
             : <span className="text-gray-500 flex items-center gap-1"><Lock size={11} /> Reveals in {formatTime(timeUntilReveal)}</span>
           }
         </div>
 
-        {/* Question info */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Question info — hidden on mobile to save space */}
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
           <span className="text-xs text-gray-500 font-mono">#{question.id}</span>
           <DifficultyBadge difficulty={question.difficulty} />
           <a href={`https://leetcode.com/problems/${question.slug}/`} target="_blank" rel="noopener noreferrer"
@@ -317,11 +318,23 @@ export default function MockInterviewPage() {
         </button>
       </div>
 
+      {/* Mobile panel tabs */}
+      <div className="flex md:hidden border-b border-gray-100 bg-white shrink-0">
+        <button onClick={() => setMobilePanel('description')}
+          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400'}`}>
+          📖 Description
+        </button>
+        <button onClick={() => setMobilePanel('editor')}
+          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'editor' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400'}`}>
+          💻 Editor
+        </button>
+      </div>
+
       {/* Split layout */}
       <div className="flex flex-1 overflow-hidden">
 
         {/* LEFT — question */}
-        <div className="w-[42%] shrink-0 flex flex-col border-r border-gray-100 overflow-hidden">
+        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-gray-100 overflow-hidden`}>
           <div className="flex border-b border-gray-100 bg-white shrink-0">
             <button onClick={() => setLeftTab('description')}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
@@ -388,7 +401,7 @@ export default function MockInterviewPage() {
         </div>
 
         {/* RIGHT — editor */}
-        <div className="flex-1 overflow-y-auto">
+        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-1 overflow-y-auto`}>
           <LeetCodeEditor appQuestionId={question.id} slug={question.slug} />
         </div>
       </div>

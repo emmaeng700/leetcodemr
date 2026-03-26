@@ -73,6 +73,7 @@ function LearnInner() {
     initTags.length > 0 ? (QUICK_PATTERNS.find(p => p.tags.some(t => initTags.includes(t)))?.name ?? null) : null
   )
   const [showFilters, setShowFilters]       = useState(false)
+  const [mobilePanel, setMobilePanel]       = useState<'description' | 'editor'>('description')
   const listRef = useRef<HTMLDivElement>(null)
 
   // Live LeetCode description
@@ -226,7 +227,7 @@ function LearnInner() {
 
           {/* Question list dropdown */}
           {showList && (
-            <div ref={listRef} className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-80 max-h-80 overflow-y-auto">
+            <div ref={listRef} className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[90vw] max-w-xs sm:max-w-sm md:w-80 max-h-80 overflow-y-auto">
               {filtered.map((fq, i) => {
                 const fp = progress[String(fq.id)] || {}
                 return (
@@ -273,9 +274,10 @@ function LearnInner() {
 
             {/* Mark solved */}
             <button onClick={() => save({ solved: !solved })}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${solved ? 'bg-green-50 text-green-600 border-green-200' : 'bg-white text-gray-500 border-gray-200 hover:border-green-300'}`}>
+              className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${solved ? 'bg-green-50 text-green-600 border-green-200' : 'bg-white text-gray-500 border-gray-200 hover:border-green-300'}`}>
               <CheckCircle size={12} className={solved ? 'fill-green-500 text-white' : ''} />
-              {solved ? 'Solved ✓' : 'Mark Solved'}
+              <span className="hidden sm:inline">{solved ? 'Solved ✓' : 'Mark Solved'}</span>
+              <span className="sm:hidden">{solved ? '✓' : '+'}</span>
             </button>
 
             {/* Open on LeetCode */}
@@ -327,10 +329,22 @@ function LearnInner() {
       {!q ? (
         <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">No questions match your filters.</div>
       ) : (
+        <>
+        {/* Mobile panel tabs */}
+        <div className="flex md:hidden border-b border-gray-100 bg-white shrink-0">
+          <button onClick={() => setMobilePanel('description')}
+            className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400'}`}>
+            📖 Description
+          </button>
+          <button onClick={() => setMobilePanel('editor')}
+            className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'editor' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400'}`}>
+            💻 Editor
+          </button>
+        </div>
         <div className="flex flex-1 overflow-hidden">
 
           {/* ── LEFT panel ── */}
-          <div className="w-[42%] shrink-0 flex flex-col border-r border-gray-100 overflow-hidden">
+          <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-gray-100 overflow-hidden`}>
 
             {/* Tab bar */}
             <div className="flex border-b border-gray-100 bg-white shrink-0">
@@ -499,10 +513,11 @@ function LearnInner() {
           </div>
 
           {/* ── RIGHT panel — editor ── */}
-          <div className="flex-1 overflow-y-auto">
+          <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-1 overflow-y-auto`}>
             <LeetCodeEditor appQuestionId={q.id} slug={q.slug} />
           </div>
         </div>
+        </>
       )}
 
       {/* LeetCode description styles */}
