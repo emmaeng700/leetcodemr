@@ -166,14 +166,35 @@ export default function LeetCodePage() {
   const [profileLoad, setPL]        = useState(false)
   const [profileErr, setPE]         = useState('')
 
-  /* Load session from localStorage */
+  /* Load session — Supabase first, localStorage as fallback */
   useEffect(() => {
-    const s = localStorage.getItem('lc_session') ?? ''
-    const c = localStorage.getItem('lc_csrf')   ?? ''
-    setSession(s); setCsrfToken(c)
-    if (!s || !c) setSPO(true)
-    // Auto-fetch daily
-    fetchDailyInternal()
+    async function loadCreds() {
+      // Try Supabase first
+      try {
+        const res = await fetch('/api/lc-session')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.lc_session && data.lc_csrf) {
+            setSession(data.lc_session)
+            setCsrfToken(data.lc_csrf)
+            // Also keep localStorage in sync
+            localStorage.setItem('lc_session', data.lc_session)
+            localStorage.setItem('lc_csrf', data.lc_csrf)
+            setSPO(false)
+            fetchDailyInternal()
+            return
+          }
+        }
+      } catch { /* fall through to localStorage */ }
+
+      // Fallback: localStorage
+      const s = localStorage.getItem('lc_session') ?? ''
+      const c = localStorage.getItem('lc_csrf')   ?? ''
+      setSession(s); setCsrfToken(c)
+      if (!s || !c) setSPO(true)
+      fetchDailyInternal()
+    }
+    loadCreds()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -208,14 +229,32 @@ export default function LeetCodePage() {
     loadExts()
   }, [lang])
 
-  const saveSession = () => {
-    localStorage.setItem('lc_session', session.trim())
-    localStorage.setItem('lc_csrf',    csrfToken.trim())
+  const saveSession = async () => {
+    const s = session.trim()
+    const c = csrfToken.trim()
+    // Save to localStorage immediately
+    localStorage.setItem('lc_session', s)
+    localStorage.setItem('lc_csrf',    c)
     setSPO(false)
+    // Also persist to Supabase so it survives browser clears + works on any device
+    try {
+      await fetch('/api/lc-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lc_session: s, lc_csrf: c }),
+      })
+    } catch { /* silent — localStorage still has it */ }
   }
-  const clearSession = () => {
+  const clearSession = async () => {
     localStorage.removeItem('lc_session'); localStorage.removeItem('lc_csrf')
     setSession(''); setCsrfToken(''); setSPO(true)
+    try {
+      await fetch('/api/lc-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lc_session: '', lc_csrf: '' }),
+      })
+    } catch { /* silent */ }
   }
 
   /* ── Fetch daily ── */
