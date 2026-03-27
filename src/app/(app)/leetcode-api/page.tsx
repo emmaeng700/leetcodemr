@@ -55,11 +55,12 @@ interface LCResult {
 const DAILY_Q = `query { activeDailyCodingChallengeQuestion { date link question { questionId title titleSlug difficulty topicTags { name } } } }`
 const USER_Q  = `query($u:String!){matchedUser(username:$u){username profile{realName ranking userAvatar}submitStatsGlobal{acSubmissionNum{difficulty count}}}}`
 const QUEST_Q = `query($s:String!){question(titleSlug:$s){questionId questionFrontendId title titleSlug difficulty content topicTags{name} codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`
+const SEARCH_Q = `query($q:String!){problemsetQuestionListV2(categorySlug:"",limit:1,skip:0,searchKeyword:$q,filters:{filterCombineType:ALL}){questions{titleSlug title}}}`
 
-async function gql(query: string, variables?: Record<string, unknown>) {
+async function gql(query: string, variables?: Record<string, unknown>, creds?: { session: string; csrfToken: string }) {
   const res = await fetch('/api/leetcode', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, variables }),
+    body: JSON.stringify({ query, variables, ...(creds ?? {}) }),
   })
   const json = await res.json()
   if (json.errors) throw new Error(json.errors[0]?.message || 'GraphQL error')
@@ -184,7 +185,7 @@ export default function LeetCodePage() {
             localStorage.setItem('lc_session', data.lc_session)
             localStorage.setItem('lc_csrf', data.lc_csrf)
             setSPO(false)
-            fetchDailyInternal()
+            fetchDailyInternal({ session: data.lc_session, csrfToken: data.lc_csrf })
             return
           }
         }
@@ -195,7 +196,7 @@ export default function LeetCodePage() {
       const c = localStorage.getItem('lc_csrf')   ?? ''
       setSession(s); setCsrfToken(c)
       if (!s || !c) setSPO(true)
-      fetchDailyInternal()
+      fetchDailyInternal(s && c ? { session: s, csrfToken: c } : undefined)
     }
     loadCreds()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -261,10 +262,10 @@ export default function LeetCodePage() {
   }
 
   /* ── Fetch daily ── */
-  const fetchDailyInternal = async () => {
+  const fetchDailyInternal = async (creds?: { session: string; csrfToken: string }) => {
     setDL(true)
     try {
-      const d = await gql(DAILY_Q)
+      const d = await gql(DAILY_Q, undefined, creds)
       setDaily(d.activeDailyCodingChallengeQuestion)
     } catch { /* silent */ }
     finally { setDL(false) }
@@ -276,8 +277,20 @@ export default function LeetCodePage() {
     if (!slug) return
     setQL(true); setQE(''); setQuestion(null); setResult(null); setResultErr(''); setLeftTab('description')
     try {
-      const data = await gql(QUEST_Q, { s: slug })
-      if (!data.question) throw new Error('Question not found')
+      const creds = session && csrfToken ? { session, csrfToken } : undefined
+      let resolvedSlug = slug
+      let data = await gql(QUEST_Q, { s: resolvedSlug }, creds)
+      // If not found by slug, try keyword search (requires session)
+      if (!data.question && creds) {
+        const keyword = slugInput.trim()
+        const searchData = await gql(SEARCH_Q, { q: keyword }, creds)
+        const first = searchData?.problemsetQuestionListV2?.questions?.[0]
+        if (first?.titleSlug) {
+          resolvedSlug = first.titleSlug
+          data = await gql(QUEST_Q, { s: resolvedSlug }, creds)
+        }
+      }
+      if (!data.question) throw new Error('Question not found — try pasting the full LeetCode URL')
       const q: QuestionDetail = data.question
       setQuestion(q)
       const parsed = parseCases(q.exampleTestcases, q.metaData)
@@ -287,7 +300,7 @@ export default function LeetCodePage() {
       setCode(q.codeSnippets.find(s => s.langSlug === lang)?.code ?? '')
     } catch (e) { setQE(String(e)) }
     finally { setQL(false) }
-  }, [slugInput, lang])
+  }, [slugInput, lang, session, csrfToken])
 
   const switchLang = (l: 'python3' | 'cpp') => {
     setLang(l)
