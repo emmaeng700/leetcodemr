@@ -110,11 +110,11 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
       ])
       setTheme(oneDark)
       const { keymap } = viewMod
-      const { indentWithTab } = cmdMod
+      const { indentWithTab, insertNewlineAndIndent } = cmdMod
       const { indentationMarkers } = await import('@replit/codemirror-indentation-markers')
-      // Use only indentWithTab — language extensions (python/cpp) handle Enter
-      // auto-indent natively on all devices including mobile virtual keyboards
-      const keys = keymap.of([indentWithTab])
+      // insertNewlineAndIndent uses CodeMirror's language-aware indentation on Enter,
+      // works correctly on desktop and mobile virtual keyboards alike
+      const keys = keymap.of([{ key: 'Enter', run: insertNewlineAndIndent }, indentWithTab])
       setExtensions([lang === 'python3' ? python() : cpp(), keys, indentationMarkers()])
     }
     loadExts()
