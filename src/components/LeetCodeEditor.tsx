@@ -101,29 +101,20 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
   /* ── Load CodeMirror extensions ── */
   useEffect(() => {
     async function loadExts() {
-      const [{ python }, { cpp }, { oneDark }, viewMod, stateMod, cmdMod] = await Promise.all([
+      const [{ python }, { cpp }, { oneDark }, viewMod, cmdMod] = await Promise.all([
         import('@codemirror/lang-python'),
         import('@codemirror/lang-cpp'),
         import('@codemirror/theme-one-dark'),
         import('@codemirror/view'),
-        import('@codemirror/state'),
         import('@codemirror/commands'),
       ])
       setTheme(oneDark)
       const { keymap } = viewMod
-      const { Prec } = stateMod
       const { indentWithTab } = cmdMod
       const { indentationMarkers } = await import('@replit/codemirror-indentation-markers')
-      const smartEnter = (view: any) => {
-        const { from } = view.state.selection.main
-        const line = view.state.doc.lineAt(from)
-        const base = line.text.match(/^(\s*)/)?.[1] ?? ''
-        const extra = (line.text.trimEnd().endsWith(':') || line.text.trimEnd().endsWith('{')) ? '    ' : ''
-        const ins = '\n' + base + extra
-        view.dispatch({ changes: { from, to: from, insert: ins }, selection: { anchor: from + ins.length } })
-        return true
-      }
-      const keys = Prec.highest(keymap.of([{ key: 'Enter', run: smartEnter }, indentWithTab]))
+      // Use only indentWithTab — language extensions (python/cpp) handle Enter
+      // auto-indent natively on all devices including mobile virtual keyboards
+      const keys = keymap.of([indentWithTab])
       setExtensions([lang === 'python3' ? python() : cpp(), keys, indentationMarkers()])
     }
     loadExts()
