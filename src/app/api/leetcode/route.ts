@@ -27,12 +27,8 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(graphqlBody),
     })
 
-    if (!res.ok) {
-      return NextResponse.json({ error: `LeetCode returned ${res.status}` }, { status: res.status })
-    }
-
     const data = await res.json()
-    return NextResponse.json(data)
+    return NextResponse.json(data, { status: res.status })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }

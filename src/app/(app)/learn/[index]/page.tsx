@@ -216,7 +216,7 @@ function LearnInner() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                query: 'query($u:String!){allPlaygroundCodes(playgoundUuid:$u){code langSlug}}',
+                query: 'query($u:String!){allPlaygroundCodes(uuid:$u){code langSlug}}',
                 variables: { u: uuid },
                 ...creds,
               }),
