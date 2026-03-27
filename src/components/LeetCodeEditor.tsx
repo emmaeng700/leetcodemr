@@ -59,10 +59,11 @@ const LANG_LABEL: Record<string, string> = { python3: 'Python 3', cpp: 'C++' }
 interface Props {
   appQuestionId: number
   slug: string
+  onAccepted?: () => void
 }
 
 /* ══════════════════════════════════════════════════════════ */
-export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
+export default function LeetCodeEditor({ appQuestionId, slug, onAccepted }: Props) {
   /* Session */
   const [session,   setSession]   = useState('')
   const [csrf,      setCsrf]      = useState('')
@@ -205,6 +206,7 @@ export default function LeetCodeEditor({ appQuestionId, slug }: Props) {
             await updateProgress(appQuestionId, { solved: true })
             setSolvedStatus('marked')
           }
+          onAccepted?.()
         }
         return
       }
