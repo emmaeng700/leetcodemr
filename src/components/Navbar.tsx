@@ -111,9 +111,9 @@ export default function Navbar() {
             { label: 'Topics', group: TOPIC_LINKS },
             { label: 'More', group: META_LINKS },
           ].map(({ label, group }, gi) => (
-            <>
-              {gi > 0 && <div key={`div-${gi}`} className="h-px bg-gray-100 my-2" />}
-              <p key={`lbl-${gi}`} className="px-3 pt-1 pb-0.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
+            <React.Fragment key={gi}>
+              {gi > 0 && <div className="h-px bg-gray-100 my-2" />}
+              <p className="px-3 pt-1 pb-0.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
               {group.map(({ href, label: lnk, icon: Icon }) => {
                 const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
                 return (
@@ -130,7 +130,7 @@ export default function Navbar() {
                   </Link>
                 )
               })}
-            </>
+            </React.Fragment>
           ))}
           <div className="h-px bg-gray-100 my-2" />
           <button

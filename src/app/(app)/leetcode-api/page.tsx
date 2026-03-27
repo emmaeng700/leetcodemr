@@ -156,6 +156,9 @@ export default function LeetCodePage() {
   /* Left panel tab */
   const [leftTab, setLeftTab]       = useState<'description' | 'profile'>('description')
 
+  /* Mobile panel toggle */
+  const [mobilePanel, setMobilePanel] = useState<'desc' | 'code'>('desc')
+
   /* Daily */
   const [daily,     setDaily]       = useState<DailyChallenge | null>(null)
   const [dailyLoad, setDL]          = useState(false)
@@ -415,7 +418,7 @@ export default function LeetCodePage() {
 
       {/* ── Session panel overlay ─────────────────────────── */}
       {sessionPanelOpen && (
-        <div className="absolute top-[96px] right-3 z-50 w-80 bg-[#16213e] border border-gray-700 rounded-2xl shadow-2xl p-4 space-y-3">
+        <div className="absolute top-[96px] right-0 sm:right-3 z-50 w-full sm:w-80 bg-[#16213e] border border-gray-700 sm:rounded-2xl shadow-2xl p-4 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-bold text-gray-200">LeetCode Session</p>
             <button onClick={() => setSPO(false)} className="text-gray-500 hover:text-gray-300"><XCircle size={16} /></button>
@@ -493,10 +496,20 @@ export default function LeetCodePage() {
         </div>
       ) : question && (
         /* ── Split layout ── */
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col sm:flex-row overflow-hidden">
+
+          {/* Mobile tab switcher */}
+          <div className="sm:hidden flex border-b border-gray-700/50 bg-[#16213e] shrink-0">
+            {(['desc', 'code'] as const).map(p => (
+              <button key={p} onClick={() => setMobilePanel(p)}
+                className={`flex-1 py-2 text-xs font-semibold transition ${mobilePanel === p ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-500'}`}>
+                {p === 'desc' ? 'Description' : 'Code'}
+              </button>
+            ))}
+          </div>
 
           {/* LEFT PANEL — Description */}
-          <div className="w-[42%] flex flex-col border-r border-gray-700/50 overflow-hidden">
+          <div className={`${mobilePanel === 'desc' ? 'flex' : 'hidden'} sm:flex w-full sm:w-[42%] flex-col border-r border-gray-700/50 overflow-hidden`}>
             {/* Left tabs */}
             <div className="flex border-b border-gray-700/50 shrink-0 bg-[#16213e]">
               {(['description', 'profile'] as const).map(tab => (
@@ -589,40 +602,64 @@ export default function LeetCodePage() {
           </div>
 
           {/* RIGHT PANEL — Editor + Bottom */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className={`${mobilePanel === 'code' ? 'flex' : 'hidden'} sm:flex flex-1 flex-col overflow-hidden`}>
 
             {/* Editor toolbar */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-[#16213e] border-b border-gray-700/50 shrink-0">
-              {/* Language selector */}
-              <div className="flex gap-1">
-                {(['python3', 'cpp'] as const).map(l => (
-                  <button key={l} onClick={() => switchLang(l)}
-                    className={`px-2.5 py-1 text-xs font-semibold rounded transition ${lang === l ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'}`}>
-                    {LANG_LABEL[l]}
+            <div className="flex flex-col bg-[#16213e] border-b border-gray-700/50 shrink-0">
+              <div className="flex items-center gap-2 px-3 py-2">
+                {/* Language selector */}
+                <div className="flex gap-1">
+                  {(['python3', 'cpp'] as const).map(l => (
+                    <button key={l} onClick={() => switchLang(l)}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded transition ${lang === l ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'}`}>
+                      {LANG_LABEL[l]}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex-1" />
+                {/* Action buttons — inline on desktop */}
+                <div className="hidden sm:flex items-center gap-2">
+                  {!sessionOK && (
+                    <span className="flex items-center gap-1 text-xs text-orange-400">
+                      <AlertCircle size={11} /> Setup session to run
+                    </span>
+                  )}
+                  <button onClick={runTest} disabled={running || !sessionOK}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 text-gray-200 text-xs font-semibold rounded-lg hover:bg-gray-600 disabled:opacity-40 transition">
+                    {running && runMode === 'test' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+                    Run
                   </button>
-                ))}
+                  <button onClick={runSubmit} disabled={running || !sessionOK}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-500 disabled:opacity-40 transition">
+                    {running && runMode === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                    Submit
+                  </button>
+                </div>
               </div>
-              <div className="flex-1" />
-              {/* Action buttons */}
-              {!sessionOK && (
-                <span className="flex items-center gap-1 text-xs text-orange-400">
-                  <AlertCircle size={11} /> Setup session to run
-                </span>
-              )}
-              <button onClick={runTest} disabled={running || !sessionOK}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 text-gray-200 text-xs font-semibold rounded-lg hover:bg-gray-600 disabled:opacity-40 transition">
-                {running && runMode === 'test' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-                Run
-              </button>
-              <button onClick={runSubmit} disabled={running || !sessionOK}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-500 disabled:opacity-40 transition">
-                {running && runMode === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                Submit
-              </button>
+              {/* Mobile Run/Submit row */}
+              <div className="sm:hidden flex gap-2 px-3 pb-2">
+                {!sessionOK && (
+                  <span className="flex items-center gap-1 text-xs text-orange-400 mr-auto">
+                    <AlertCircle size={11} /> Setup session
+                  </span>
+                )}
+                <button onClick={runTest} disabled={running || !sessionOK}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-gray-700 text-gray-200 text-xs font-semibold rounded-lg disabled:opacity-40 transition"
+                  style={{ touchAction: 'manipulation' }}>
+                  {running && runMode === 'test' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+                  Run
+                </button>
+                <button onClick={runSubmit} disabled={running || !sessionOK}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-green-600 text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition"
+                  style={{ touchAction: 'manipulation' }}>
+                  {running && runMode === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                  Submit
+                </button>
+              </div>
             </div>
 
             {/* CodeMirror editor */}
-            <div className="flex-1 overflow-hidden min-h-0">
+            <div className="h-48 sm:flex-1 sm:min-h-0 overflow-hidden">
               <CodeMirror
                 value={code}
                 onChange={setCode}
@@ -634,9 +671,8 @@ export default function LeetCodePage() {
               />
             </div>
 
-
             {/* Bottom panel — Testcase / Result */}
-            <div className="h-52 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
+            <div className="h-44 sm:h-52 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
               {/* Bottom tabs */}
               <div className="flex items-center border-b border-gray-700/50 shrink-0">
                 {(['testcase', 'result'] as const).map(tab => (
