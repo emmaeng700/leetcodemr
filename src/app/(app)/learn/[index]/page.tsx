@@ -701,6 +701,7 @@ function LearnInner() {
                         >
                           {editorial
                             .replace(/\[TOC\]/g, '')
+                            .replace(/##\s*Video Solution[\s\S]*?(?=##\s|\z)/m, '')
                             .replace(/<div[^>]*class="video-container"[^>]*>[\s\S]*?<\/div>/g, '')
                             .replace(/\$\$([^$]+)\$\$/g, '`$1`')
                             .trim()}
