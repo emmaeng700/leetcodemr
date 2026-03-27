@@ -224,12 +224,12 @@ function LearnInner() {
             const d = await res.json()
             const codes: Array<{ code: string; langSlug: string }> = d?.data?.allPlaygroundCodes ?? []
             // Prefer python3 > python > cpp > first available
-            const pick = codes.find(c => c.langSlug === 'python3')
+            const pick = codes.find(c => c.langSlug === 'cpp')
+              ?? codes.find(c => c.langSlug === 'python3')
               ?? codes.find(c => c.langSlug === 'python')
-              ?? codes.find(c => c.langSlug === 'cpp')
               ?? codes[0]
             if (pick) {
-              const lang = pick.langSlug === 'python3' ? 'python' : pick.langSlug
+              const lang = pick.langSlug === 'python3' ? 'python' : pick.langSlug === 'cpp' ? 'cpp' : pick.langSlug
               codeMap[uuid] = `\`\`\`${lang}\n${pick.code}\n\`\`\``
             }
           } catch { /* ignore individual failures */ }
