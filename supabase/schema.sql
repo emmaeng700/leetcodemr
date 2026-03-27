@@ -137,6 +137,16 @@ CREATE TABLE IF NOT EXISTS interview_date (
   UNIQUE(user_id)
 );
 
+-- User settings (LeetCode session credentials, etc.)
+CREATE TABLE IF NOT EXISTS user_settings (
+  id SERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL DEFAULT 'emmanuel',
+  lc_session TEXT DEFAULT '',
+  lc_csrf TEXT DEFAULT '',
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id)
+);
+
 -- FC daily log (flashcards viewed per day)
 CREATE TABLE IF NOT EXISTS fc_daily_log (
   id SERIAL PRIMARY KEY,
