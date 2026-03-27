@@ -315,7 +315,7 @@ export default function PracticePage() {
         </div>
 
         {/* RIGHT — LeetCode editor + tests */}
-        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-1 min-h-0`}>
+        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-1 min-h-0 overflow-x-hidden`}>
           {question ? (
             <LeetCodeEditor appQuestionId={question.id} slug={question.slug} />
           ) : (
