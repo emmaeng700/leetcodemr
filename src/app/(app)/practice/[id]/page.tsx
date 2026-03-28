@@ -1,18 +1,13 @@
 'use client'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle, Clock, Code2, BookOpen, ExternalLink, Loader2, Trophy, Copy, Check } from 'lucide-react'
-import hljs from 'highlight.js/lib/core'
-import pythonLang from 'highlight.js/lib/languages/python'
-import cppLang from 'highlight.js/lib/languages/cpp'
-
-hljs.registerLanguage('python', pythonLang)
-hljs.registerLanguage('cpp', cppLang)
+import { ArrowLeft, CheckCircle, Clock, Code2, BookOpen, ExternalLink, Loader2, Trophy } from 'lucide-react'
 import { getProgress, updateProgress, addTimeSpent, completeReview } from '@/lib/db'
 import { formatTime, isDue } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
+import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import toast from 'react-hot-toast'
 
 interface Question {
@@ -26,97 +21,6 @@ interface Question {
   explanation?: string
   python_solution?: string
   cpp_solution?: string
-}
-
-function AcceptedSolutions({ submissions, loading, selectedSub, subCodeLoading, copied, onSelect, onCopy, onBack }: {
-  submissions: any[]
-  loading: boolean
-  selectedSub: { code: string; lang: string } | null
-  subCodeLoading: boolean
-  copied: boolean
-  onSelect: (id: string, lang: string) => void
-  onCopy: () => void
-  onBack: () => void
-}) {
-  const codeRef = useRef<HTMLElement>(null)
-  useEffect(() => {
-    if (codeRef.current && selectedSub?.code) {
-      codeRef.current.removeAttribute('data-highlighted')
-      codeRef.current.textContent = selectedSub.code
-      if (selectedSub.lang === 'python' || selectedSub.lang === 'cpp') {
-        hljs.highlightElement(codeRef.current)
-      }
-    }
-  }, [selectedSub])
-
-  if (loading) return (
-    <div className="flex items-center justify-center py-12">
-      <Loader2 size={18} className="animate-spin text-indigo-400" />
-    </div>
-  )
-
-  if (!loading && submissions.length === 0) return (
-    <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
-      <Trophy size={22} className="text-gray-300" />
-      <p className="text-sm text-gray-500">No accepted submissions yet.</p>
-      <p className="text-xs text-gray-400">Solve it and come back here!</p>
-    </div>
-  )
-
-  if (selectedSub) return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-3 shrink-0">
-        <button onClick={onBack} className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 transition-colors">
-          ← Back
-        </button>
-        <button onClick={onCopy} className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 transition-colors">
-          {copied ? <><Check size={12} className="text-green-500" /> Copied!</> : <><Copy size={12} /> Copy</>}
-        </button>
-      </div>
-      <div className="rounded-xl overflow-hidden border border-gray-200 flex-1 min-h-0">
-        <div className="bg-[#21252b] px-4 py-2 flex items-center">
-          <span className="text-xs font-semibold text-gray-400">{selectedSub.lang === 'cpp' ? 'C++' : selectedSub.lang === 'python' ? 'Python 3' : selectedSub.lang}</span>
-        </div>
-        <div className="overflow-auto bg-[#282c34] h-full">
-          <pre className="p-4 text-[12px] leading-relaxed m-0">
-            <code ref={codeRef} className={`language-${selectedSub.lang}`}>{selectedSub.code}</code>
-          </pre>
-        </div>
-      </div>
-    </div>
-  )
-
-  if (subCodeLoading) return (
-    <div className="flex items-center justify-center py-12">
-      <Loader2 size={18} className="animate-spin text-green-500" />
-    </div>
-  )
-
-  return (
-    <div className="space-y-2">
-      <p className="text-xs text-gray-400 mb-3">Your accepted submissions — click to view code</p>
-      {submissions.map((s: any) => {
-        const date = new Date(Number(s.timestamp) * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-        const langLabel = s.langName ?? s.lang
-        return (
-          <button key={s.id} onClick={() => onSelect(s.id, s.lang)}
-            className="w-full flex items-center justify-between px-3 py-2.5 bg-green-50 border border-green-100 rounded-lg hover:border-green-300 hover:bg-green-100 transition-colors text-left group">
-            <div className="flex items-center gap-2">
-              <CheckCircle size={13} className="text-green-500 shrink-0" />
-              <div>
-                <p className="text-xs font-semibold text-gray-700">{langLabel}</p>
-                <p className="text-xs text-gray-400">{date}</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-500">{s.runtime}</p>
-              <p className="text-xs text-gray-400">{s.memory}</p>
-            </div>
-          </button>
-        )
-      })}
-    </div>
-  )
 }
 
 function PremiumBlock({ slug }: { slug?: string }) {
@@ -154,13 +58,7 @@ export default function PracticePage() {
   const [reviewDone, setReviewDone] = useState(false)
   const [leftTab, setLeftTab] = useState<'description' | 'solution' | 'accepted'>('description')
 
-  // Accepted submissions
-  const [submissions, setSubmissions]         = useState<any[]>([])
-  const [subsLoading, setSubsLoading]         = useState(false)
-  const [selectedSub, setSelectedSub]         = useState<{ code: string; lang: string } | null>(null)
-  const [subCodeLoading, setSubCodeLoading]   = useState(false)
-  const [copiedSub, setCopiedSub]             = useState(false)
-  const subsLoadedSlug                        = useRef<string | null>(null)
+  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.slug, leftTab === 'accepted')
   const [mobilePanel, setMobilePanel] = useState<'description' | 'editor'>('description')
   const [timer, setTimer] = useState(0)
 
@@ -255,52 +153,6 @@ export default function PracticePage() {
       if (elapsed > 5) addTimeSpent(id, elapsed)
     }
   }, [id])
-
-  // Fetch accepted submissions when tab opens
-  useEffect(() => {
-    if (leftTab !== 'accepted' || !question?.slug) return
-    if (subsLoadedSlug.current === question.slug) return
-    subsLoadedSlug.current = question.slug
-    setSubsLoading(true)
-    setSubmissions([])
-    setSelectedSub(null)
-    const session   = localStorage.getItem('lc_session')  ?? ''
-    const csrfToken = localStorage.getItem('lc_csrf')     ?? ''
-    fetch('/api/leetcode', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        session, csrfToken,
-        query: `query($slug:String!,$offset:Int!,$limit:Int!){questionSubmissionList(questionSlug:$slug,offset:$offset,limit:$limit,status:10){submissions{id lang langName runtime memory timestamp}}}`,
-        variables: { slug: question.slug, offset: 0, limit: 20 },
-      }),
-    })
-      .then(r => r.json())
-      .then(d => setSubmissions(d?.data?.questionSubmissionList?.submissions ?? []))
-      .catch(() => {})
-      .finally(() => setSubsLoading(false))
-  }, [leftTab, question?.slug])
-
-  async function loadSubCode(submissionId: string, langSlug: string) {
-    setSubCodeLoading(true)
-    setSelectedSub(null)
-    const session   = localStorage.getItem('lc_session')  ?? ''
-    const csrfToken = localStorage.getItem('lc_csrf')     ?? ''
-    try {
-      const res = await fetch('/api/leetcode', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session, csrfToken,
-          query: `query($id:Int!){submissionDetails(submissionId:$id){code lang{verboseName}}}`,
-          variables: { id: Number(submissionId) },
-        }),
-      })
-      const d = await res.json()
-      const code = d?.data?.submissionDetails?.code ?? ''
-      const hlLang = langSlug === 'python3' ? 'python' : langSlug === 'cpp' ? 'cpp' : langSlug
-      setSelectedSub({ code, lang: hlLang })
-    } catch { /* ignore */ }
-    finally { setSubCodeLoading(false) }
-  }
 
   const due = isDue(nextReview) && solved
 
@@ -496,13 +348,8 @@ export default function PracticePage() {
                 subCodeLoading={subCodeLoading}
                 copied={copiedSub}
                 onSelect={loadSubCode}
-                onCopy={async () => {
-                  if (!selectedSub?.code) return
-                  await navigator.clipboard.writeText(selectedSub.code)
-                  setCopiedSub(true)
-                  setTimeout(() => setCopiedSub(false), 2000)
-                }}
-                onBack={() => setSelectedSub(null)}
+                onCopy={copyCode}
+                onBack={clearSub}
               />
             )}
           </div>

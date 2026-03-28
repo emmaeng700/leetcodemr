@@ -18,6 +18,7 @@ import { isDue, formatLocalDate, nextIntervalDays } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import StatusRadio from '@/components/StatusRadio'
+import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 
 hljs.registerLanguage('python', pythonLang)
@@ -112,7 +113,7 @@ function LearnInner() {
   const [saving, setSaving]         = useState(false)
   const [showList, setShowList]     = useState(false)
   const [reviewDone, setReviewDone] = useState(false)
-  const [leftTab, setLeftTab]       = useState<'description' | 'notes' | 'solution'>('description')
+  const [leftTab, setLeftTab]       = useState<'description' | 'notes' | 'solution' | 'accepted'>('description')
   const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(null) // null = modal not answered yet
   const [filterDiff, setFilterDiff]         = useState(initDiff)
   const [filterSource, setFilterSource]     = useState(initSource)
@@ -176,6 +177,7 @@ function LearnInner() {
   const reviewCount = p.review_count || 0
   const nextReview  = p.next_review  || null
   const due = isDue(nextReview) && solved
+  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(q?.slug, leftTab === 'accepted')
 
   // Reset per question
   useEffect(() => {
@@ -527,6 +529,10 @@ function LearnInner() {
                   <Code2 size={12} /> Solution
                 </button>
               )}
+              <button onClick={() => setLeftTab('accepted')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                🏆 My Solutions
+              </button>
               <button onClick={() => setStudyMode(null)}
                 className={`ml-auto flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${studyMode === 'hide' ? 'text-orange-500 hover:text-orange-600' : 'text-gray-400 hover:text-gray-600'}`}>
                 🧠 {studyMode === 'hide' ? 'Challenge Mode' : 'Review Mode'}
@@ -756,6 +762,15 @@ function LearnInner() {
                   <p className="font-bold text-gray-700 text-sm mb-1">Answers Hidden</p>
                   <p className="text-xs text-gray-400 mb-4">You're in Challenge Mode. Try solving it yourself first!</p>
                   <button onClick={() => setStudyMode(null)} className="text-xs text-indigo-500 underline">Change mode</button>
+                </div>
+              )}
+              {leftTab === 'accepted' && (
+                <div className="p-4 h-full">
+                  <AcceptedSolutions
+                    submissions={submissions} loading={subsLoading}
+                    selectedSub={selectedSub} subCodeLoading={subCodeLoading}
+                    copied={copiedSub} onSelect={loadSubCode} onCopy={copyCode} onBack={clearSub}
+                  />
                 </div>
               )}
             </div>

@@ -18,6 +18,8 @@ import { getProgress, updateProgress } from '@/lib/db'
 hljs.registerLanguage('python', pythonLang)
 hljs.registerLanguage('cpp', cppLang)
 
+import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
+
 function EditorialCodeBlock({ code, lang }: { code: string; lang: string }) {
   const codeRef = useRef<HTMLElement>(null)
   const [copied, setCopied] = useState(false)
@@ -198,7 +200,7 @@ export default function LeetCodePage() {
   const [resultErr,  setResultErr]  = useState('')
 
   /* Left panel tab */
-  const [leftTab, setLeftTab]       = useState<'description' | 'editorial' | 'profile'>('description')
+  const [leftTab, setLeftTab]       = useState<'description' | 'editorial' | 'accepted' | 'profile'>('description')
 
   /* Editorial */
   const [editorial,     setEditorial]     = useState<string | null>(null)
@@ -488,6 +490,7 @@ export default function LeetCodePage() {
     })()
   }, [leftTab, question, session, csrfToken])
 
+  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.titleSlug, leftTab === 'accepted')
   const acStats = profile?.submitStatsGlobal.acSubmissionNum ?? []
   const isAC = result?.status_code === 10
 
@@ -625,10 +628,10 @@ export default function LeetCodePage() {
           <div className={`${mobilePanel === 'desc' ? 'flex' : 'hidden'} sm:flex w-full sm:w-[42%] flex-col border-r border-gray-700/50 overflow-hidden`}>
             {/* Left tabs */}
             <div className="flex border-b border-gray-700/50 shrink-0 bg-[#16213e]">
-              {(['description', 'editorial', 'profile'] as const).map(tab => (
+              {(['description', 'editorial', 'accepted', 'profile'] as const).map(tab => (
                 <button key={tab} onClick={() => setLeftTab(tab)}
-                  className={`px-4 py-2.5 text-xs font-semibold capitalize transition ${leftTab === tab ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-500 hover:text-gray-300'}`}>
-                  {tab === 'profile' ? 'Profile' : tab === 'editorial' ? 'Editorial' : 'Description'}
+                  className={`px-4 py-2.5 text-xs font-semibold capitalize transition ${leftTab === tab ? (tab === 'accepted' ? 'text-green-400 border-b-2 border-green-400' : 'text-indigo-400 border-b-2 border-indigo-400') : 'text-gray-500 hover:text-gray-300'}`}>
+                  {tab === 'profile' ? 'Profile' : tab === 'editorial' ? 'Editorial' : tab === 'accepted' ? '🏆 My Solutions' : 'Description'}
                 </button>
               ))}
             </div>
@@ -727,6 +730,16 @@ export default function LeetCodePage() {
                     </ReactMarkdown>
                   </div>
                 )}
+              </div>
+            )}
+
+            {leftTab === 'accepted' && (
+              <div className="flex-1 overflow-y-auto p-4 h-full">
+                <AcceptedSolutions
+                  submissions={submissions} loading={subsLoading}
+                  selectedSub={selectedSub} subCodeLoading={subCodeLoading}
+                  copied={copiedSub} onSelect={loadSubCode} onCopy={copyCode} onBack={clearSub}
+                />
               </div>
             )}
 
