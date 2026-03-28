@@ -1,13 +1,54 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
+import hljs from 'highlight.js/lib/core'
+import pythonLang from 'highlight.js/lib/languages/python'
+import cppLang from 'highlight.js/lib/languages/cpp'
 import {
   Search, Trophy, CheckCircle, XCircle, Loader2, User,
   Play, Send, Key, Eye, EyeOff, ChevronDown, ChevronUp,
   AlertCircle, Clock, Cpu, Info, Calendar, ExternalLink,
-  Tag, ChevronRight, Star,
+  Tag, ChevronRight, Star, BookOpen,
 } from 'lucide-react'
 import { getProgress, updateProgress } from '@/lib/db'
+
+hljs.registerLanguage('python', pythonLang)
+hljs.registerLanguage('cpp', cppLang)
+
+function EditorialCodeBlock({ code, lang }: { code: string; lang: string }) {
+  const codeRef = useRef<HTMLElement>(null)
+  const [copied, setCopied] = useState(false)
+  useEffect(() => {
+    if (codeRef.current && code && (lang === 'python' || lang === 'cpp')) {
+      codeRef.current.removeAttribute('data-highlighted')
+      codeRef.current.textContent = code
+      hljs.highlightElement(codeRef.current)
+    }
+  }, [code, lang])
+  const copy = async () => {
+    await navigator.clipboard.writeText(code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <div className="rounded-xl overflow-hidden border border-gray-700 bg-[#282c34] my-4">
+      <div className="flex items-center justify-between px-4 py-2 bg-[#21252b] border-b border-gray-700">
+        <span className="text-xs font-semibold text-gray-400">{lang === 'cpp' ? 'C++' : lang === 'python' ? 'Python' : lang}</span>
+        <button onClick={copy} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors">
+          {copied ? '✓ Copied!' : 'Copy'}
+        </button>
+      </div>
+      <div className="overflow-x-auto">
+        <pre className="p-4 text-[12px] leading-relaxed m-0 bg-[#282c34]">
+          <code ref={codeRef} className={`language-${lang}`}>{code}</code>
+        </pre>
+      </div>
+    </div>
+  )
+}
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
 
@@ -55,7 +96,9 @@ interface LCResult {
 const DAILY_Q = `query { activeDailyCodingChallengeQuestion { date link question { questionId title titleSlug difficulty topicTags { name } } } }`
 const USER_Q  = `query($u:String!){matchedUser(username:$u){username profile{realName ranking userAvatar}submitStatsGlobal{acSubmissionNum{difficulty count}}}}`
 const QUEST_Q = `query($s:String!){question(titleSlug:$s){questionId questionFrontendId title titleSlug difficulty content topicTags{name} codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`
-const SEARCH_Q = `query($q:String!){problemsetQuestionListV2(categorySlug:"",limit:1,skip:0,searchKeyword:$q,filters:{filterCombineType:ALL}){questions{titleSlug title}}}`
+const SEARCH_Q    = `query($q:String!){problemsetQuestionListV2(categorySlug:"",limit:1,skip:0,searchKeyword:$q,filters:{filterCombineType:ALL}){questions{titleSlug title}}}`
+const EDITORIAL_Q = `query($s:String!){question(titleSlug:$s){solution{content paidOnly}}}`
+const PLAYGROUND_Q = `query($u:String!){allPlaygroundCodes(uuid:$u){code langSlug}}`
 
 async function gql(query: string, variables?: Record<string, unknown>, creds?: { session: string; csrfToken: string }) {
   const res = await fetch('/api/leetcode', {
@@ -155,7 +198,12 @@ export default function LeetCodePage() {
   const [resultErr,  setResultErr]  = useState('')
 
   /* Left panel tab */
-  const [leftTab, setLeftTab]       = useState<'description' | 'profile'>('description')
+  const [leftTab, setLeftTab]       = useState<'description' | 'editorial' | 'profile'>('description')
+
+  /* Editorial */
+  const [editorial,     setEditorial]     = useState<string | null>(null)
+  const [editorialLoad, setEditorialLoad] = useState(false)
+  const editorialSlugRef = useRef<string | null>(null)
 
   /* Mobile panel toggle */
   const [mobilePanel, setMobilePanel] = useState<'desc' | 'code'>('desc')
@@ -275,7 +323,7 @@ export default function LeetCodePage() {
   const loadQuestion = useCallback(async (overrideSlug?: string) => {
     const slug = overrideSlug ?? parseSlug(slugInput)
     if (!slug) return
-    setQL(true); setQE(''); setQuestion(null); setResult(null); setResultErr(''); setLeftTab('description')
+    setQL(true); setQE(''); setQuestion(null); setResult(null); setResultErr(''); setLeftTab('description'); setEditorial(null); editorialSlugRef.current = null
     try {
       const creds = session && csrfToken ? { session, csrfToken } : undefined
       let resolvedSlug = slug
@@ -387,6 +435,58 @@ export default function LeetCodePage() {
     } catch (e) { setPE(String(e)) }
     finally { setPL(false) }
   }
+
+  /* ── Fetch editorial when tab opens ── */
+  useEffect(() => {
+    if (leftTab !== 'editorial' || !question) return
+    if (editorialSlugRef.current === question.titleSlug) return // already fetched
+    editorialSlugRef.current = question.titleSlug
+    setEditorialLoad(true)
+    setEditorial(null)
+    const creds = session && csrfToken ? { session, csrfToken } : {}
+    ;(async () => {
+      try {
+        const data = await gql(EDITORIAL_Q, { s: question.titleSlug }, creds as any)
+        const content: string | undefined = data?.question?.solution?.content
+        if (!content) { setEditorial(''); setEditorialLoad(false); return }
+
+        // Replace playground iframes with fetched code blocks
+        const iframeRe = /https:\/\/leetcode\.com\/playground\/([A-Za-z0-9]+)\/shared/g
+        const uuids: string[] = []
+        let m: RegExpExecArray | null
+        while ((m = iframeRe.exec(content)) !== null) {
+          if (!uuids.includes(m[1])) uuids.push(m[1])
+        }
+
+        if (uuids.length === 0) { setEditorial(content); setEditorialLoad(false); return }
+
+        const codeMap: Record<string, string> = {}
+        await Promise.all(uuids.map(async uuid => {
+          try {
+            const d = await gql(PLAYGROUND_Q, { u: uuid }, creds as any)
+            const codes: { code: string; langSlug: string }[] = d?.allPlaygroundCodes ?? []
+            const pick = codes.find(c => c.langSlug === 'cpp')
+              ?? codes.find(c => c.langSlug === 'python3')
+              ?? codes[0]
+            if (pick) {
+              const lang = pick.langSlug === 'python3' ? 'python' : pick.langSlug === 'cpp' ? 'cpp' : pick.langSlug
+              codeMap[uuid] = `\`\`\`${lang}\n${pick.code}\n\`\`\``
+            }
+          } catch { /* ignore */ }
+        }))
+
+        let processed = content
+        for (const uuid of uuids) {
+          const pat = new RegExp(`<iframe[^>]*leetcode\\.com/playground/${uuid}/shared[^>]*>\\s*</iframe>`, 'gs')
+          processed = processed.replace(pat, codeMap[uuid] ?? '')
+        }
+        // Strip Video Solution section
+        processed = processed.replace(/#{1,3}\s*Video Solution[\s\S]*?(?=#{1,3}\s|\s*$)/i, '')
+        setEditorial(processed)
+      } catch { setEditorial('') }
+      finally { setEditorialLoad(false) }
+    })()
+  }, [leftTab, question, session, csrfToken])
 
   const acStats = profile?.submitStatsGlobal.acSubmissionNum ?? []
   const isAC = result?.status_code === 10
@@ -525,10 +625,10 @@ export default function LeetCodePage() {
           <div className={`${mobilePanel === 'desc' ? 'flex' : 'hidden'} sm:flex w-full sm:w-[42%] flex-col border-r border-gray-700/50 overflow-hidden`}>
             {/* Left tabs */}
             <div className="flex border-b border-gray-700/50 shrink-0 bg-[#16213e]">
-              {(['description', 'profile'] as const).map(tab => (
+              {(['description', 'editorial', 'profile'] as const).map(tab => (
                 <button key={tab} onClick={() => setLeftTab(tab)}
                   className={`px-4 py-2.5 text-xs font-semibold capitalize transition ${leftTab === tab ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-500 hover:text-gray-300'}`}>
-                  {tab === 'profile' ? 'Profile' : 'Description'}
+                  {tab === 'profile' ? 'Profile' : tab === 'editorial' ? 'Editorial' : 'Description'}
                 </button>
               ))}
             </div>
@@ -564,6 +664,69 @@ export default function LeetCodePage() {
                     prose-code:px-1 prose-code:rounded prose-strong:text-gray-100"
                   dangerouslySetInnerHTML={{ __html: question.content }}
                 />
+              </div>
+            )}
+
+            {leftTab === 'editorial' && (
+              <div className="flex-1 overflow-y-auto">
+                {editorialLoad && (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 size={20} className="animate-spin text-indigo-400" />
+                  </div>
+                )}
+                {!editorialLoad && editorial === '' && (
+                  <div className="flex flex-col items-center justify-center py-12 gap-2 text-center px-4">
+                    <BookOpen size={24} className="text-gray-600" />
+                    <p className="text-sm text-gray-500">No editorial available for this problem.</p>
+                    {!sessionOK && <p className="text-xs text-gray-600">Connect your LeetCode session — some editorials require it.</p>}
+                  </div>
+                )}
+                {!editorialLoad && editorial && (
+                  <div className="p-5 editorial-content">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeRaw]}
+                      components={{
+                        iframe: () => null,
+                        h2: ({ children }: any) => <h2 className="text-base font-bold text-gray-100 mt-6 mb-2 pb-1 border-b border-gray-700">{children}</h2>,
+                        h3: ({ children }: any) => <h3 className="text-sm font-bold text-indigo-400 mt-5 mb-2 flex items-center gap-1.5"><span className="w-1 h-4 bg-indigo-400 rounded-full inline-block shrink-0"/>{children}</h3>,
+                        h4: ({ children }: any) => <h4 className="text-sm font-semibold text-gray-300 mt-3 mb-1.5">{children}</h4>,
+                        p: ({ children }: any) => {
+                          const text = String(children)
+                          if (text.startsWith('[TOC]') || text === '&nbsp;') return null
+                          return <p className="text-sm text-gray-300 leading-relaxed my-2.5">{children}</p>
+                        },
+                        ul: ({ children }: any) => <ul className="my-2 space-y-1 pl-5 list-none">{children}</ul>,
+                        ol: ({ children }: any) => <ol className="my-2 space-y-1 pl-5 list-decimal text-sm text-gray-300">{children}</ol>,
+                        li: ({ children }: any) => <li className="text-sm text-gray-300 leading-relaxed flex gap-2"><span className="text-indigo-400 shrink-0 mt-0.5">•</span><span>{children}</span></li>,
+                        code: ({ children, className }: any) =>
+                          className
+                            ? <code className="text-[12px] font-mono">{children}</code>
+                            : <code className="bg-gray-800 text-orange-300 border border-gray-700 px-1.5 py-0.5 rounded text-xs font-mono">{children}</code>,
+                        pre: ({ children }: any) => {
+                          const child = children as React.ReactElement<{ className?: string; children?: string }>
+                          const lang = (child?.props?.className ?? '').replace('language-', '') || 'text'
+                          const code = child?.props?.children ?? ''
+                          return <EditorialCodeBlock code={String(code).trimEnd()} lang={lang} />
+                        },
+                        hr: () => <hr className="my-4 border-gray-700" />,
+                        strong: ({ children }: any) => <strong className="font-semibold text-gray-100">{children}</strong>,
+                        blockquote: ({ children }: any) => <blockquote className="border-l-4 border-indigo-500 pl-4 my-3 text-sm text-gray-400 italic">{children}</blockquote>,
+                        table: ({ children }: any) => <div className="overflow-x-auto my-3"><table className="text-xs border-collapse w-full">{children}</table></div>,
+                        th: ({ children }: any) => <th className="bg-gray-800 border border-gray-700 px-3 py-1.5 text-left font-semibold text-gray-200">{children}</th>,
+                        td: ({ children }: any) => <td className="border border-gray-700 px-3 py-1.5 text-gray-300">{children}</td>,
+                        img: ({ src, alt }: any) => <img src={src} alt={alt ?? ''} className="max-w-full rounded-lg my-3 border border-gray-700" />,
+                      }}
+                    >
+                      {editorial
+                        .replace(/\[TOC\]/g, '')
+                        .replace(/##\s*Video Solution[\s\S]*?(?=##\s|\z)/m, '')
+                        .replace(/<div[^>]*class="video-container"[^>]*>[\s\S]*?<\/div>/g, '')
+                        .replace(/\$\$([^$]+)\$\$/g, '`$1`')
+                        .trim()}
+                    </ReactMarkdown>
+                  </div>
+                )}
               </div>
             )}
 
