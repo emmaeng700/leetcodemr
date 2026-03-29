@@ -63,7 +63,7 @@ const FEATURES = [
     icon: Brain,
     color: 'text-teal-500',
     label: 'Spaced Repetition',
-    desc: 'Mark questions solved to start a personalised review schedule. Intervals double each review: 1 → 2 → 4 → 8 → 16 → 32 → 64 → 128 → 256 → 365 days (capped). Due reviews surface as a banner on the home page. Accepting a submission on a due problem auto-completes the review. Dedicated Review page shows your full queue with overdue indicators.',
+    desc: 'Mark questions solved to start a personalised review schedule. Intervals: 7 → 12 → 21 → 26 → 35 → 40 → 49 → 54 → 63 → 365 days (capped). Due reviews surface as a banner on the home page. Accepting a submission on a due problem auto-completes the review. Dedicated Review page shows your full queue with overdue indicators.',
   },
   {
     icon: Calendar,
