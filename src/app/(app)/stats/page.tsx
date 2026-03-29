@@ -19,6 +19,7 @@ export default function StatsPage() {
   const [solvedLog, setSolvedLog] = useState<Record<string, number>>({})
   const [planLog, setPlanLog] = useState<Record<string, number>>({})
   const [planPerDay, setPlanPerDay] = useState(0)
+  const [planStartDate, setPlanStartDate] = useState('')
   const [timeData, setTimeData] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [importStatus, setImportStatus] = useState<'ok' | 'err' | null>(null)
@@ -51,6 +52,7 @@ export default function StatsPage() {
 
       // Store plan per_day as the source-of-truth target
       if (plan?.per_day) setPlanPerDay(plan.per_day)
+      if (plan?.start_date) setPlanStartDate(plan.start_date)
 
       // Build daily plan heatmap from plan structure + progress
       // For each plan day: count how many of that day's questions are solved
@@ -348,7 +350,7 @@ export default function StatsPage() {
       )}
 
       {/* Study Pace Calculator */}
-      <StudyPaceCalculator total={totalQ} solved={solvedQ} />
+      <StudyPaceCalculator total={totalQ} solved={solvedQ} planStartDate={planStartDate} planPerDay={planPerDay} />
     </div>
   )
 }

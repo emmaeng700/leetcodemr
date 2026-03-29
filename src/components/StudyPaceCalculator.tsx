@@ -16,7 +16,7 @@ function weekLabel(d: Date) {
   return `${days[d.getDay()]} ${formatDate(d)}`
 }
 
-export default function StudyPaceCalculator({ total = 0, solved = 0 }: { total?: number; solved?: number }) {
+export default function StudyPaceCalculator({ total = 0, solved = 0, planStartDate = '', planPerDay: planPD = 0 }: { total?: number; solved?: number; planStartDate?: string; planPerDay?: number }) {
   const remaining = Math.max(0, total - solved)
   const [perDay, setPerDay] = useState(5)
   const [startDate, setStartDate] = useState(todayStr)
@@ -135,6 +135,95 @@ export default function StudyPaceCalculator({ total = 0, solved = 0 }: { total?:
           ))}
         </div>
       </div>
+
+      {/* Real-time actual progress */}
+      {planStartDate && planPD > 0 && (() => {
+        const today = new Date()
+        today.setHours(12, 0, 0, 0)
+        const start = new Date(planStartDate + 'T12:00:00')
+        const daysElapsed = Math.max(0, Math.floor((today.getTime() - start.getTime()) / 86400000))
+        const weeksElapsed = Math.floor(daysElapsed / 7)
+        const perWeek = planPD * 7
+        const perMonth = planPD * 30
+
+        // Build same milestones but from plan start, using planPD
+        const planRemaining = total - solved + (planPD * daysElapsed) // approx original remaining
+        const actualMilestones: { label: string; date: Date; target: number; isPast: boolean }[] = []
+        const weeksNeededPlan = Math.ceil(planRemaining / perWeek)
+
+        for (let w = 1; w <= Math.min(weeksNeededPlan, 8); w++) {
+          const d = new Date(start)
+          d.setDate(d.getDate() + w * 7)
+          const target = Math.min(w * perWeek, planRemaining)
+          actualMilestones.push({ label: `Week ${w}`, date: d, target, isPast: d <= today })
+          if (target >= planRemaining) break
+        }
+        if (weeksNeededPlan > 8) {
+          const sm = start.getMonth(); const sy = start.getFullYear()
+          const monthsNeeded = planRemaining / perMonth
+          for (let m = 1; m <= Math.ceil(monthsNeeded) + 1; m++) {
+            const d = new Date(sy, sm + m, 1)
+            if (m * 30 > 56) {
+              const target = Math.min(m * perMonth, planRemaining)
+              actualMilestones.push({ label: `Month ${m} — ${MONTHS[(sm + m) % 12]} ${sy + Math.floor((sm + m) / 12)}`, date: d, target, isPast: d <= today })
+              if (target >= planRemaining) break
+            }
+          }
+          actualMilestones.sort((a, b) => a.date.getTime() - b.date.getTime())
+        }
+
+        const expectedNow = Math.min(daysElapsed * planPD, planRemaining)
+        const actualNow = solved
+        const diff = actualNow - expectedNow
+        const ahead = diff >= 0
+        const statusColor = diff >= 0 ? 'text-green-600' : diff >= -10 ? 'text-amber-500' : 'text-red-500'
+        const statusBg = diff >= 0 ? 'bg-green-50 border-green-200' : diff >= -10 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'
+        const statusLabel = diff >= 0 ? `${diff} ahead 🔥` : `${Math.abs(diff)} behind`
+
+        return (
+          <div className="mt-5">
+            <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">📍 Your actual progress</p>
+
+            {/* Today summary */}
+            <div className={`flex items-center justify-between rounded-xl px-4 py-3 border mb-3 ${statusBg}`}>
+              <div>
+                <p className="text-xs font-semibold text-gray-500">Day {daysElapsed} · Week {weeksElapsed + 1}</p>
+                <p className="text-xs text-gray-400 mt-0.5">Expected <span className="font-bold text-gray-600">{expectedNow}</span> · Actual <span className="font-bold text-gray-800">{actualNow}</span></p>
+              </div>
+              <span className={`text-sm font-black ${statusColor}`}>{statusLabel}</span>
+            </div>
+
+            {/* Per-milestone actual */}
+            <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+              {actualMilestones.map((m, i) => {
+                const actualPct = Math.min(100, Math.round((actualNow / m.target) * 100))
+                const onTrack = actualNow >= m.target
+                return (
+                  <div key={i} className={`flex items-center gap-3 rounded-lg px-3 py-2 border ${
+                    !m.isPast ? 'bg-gray-50 border-gray-100 opacity-50' :
+                    onTrack ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
+                  }`}>
+                    <div className="text-xs font-bold text-gray-500 shrink-0 w-20">{m.label}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between text-xs mb-0.5">
+                        <span className={`font-semibold ${!m.isPast ? 'text-gray-400' : onTrack ? 'text-green-700' : 'text-amber-700'}`}>
+                          {m.isPast ? (onTrack ? `✓ ${actualNow} / ${m.target}` : `${actualNow} / ${m.target}`) : `target ${m.target}`}
+                        </span>
+                        <span className="text-gray-400">{m.isPast ? `${actualPct}%` : ''}</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${!m.isPast ? 'bg-gray-300' : onTrack ? 'bg-green-500' : 'bg-amber-400'}`}
+                          style={{ width: `${m.isPast ? Math.min(100, actualPct) : 0}%` }} />
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-400 shrink-0 hidden sm:block">{formatDate(m.date)}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
