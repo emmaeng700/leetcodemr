@@ -200,20 +200,20 @@ export default function StudyPaceCalculator({ total = 0, solved = 0, planStartDa
                 const onTrack = actualNow >= m.target
                 return (
                   <div key={i} className={`flex items-center gap-3 rounded-lg px-3 py-2 border ${
-                    !m.isPast ? 'bg-gray-50 border-gray-100 opacity-50' :
-                    onTrack ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
+                    onTrack ? 'bg-green-50 border-green-200' :
+                    m.isPast ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-100'
                   }`}>
                     <div className="text-xs font-bold text-gray-500 shrink-0 w-20">{m.label}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between text-xs mb-0.5">
-                        <span className={`font-semibold ${!m.isPast ? 'text-gray-400' : onTrack ? 'text-green-700' : 'text-amber-700'}`}>
-                          {m.isPast ? (onTrack ? `✓ ${actualNow} / ${m.target}` : `${actualNow} / ${m.target}`) : `target ${m.target}`}
+                        <span className={`font-semibold ${onTrack ? 'text-green-700' : m.isPast ? 'text-amber-700' : 'text-gray-500'}`}>
+                          {onTrack ? `✓ ${actualNow} / ${m.target}` : `${actualNow} / ${m.target}`}
                         </span>
-                        <span className="text-gray-400">{m.isPast ? `${actualPct}%` : ''}</span>
+                        <span className="text-gray-400">{actualPct}%</span>
                       </div>
                       <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full transition-all ${!m.isPast ? 'bg-gray-300' : onTrack ? 'bg-green-500' : 'bg-amber-400'}`}
-                          style={{ width: `${m.isPast ? Math.min(100, actualPct) : 0}%` }} />
+                        <div className={`h-full rounded-full transition-all ${onTrack ? 'bg-green-500' : m.isPast ? 'bg-amber-400' : 'bg-indigo-400'}`}
+                          style={{ width: `${actualPct}%` }} />
                       </div>
                     </div>
                     <div className="text-xs text-gray-400 shrink-0 hidden sm:block">{formatDate(m.date)}</div>
