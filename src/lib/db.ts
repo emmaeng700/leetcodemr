@@ -41,7 +41,6 @@ export async function updateProgress(questionId: number, data: any) {
     .eq('question_id', questionId)
     .single()
 
-  const SR_INTERVALS = [7, 12, 21, 26, 35, 40, 49, 54, 63, 68, 77, 82, 91, 96, 105, 110, 119, 124, 133, 138, 147, 152, 161, 166, 175]
   let reviewCount = existing?.review_count ?? 0
   let nextReview = existing?.next_review ?? null
   let lastReviewed = existing?.last_reviewed ?? null
@@ -49,7 +48,7 @@ export async function updateProgress(questionId: number, data: any) {
   if (data.solved === true && !existing?.solved) {
     reviewCount = 0
     const d = new Date()
-    d.setDate(d.getDate() + SR_INTERVALS[0])
+    d.setDate(d.getDate() + srInterval(0))
     nextReview = localDateISO(d)
     lastReviewed = todayISO()
     await logSolvedToday()
@@ -388,7 +387,12 @@ export async function setInterviewDate(target_date: string, company: string) {
 }
 
 // ─── Spaced Repetition ───────────────────────────────────────────────────────
-const SR_INTERVALS = [7, 12, 21, 26, 35, 40, 49, 54, 63, 68, 77, 82, 91, 96, 105, 110, 119, 124, 133, 138, 147, 152, 161, 166, 175]
+// Formula: alternates +5 / +9 days, starting at 7.
+// srInterval(n) = floor(n/2)*14 + (n is even ? 7 : 12)
+// e.g. 0→7, 1→12, 2→21, 3→26, 4→35, 5→40 ... infinite, no cap.
+function srInterval(n: number): number {
+  return Math.floor(n / 2) * 14 + (n % 2 === 0 ? 7 : 12)
+}
 
 export async function completeReview(questionId: number) {
   const { data: existing } = await supabase
@@ -400,7 +404,7 @@ export async function completeReview(questionId: number) {
 
   const newCount = (existing?.review_count ?? 0) + 1
   const d = new Date()
-  d.setDate(d.getDate() + SR_INTERVALS[Math.min(newCount, SR_INTERVALS.length - 1)])
+  d.setDate(d.getDate() + srInterval(newCount))
   const nextReview = localDateISO(d)
 
   await supabase.from('progress').upsert({
@@ -432,7 +436,7 @@ export async function recalibrateSRDates() {
   const updates: Array<{ question_id: number; next_review: string }> = []
 
   for (const row of data) {
-    const interval = SR_INTERVALS[Math.min(row.review_count ?? 0, SR_INTERVALS.length - 1)]
+    const interval = srInterval(row.review_count ?? 0)
     const base = new Date(row.last_reviewed + 'T12:00:00') // noon local avoids DST edge
     base.setDate(base.getDate() + interval)
     const expected = localDateISO(base)
