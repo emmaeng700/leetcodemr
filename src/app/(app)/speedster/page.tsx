@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Gauge, CheckCircle, Circle } from 'lucide-react'
+import { Gauge, CheckCircle, Circle, Layers } from 'lucide-react'
 import { getProgress, getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 
@@ -55,14 +55,22 @@ export default function SpeedsterPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-9 h-9 rounded-xl bg-yellow-100 flex items-center justify-center">
-          <Gauge size={18} className="text-yellow-600" />
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-yellow-100 flex items-center justify-center">
+            <Gauge size={18} className="text-yellow-600" />
+          </div>
+          <div>
+            <h1 className="font-black text-gray-900 text-lg">Speedster</h1>
+            <p className="text-xs text-gray-400">Learn any question in plan order — submissions won't mark as solved</p>
+          </div>
         </div>
-        <div>
-          <h1 className="font-black text-gray-900 text-lg">Speedster</h1>
-          <p className="text-xs text-gray-400">Learn any question in plan order — submissions won't mark as solved</p>
-        </div>
+        <Link
+          href="/speedster/flashcards"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-yellow-500 text-white text-sm font-semibold hover:bg-yellow-600 transition-colors"
+        >
+          <Layers size={14} /> Flashcards
+        </Link>
       </div>
 
       <div className="space-y-6">
