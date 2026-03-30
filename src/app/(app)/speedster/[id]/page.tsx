@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, BookOpen, Code2, ExternalLink, Loader2, Trophy, Gauge } from 'lucide-react'
 import { getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -39,9 +39,7 @@ function PremiumBlock({ slug }: { slug?: string }) {
 export default function SpeedsterQuestionPage() {
   const params = useParams()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const id = Number(params.id)
-  const planIdx = Number(searchParams.get('idx') ?? 0)
 
   const [question, setQuestion] = useState<Question | null>(null)
   const [planOrder, setPlanOrder] = useState<number[]>([])
@@ -75,6 +73,7 @@ export default function SpeedsterQuestionPage() {
     if (!question?.slug) return
     let cancelled = false
     setLcLoading(true); setLcFailed(false); setIsPremium(false)
+    setLcContent(null)
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 8000)
     const session = localStorage.getItem('lc_session') || ''
@@ -102,8 +101,14 @@ export default function SpeedsterQuestionPage() {
     return () => { cancelled = true; controller.abort(); clearTimeout(timeout) }
   }, [question?.slug])
 
-  const prevId = planIdx > 0 ? planOrder[planIdx - 1] : null
-  const nextId = planIdx < planOrder.length - 1 ? planOrder[planIdx + 1] : null
+  // Derive index directly from plan order — no URL param needed
+  const currentIdx = planOrder.indexOf(id)
+  const prevId = currentIdx > 0 ? planOrder[currentIdx - 1] : null
+  const nextId = currentIdx < planOrder.length - 1 ? planOrder[currentIdx + 1] : null
+
+  function goTo(qid: number) {
+    router.push(`/speedster/${qid}`)
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-56px)]">
@@ -133,23 +138,12 @@ export default function SpeedsterQuestionPage() {
           )}
         </div>
 
-        {/* Prev / Next navigation */}
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={() => prevId && router.push(`/speedster/${prevId}?idx=${planIdx - 1}`)}
-            disabled={!prevId}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold text-gray-500 border border-gray-200 hover:border-yellow-300 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ArrowLeft size={12} /> Prev
-          </button>
-          <button
-            onClick={() => nextId && router.push(`/speedster/${nextId}?idx=${planIdx + 1}`)}
-            disabled={!nextId}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold text-gray-500 border border-gray-200 hover:border-yellow-300 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            Next <ArrowRight size={12} />
-          </button>
-        </div>
+        {/* Position indicator */}
+        {currentIdx >= 0 && planOrder.length > 0 && (
+          <span className="text-xs text-gray-400 font-medium shrink-0 hidden sm:block">
+            {currentIdx + 1} / {planOrder.length}
+          </span>
+        )}
       </div>
 
       {/* Mobile panel tabs */}
@@ -240,17 +234,61 @@ export default function SpeedsterQuestionPage() {
               />
             )}
           </div>
+
+          {/* Bottom nav — left panel */}
+          <div className="shrink-0 border-t border-gray-100 bg-white px-3 py-2 flex items-center justify-between gap-2">
+            <button
+              onClick={() => prevId && goTo(prevId)}
+              disabled={!prevId}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-gray-50 border border-gray-200 text-gray-600 hover:border-yellow-300 hover:bg-yellow-50 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ArrowLeft size={13} /> Prev
+            </button>
+            <span className="text-xs text-gray-400">
+              {currentIdx >= 0 ? `${currentIdx + 1} of ${planOrder.length}` : '—'}
+            </span>
+            <button
+              onClick={() => nextId && goTo(nextId)}
+              disabled={!nextId}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-yellow-500 border border-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Next <ArrowRight size={13} />
+            </button>
+          </div>
         </div>
 
         {/* RIGHT — editor */}
-        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-1 min-h-0 overflow-x-hidden`}>
-          {question ? (
-            <LeetCodeEditor appQuestionId={question.id} slug={question.slug} speedster />
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-300 text-sm gap-2">
-              <Loader2 size={16} className="animate-spin" /> Loading editor...
-            </div>
-          )}
+        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-col flex-1 min-h-0 overflow-x-hidden`}>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {question ? (
+              <LeetCodeEditor appQuestionId={question.id} slug={question.slug} speedster />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-300 text-sm gap-2">
+                <Loader2 size={16} className="animate-spin" /> Loading editor...
+              </div>
+            )}
+          </div>
+
+          {/* Bottom nav — right panel (desktop only) */}
+          <div className="shrink-0 border-t border-gray-100 bg-white px-3 py-2 hidden md:flex items-center justify-between gap-2">
+            <button
+              onClick={() => prevId && goTo(prevId)}
+              disabled={!prevId}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-gray-50 border border-gray-200 text-gray-600 hover:border-yellow-300 hover:bg-yellow-50 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ArrowLeft size={13} /> Prev question
+            </button>
+            <span className="text-xs text-gray-400 font-medium">
+              {currentIdx >= 0 && planOrder.length > 0 ? `${currentIdx + 1} of ${planOrder.length}` : ''}
+            </span>
+            <button
+              onClick={() => nextId && goTo(nextId)}
+              disabled={!nextId}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-yellow-500 border border-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Next question <ArrowRight size={13} />
+            </button>
+          </div>
         </div>
       </div>
 
