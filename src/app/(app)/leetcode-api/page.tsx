@@ -1,5 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
+import OfflineBanner from '@/components/OfflineBanner'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import dynamic from 'next/dynamic'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -159,6 +161,7 @@ const STATUS_CLS: Record<number, string> = {
 
 /* ══════════════════════════════════════════════════════════ */
 export default function LeetCodePage() {
+  const online = useOnlineStatus()
   /* Session */
   const [session,    setSession]    = useState('')
   const [csrfToken,  setCsrfToken]  = useState('')
@@ -495,6 +498,12 @@ export default function LeetCodePage() {
   const isAC = result?.status_code === 10
 
   /* ══ RENDER ══════════════════════════════════════════════ */
+  if (!online) return (
+    <div className="flex flex-col items-center justify-center h-[calc(100vh-56px)] gap-4 text-center px-4">
+      <OfflineBanner feature="LeetCode section" />
+    </div>
+  )
+
   return (
     <div className="flex flex-col h-[calc(100vh-56px)] bg-[#1a1a2e] text-gray-100 overflow-hidden">
 

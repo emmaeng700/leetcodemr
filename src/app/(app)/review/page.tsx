@@ -1,6 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import OfflineBanner from '@/components/OfflineBanner'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { getProgress, getDueReviews, completeReview } from '@/lib/db'
 import { isDue, formatLocalDate } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -33,6 +35,7 @@ const STATUS_COUNTS_COLORS: Record<string, { bg: string; text: string; label: st
 }
 
 export default function ReviewPage() {
+  const online = useOnlineStatus()
   const [allQ, setAllQ] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
@@ -94,6 +97,7 @@ export default function ReviewPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+      {!online && <OfflineBanner feature="Reviews (Supabase)" />}
       <h1 className="text-2xl font-bold text-gray-800 mb-2 flex items-center gap-2">
         <Brain className="text-indigo-500" /> Spaced Repetition
       </h1>

@@ -1,5 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import OfflineBanner from '@/components/OfflineBanner'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { Trophy, TrendingUp, Download, Upload, CheckCircle, AlertTriangle, Lock, Unlock } from 'lucide-react'
 import { getProgress, getSolvedLog, getTimeTracking, getDailyTarget, setDailyTarget, getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -14,6 +16,7 @@ interface Question {
 }
 
 export default function StatsPage() {
+  const online = useOnlineStatus()
   const [questions, setQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, any>>({})
   const [solvedLog, setSolvedLog] = useState<Record<string, number>>({})
@@ -147,6 +150,7 @@ export default function StatsPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
+      {!online && <OfflineBanner feature="Stats (progress data)" />}
       <h1 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
         <Trophy className="text-yellow-500" /> Your Stats
       </h1>

@@ -1,6 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import OfflineBanner from '@/components/OfflineBanner'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -103,6 +105,7 @@ function getTodayInfo(plan: StudyPlan, allQuestions: Question[], progress: Recor
 }
 
 export default function DailyPage() {
+  const online = useOnlineStatus()
   const [allQuestions, setAllQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, ProgressData>>({})
   const [plan, setPlan] = useState<StudyPlan | null>(null)
@@ -196,6 +199,7 @@ export default function DailyPage() {
   if (!plan) {
     return (
       <div className="max-w-xl mx-auto px-4 py-10">
+        {!online && <OfflineBanner feature="Daily plan (Supabase)" />}
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">🚔</div>
           <h1 className="text-2xl font-black text-gray-800 mb-1">LeetCode Police</h1>
@@ -294,6 +298,7 @@ export default function DailyPage() {
 
   return (
     <div className="max-w-xl mx-auto px-4 py-8">
+      {!online && <OfflineBanner feature="Daily plan (Supabase)" />}
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
