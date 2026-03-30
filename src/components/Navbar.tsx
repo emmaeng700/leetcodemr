@@ -5,13 +5,14 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   BookOpen, Menu, X, LogOut, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
-  Calendar, Info, Timer, Code2, Zap
+  Calendar, Info, Timer, Code2, Zap, Gauge
 } from 'lucide-react'
 
 // Group 1 — Practice & solving
 const PRACTICE_LINKS = [
   { href: '/',             label: 'Questions', icon: Home },
   { href: '/daily',        label: 'Daily',     icon: Calendar },
+  { href: '/speedster',    label: 'Speedster', icon: Gauge },
   { href: '/learn/0',      label: 'Learn',     icon: BookOpen },
   { href: '/mock',         label: 'Mock',      icon: Timer },
   { href: '/leetcode-api', label: 'LeetCode',  icon: Zap },

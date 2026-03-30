@@ -60,10 +60,11 @@ interface Props {
   appQuestionId: number
   slug: string
   onAccepted?: () => void
+  speedster?: boolean
 }
 
 /* ══════════════════════════════════════════════════════════ */
-export default function LeetCodeEditor({ appQuestionId, slug, onAccepted }: Props) {
+export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speedster = false }: Props) {
   const onAcceptedRef = useRef(onAccepted)
   useEffect(() => { onAcceptedRef.current = onAccepted }, [onAccepted])
 
@@ -93,7 +94,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted }: Prop
   const [pollMsg,    setPollMsg]    = useState('')
   const [result,     setResult]     = useState<LCResult | null>(null)
   const [resultErr,  setResultErr]  = useState('')
-  const [solvedStatus, setSolvedStatus] = useState<'marked' | 'already' | 'not-in-library' | null>(null)
+  const [solvedStatus, setSolvedStatus] = useState<'marked' | 'already' | 'not-in-library' | 'speedster' | null>(null)
   const [showSessionHint, setShowSessionHint] = useState(false)
 
   /* ── Load session ── */
@@ -199,17 +200,21 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted }: Prop
 
         /* Sync to app on Accepted Submit */
         if (mode === 'submit' && data.status_code === 10) {
-          const prog = await getProgress()
-          const alreadySolved = Array.isArray(prog)
-            ? prog.some((p: any) => p.question_id === appQuestionId && p.solved)
-            : (prog as any)?.[String(appQuestionId)]?.solved
-          if (alreadySolved) {
-            setSolvedStatus('already')
+          if (speedster) {
+            setSolvedStatus('speedster')
           } else {
-            await updateProgress(appQuestionId, { solved: true })
-            setSolvedStatus('marked')
+            const prog = await getProgress()
+            const alreadySolved = Array.isArray(prog)
+              ? prog.some((p: any) => p.question_id === appQuestionId && p.solved)
+              : (prog as any)?.[String(appQuestionId)]?.solved
+            if (alreadySolved) {
+              setSolvedStatus('already')
+            } else {
+              await updateProgress(appQuestionId, { solved: true })
+              setSolvedStatus('marked')
+            }
+            onAcceptedRef.current?.()
           }
-          onAcceptedRef.current?.()
         }
         return
       }
@@ -469,6 +474,11 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted }: Prop
                   {solvedStatus === 'already' && (
                     <div className="flex items-center gap-1.5 text-xs text-gray-400 bg-gray-700/30 border border-gray-600/20 rounded-lg px-3 py-1.5">
                       <CheckCircle size={11} /> Already solved in your app
+                    </div>
+                  )}
+                  {solvedStatus === 'speedster' && (
+                    <div className="flex items-center gap-1.5 text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-1.5">
+                      ⚡ Speedster mode — progress not saved
                     </div>
                   )}
 
