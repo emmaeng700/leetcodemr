@@ -258,37 +258,14 @@ export default function SpeedsterQuestionPage() {
         </div>
 
         {/* RIGHT — editor */}
-        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-col flex-1 min-h-0 overflow-x-hidden`}>
-          <div className="flex-1 min-h-0 overflow-hidden">
-            {question ? (
-              <LeetCodeEditor appQuestionId={question.id} slug={question.slug} speedster />
-            ) : (
-              <div className="flex items-center justify-center h-full text-gray-300 text-sm gap-2">
-                <Loader2 size={16} className="animate-spin" /> Loading editor...
-              </div>
-            )}
-          </div>
-
-          {/* Bottom nav — right panel (desktop only) */}
-          <div className="shrink-0 border-t border-gray-100 bg-white px-3 py-2 hidden md:flex items-center justify-between gap-2">
-            <button
-              onClick={() => prevId && goTo(prevId)}
-              disabled={!prevId}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-gray-50 border border-gray-200 text-gray-600 hover:border-yellow-300 hover:bg-yellow-50 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              <ArrowLeft size={13} /> Prev question
-            </button>
-            <span className="text-xs text-gray-400 font-medium">
-              {currentIdx >= 0 && planOrder.length > 0 ? `${currentIdx + 1} of ${planOrder.length}` : ''}
-            </span>
-            <button
-              onClick={() => nextId && goTo(nextId)}
-              disabled={!nextId}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-yellow-500 border border-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              Next question <ArrowRight size={13} />
-            </button>
-          </div>
+        <div className={`${mobilePanel === 'editor' ? 'flex' : 'hidden'} md:flex flex-1 min-h-0 overflow-x-hidden`}>
+          {question ? (
+            <LeetCodeEditor appQuestionId={question.id} slug={question.slug} speedster />
+          ) : (
+            <div className="flex items-center justify-center h-full text-gray-300 text-sm gap-2">
+              <Loader2 size={16} className="animate-spin" /> Loading editor...
+            </div>
+          )}
         </div>
       </div>
 
