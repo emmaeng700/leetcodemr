@@ -9,11 +9,15 @@ import {
   CheckCircle2,
   Circle,
   Sparkles,
+  Copy,
+  Check,
 } from 'lucide-react'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { getStudyPlan } from '@/lib/db'
 import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
+import { CODE_HIGHLIGHT_TOKEN_CSS } from '@/lib/codeHighlightTheme'
+import { highlightPythonLine } from '@/lib/line-game/highlightPythonLine'
 import {
   buildBlankPicks,
   linesFromPython,
@@ -40,6 +44,15 @@ interface BlankState {
   revealed: boolean
 }
 
+function HlLine({ html, className = '' }: { html: string; className?: string }) {
+  return (
+    <code
+      className={`hljs language-python whitespace-pre-wrap break-all ${className}`}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  )
+}
+
 function LineGameQuestionPanel({
   question,
   picks,
@@ -56,8 +69,10 @@ function LineGameQuestionPanel({
   const [blankStates, setBlankStates] = useState<BlankState[]>(() =>
     picks.map(() => ({ input: '', attempts: 0, solved: false, revealed: false }))
   )
+  const [copied, setCopied] = useState(false)
 
   const lines = useMemo(() => linesFromPython(question.python_solution!), [question])
+  const fullCode = question.python_solution ?? ''
 
   const blankAtLine = useMemo(() => {
     const m = new Map<number, number>()
@@ -96,117 +111,168 @@ function LineGameQuestionPanel({
     [picks, onAwardPoints]
   )
 
+  const copyAll = async () => {
+    if (!fullCode) return
+    await navigator.clipboard.writeText(fullCode)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const blanksRemaining = blankStates.filter((s) => !s.solved && !s.revealed).length
+
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2 justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-bold text-gray-900 truncate">{question.title}</span>
-            <DifficultyBadge difficulty={question.difficulty} />
+    <div className="bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
+      <style>{`
+        .line-game-code .hljs { background: transparent; color: #abb2bf; }
+        ${CODE_HIGHLIGHT_TOKEN_CSS}
+      `}</style>
+
+      {/* Flashcard-style header */}
+      <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-3 border-b border-indigo-100 bg-indigo-50">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <span className="text-xs text-gray-400 font-mono">#{question.id}</span>
+          <DifficultyBadge difficulty={question.difficulty} />
+          <span className="text-sm font-bold text-indigo-700 truncate">{question.title}</span>
+        </div>
+        <a
+          href={`https://leetcode.com/problems/${question.slug}/`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-indigo-600 font-semibold hover:underline shrink-0"
+        >
+          LeetCode <ExternalLink size={12} />
+        </a>
+      </div>
+
+      <div className="p-4">
+        {/* Same shell as CodePanel: dark editor + toolbar */}
+        <div className="rounded-xl overflow-hidden border border-gray-700 bg-[#282c34] line-game-code">
+          <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#21252b] border-b border-gray-700">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-3 py-1 rounded text-xs font-semibold bg-indigo-600 text-white">
+                Python
+              </span>
+              <span className="text-xs text-gray-400">
+                {picks.length} line{picks.length === 1 ? '' : 's'} to fill
+                {blanksRemaining > 0 ? ` · ${blanksRemaining} open` : ''}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={copyAll}
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors shrink-0"
+            >
+              {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
           </div>
-          <a
-            href={`https://leetcode.com/problems/${question.slug}/`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline mt-1"
-          >
-            Open on LeetCode <ExternalLink size={12} />
-          </a>
+
+          <div className="overflow-x-auto p-4 pt-3 pb-5 text-[11px] sm:text-[12px] md:text-[13px] leading-relaxed">
+            {lines.map((line, li) => {
+              const bi = blankAtLine.get(li)
+              const lineNo = li + 1
+
+              if (bi === undefined) {
+                return (
+                  <div
+                    key={li}
+                    className="flex gap-3 font-mono group hover:bg-white/[0.03] rounded-sm -mx-2 px-2 py-0.5"
+                  >
+                    <span className="text-[#636d83] select-none w-7 sm:w-8 text-right shrink-0 tabular-nums pt-px">
+                      {lineNo}
+                    </span>
+                    <div className="flex-1 min-w-0 py-px">
+                      <HlLine html={highlightPythonLine(line)} />
+                    </div>
+                  </div>
+                )
+              }
+
+              const st = blankStates[bi]
+              const spec = picks[bi]
+              if (!st || !spec) {
+                return (
+                  <div key={li} className="flex gap-3 font-mono">
+                    <span className="text-[#636d83] w-7 sm:w-8 text-right shrink-0">{lineNo}</span>
+                    <pre className="m-0 flex-1">{line}</pre>
+                  </div>
+                )
+              }
+
+              const locked = st.solved
+              const revealed = st.revealed
+
+              return (
+                <div key={li} className="flex gap-3 font-mono my-2 first:mt-0">
+                  <span className="text-[#636d83] select-none w-7 sm:w-8 text-right shrink-0 tabular-nums pt-2">
+                    {lineNo}
+                  </span>
+                  <div className="flex-1 min-w-0 space-y-2">
+                    {locked && (
+                      <div className="rounded-lg border border-emerald-700/60 bg-emerald-950/35 px-3 py-2 flex items-start gap-2">
+                        <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={16} />
+                        <HlLine html={highlightPythonLine(spec.expected)} />
+                      </div>
+                    )}
+                    {revealed && !locked && (
+                      <div className="rounded-lg border border-amber-700/50 bg-amber-950/30 px-3 py-2 flex items-start gap-2">
+                        <Circle className="text-amber-400 shrink-0 mt-0.5" size={16} />
+                        <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+                          <HlLine html={highlightPythonLine(spec.expected)} />
+                          <span className="text-[10px] uppercase tracking-wide text-amber-400/90 shrink-0 pt-0.5">
+                            revealed
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {!locked && !revealed && (
+                      <>
+                        <textarea
+                          value={st.input}
+                          onChange={(e) =>
+                            setBlankStates((prev) => {
+                              const next = [...prev]
+                              next[bi] = { ...next[bi], input: e.target.value }
+                              return next
+                            })
+                          }
+                          rows={Math.min(8, Math.max(2, spec.expected.split('\n').length + 1))}
+                          spellCheck={false}
+                          className="w-full rounded-md bg-[#21252b] border border-indigo-500/45 text-[#abb2bf] placeholder:text-[#5c6370] px-3 py-2 font-mono text-[11px] sm:text-[12px] md:text-[13px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400/60 resize-y min-h-[2.75rem] shadow-inner"
+                          placeholder="Type the full line (indentation matters)…"
+                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => checkBlank(bi)}
+                            className="px-3 py-1.5 rounded-md bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-500 shadow-sm"
+                          >
+                            Check
+                          </button>
+                          <span className="text-[11px] text-[#7f848e]">Attempts {st.attempts}/3</span>
+                        </div>
+                        {st.attempts >= 1 && (
+                          <p className="text-[11px] text-[#56b6c2]">
+                            Hint: length (trimmed end) = {normalizeAnswerLine(spec.expected).length} chars
+                          </p>
+                        )}
+                        {st.attempts >= 2 && (
+                          <p className="text-[11px] text-[#e5c07b] font-mono">
+                            Starts with {JSON.stringify(hintPrefix(spec.expected, 4))}
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
 
-      <div className="p-4 font-mono text-sm leading-relaxed space-y-0.5 bg-gray-900 text-gray-100">
-        {lines.map((line, li) => {
-          const bi = blankAtLine.get(li)
-          if (bi === undefined) {
-            return (
-              <pre key={li} className="whitespace-pre-wrap break-all text-gray-300 pl-0 m-0">
-                {line || ' '}
-              </pre>
-            )
-          }
-
-          const st = blankStates[bi]
-          const spec = picks[bi]
-          if (!st || !spec) {
-            return (
-              <pre key={li} className="m-0">
-                {line}
-              </pre>
-            )
-          }
-
-          const locked = st.solved
-          const revealed = st.revealed
-
-          return (
-            <div key={li} className="my-2 space-y-2">
-              {locked && (
-                <div className="flex items-start gap-2 rounded-lg bg-emerald-950/80 border border-emerald-700/50 px-3 py-2">
-                  <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={18} />
-                  <pre className="whitespace-pre-wrap break-all text-emerald-100 m-0 flex-1">
-                    {spec.expected}
-                  </pre>
-                </div>
-              )}
-              {revealed && !locked && (
-                <div className="flex items-start gap-2 rounded-lg bg-amber-950/60 border border-amber-700/40 px-3 py-2">
-                  <Circle className="text-amber-400 shrink-0 mt-0.5" size={18} />
-                  <pre className="whitespace-pre-wrap break-all text-amber-100 m-0 flex-1">
-                    {spec.expected}
-                  </pre>
-                  <span className="text-xs text-amber-300 shrink-0">revealed</span>
-                </div>
-              )}
-              {!locked && !revealed && (
-                <>
-                  <textarea
-                    value={st.input}
-                    onChange={(e) =>
-                      setBlankStates((prev) => {
-                        const next = [...prev]
-                        next[bi] = { ...next[bi], input: e.target.value }
-                        return next
-                      })
-                    }
-                    rows={Math.min(6, Math.max(2, spec.expected.split('\n').length + 1))}
-                    spellCheck={false}
-                    className="w-full rounded-lg bg-gray-800 border border-indigo-500/50 text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-y min-h-[2.5rem]"
-                    placeholder="Type the full line (including indentation)…"
-                  />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => checkBlank(bi)}
-                      className="px-4 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500"
-                    >
-                      Check
-                    </button>
-                    <span className="text-xs text-gray-400">Attempts: {st.attempts}/3</span>
-                  </div>
-                  {st.attempts >= 1 && (
-                    <p className="text-xs text-cyan-300">
-                      Hint: line length (trimmed end) = {normalizeAnswerLine(spec.expected).length}{' '}
-                      chars
-                    </p>
-                  )}
-                  {st.attempts >= 2 && (
-                    <p className="text-xs text-amber-200 font-mono">
-                      Starts with:{' '}
-                      <span className="text-amber-100">
-                        {JSON.stringify(hintPrefix(spec.expected, 4))}
-                      </span>
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-          )
-        })}
-      </div>
-
       {questionDone && (
-        <div className="px-4 py-3 bg-indigo-50 border-t border-indigo-100 flex flex-wrap items-center justify-between gap-2">
+        <div className="px-5 py-3 bg-indigo-50 border-t border-indigo-100 flex flex-wrap items-center justify-between gap-2">
           <span className="text-sm font-semibold text-indigo-800">All lines done for this question.</span>
           {hasNext ? (
             <button
@@ -217,7 +283,7 @@ function LineGameQuestionPanel({
               Next question →
             </button>
           ) : (
-            <span className="text-sm text-indigo-600">You reached the end of the deck.</span>
+            <span className="text-sm text-indigo-600">End of deck.</span>
           )}
         </div>
       )}
@@ -303,8 +369,8 @@ export default function LineGamePage() {
         <div className="text-4xl mb-3">🧩</div>
         <h1 className="text-xl font-black text-gray-800 mb-2">Line game</h1>
         <p className="text-gray-500 text-sm mb-6">
-          No questions with enough Python solution lines to blank out. Add solutions in{' '}
-          <code className="text-indigo-600">questions_full.json</code> or check back later.
+          No questions with enough Python lines to drill. Add solutions in{' '}
+          <code className="text-indigo-600">questions_full.json</code> or try again later.
         </p>
         <Link href="/daily" className="text-indigo-600 font-semibold text-sm hover:underline">
           Daily plan →
@@ -326,16 +392,15 @@ export default function LineGamePage() {
             Line game
           </div>
           <p className="text-sm text-gray-500 max-w-xl">
-            Fill in the hidden lines (same order as your Daily plan, or Easy → Medium → Hard). Three
-            checks per line, then the answer is shown. Green = locked in.
+            Syntax-colored like flashcards. Over 70% of each solution’s algorithm lines are blanked
+            (highest-impact lines first; same order as Daily). Three checks per line, then reveal. Green =
+            you knew it.
           </p>
         </div>
         <div className="text-right">
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Score</div>
           <div className="text-2xl font-black text-indigo-600 tabular-nums">{sessionScore}</div>
-          <div className="text-xs text-gray-400 mt-1">
-            +3 / +2 / +1 by attempt (0 / 1 / 2 fails before correct)
-          </div>
+          <div className="text-xs text-gray-400 mt-1">+3 / +2 / +1 by attempt</div>
         </div>
       </div>
 
@@ -359,19 +424,19 @@ export default function LineGamePage() {
           type="button"
           onClick={() => go(-1)}
           disabled={idx === 0}
-          className="p-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 bg-white"
+          className="flex items-center gap-1 px-3 sm:px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30"
           aria-label="Previous question"
         >
-          <ChevronLeft size={20} />
+          <ChevronLeft size={18} /> Prev
         </button>
         <button
           type="button"
           onClick={() => go(1)}
           disabled={idx >= playable.length - 1}
-          className="p-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 bg-white"
+          className="flex items-center gap-1 px-3 sm:px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-30"
           aria-label="Next question"
         >
-          <ChevronRight size={20} />
+          Next <ChevronRight size={18} />
         </button>
       </div>
 

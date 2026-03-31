@@ -1,12 +1,21 @@
-/** Line-fill game: choose 2–3 “meaty” Python lines to blank out. */
+/** Line-fill game: blank meaningful Python lines (flashcard-style practice). */
 
 export interface BlankPick {
   lineIndex: number
   expected: string
 }
 
-const MAX_BLANKS = 3
-const MIN_CANDIDATES = 2
+/** Minimum scored algorithm lines to include a question (after relax pass). */
+const MIN_CANDIDATES = 1
+
+/**
+ * How many of the n scored algorithm lines must be blanked so strictly more than 70% are hidden.
+ * (e.g. n=10 → 8 blanks; n=100 → 71 blanks)
+ */
+function blanksForStrictOver70Percent(n: number): number {
+  if (n <= 0) return 0
+  return Math.min(n, Math.floor(n * 0.7) + 1)
+}
 
 export function linesFromPython(py: string): string[] {
   return py.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
@@ -49,7 +58,7 @@ export function pickBlankLineIndices(py: string): number[] | null {
   for (let i = 0; i < lines.length; i++) {
     if (isSkippable(lines[i])) continue
     const sc = scoreLine(lines[i])
-    if (sc < 1.2) continue
+    if (sc < 0.65) continue
     scored.push({ i, score: sc })
   }
 
@@ -65,7 +74,8 @@ export function pickBlankLineIndices(py: string): number[] | null {
 
   scored.sort((a, b) => (b.score !== a.score ? b.score - a.score : a.i - b.i))
 
-  const nPick = scored.length >= 3 ? MAX_BLANKS : 2
+  const nPick = blanksForStrictOver70Percent(scored.length)
+
   const picked = scored.slice(0, nPick).map((x) => x.i)
   picked.sort((a, b) => a - b)
   return picked
