@@ -115,7 +115,11 @@ function LearnInner() {
   const [showList, setShowList]     = useState(false)
   const [reviewDone, setReviewDone] = useState(false)
   const [leftTab, setLeftTab]       = useState<'description' | 'notes' | 'solution' | 'accepted'>('description')
-  const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(null) // null = modal not answered yet
+  const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(() => {
+    if (typeof window === 'undefined') return null
+    const saved = localStorage.getItem('lm_study_mode')
+    return (saved === 'show' || saved === 'hide') ? saved : null
+  })
   const [filterDiff, setFilterDiff]         = useState(initDiff)
   const [filterSource, setFilterSource]     = useState(initSource)
   const [filterPattern, setFilterPattern]   = useState<string | null>(
@@ -189,6 +193,11 @@ function LearnInner() {
   const nextReview  = p.next_review  || null
   const due = isDue(nextReview) && solved
   const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(q?.slug, leftTab === 'accepted')
+
+  // Persist study mode to localStorage
+  useEffect(() => {
+    if (studyMode !== null) localStorage.setItem('lm_study_mode', studyMode)
+  }, [studyMode])
 
   // Reset per question
   useEffect(() => {
@@ -349,8 +358,11 @@ function LearnInner() {
 
       {/* ── Study mode modal ── */}
       {studyMode === null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
+          onClick={() => setStudyMode('show')}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-1">
               <Brain size={20} className="text-indigo-600" />
               <h2 className="text-lg font-black text-gray-900">Study Mode</h2>
@@ -544,7 +556,7 @@ function LearnInner() {
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                 🏆 My Solutions
               </button>
-              <button onClick={() => setStudyMode(null)}
+              <button onClick={() => setStudyMode(prev => prev === 'hide' ? 'show' : 'hide')}
                 className={`ml-auto flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${studyMode === 'hide' ? 'text-orange-500 hover:text-orange-600' : 'text-gray-400 hover:text-gray-600'}`}>
                 🧠 {studyMode === 'hide' ? 'Challenge Mode' : 'Review Mode'}
               </button>
@@ -772,7 +784,7 @@ function LearnInner() {
                   <div className="text-4xl mb-3">🔒</div>
                   <p className="font-bold text-gray-700 text-sm mb-1">Answers Hidden</p>
                   <p className="text-xs text-gray-400 mb-4">You're in Challenge Mode. Try solving it yourself first!</p>
-                  <button onClick={() => setStudyMode(null)} className="text-xs text-indigo-500 underline">Change mode</button>
+                  <button onClick={() => setStudyMode('show')} className="text-xs text-indigo-500 underline">Switch to Review Mode</button>
                 </div>
               )}
               {leftTab === 'accepted' && (
