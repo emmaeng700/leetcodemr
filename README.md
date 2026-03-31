@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# leetcodemr (LeetMastery)
 
-## Getting Started
+A [Next.js](https://nextjs.org) app for **LeetCode-style interview prep**: curated questions, in-browser coding, spaced repetition, and study modes for DSA, behavioral, and system design.
 
-First, run the development server:
+## Stack
+
+- **Next.js 16** (App Router), **React 19**, **TypeScript**, **Tailwind CSS 4**
+- **Supabase** for progress, activity, and reviews
+- **CodeMirror** editors (Python/C++), **Resend** for optional daily email notifications
+
+## Features
+
+- **Questions** — Filter by difficulty, tags, and curated lists (e.g. Grind 169, Denny Zhang, Premium 98, CodeSignal); track solved, starred, notes, and streaks
+- **Practice** — Daily practice, Speedster, structured Learn paths, mock interviews
+- **LeetCode** — API routes to connect session and run/submit/check solutions
+- **Study** — Flashcards, quick review, Gems, DSA tutorials and reference
+- **Interview prep** — Behavioral and system design sections
+- **Stats & reviews** — Activity and spaced-review scheduling
+
+## Getting started
+
+Install dependencies and run the dev server:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Sign in uses a passcode (see environment variables).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create `.env.local` with at least:
 
-## Learn More
+| Variable | Purpose |
+|----------|---------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon (public) key |
+| `APP_PASSCODE` | Passcode for app login (`/login`) |
 
-To learn more about Next.js, take a look at the following resources:
+Optional (for cron-triggered daily notifications and admin Supabase access):
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable | Purpose |
+|----------|---------|
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (used where server-side Supabase access is needed) |
+| `RESEND_API_KEY` | [Resend](https://resend.com) API key for email |
+| `CRON_SECRET` | Shared secret for securing the notify endpoint |
+| `NOTIFICATION_EMAIL` | Recipient for daily notifications |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Scripts
 
-## Deploy on Vercel
+```bash
+npm run dev    # Development server
+npm run build  # Production build
+npm run start  # Run production server
+npm run lint   # ESLint
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Project layout
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `src/app/(app)/` — Main UI routes (questions, daily, stats, flashcards, etc.)
+- `src/app/api/` — Auth, LeetCode proxy, run code, notify
+- `src/components/` — Editors, navbar, shared UI
+- `src/lib/` — Supabase client, DB helpers, constants
+
+## Deploy
+
+Compatible with [Vercel](https://vercel.com) or any Node host that supports Next.js; set the same environment variables in your hosting dashboard.
+
+---
+
+Bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
