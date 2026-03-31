@@ -12,7 +12,7 @@ import {
   BookOpen, List, Code2, ExternalLink, Loader2, FileText, StickyNote,
   Copy, Check,
 } from 'lucide-react'
-import { getProgress, updateProgress, completeReview } from '@/lib/db'
+import { getProgress, updateProgress, completeReview, getStudyPlan } from '@/lib/db'
 import { QUICK_PATTERNS } from '@/lib/constants'
 import { isDue, formatLocalDate, nextIntervalDays } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -107,6 +107,7 @@ function LearnInner() {
   const initSolved: null | boolean = initSolvedParam === 'true' ? true : initSolvedParam === 'false' ? false : null
 
   const [questions, setQuestions]   = useState<Question[]>([])
+  const [planOrder, setPlanOrder]   = useState<number[]>([])
   const [progress, setProgress]     = useState<Record<string, any>>({})
   const [idx, setIdx]               = useState(Number(params.index ?? 0))
   const [notes, setNotes]           = useState('')
@@ -146,9 +147,15 @@ function LearnInner() {
     Promise.all([
       fetch('/questions_full.json').then(r => r.json()),
       getProgress(),
-    ]).then(([qs, prog]) => {
+      getStudyPlan(),
+    ]).then(([qs, prog, plan]) => {
       setQuestions(qs)
       setProgress(prog)
+      if (plan?.question_order?.length) {
+        setPlanOrder(plan.question_order)
+      } else {
+        setPlanOrder((qs as Question[]).map((q: Question) => q.id))
+      }
     })
   }, [])
 
@@ -156,7 +163,11 @@ function LearnInner() {
     ? (QUICK_PATTERNS.find(p => p.name === filterPattern)?.tags ?? []) as readonly string[]
     : (initTags.length > 0 ? initTags : []) as string[]
 
-  const filtered = questions.filter(q => {
+  const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
+  const ordered = planOrder.length
+    ? planOrder.map(id => qMap[id]).filter(Boolean) as Question[]
+    : questions
+  const filtered = ordered.filter(q => {
     if (filterDiff !== 'All' && q.difficulty !== filterDiff) return false
     if (filterSource !== 'All' && !(q.source || []).includes(filterSource)) return false
     if (initSearch && !q.title.toLowerCase().includes(initSearch.toLowerCase())) return false

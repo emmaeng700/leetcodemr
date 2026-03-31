@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Pause, Play, SkipForward, RotateCcw, Zap, CheckCircle } from 'lucide-react'
 import { shuffle } from '@/lib/utils'
 import { DIFFICULTY_LEVELS, QUESTION_SOURCES } from '@/lib/constants'
+import { getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 
@@ -21,6 +22,7 @@ const SOL_SECS = 15
 
 export default function QuickReviewPage() {
   const [all, setAll] = useState<Question[]>([])
+  const [planOrder, setPlanOrder] = useState<number[]>([])
   const [deck, setDeck] = useState<Question[]>([])
   const [loading, setLoading] = useState(true)
   const [filterDiff, setFilterDiff] = useState('All')
@@ -45,23 +47,32 @@ export default function QuickReviewPage() {
   useEffect(() => { deckRef.current = deck }, [deck])
 
   useEffect(() => {
-    fetch('/questions_full.json').then(r => r.json()).then(qs => {
+    Promise.all([
+      fetch('/questions_full.json').then(r => r.json()),
+      getStudyPlan(),
+    ]).then(([qs, plan]) => {
       setAll(qs)
+      if (plan?.question_order?.length) {
+        setPlanOrder(plan.question_order)
+      } else {
+        setPlanOrder((qs as Question[]).map((q: Question) => q.id))
+      }
       setLoading(false)
     })
   }, [])
 
   useEffect(() => {
-    if (!all.length) return
-    let filtered = all
+    if (!all.length || !planOrder.length) return
+    const qMap = Object.fromEntries(all.map(q => [q.id, q]))
+    // Follow plan order, then apply filters
+    const ordered = planOrder.map(id => qMap[id]).filter(Boolean) as Question[]
+    let filtered = ordered
     if (filterDiff !== 'All') filtered = filtered.filter(q => q.difficulty === filterDiff)
     if (filterSrc !== 'All') filtered = filtered.filter(q => (q.source || []).includes(filterSrc))
-    const ORDER: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
-    const newDeck = [...filtered].sort((a, b) => (ORDER[a.difficulty] ?? 1) - (ORDER[b.difficulty] ?? 1))
-    setDeck(newDeck)
-    deckRef.current = newDeck
-    resetSession(newDeck)
-  }, [filterDiff, filterSrc, all])
+    setDeck(filtered)
+    deckRef.current = filtered
+    resetSession(filtered)
+  }, [filterDiff, filterSrc, all, planOrder])
 
   const stopTimer = () => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
