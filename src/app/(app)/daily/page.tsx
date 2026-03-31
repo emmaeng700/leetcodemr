@@ -5,6 +5,7 @@ import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress } from '@/lib/db'
+import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
 
@@ -145,17 +146,10 @@ export default function DailyPage() {
 
   const { days: previewDays, date: previewFinish } = calcFinish(startDate, perDay, allQuestions.length)
 
-  function generateOrder(questions: Question[]): number[] {
-    const easy   = questions.filter(q => q.difficulty === 'Easy').map(q => q.id)
-    const medium = questions.filter(q => q.difficulty === 'Medium').map(q => q.id)
-    const hard   = questions.filter(q => q.difficulty === 'Hard').map(q => q.id)
-    return [...easy, ...medium, ...hard]
-  }
-
   async function handleGenerate() {
     if (!planCode.trim()) return
     setGenerating(true)
-    const order = generateOrder(allQuestions)
+    const order = defaultStudyQuestionOrder(allQuestions)
     const newPlan: StudyPlan = {
       start_date: startDate,
       per_day: perDay,
