@@ -157,7 +157,8 @@ function LineGameQuestionPanel({
             <code className="text-[11px] bg-white/70 px-1 rounded">for index, num in …</code>).{' '}
             Editor matches Practice / LeetCode: <span className="font-semibold">Python highlighting</span>,{' '}
             <span className="font-semibold">Tab</span> indents (4 spaces),{' '}
-            <span className="font-semibold">Ctrl+Space</span> (or typing) opens completions. Then{' '}
+            <span className="font-semibold">Ctrl+Space</span> opens completions — including names from the rest of
+            this solution (same as the lines above/below). Then{' '}
             <kbd className="px-1 py-0.5 rounded bg-white border border-indigo-200 font-mono text-[10px]">
               Check
             </kbd>
@@ -273,6 +274,7 @@ function LineGameQuestionPanel({
                               <LineGameCodeInput
                                 className="min-w-0 flex-1 overflow-hidden rounded-r-sm [&_.cm-editor]:rounded-r-sm"
                                 value={st.input}
+                                completionContext={fullCode}
                                 onChange={(v) =>
                                   setBlankStates((prev) => {
                                     const next = [...prev]
@@ -287,6 +289,7 @@ function LineGameQuestionPanel({
                             <LineGameCodeInput
                               className="w-full overflow-hidden rounded-sm [&_.cm-editor]:rounded-sm"
                               value={st.input}
+                              completionContext={fullCode}
                               onChange={(v) =>
                                 setBlankStates((prev) => {
                                   const next = [...prev]

@@ -1,19 +1,22 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Extension } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
+import { extractPythonWordsForCompletion } from '@/lib/line-game/extractPythonWords'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then((m) => m.default), { ssr: false })
 
-let extensionsPromise: Promise<Extension[]> | null = null
+/** Match @codemirror/lang-python globalCompletion guard — skip strings/comments/property names. */
+const PYTHON_COMPLETION_SKIP_NODES = ['String', 'FormatString', 'Comment', 'PropertyName'] as const
 
-function loadLineGameExtensions(): Promise<Extension[]> {
-  if (!extensionsPromise) {
-    extensionsPromise = (async () => {
-      const [{ python }, { oneDark }, cmView] = await Promise.all([
-        import('@codemirror/lang-python'),
+let themeExtensionsPromise: Promise<Extension[]> | null = null
+
+function loadThemeExtensions(): Promise<Extension[]> {
+  if (!themeExtensionsPromise) {
+    themeExtensionsPromise = (async () => {
+      const [{ oneDark }, cmView] = await Promise.all([
         import('@codemirror/theme-one-dark'),
         import('@codemirror/view'),
       ])
@@ -43,10 +46,10 @@ function loadLineGameExtensions(): Promise<Extension[]> {
         '.cm-activeLineGutter': { display: 'none !important' },
         '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.05)' },
       })
-      return [python(), oneDark, slotTheme]
+      return [oneDark, slotTheme]
     })()
   }
-  return extensionsPromise
+  return themeExtensionsPromise
 }
 
 type Props = {
@@ -54,23 +57,60 @@ type Props = {
   onChange: (value: string) => void
   placeholder?: string
   className?: string
+  /** Full solution source — identifiers here get completion (same as visible hljs lines). */
+  completionContext?: string
 }
 
 /**
- * Python CodeMirror line slot: same highlighting + autocomplete stack as PracticeEditor (basicSetup).
+ * Python CodeMirror line slot: highlighting + autocomplete, including words from the rest of the solution.
  */
-export default function LineGameCodeInput({ value, onChange, placeholder, className }: Props) {
+export default function LineGameCodeInput({
+  value,
+  onChange,
+  placeholder,
+  className,
+  completionContext = '',
+}: Props) {
   const [extensions, setExtensions] = useState<Extension[] | null>(null)
 
+  const wordsKey = useMemo(() => {
+    const words = extractPythonWordsForCompletion(completionContext)
+    return words.join('\0')
+  }, [completionContext])
+
   useEffect(() => {
-    let ok = true
-    loadLineGameExtensions().then((ext) => {
-      if (ok) setExtensions(ext)
-    })
+    let cancelled = false
+    ;(async () => {
+      const [{ python, pythonLanguage }, { completeFromList, ifNotIn }, themeExts] = await Promise.all([
+        import('@codemirror/lang-python'),
+        import('@codemirror/autocomplete'),
+        loadThemeExtensions(),
+      ])
+      const words = extractPythonWordsForCompletion(completionContext)
+      const options = words.map((label) => ({
+        label,
+        type: 'variable' as const,
+        section: 'This solution',
+        boost: 4,
+      }))
+      const solutionSource =
+        options.length > 0
+          ? ifNotIn([...PYTHON_COMPLETION_SKIP_NODES], completeFromList(options))
+          : null
+
+      const ext: Extension[] = [
+        python(),
+        ...(solutionSource
+          ? [pythonLanguage.data.of({ autocomplete: solutionSource })]
+          : []),
+        ...themeExts,
+      ]
+      if (!cancelled) setExtensions(ext)
+    })()
     return () => {
-      ok = false
+      cancelled = true
     }
-  }, [])
+  }, [wordsKey])
 
   if (!extensions) {
     return (
