@@ -533,7 +533,7 @@ function LearnInner() {
         <div className="flex flex-1 overflow-hidden">
 
           {/* ── LEFT panel ── */}
-          <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-gray-100 overflow-hidden`}>
+          <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-gray-100 bg-white overflow-hidden text-gray-900`}>
 
             {/* Tab bar */}
             <div className="flex border-b border-gray-100 bg-white shrink-0">

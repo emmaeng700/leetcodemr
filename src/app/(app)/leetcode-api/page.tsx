@@ -743,8 +743,9 @@ export default function LeetCodePage() {
             )}
 
             {leftTab === 'accepted' && (
-              <div className="flex-1 overflow-y-auto p-4 h-full">
+              <div className="flex-1 overflow-y-auto p-4 h-full min-h-0 bg-[#16213e] text-gray-100">
                 <AcceptedSolutions
+                  surface="dark"
                   submissions={submissions} loading={subsLoading}
                   selectedSub={selectedSub} subCodeLoading={subCodeLoading}
                   copied={copiedSub} onSelect={loadSubCode} onCopy={copyCode} onBack={clearSub}
