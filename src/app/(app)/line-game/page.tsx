@@ -144,7 +144,12 @@ function LineGameQuestionPanel({
         </a>
       </div>
 
-      <div className="p-4">
+      <div className="p-4 space-y-3">
+        <p className="text-xs text-indigo-900/90 leading-relaxed rounded-lg border border-indigo-100 bg-indigo-50/80 px-3 py-2">
+          <span className="font-semibold">How to fill:</span> Each blank is a <em>single</em> line from the
+          solution. Paste or type that line only (not the whole function). Leading spaces are optional if the
+          rest matches — extra spaces around commas/operators are ignored.
+        </p>
         {/* Same shell as CodePanel: dark editor + toolbar */}
         <div className="rounded-xl overflow-hidden border border-gray-700 bg-[#282c34] line-game-code">
           <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#21252b] border-b border-gray-700">
@@ -239,7 +244,7 @@ function LineGameQuestionPanel({
                           rows={Math.min(8, Math.max(2, spec.expected.split('\n').length + 1))}
                           spellCheck={false}
                           className="w-full rounded-md bg-[#21252b] border border-indigo-500/45 text-[#abb2bf] placeholder:text-[#5c6370] px-3 py-2 font-mono text-[11px] sm:text-[12px] md:text-[13px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400/60 resize-y min-h-[2.75rem] shadow-inner"
-                          placeholder="Type the full line (indentation matters)…"
+                          placeholder="Type that one line only — spacing can differ; names/punctuation must match."
                         />
                         <div className="flex flex-wrap items-center gap-2">
                           <button

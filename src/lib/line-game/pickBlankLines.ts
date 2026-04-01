@@ -92,8 +92,20 @@ export function normalizeAnswerLine(s: string): string {
   return s.replace(/\r/g, '').trimEnd()
 }
 
+/** Strip all whitespace — same code, different spaces/indent/commas layout, still counts. */
+export function normalizeLooseLine(s: string): string {
+  return normalizeAnswerLine(s).replace(/\s+/g, '')
+}
+
+/**
+ * Exact line (after trim-end), or same characters with any whitespace/layout.
+ * Does not treat different variable names as equal — names must match the solution.
+ */
 export function linesEquivalent(a: string, b: string): boolean {
-  return normalizeAnswerLine(a) === normalizeAnswerLine(b)
+  const na = normalizeAnswerLine(a)
+  const nb = normalizeAnswerLine(b)
+  if (na === nb) return true
+  return normalizeLooseLine(a) === normalizeLooseLine(b)
 }
 
 export function hintPrefix(expected: string, len: number): string {
