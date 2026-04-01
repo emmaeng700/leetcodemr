@@ -2,6 +2,7 @@
 import {
   BookOpen, CheckCircle, Layers, BarChart2, MessageSquare, Gem,
   Server, Calendar, Code2, Brain, Zap, Timer, Map, GraduationCap, BookMarked, Trophy,
+  Gamepad2, Gauge, Headphones,
 } from 'lucide-react'
 
 const FEATURES = [
@@ -16,6 +17,12 @@ const FEATURES = [
     color: 'text-indigo-500',
     label: 'Flashcard Mode',
     desc: 'Study questions as flashcards. Flip to reveal the solution. Filter by difficulty, source, starred or solved status — filters carry over from the home page. Keyboard navigation and shuffle support.',
+  },
+  {
+    icon: Gamepad2,
+    color: 'text-fuchsia-500',
+    label: 'Game (Line game)',
+    desc: 'Flashcard-style line fill for Python solutions: over 70% of each file’s algorithm lines are blanked (highest-impact lines first). Same question order as your Daily plan. CodeMirror editor with Python highlighting, Tab indentation, and completions that prefer names from the visible solution; gray gutter shows outer indent so you type the rest of the line. Strict grading with spacing flexibility; score +3 / +2 / +1 by attempt; three wrong checks reveals the line.',
   },
   {
     icon: GraduationCap,
@@ -72,6 +79,12 @@ const FEATURES = [
     desc: 'Generate a locked daily plan across all 331 questions ordered Easy → Medium → Hard. Set questions per day, start date, and a lock code to hold yourself accountable. Tracks today\'s progress, past day history (last 14 days), and unlocks sneak-peek bonus days once today is done. Daily email at 8 AM CT includes today\'s questions and any spaced repetition reviews due.',
   },
   {
+    icon: Gauge,
+    color: 'text-amber-500',
+    label: 'Speedster',
+    desc: 'Browse your full daily-plan question list by day and open any problem in plan order. Includes an inline flashcard deck (same order as the plan) for quick question/solution review. Practice here does not mark questions solved — use it for extra passes without affecting progress.',
+  },
+  {
     icon: BarChart2,
     color: 'text-yellow-500',
     label: 'Stats Dashboard',
@@ -95,6 +108,12 @@ const FEATURES = [
     label: 'Gems',
     desc: 'Curated career resources: recruiter email templates, interview strategies, salary negotiation scripts, big-O cheat sheet, and more. Flip-card format.',
   },
+  {
+    icon: Headphones,
+    color: 'text-slate-500',
+    label: 'Audiobook',
+    desc: 'Hands-free prep: text-to-speech playlists for behavioral STAR stories and system design cards. Choose behavioral only, system design only, or both; filter categories; adjustable playback speed; question-only or full answer mode. Uses the Web Speech API in your browser.',
+  },
 ]
 
 const TECH_STACK = [
@@ -103,7 +122,8 @@ const TECH_STACK = [
   { label: 'Tailwind CSS 4', desc: 'Utility-first styling' },
   { label: 'Supabase', desc: 'Postgres database · progress & plan storage' },
   { label: 'LeetCode GraphQL', desc: 'Real test & submit via your LC session' },
-  { label: 'CodeMirror 6', desc: 'In-browser code editor' },
+  { label: 'CodeMirror 6', desc: 'Practice, Learn, Mock, Game — Python/C++ editors' },
+  { label: 'PWA', desc: 'Service worker · offline awareness on key routes' },
   { label: 'highlight.js', desc: 'Syntax highlighting (DSA templates)' },
   { label: 'Resend', desc: 'Daily email reminders (cron at 8 AM CT)' },
   { label: 'Lucide React', desc: 'Icon library' },
@@ -120,7 +140,7 @@ export default function AboutPage() {
         </div>
         <h1 className="text-3xl font-black text-gray-900 mb-2">LeetMastery</h1>
         <p className="text-gray-500 text-base max-w-lg mx-auto">
-          A private, all-in-one interview preparation hub. Study LeetCode questions, practise under timed conditions, track spaced repetition, and prep for behavioural and system design — all in one place.
+          A private, all-in-one interview preparation hub. Study LeetCode questions, drill lines with Game mode, run a daily plan, speed-review the deck, practise under timed conditions, track spaced repetition, and prep for behavioural and system design — including optional audio playlists — all in one place.
         </p>
       </div>
 
@@ -161,6 +181,7 @@ export default function AboutPage() {
         <div className="space-y-2 text-sm text-gray-600">
           <p>All progress — solved status, notes, spaced repetition schedules, practice code, mock sessions, and daily plan — is stored in Supabase, private to your account.</p>
           <p>Questions data is loaded from a static JSON file bundled with the app — no external API calls for question content.</p>
+          <p>Some pages show an offline banner when the network is unavailable; Supabase-backed features (daily plan order, progress) need connectivity.</p>
           <p>Code execution goes directly to LeetCode's own judge using your personal LeetCode session cookie. Your code is run on LeetCode's servers exactly as if you submitted on the site — no third-party execution engine involved.</p>
           <p>Your LeetCode session token is stored in your browser only and never sent to our servers beyond proxying the request.</p>
         </div>
