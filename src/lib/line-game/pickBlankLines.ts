@@ -92,14 +92,14 @@ export function normalizeAnswerLine(s: string): string {
   return s.replace(/\r/g, '').trimEnd()
 }
 
-/** Strip all whitespace — same code, different spaces/indent/commas layout, still counts. */
+/** Strip all whitespace — catches `index,num` vs `index, num`, missing indent, etc. */
 export function normalizeLooseLine(s: string): string {
   return normalizeAnswerLine(s).replace(/\s+/g, '')
 }
 
 /**
  * Exact line (after trim-end), or same characters with any whitespace/layout.
- * Does not treat different variable names as equal — names must match the solution.
+ * Variable names must still match the solution; no “logic equivalent” renaming.
  */
 export function linesEquivalent(a: string, b: string): boolean {
   const na = normalizeAnswerLine(a)
@@ -111,4 +111,34 @@ export function linesEquivalent(a: string, b: string): boolean {
 export function hintPrefix(expected: string, len: number): string {
   const e = expected.replace(/\r/g, '')
   return e.slice(0, Math.min(len, e.length))
+}
+
+/** Human-readable start hint (indent is often 4 spaces — JSON of spaces is useless). */
+export function formatStartHint(expected: string, previewChars = 28): string {
+  const e = expected.replace(/\r/g, '').replace(/\t/g, '    ')
+  let i = 0
+  while (i < e.length && e[i] === ' ') i++
+  const indent = i
+  const rest = e.slice(i)
+  const clip = rest.slice(0, previewChars)
+  const more = rest.length > previewChars ? '…' : ''
+  if (indent > 0) {
+    return `${indent} leading space(s), then: ${clip}${more}`
+  }
+  return `Starts: ${clip}${more}`
+}
+
+/** Leading tabs/spaces and the rest (for inline indent gutter + body textarea). */
+export function splitLeadingIndent(line: string): { indent: string; body: string } {
+  const m = line.replace(/\r/g, '').match(/^([\t ]*)(.*)$/)
+  return { indent: m?.[1] ?? '', body: m?.[2] ?? '' }
+}
+
+/** Rebuild full line from gutter + user-typed body (for grading). */
+export function composeLineAnswer(expectedLine: string, userBody: string): string {
+  const { indent, body } = splitLeadingIndent(expectedLine)
+  const u = normalizeAnswerLine(userBody)
+  if (/^\s/.test(u)) return u
+  if (!body && !indent) return u
+  return indent + u
 }

@@ -23,10 +23,13 @@ import {
   linesFromPython,
   linesEquivalent,
   normalizeAnswerLine,
-  hintPrefix,
+  formatStartHint,
+  composeLineAnswer,
+  splitLeadingIndent,
   type BlankPick,
 } from '@/lib/line-game/pickBlankLines'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import LineGameCodeInput from '@/components/LineGameCodeInput'
 
 interface Question {
   id: number
@@ -89,7 +92,8 @@ function LineGameQuestionPanel({
         const spec = picks[bi]
         if (!st || st.solved || st.revealed) return prev
 
-        if (linesEquivalent(st.input, spec.expected)) {
+        const attempt = composeLineAnswer(spec.expected, st.input)
+        if (linesEquivalent(attempt, spec.expected)) {
           const pts = st.attempts === 0 ? 3 : st.attempts === 1 ? 2 : 1
           queueMicrotask(() => onAwardPoints(pts))
           return prev.map((s, i) =>
@@ -145,13 +149,28 @@ function LineGameQuestionPanel({
       </div>
 
       <div className="p-4 space-y-3">
-        <p className="text-xs text-indigo-900/90 leading-relaxed rounded-lg border border-indigo-100 bg-indigo-50/80 px-3 py-2">
-          <span className="font-semibold">How to fill:</span> Each blank is a <em>single</em> line from the
-          solution. Paste or type that line only (not the whole function). Leading spaces are optional if the
-          rest matches — extra spaces around commas/operators are ignored.
-        </p>
+        <div className="rounded-lg border border-indigo-100 bg-indigo-50/80 px-3 py-2.5 text-xs text-indigo-900 leading-relaxed space-y-2">
+          <p>
+            <span className="font-bold">Indentation:</span> The <span className="font-semibold">gray strip</span>{' '}
+            is the line’s <em>outer</em> spaces from the real solution — you do not re-type those. Your field
+            continues on the same column as the rest of the file; type the remainder of the line (e.g.{' '}
+            <code className="text-[11px] bg-white/70 px-1 rounded">for index, num in …</code>).{' '}
+            Editor matches Practice / LeetCode: <span className="font-semibold">Python highlighting</span>,{' '}
+            <span className="font-semibold">Tab</span> indents (4 spaces),{' '}
+            <span className="font-semibold">Ctrl+Space</span> (or typing) opens completions. Then{' '}
+            <kbd className="px-1 py-0.5 rounded bg-white border border-indigo-200 font-mono text-[10px]">
+              Check
+            </kbd>
+            . Three wrong checks → reveal.
+          </p>
+          <p className="pt-1 border-t border-indigo-100/90">
+            <span className="font-semibold">One blank = one line</span> from the solution (not the whole
+            function). Extra spaces around commas/operators are ignored; names must match the reference.
+          </p>
+        </div>
+
         {/* Same shell as CodePanel: dark editor + toolbar */}
-        <div className="rounded-xl overflow-hidden border border-gray-700 bg-[#282c34] line-game-code">
+        <div className="rounded-xl border border-gray-700 bg-[#282c34] line-game-code overflow-x-auto overflow-y-visible">
           <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#21252b] border-b border-gray-700">
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-3 py-1 rounded text-xs font-semibold bg-indigo-600 text-white">
@@ -206,25 +225,35 @@ function LineGameQuestionPanel({
 
               const locked = st.solved
               const revealed = st.revealed
+              const { indent, body } = splitLeadingIndent(spec.expected)
+              const indentShown = indent.replace(/\t/g, '    ')
+              const showIndentGutter = body.length > 0
 
               return (
-                <div key={li} className="flex gap-3 font-mono my-2 first:mt-0">
-                  <span className="text-[#636d83] select-none w-7 sm:w-8 text-right shrink-0 tabular-nums pt-2">
+                <div
+                  key={li}
+                  className="flex gap-3 font-mono group hover:bg-white/[0.03] rounded-sm -mx-2 px-2 py-0.5"
+                >
+                  <span className="text-[#636d83] select-none w-7 sm:w-8 text-right shrink-0 tabular-nums pt-px">
                     {lineNo}
                   </span>
-                  <div className="flex-1 min-w-0 space-y-2">
+                  <div className="flex-1 min-w-0 space-y-1.5">
                     {locked && (
-                      <div className="rounded-lg border border-emerald-700/60 bg-emerald-950/35 px-3 py-2 flex items-start gap-2">
-                        <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={16} />
+                      <div className="flex items-start gap-1.5 py-px min-w-0">
+                        <CheckCircle2
+                          className="text-emerald-400 shrink-0 mt-0.5"
+                          size={14}
+                          aria-hidden
+                        />
                         <HlLine html={highlightPythonLine(spec.expected)} />
                       </div>
                     )}
                     {revealed && !locked && (
-                      <div className="rounded-lg border border-amber-700/50 bg-amber-950/30 px-3 py-2 flex items-start gap-2">
-                        <Circle className="text-amber-400 shrink-0 mt-0.5" size={16} />
-                        <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-1.5 py-px min-w-0">
+                        <Circle className="text-amber-400 shrink-0 mt-0.5" size={14} aria-hidden />
+                        <div className="flex-1 min-w-0 flex flex-wrap items-start justify-between gap-x-2 gap-y-0">
                           <HlLine html={highlightPythonLine(spec.expected)} />
-                          <span className="text-[10px] uppercase tracking-wide text-amber-400/90 shrink-0 pt-0.5">
+                          <span className="text-[10px] uppercase tracking-wide text-amber-400/90 shrink-0">
                             revealed
                           </span>
                         </div>
@@ -232,20 +261,43 @@ function LineGameQuestionPanel({
                     )}
                     {!locked && !revealed && (
                       <>
-                        <textarea
-                          value={st.input}
-                          onChange={(e) =>
-                            setBlankStates((prev) => {
-                              const next = [...prev]
-                              next[bi] = { ...next[bi], input: e.target.value }
-                              return next
-                            })
-                          }
-                          rows={Math.min(8, Math.max(2, spec.expected.split('\n').length + 1))}
-                          spellCheck={false}
-                          className="w-full rounded-md bg-[#21252b] border border-indigo-500/45 text-[#abb2bf] placeholder:text-[#5c6370] px-3 py-2 font-mono text-[11px] sm:text-[12px] md:text-[13px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400/60 resize-y min-h-[2.75rem] shadow-inner"
-                          placeholder="Type that one line only — spacing can differ; names/punctuation must match."
-                        />
+                        <div className="flex min-h-[1.55em] items-stretch rounded-sm border border-indigo-500/35 bg-[#21252b]/70 focus-within:border-indigo-400/55 focus-within:ring-1 focus-within:ring-indigo-500/25">
+                          {showIndentGutter ? (
+                            <>
+                              <span
+                                className="shrink-0 select-none whitespace-pre border-r border-[#3e4451] px-2 py-1 text-[11px] sm:text-[12px] md:text-[13px] leading-relaxed text-[#5c6370]"
+                                aria-hidden
+                              >
+                                {indentShown}
+                              </span>
+                              <LineGameCodeInput
+                                className="min-w-0 flex-1 overflow-hidden rounded-r-sm [&_.cm-editor]:rounded-r-sm"
+                                value={st.input}
+                                onChange={(v) =>
+                                  setBlankStates((prev) => {
+                                    const next = [...prev]
+                                    next[bi] = { ...next[bi], input: v }
+                                    return next
+                                  })
+                                }
+                                placeholder="continue this line…"
+                              />
+                            </>
+                          ) : (
+                            <LineGameCodeInput
+                              className="w-full overflow-hidden rounded-sm [&_.cm-editor]:rounded-sm"
+                              value={st.input}
+                              onChange={(v) =>
+                                setBlankStates((prev) => {
+                                  const next = [...prev]
+                                  next[bi] = { ...next[bi], input: v }
+                                  return next
+                                })
+                              }
+                              placeholder="type this line…"
+                            />
+                          )}
+                        </div>
                         <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
@@ -258,12 +310,13 @@ function LineGameQuestionPanel({
                         </div>
                         {st.attempts >= 1 && (
                           <p className="text-[11px] text-[#56b6c2]">
-                            Hint: length (trimmed end) = {normalizeAnswerLine(spec.expected).length} chars
+                            Stored line length (incl. indent): {normalizeAnswerLine(spec.expected).length}{' '}
+                            chars — layout can differ if tokens match.
                           </p>
                         )}
                         {st.attempts >= 2 && (
-                          <p className="text-[11px] text-[#e5c07b] font-mono">
-                            Starts with {JSON.stringify(hintPrefix(spec.expected, 4))}
+                          <p className="text-[11px] text-[#e5c07b] font-mono break-all">
+                            {formatStartHint(spec.expected)}
                           </p>
                         )}
                       </>
@@ -354,6 +407,7 @@ export default function LineGamePage() {
     const handler = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement
       if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return
+      if (t.closest('.cm-editor')) return
       if (e.key === 'ArrowRight') go(1)
       if (e.key === 'ArrowLeft') go(-1)
     }
@@ -398,8 +452,10 @@ export default function LineGamePage() {
           </div>
           <p className="text-sm text-gray-500 max-w-xl">
             Syntax-colored like flashcards. Over 70% of each solution’s algorithm lines are blanked
-            (highest-impact lines first; same order as Daily). Three checks per line, then reveal. Green =
-            you knew it.
+            (highest-impact first; same order as Daily). Gray strip = outer indent; CodeMirror gives
+            Python highlighting and completions like Practice.{' '}
+            <span className="font-medium text-gray-600">One blank = one line</span> — paste that line only.
+            Three wrong checks → reveal.
           </p>
         </div>
         <div className="text-right">
