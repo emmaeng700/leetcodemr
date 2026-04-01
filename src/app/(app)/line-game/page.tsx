@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   ChevronLeft,
@@ -61,12 +61,14 @@ function LineGameQuestionPanel({
   question,
   picks,
   onAwardPoints,
+  onResult,
   onNext,
   hasNext,
 }: {
   question: Question
   picks: BlankPick[]
   onAwardPoints: (n: number) => void
+  onResult?: (questionId: number, result: 'mastered' | 'solved' | 'revealed') => void
   onNext: () => void
   hasNext: boolean
 }) {
@@ -74,6 +76,7 @@ function LineGameQuestionPanel({
     picks.map(() => ({ input: '', attempts: 0, solved: false, revealed: false }))
   )
   const [copied, setCopied] = useState(false)
+  const resultFiredRef = useRef(false)
 
   const lines = useMemo(() => linesFromPython(question.python_solution!), [question])
   const fullCode = question.python_solution ?? ''
@@ -85,6 +88,17 @@ function LineGameQuestionPanel({
   }, [picks])
 
   const questionDone = blankStates.length === picks.length && blankStates.every((s) => s.solved || s.revealed)
+
+  // Fire onResult once when question is fully done
+  useEffect(() => {
+    if (questionDone && !resultFiredRef.current) {
+      resultFiredRef.current = true
+      const hasRevealed = blankStates.some(s => s.revealed)
+      const allFirstTry = blankStates.every(s => s.solved && s.attempts === 0)
+      const result = hasRevealed ? 'revealed' : allFirstTry ? 'mastered' : 'solved'
+      onResult?.(question.id, result)
+    }
+  }, [questionDone, blankStates, question.id, onResult])
 
   const checkBlank = useCallback(
     (bi: number) => {
@@ -353,6 +367,12 @@ function LineGameQuestionPanel({
   )
 }
 
+type MasteryLevel = 'mastered' | 'solved' | 'revealed'
+
+function todayISO() {
+  return new Date().toLocaleDateString('en-CA')
+}
+
 export default function LineGamePage() {
   const online = useOnlineStatus()
   const [all, setAll] = useState<Question[]>([])
@@ -361,6 +381,10 @@ export default function LineGamePage() {
   const [idx, setIdx] = useState(0)
   const [sessionScore, setSessionScore] = useState(0)
   const [showList, setShowList] = useState(false)
+  const [streak, setStreak] = useState(0)
+  const [mastery, setMastery] = useState<Record<number, MasteryLevel>>({})
+  const [sessionSolved, setSessionSolved] = useState(0)
+  const [sessionRevealed, setSessionRevealed] = useState(0)
 
   useEffect(() => {
     async function load() {
@@ -373,6 +397,47 @@ export default function LineGamePage() {
       setLoading(false)
     }
     load()
+  }, [])
+
+  // Load streak from localStorage
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('lm_game_streak') || '{}')
+      const today = todayISO()
+      const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA')
+      if (stored.date === today) {
+        setStreak(stored.count ?? 1)
+      } else if (stored.date === yesterday) {
+        const next = (stored.count ?? 0) + 1
+        setStreak(next)
+        localStorage.setItem('lm_game_streak', JSON.stringify({ date: today, count: next }))
+      } else {
+        setStreak(1)
+        localStorage.setItem('lm_game_streak', JSON.stringify({ date: today, count: 1 }))
+      }
+    } catch {}
+  }, [])
+
+  // Load mastery from localStorage
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('lm_game_mastery') || '{}')
+      setMastery(stored)
+    } catch {}
+  }, [])
+
+  const handleResult = useCallback((questionId: number, result: MasteryLevel) => {
+    setMastery(prev => {
+      // Only upgrade mastery, never downgrade (mastered > solved > revealed)
+      const rank = (r: MasteryLevel) => r === 'mastered' ? 3 : r === 'solved' ? 2 : 1
+      const current = prev[questionId]
+      if (current && rank(current) >= rank(result)) return prev
+      const next = { ...prev, [questionId]: result }
+      try { localStorage.setItem('lm_game_mastery', JSON.stringify(next)) } catch {}
+      return next
+    })
+    if (result !== 'revealed') setSessionSolved(s => s + 1)
+    else setSessionRevealed(s => s + 1)
   }, [])
 
   const byId = useMemo(() => {
@@ -494,11 +559,24 @@ export default function LineGamePage() {
               <div className="flex w-full flex-col justify-center rounded-2xl border border-indigo-100 bg-gradient-to-b from-indigo-50/90 to-white px-6 py-5 text-center shadow-inner sm:w-auto sm:min-w-[9.5rem] lg:text-right">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-indigo-400">Score</p>
                 <p className="mt-1 text-4xl font-bold tabular-nums leading-none text-indigo-700">{sessionScore}</p>
+                {streak > 0 && (
+                  <p className="mt-1 text-xs font-bold text-orange-500">🔥 {streak} day streak</p>
+                )}
                 <p className="mt-3 border-t border-indigo-100/80 pt-3 text-[11px] text-gray-500">
                   <span className="font-medium text-gray-600">+3</span> first try ·{' '}
                   <span className="font-medium text-gray-600">+2</span> second ·{' '}
                   <span className="font-medium text-gray-600">+1</span> third
                 </p>
+                {(sessionSolved > 0 || sessionRevealed > 0) && (
+                  <div className="mt-2 pt-2 border-t border-indigo-100/80 space-y-0.5">
+                    {sessionSolved > 0 && (
+                      <p className="text-[11px] text-green-600 font-semibold">✓ {sessionSolved} solved</p>
+                    )}
+                    {sessionRevealed > 0 && (
+                      <p className="text-[11px] text-orange-500 font-semibold">👀 {sessionRevealed} revealed</p>
+                    )}
+                  </div>
+                )}
               </div>
             </aside>
           </div>
@@ -543,16 +621,22 @@ export default function LineGamePage() {
           </button>
           {showList && (
             <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[90vw] max-w-xs sm:w-80 max-h-80 overflow-y-auto">
-              {playable.map((pq, i) => (
-                <button key={pq.id} onClick={() => { setIdx(i); setShowList(false) }}
-                  className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-indigo-50 border-b border-gray-50 transition-colors text-sm ${i === idx ? 'bg-indigo-50' : ''}`}>
-                  <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{pq.id}</span>
-                  <span className="flex-1 truncate text-gray-700">{pq.title}</span>
-                  <span className={`text-xs font-semibold shrink-0 ${pq.difficulty === 'Easy' ? 'text-green-600' : pq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
-                    {pq.difficulty[0]}
-                  </span>
-                </button>
-              ))}
+              {playable.map((pq, i) => {
+                const m = mastery[pq.id]
+                return (
+                  <button key={pq.id} onClick={() => { setIdx(i); setShowList(false) }}
+                    className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-indigo-50 border-b border-gray-50 transition-colors text-sm ${i === idx ? 'bg-indigo-50' : ''}`}>
+                    <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{pq.id}</span>
+                    <span className="flex-1 truncate text-gray-700">{pq.title}</span>
+                    <span className={`text-xs font-semibold shrink-0 ${pq.difficulty === 'Easy' ? 'text-green-600' : pq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
+                      {pq.difficulty[0]}
+                    </span>
+                    {m === 'mastered' && <span title="Mastered">🔥</span>}
+                    {m === 'solved' && <span title="Solved">✓</span>}
+                    {m === 'revealed' && <span title="Needs work">👀</span>}
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
@@ -574,6 +658,7 @@ export default function LineGamePage() {
           question={current}
           picks={picks}
           onAwardPoints={awardPoints}
+          onResult={handleResult}
           onNext={() => go(1)}
           hasNext={idx < playable.length - 1}
         />
