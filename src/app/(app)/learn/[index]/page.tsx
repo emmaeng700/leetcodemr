@@ -410,8 +410,8 @@ function LearnInner() {
           >
             <List size={12} />
             <span className="font-mono">{safeIdx + 1}/{filtered.length}</span>
-            <span className="text-gray-400">·</span>
-            <span className="text-green-600">{solvedCount} solved</span>
+            <span className="hidden sm:inline text-gray-400">·</span>
+            <span className="hidden sm:inline text-green-600">{solvedCount} solved</span>
           </button>
 
           {/* Question list dropdown */}

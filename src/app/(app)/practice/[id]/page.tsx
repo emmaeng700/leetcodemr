@@ -254,7 +254,7 @@ export default function PracticePage() {
               </div>
             )
           })()}
-          <div className="flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-lg text-sm font-mono font-semibold text-gray-600">
+          <div className="hidden sm:flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-lg text-sm font-mono font-semibold text-gray-600">
             <Clock size={13} />
             {formatTime(timer)}
           </div>

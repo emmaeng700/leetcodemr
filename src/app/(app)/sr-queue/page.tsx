@@ -49,7 +49,8 @@ function QuestionRow({ q, p, urgency, completing, onDone }: {
               {days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? 'Due today' : `Due in ${days}d`}
             </span>
           )}
-          <span className="text-gray-300">→ after review: +{nextInterval}d</span>
+          <span className="text-gray-300 hidden sm:inline">→ after review: +{nextInterval}d</span>
+          <span className="text-gray-300 sm:hidden">+{nextInterval}d</span>
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
@@ -148,7 +149,7 @@ export default function SRQueuePage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-4 gap-2 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
         {[
           { label: 'Overdue',    count: overdue.length,              color: 'text-red-600',    bg: 'bg-red-50 border-red-200' },
           { label: 'Due today',  count: dueToday.length,             color: 'text-orange-600', bg: 'bg-orange-50 border-orange-200' },
@@ -156,7 +157,7 @@ export default function SRQueuePage() {
           { label: 'Later',      count: later.length + none.length,  color: 'text-gray-600',   bg: 'bg-gray-50 border-gray-200' },
         ].map(s => (
           <div key={s.label} className={`rounded-xl border p-3 text-center ${s.bg}`}>
-            <p className={`text-xl font-bold tabular-nums ${s.color}`}>{s.count}</p>
+            <p className={`text-lg sm:text-xl font-bold tabular-nums ${s.color}`}>{s.count}</p>
             <p className="text-[10px] text-gray-500 mt-0.5">{s.label}</p>
           </div>
         ))}

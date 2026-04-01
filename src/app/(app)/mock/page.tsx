@@ -279,19 +279,19 @@ export default function MockInterviewPage() {
     <div className="flex flex-col h-[calc(100vh-56px)]">
 
       {/* Timer top bar */}
-      <div className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 border-b shrink-0 flex-wrap ${urgent ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-200'}`}>
+      <div className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 border-b shrink-0 ${urgent ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-200'}`}>
         {/* Countdown */}
-        <div className={`text-2xl font-black font-mono shrink-0 ${urgent ? 'text-red-600 animate-pulse' : 'text-indigo-700'}`}>
+        <div className={`text-lg sm:text-2xl font-black font-mono shrink-0 tabular-nums ${urgent ? 'text-red-600 animate-pulse' : 'text-indigo-700'}`}>
           {formatTime(timeLeft)}
         </div>
 
         {/* Progress bar */}
-        <div className="flex-1 bg-white bg-opacity-70 rounded-full h-2 overflow-hidden min-w-[80px]">
+        <div className="flex-1 bg-white bg-opacity-70 rounded-full h-2 overflow-hidden min-w-0">
           <div className={`h-full rounded-full transition-all duration-1000 ${urgent ? 'bg-red-500' : 'bg-indigo-500'}`}
             style={{ width: `${pct}%` }} />
         </div>
 
-        {/* Lock status */}
+        {/* Lock status — hidden on mobile */}
         <div className="text-xs shrink-0 hidden sm:block">
           {answerUnlocked
             ? <span className="text-green-600 font-semibold flex items-center gap-1"><Unlock size={11} /> Solution visible</span>
@@ -299,7 +299,7 @@ export default function MockInterviewPage() {
           }
         </div>
 
-        {/* Question info — hidden on mobile to save space */}
+        {/* Question info — hidden on mobile */}
         <div className="hidden sm:flex items-center gap-2 shrink-0">
           <span className="text-xs text-gray-500 font-mono">#{question.id}</span>
           <DifficultyBadge difficulty={question.difficulty} />
@@ -309,12 +309,12 @@ export default function MockInterviewPage() {
 
         {/* Action buttons */}
         <button onClick={() => endInterview('solved')}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors text-xs shrink-0">
-          <CheckCircle size={13} /> Solved ✓
+          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors text-xs shrink-0">
+          <CheckCircle size={13} /> <span className="hidden xs:inline sm:inline">Solved</span> ✓
         </button>
         <button onClick={() => endInterview('gave_up')}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border-2 border-gray-200 text-gray-600 font-semibold rounded-lg hover:border-red-300 hover:text-red-500 transition-colors text-xs shrink-0">
-          <XCircle size={13} /> Give Up
+          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-white border-2 border-gray-200 text-gray-600 font-semibold rounded-lg hover:border-red-300 hover:text-red-500 transition-colors text-xs shrink-0">
+          <XCircle size={13} /> <span className="hidden sm:inline">Give Up</span><span className="sm:hidden">Quit</span>
         </button>
       </div>
 

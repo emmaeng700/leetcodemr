@@ -122,9 +122,9 @@ export default function SpeedsterQuestionPage() {
           <button onClick={() => router.push('/speedster')} className="text-gray-400 hover:text-gray-700 transition-colors shrink-0">
             <ArrowLeft size={18} />
           </button>
-          <div className="flex items-center gap-1.5 bg-yellow-50 border border-yellow-200 px-2 py-0.5 rounded-lg shrink-0">
+          <div className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 px-1.5 sm:px-2 py-0.5 rounded-lg shrink-0">
             <Gauge size={11} className="text-yellow-600" />
-            <span className="text-xs font-bold text-yellow-700">Speedster</span>
+            <span className="hidden sm:inline text-xs font-bold text-yellow-700">Speedster</span>
           </div>
           {question ? (
             <>
