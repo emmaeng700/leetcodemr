@@ -8,18 +8,25 @@ import {
   Calendar, Info, Timer, Code2, Zap, Gauge, Gamepad2, RefreshCw,
 } from 'lucide-react'
 
-// Group 1 — Practice & solving
+// Group 1a — Study-oriented links (shown left of the | separator)
 // `also` = extra path prefixes that should also light up this link
-const PRACTICE_LINKS = [
-  { href: '/',             label: 'Questions', icon: Home,     also: ['/practice', '/question'] },
+const STUDY_LINKS = [
+  { href: '/',        label: 'Questions', icon: Home,     also: ['/practice', '/question'] },
+  { href: '/daily',   label: 'Daily',     icon: Calendar },
+  { href: '/learn/0', label: 'Learn',     icon: BookOpen },
+]
+
+// Group 1b — Speed / drill links (shown right of the | separator)
+const DRILL_LINKS = [
   { href: '/speedster',    label: 'Speedster', icon: Gauge },
   { href: '/line-game',    label: 'Game',      icon: Gamepad2 },
   { href: '/mock',         label: 'Mock',      icon: Timer },
-  { href: '/daily',        label: 'Daily',     icon: Calendar },
-  { href: '/learn/0',      label: 'Learn',     icon: BookOpen },
   { href: '/leetcode-api', label: 'LeetCode',  icon: Zap },
   { href: '/patterns',     label: 'Patterns',  icon: GitBranch },
 ]
+
+// Combined for NAV_LINKS (active detection still works per-link)
+const PRACTICE_LINKS = [...STUDY_LINKS, ...DRILL_LINKS]
 
 // Group 2 — Flashcard-based study
 const FLASHCARD_LINKS = [
@@ -84,7 +91,7 @@ export default function Navbar() {
 
         {/* Desktop Nav */}
         <div className="hidden md:flex flex-wrap items-center gap-1 pb-2">
-          {[PRACTICE_LINKS, FLASHCARD_LINKS, TOPIC_LINKS, META_LINKS].map((group, gi) => (
+          {[STUDY_LINKS, DRILL_LINKS, FLASHCARD_LINKS, TOPIC_LINKS, META_LINKS].map((group, gi) => (
             <React.Fragment key={gi}>
               {gi > 0 && <span className="w-px h-4 bg-gray-200 mx-1 shrink-0" />}
               {group.map(({ href, label, also }: { href: string; label: string; icon: React.ElementType; also?: string[] }) => {
@@ -112,10 +119,11 @@ export default function Navbar() {
       {open && (
         <div className="md:hidden border-t border-gray-100 bg-white px-4 py-3 space-y-1 max-h-[80vh] overflow-y-auto">
           {[
-            { label: 'Practice', group: PRACTICE_LINKS },
+            { label: 'Study',      group: STUDY_LINKS },
+            { label: 'Drill',      group: DRILL_LINKS },
             { label: 'Flashcards', group: FLASHCARD_LINKS },
-            { label: 'Topics', group: TOPIC_LINKS },
-            { label: 'More', group: META_LINKS },
+            { label: 'Topics',     group: TOPIC_LINKS },
+            { label: 'More',       group: META_LINKS },
           ].map(({ label, group }, gi) => (
             <React.Fragment key={gi}>
               {gi > 0 && <div className="h-px bg-gray-100 my-2" />}
