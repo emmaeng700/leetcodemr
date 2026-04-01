@@ -155,3 +155,9 @@ CREATE TABLE IF NOT EXISTS fc_daily_log (
   question_ids INTEGER[] DEFAULT '{}',
   UNIQUE(user_id, date)
 );
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ROW LEVEL SECURITY
+-- Single-user app: all rows restricted to user_id = 'emmanuel'
+-- Run rls.sql in the Supabase SQL Editor to apply these.
+-- ─────────────────────────────────────────────────────────────────────────────
