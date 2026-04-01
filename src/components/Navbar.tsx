@@ -86,7 +86,8 @@ export default function Navbar() {
             <React.Fragment key={gi}>
               {gi > 0 && <span className="w-px h-4 bg-gray-200 mx-1 shrink-0" />}
               {group.map(({ href, label }) => {
-                const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+                const base = href === '/' ? '/' : '/' + href.split('/')[1]
+                const active = href === '/' ? pathname === '/' : pathname.startsWith(base)
                 return (
                   <Link
                     key={href}
@@ -117,7 +118,8 @@ export default function Navbar() {
               {gi > 0 && <div className="h-px bg-gray-100 my-2" />}
               <p className="px-3 pt-1 pb-0.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
               {group.map(({ href, label: lnk, icon: Icon }) => {
-                const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+                const base = href === '/' ? '/' : '/' + href.split('/')[1]
+                const active = href === '/' ? pathname === '/' : pathname.startsWith(base)
                 return (
                   <Link
                     key={href}
