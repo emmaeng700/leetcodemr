@@ -9,8 +9,9 @@ import {
 } from 'lucide-react'
 
 // Group 1 — Practice & solving
+// `also` = extra path prefixes that should also light up this link
 const PRACTICE_LINKS = [
-  { href: '/',             label: 'Questions', icon: Home },
+  { href: '/',             label: 'Questions', icon: Home,     also: ['/practice', '/question'] },
   { href: '/line-game',    label: 'Game',      icon: Gamepad2 },
   { href: '/daily',        label: 'Daily',     icon: Calendar },
   { href: '/speedster',    label: 'Speedster', icon: Gauge },
@@ -85,9 +86,10 @@ export default function Navbar() {
           {[PRACTICE_LINKS, FLASHCARD_LINKS, TOPIC_LINKS, META_LINKS].map((group, gi) => (
             <React.Fragment key={gi}>
               {gi > 0 && <span className="w-px h-4 bg-gray-200 mx-1 shrink-0" />}
-              {group.map(({ href, label }) => {
+              {group.map(({ href, label, also }: { href: string; label: string; icon: React.ElementType; also?: string[] }) => {
                 const base = href === '/' ? '/' : '/' + href.split('/')[1]
-                const active = href === '/' ? pathname === '/' : pathname.startsWith(base)
+                const active = (href === '/' ? pathname === '/' : pathname.startsWith(base))
+                  || (also ?? []).some(p => pathname.startsWith(p))
                 return (
                   <Link
                     key={href}
@@ -117,9 +119,10 @@ export default function Navbar() {
             <React.Fragment key={gi}>
               {gi > 0 && <div className="h-px bg-gray-100 my-2" />}
               <p className="px-3 pt-1 pb-0.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
-              {group.map(({ href, label: lnk, icon: Icon }) => {
+              {group.map(({ href, label: lnk, icon: Icon, also }: { href: string; label: string; icon: React.ElementType; also?: string[] }) => {
                 const base = href === '/' ? '/' : '/' + href.split('/')[1]
-                const active = href === '/' ? pathname === '/' : pathname.startsWith(base)
+                const active = (href === '/' ? pathname === '/' : pathname.startsWith(base))
+                  || (also ?? []).some(p => pathname.startsWith(p))
                 return (
                   <Link
                     key={href}
