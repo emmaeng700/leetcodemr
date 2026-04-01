@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
+import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List } from 'lucide-react'
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress } from '@/lib/db'
 import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -125,6 +125,7 @@ export default function DailyPage() {
 
   // Past days
   const [expandedDays, setExpandedDays] = useState<Record<number, boolean>>({})
+  const [showList, setShowList] = useState(false)
 
   // Extra days
   const [extraDays, setExtraDays] = useState(0)
@@ -311,12 +312,40 @@ export default function DailyPage() {
             <p className="text-xs text-green-600 font-semibold mt-0.5">Plan complete!</p>
           )}
         </div>
-        <button
-          onClick={() => setShowResetPrompt(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          <RotateCcw size={12} /> Reset
-        </button>
+        <div className="flex items-center gap-2">
+          {todayQs.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowList(v => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-colors font-semibold"
+              >
+                <List size={12} />
+                Today's Qs
+              </button>
+              {showList && (
+                <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-72 max-h-80 overflow-y-auto">
+                  {todayQs.map(q => (
+                    <a key={q.id} href={`/practice/${q.id}`} onClick={() => setShowList(false)}
+                      className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-indigo-50 border-b border-gray-50 transition-colors text-sm">
+                      <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{q.id}</span>
+                      <span className="flex-1 truncate text-gray-700">{q.title}</span>
+                      <span className={`text-xs font-semibold shrink-0 ${q.difficulty === 'Easy' ? 'text-green-600' : q.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
+                        {q.difficulty[0]}
+                      </span>
+                      {isSolved(q.id) && <CheckCircle2 size={11} className="text-green-500 shrink-0" />}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          <button
+            onClick={() => setShowResetPrompt(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <RotateCcw size={12} /> Reset
+          </button>
+        </div>
       </div>
 
       {/* Reset gate */}

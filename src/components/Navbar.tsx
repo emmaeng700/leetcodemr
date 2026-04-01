@@ -92,7 +92,7 @@ export default function Navbar() {
                     key={href}
                     href={href}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                      active ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                      active ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
                     }`}
                   >
                     {label}
@@ -124,7 +124,7 @@ export default function Navbar() {
                     href={href}
                     onClick={() => setOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      active ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'
+                      active ? 'bg-indigo-100 text-indigo-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'
                     }`}
                   >
                     <Icon size={16} />

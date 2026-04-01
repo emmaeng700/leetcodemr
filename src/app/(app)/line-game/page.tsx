@@ -11,6 +11,7 @@ import {
   Sparkles,
   Copy,
   Check,
+  List,
 } from 'lucide-react'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
@@ -359,6 +360,7 @@ export default function LineGamePage() {
   const [planOrder, setPlanOrder] = useState<number[] | null>(null)
   const [idx, setIdx] = useState(0)
   const [sessionScore, setSessionScore] = useState(0)
+  const [showList, setShowList] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -528,6 +530,33 @@ export default function LineGamePage() {
         >
           <ChevronLeft size={18} /> Prev
         </button>
+
+        {/* Question list */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowList(v => !v)}
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:border-indigo-300 hover:text-indigo-600"
+          >
+            <List size={16} />
+            <span className="font-mono text-xs">{idx + 1}/{playable.length}</span>
+          </button>
+          {showList && (
+            <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[90vw] max-w-xs sm:w-80 max-h-80 overflow-y-auto">
+              {playable.map((pq, i) => (
+                <button key={pq.id} onClick={() => { setIdx(i); setShowList(false) }}
+                  className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-indigo-50 border-b border-gray-50 transition-colors text-sm ${i === idx ? 'bg-indigo-50' : ''}`}>
+                  <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{pq.id}</span>
+                  <span className="flex-1 truncate text-gray-700">{pq.title}</span>
+                  <span className={`text-xs font-semibold shrink-0 ${pq.difficulty === 'Easy' ? 'text-green-600' : pq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
+                    {pq.difficulty[0]}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={() => go(1)}

@@ -1,8 +1,8 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle, Clock, Code2, BookOpen, ExternalLink, Loader2, Trophy } from 'lucide-react'
-import { getProgress, updateProgress, addTimeSpent, completeReview } from '@/lib/db'
+import { ArrowLeft, CheckCircle, Clock, Code2, BookOpen, ExternalLink, Loader2, Trophy, List } from 'lucide-react'
+import { getProgress, updateProgress, addTimeSpent, completeReview, getStudyPlan } from '@/lib/db'
 import { formatTime, isDue } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
@@ -53,6 +53,9 @@ export default function PracticePage() {
   const id = Number(params.id)
 
   const [question, setQuestion] = useState<Question | null>(null)
+  const [allQuestions, setAllQuestions] = useState<Question[]>([])
+  const [planOrder, setPlanOrder] = useState<number[]>([])
+  const [showList, setShowList] = useState(false)
   const [solved, setSolved] = useState(false)
   const [nextReview, setNextReview] = useState<string | null>(null)
   const [reviewDone, setReviewDone] = useState(false)
@@ -74,13 +77,17 @@ export default function PracticePage() {
   // Load local data immediately — no spinner blocking the page
   useEffect(() => {
     async function load() {
-      const [qs, prog] = await Promise.all([
+      const [qs, prog, plan] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getProgress(),
+        getStudyPlan(),
       ])
       const q = (qs as Question[]).find((q: Question) => q.id === id)
       if (!q) return
       setQuestion(q)
+      setAllQuestions(qs as Question[])
+      if (plan?.question_order?.length) setPlanOrder(plan.question_order)
+      else setPlanOrder((qs as Question[]).map((q: Question) => q.id))
       setSolved(!!prog[String(id)]?.solved)
       setNextReview(prog[String(id)]?.next_review ?? null)
     }
@@ -203,6 +210,50 @@ export default function PracticePage() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {/* Question list */}
+          {planOrder.length > 0 && (() => {
+            const qMap = Object.fromEntries(allQuestions.map(q => [q.id, q]))
+            const currentIdx = planOrder.indexOf(id)
+            const prevId = currentIdx > 0 ? planOrder[currentIdx - 1] : null
+            const nextId = currentIdx < planOrder.length - 1 ? planOrder[currentIdx + 1] : null
+            return (
+              <div className="flex items-center gap-1">
+                <button onClick={() => prevId && router.push(`/practice/${prevId}`)} disabled={!prevId}
+                  className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 transition-colors">
+                  <ArrowLeft size={13} />
+                </button>
+                <div className="relative">
+                  <button onClick={() => setShowList(v => !v)}
+                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-indigo-300 transition-colors">
+                    <List size={12} />
+                    <span className="font-mono hidden sm:inline">{currentIdx + 1}/{planOrder.length}</span>
+                  </button>
+                  {showList && (
+                    <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[90vw] max-w-xs sm:w-80 max-h-80 overflow-y-auto">
+                      {planOrder.map((qid, i) => {
+                        const lq = qMap[qid]
+                        if (!lq) return null
+                        return (
+                          <button key={qid} onClick={() => { router.push(`/practice/${qid}`); setShowList(false) }}
+                            className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-indigo-50 border-b border-gray-50 transition-colors text-sm ${qid === id ? 'bg-indigo-50' : ''}`}>
+                            <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{lq.id}</span>
+                            <span className="flex-1 truncate text-gray-700">{lq.title}</span>
+                            <span className={`text-xs font-semibold shrink-0 ${lq.difficulty === 'Easy' ? 'text-green-600' : lq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
+                              {lq.difficulty[0]}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => nextId && router.push(`/practice/${nextId}`)} disabled={!nextId}
+                  className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 transition-colors">
+                  <ArrowLeft size={13} className="rotate-180" />
+                </button>
+              </div>
+            )
+          })()}
           <div className="flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-lg text-sm font-mono font-semibold text-gray-600">
             <Clock size={13} />
             {formatTime(timer)}
