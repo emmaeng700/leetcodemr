@@ -2,9 +2,14 @@
 
 import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useState } from 'react'
+import { Prec } from '@codemirror/state'
 import type { Extension } from '@codemirror/state'
-import { EditorView } from '@codemirror/view'
+import type { Completion } from '@codemirror/autocomplete'
+import { autocompletion } from '@codemirror/autocomplete'
 import { extractPythonWordsForCompletion } from '@/lib/line-game/extractPythonWords'
+
+/** Solution-word completions use boost >= this so we can sort them above builtins/snippets. */
+const SOLUTION_BOOST_MARK = 900
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then((m) => m.default), { ssr: false })
 
@@ -87,11 +92,12 @@ export default function LineGameCodeInput({
         loadThemeExtensions(),
       ])
       const words = extractPythonWordsForCompletion(completionContext)
+      // High boost + sortText prefix: rank above Python globals/snippets (avoid `section:` — CM penalizes sectioned items vs unsectioned).
       const options = words.map((label) => ({
         label,
         type: 'variable' as const,
-        section: 'This solution',
-        boost: 4,
+        boost: 10_000,
+        sortText: '\u0000' + label,
       }))
       const solutionSource =
         options.length > 0
@@ -99,6 +105,16 @@ export default function LineGameCodeInput({
           : null
 
       const ext: Extension[] = [
+        Prec.highest(
+          autocompletion({
+            compareCompletions(a: Completion, b: Completion) {
+              const aSol = (a.boost ?? 0) >= SOLUTION_BOOST_MARK
+              const bSol = (b.boost ?? 0) >= SOLUTION_BOOST_MARK
+              if (aSol !== bSol) return aSol ? -1 : 1
+              return (a.sortText || a.label).localeCompare(b.sortText || b.label)
+            },
+          })
+        ),
         python(),
         ...(solutionSource
           ? [pythonLanguage.data.of({ autocomplete: solutionSource })]
