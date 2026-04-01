@@ -447,26 +447,61 @@ export default function LineGamePage() {
     <div className="max-w-4xl mx-auto px-4 py-8 pb-24">
       {!online && <OfflineBanner feature="Daily plan order (Supabase)" />}
 
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
-        <div>
-          <div className="flex items-center gap-2 text-indigo-600 font-black text-lg mb-1">
-            <Sparkles size={22} />
-            Line game
+      <header className="mb-8 rounded-2xl border border-gray-200/90 bg-white shadow-sm ring-1 ring-gray-100/80">
+        <div className="px-5 py-6 sm:px-7 sm:py-7">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch lg:justify-between lg:gap-8">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md shadow-indigo-500/25"
+                  aria-hidden
+                >
+                  <Sparkles size={22} strokeWidth={2} />
+                </span>
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">Line game</h1>
+                  <p className="mt-0.5 text-xs font-medium text-indigo-600/90">Fill blank lines from your Daily-order solutions</p>
+                </div>
+              </div>
+              <ul className="mt-5 space-y-2.5 text-sm leading-relaxed text-gray-600 sm:max-w-xl">
+                <li className="flex gap-2.5">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" aria-hidden />
+                  <span>
+                    Blanks work like syntax-colored flashcards: over{' '}
+                    <span className="font-medium text-gray-700">70% of algorithm lines</span> are hidden
+                    (highest-impact first, same order as Daily).
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" aria-hidden />
+                  <span>
+                    <span className="font-medium text-gray-700">Gray strip</span> = outer indent. Editor matches
+                    Practice: Python highlight, Tab, and completions.
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" aria-hidden />
+                  <span>
+                    <span className="font-medium text-gray-700">One blank = one line</span> — paste only that
+                    line. Three wrong checks → reveal.
+                  </span>
+                </li>
+              </ul>
+            </div>
+            <aside className="flex shrink-0 lg:justify-end">
+              <div className="flex w-full flex-col justify-center rounded-2xl border border-indigo-100 bg-gradient-to-b from-indigo-50/90 to-white px-6 py-5 text-center shadow-inner sm:w-auto sm:min-w-[9.5rem] lg:text-right">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-indigo-400">Score</p>
+                <p className="mt-1 text-4xl font-bold tabular-nums leading-none text-indigo-700">{sessionScore}</p>
+                <p className="mt-3 border-t border-indigo-100/80 pt-3 text-[11px] text-gray-500">
+                  <span className="font-medium text-gray-600">+3</span> first try ·{' '}
+                  <span className="font-medium text-gray-600">+2</span> second ·{' '}
+                  <span className="font-medium text-gray-600">+1</span> third
+                </p>
+              </div>
+            </aside>
           </div>
-          <p className="text-sm text-gray-500 max-w-xl">
-            Syntax-colored like flashcards. Over 70% of each solution’s algorithm lines are blanked
-            (highest-impact first; same order as Daily). Gray strip = outer indent; CodeMirror gives
-            Python highlighting and completions like Practice.{' '}
-            <span className="font-medium text-gray-600">One blank = one line</span> — paste that line only.
-            Three wrong checks → reveal.
-          </p>
         </div>
-        <div className="text-right">
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Score</div>
-          <div className="text-2xl font-black text-indigo-600 tabular-nums">{sessionScore}</div>
-          <div className="text-xs text-gray-400 mt-1">+3 / +2 / +1 by attempt</div>
-        </div>
-      </div>
+      </header>
 
       <div className="mb-6">
         <div className="flex justify-between text-xs text-gray-500 mb-1">
