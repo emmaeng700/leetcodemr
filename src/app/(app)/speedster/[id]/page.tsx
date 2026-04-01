@@ -106,8 +106,8 @@ export default function SpeedsterQuestionPage() {
 
   // Derive index directly from plan order — no URL param needed
   const currentIdx = planOrder.indexOf(id)
-  const prevId = currentIdx > 0 ? planOrder[currentIdx - 1] : null
-  const nextId = currentIdx < planOrder.length - 1 ? planOrder[currentIdx + 1] : null
+  const prevId = currentIdx >= 0 ? planOrder[(currentIdx - 1 + planOrder.length) % planOrder.length] ?? null : null
+  const nextId = currentIdx >= 0 ? planOrder[(currentIdx + 1) % planOrder.length] ?? null : null
 
   function goTo(qid: number) {
     router.push(`/speedster/${qid}`)

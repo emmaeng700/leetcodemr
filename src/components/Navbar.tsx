@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   BookOpen, Menu, X, LogOut, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
-  Calendar, Info, Timer, Code2, Zap, Gauge, Gamepad2,
+  Calendar, Info, Timer, Code2, Zap, Gauge, Gamepad2, RefreshCw,
 } from 'lucide-react'
 
 // Group 1 — Practice & solving
@@ -37,6 +37,7 @@ const TOPIC_LINKS = [
 
 // Group 4 — Meta
 const META_LINKS = [
+  { href: '/sr-queue', label: 'SR Queue', icon: RefreshCw },
   { href: '/stats',  label: 'Stats',   icon: BarChart2 },
   { href: '/review', label: 'Reviews', icon: Brain },
   { href: '/about',  label: 'About',   icon: Info },

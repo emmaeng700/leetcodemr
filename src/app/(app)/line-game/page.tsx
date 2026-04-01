@@ -470,7 +470,7 @@ export default function LineGamePage() {
   }, [])
 
   const go = useCallback((d: number) => {
-    setIdx((i) => Math.max(0, Math.min(playable.length - 1, i + d)))
+    setIdx((i) => (i + d + playable.length) % playable.length)
   }, [playable.length])
 
   useEffect(() => {
@@ -602,7 +602,6 @@ export default function LineGamePage() {
         <button
           type="button"
           onClick={() => go(-1)}
-          disabled={idx === 0}
           className="flex items-center gap-1 px-3 sm:px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30"
           aria-label="Previous question"
         >
@@ -644,7 +643,6 @@ export default function LineGamePage() {
         <button
           type="button"
           onClick={() => go(1)}
-          disabled={idx >= playable.length - 1}
           className="flex items-center gap-1 px-3 sm:px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-30"
           aria-label="Next question"
         >
