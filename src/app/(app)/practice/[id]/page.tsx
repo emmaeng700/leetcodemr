@@ -226,7 +226,7 @@ export default function PracticePage() {
                   <button onClick={() => setShowList(v => !v)}
                     className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-indigo-300 transition-colors">
                     <List size={12} />
-                    <span className="font-mono hidden sm:inline">{currentIdx + 1}/{planOrder.length}</span>
+                    <span className="font-mono">{currentIdx + 1}/{planOrder.length}</span>
                   </button>
                   {showList && (
                     <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[90vw] max-w-xs sm:w-80 max-h-80 overflow-y-auto">

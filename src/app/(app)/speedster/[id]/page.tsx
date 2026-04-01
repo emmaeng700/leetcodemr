@@ -141,37 +141,45 @@ export default function SpeedsterQuestionPage() {
           )}
         </div>
 
-        {/* Question list button */}
+        {/* Prev / List / Next */}
         {planOrder.length > 0 && (
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setShowList(v => !v)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-indigo-300 transition-colors"
-            >
-              <List size={12} />
-              <span className="font-mono">{currentIdx + 1}/{planOrder.length}</span>
+          <div className="flex items-center gap-1 shrink-0">
+            <button onClick={() => prevId && goTo(prevId)} disabled={!prevId}
+              className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-yellow-300 hover:text-yellow-600 disabled:opacity-30 transition-colors">
+              <ArrowLeft size={15} />
             </button>
-            {showList && (() => {
-              const qMap = Object.fromEntries(allQuestions.map(q => [q.id, q]))
-              return (
-                <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[90vw] max-w-xs sm:w-80 max-h-80 overflow-y-auto">
-                  {planOrder.map((qid, i) => {
-                    const lq = qMap[qid]
-                    if (!lq) return null
-                    return (
-                      <button key={qid} onClick={() => { goTo(qid); setShowList(false) }}
-                        className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-yellow-50 border-b border-gray-50 transition-colors text-sm ${qid === id ? 'bg-yellow-50' : ''}`}>
-                        <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{lq.id}</span>
-                        <span className="flex-1 truncate text-gray-700">{lq.title}</span>
-                        <span className={`text-xs font-semibold shrink-0 ${lq.difficulty === 'Easy' ? 'text-green-600' : lq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
-                          {lq.difficulty[0]}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )
-            })()}
+            <div className="relative">
+              <button onClick={() => setShowList(v => !v)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-yellow-300 transition-colors">
+                <List size={12} />
+                <span className="font-mono">{currentIdx >= 0 ? `${currentIdx + 1}/${planOrder.length}` : '—'}</span>
+              </button>
+              {showList && (() => {
+                const qMap = Object.fromEntries(allQuestions.map(q => [q.id, q]))
+                return (
+                  <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[90vw] max-w-xs sm:w-80 max-h-80 overflow-y-auto">
+                    {planOrder.map((qid) => {
+                      const lq = qMap[qid]
+                      if (!lq) return null
+                      return (
+                        <button key={qid} onClick={() => { goTo(qid); setShowList(false) }}
+                          className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-yellow-50 border-b border-gray-50 transition-colors text-sm ${qid === id ? 'bg-yellow-50' : ''}`}>
+                          <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{lq.id}</span>
+                          <span className="flex-1 truncate text-gray-700">{lq.title}</span>
+                          <span className={`text-xs font-semibold shrink-0 ${lq.difficulty === 'Easy' ? 'text-green-600' : lq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
+                            {lq.difficulty[0]}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+            </div>
+            <button onClick={() => nextId && goTo(nextId)} disabled={!nextId}
+              className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-yellow-300 hover:text-yellow-600 disabled:opacity-30 transition-colors">
+              <ArrowRight size={15} />
+            </button>
           </div>
         )}
       </div>
@@ -265,26 +273,6 @@ export default function SpeedsterQuestionPage() {
             )}
           </div>
 
-          {/* Bottom nav — left panel */}
-          <div className="shrink-0 border-t border-gray-100 bg-white px-3 py-2 flex items-center justify-between gap-2">
-            <button
-              onClick={() => prevId && goTo(prevId)}
-              disabled={!prevId}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-gray-50 border border-gray-200 text-gray-600 hover:border-yellow-300 hover:bg-yellow-50 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              <ArrowLeft size={13} /> Prev
-            </button>
-            <span className="text-xs text-gray-400">
-              {currentIdx >= 0 ? `${currentIdx + 1} of ${planOrder.length}` : '—'}
-            </span>
-            <button
-              onClick={() => nextId && goTo(nextId)}
-              disabled={!nextId}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-yellow-500 border border-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              Next <ArrowRight size={13} />
-            </button>
-          </div>
         </div>
 
         {/* RIGHT — editor */}
