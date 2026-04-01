@@ -11,6 +11,7 @@ import {
 // Group 1 — Practice & solving
 const PRACTICE_LINKS = [
   { href: '/',             label: 'Questions', icon: Home },
+  { href: '/line-game',    label: 'Game',      icon: Gamepad2 },
   { href: '/daily',        label: 'Daily',     icon: Calendar },
   { href: '/speedster',    label: 'Speedster', icon: Gauge },
   { href: '/learn/0',      label: 'Learn',     icon: BookOpen },
@@ -23,7 +24,6 @@ const PRACTICE_LINKS = [
 const FLASHCARD_LINKS = [
   { href: '/flashcards',   label: 'Flashcards',   icon: Layers },
   { href: '/quick-review', label: 'Quick Review', icon: Clock },
-  { href: '/line-game',   label: 'Line game',    icon: Gamepad2 },
   { href: '/gems',         label: 'Gems',         icon: Gem },
   { href: '/dsa',          label: 'DSA',          icon: Code2 },
 ]
