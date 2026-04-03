@@ -6,6 +6,7 @@
       "runtimeExecutable": "/Users/oppongemmanuel/.nvm/versions/node/v21.7.3/bin/npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
+      "autoPort": true,
       "cwd": "/Users/oppongemmanuel/code/leetcodemr"
     }
   ]

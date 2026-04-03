@@ -267,76 +267,46 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
         .cm-editor, .cm-content { max-width: 100%; }
       `}</style>
 
-      {/* ── Toolbar ── */}
-      {/* Mobile: 2 rows (lang top, actions bottom). Desktop: single row. */}
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-0 bg-[#16213e] border-b border-gray-700/50 shrink-0">
+      {/* ── Toolbar — single row on all sizes ── */}
+      <div className="relative z-10 flex items-center gap-2 px-3 py-2 bg-[#16213e] border-b border-gray-700/50 shrink-0">
 
-        {/* Row 1: Language buttons + (desktop) spacer + run/submit */}
-        <div className="flex items-center gap-2 px-3 py-2 sm:py-2.5 sm:flex-1">
-          <div className="flex gap-1">
-            {(['python3', 'cpp'] as const).map(l => (
-              <button key={l} onClick={() => switchLang(l)}
-                style={{ touchAction: 'manipulation' }}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${lang === l ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'}`}>
-                {LANG_LABEL[l]}
-              </button>
-            ))}
-          </div>
-
-          {/* Session warning — inline on desktop only */}
-          <div className="flex-1" />
-          {!sessionOK && (
-            <button onClick={() => setShowSessionHint(h => !h)}
+        {/* Language picker */}
+        <div className="flex gap-1 shrink-0">
+          {(['python3', 'cpp'] as const).map(l => (
+            <button key={l} onClick={() => switchLang(l)}
               style={{ touchAction: 'manipulation' }}
-              className="hidden sm:flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition">
-              <Key size={11} />
-              Setup session
-              {showSessionHint ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+              className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg transition ${lang === l ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'}`}>
+              {LANG_LABEL[l]}
             </button>
-          )}
-
-          {/* Run + Submit — desktop only in row 1 */}
-          <div className="hidden sm:flex items-center gap-2">
-            <button onClick={runTest} disabled={running || !sessionOK || !lcQ}
-              style={{ touchAction: 'manipulation' }}
-              className="flex items-center gap-1.5 px-3 py-2 min-h-[36px] bg-gray-700 text-gray-200 text-xs font-semibold rounded-lg hover:bg-gray-600 active:bg-gray-500 disabled:opacity-40 transition cursor-pointer">
-              {running && runMode === 'test' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-              Run
-            </button>
-            <button onClick={runSubmit} disabled={running || !sessionOK || !lcQ}
-              style={{ touchAction: 'manipulation' }}
-              className="flex items-center gap-1.5 px-3 py-2 min-h-[36px] bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-500 active:bg-green-400 disabled:opacity-40 transition cursor-pointer">
-              {running && runMode === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-              Submit
-            </button>
-          </div>
+          ))}
         </div>
 
-        {/* Row 2 (mobile only): session warning + big Run/Submit buttons */}
-        <div className="flex sm:hidden items-center gap-2 px-3 pb-2.5 border-t border-gray-700/30 pt-2">
-          {!sessionOK && (
-            <button onClick={() => setShowSessionHint(h => !h)}
-              style={{ touchAction: 'manipulation' }}
-              className="flex items-center gap-1 text-xs text-orange-400 mr-auto">
-              <Key size={11} />
-              <span>Session</span>
-              {showSessionHint ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
-            </button>
-          )}
-          {sessionOK && <div className="flex-1" />}
-          <button onClick={runTest} disabled={running || !sessionOK || !lcQ}
+        <div className="flex-1" />
+
+        {/* Session warning */}
+        {!sessionOK && (
+          <button onClick={() => setShowSessionHint(h => !h)}
             style={{ touchAction: 'manipulation' }}
-            className="flex items-center justify-center gap-2 flex-1 py-2.5 min-h-[44px] bg-gray-700 text-gray-200 text-sm font-semibold rounded-xl active:bg-gray-500 disabled:opacity-40 transition cursor-pointer">
-            {running && runMode === 'test' ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-            Run
+            className="flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition shrink-0">
+            <Key size={11} />
+            <span className="hidden sm:inline">Setup session</span>
+            {showSessionHint ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
           </button>
-          <button onClick={runSubmit} disabled={running || !sessionOK || !lcQ}
-            style={{ touchAction: 'manipulation' }}
-            className="flex items-center justify-center gap-2 flex-1 py-2.5 min-h-[44px] bg-green-600 text-white text-sm font-semibold rounded-xl active:bg-green-400 disabled:opacity-40 transition cursor-pointer">
-            {running && runMode === 'submit' ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-            Submit
-          </button>
-        </div>
+        )}
+
+        {/* Run + Submit — compact on mobile, slightly larger on desktop */}
+        <button onClick={runTest} disabled={running || !sessionOK || !lcQ}
+          style={{ touchAction: 'manipulation' }}
+          className="flex items-center gap-1.5 px-3 sm:px-4 py-2 min-h-[36px] bg-gray-700 text-gray-200 text-xs font-semibold rounded-lg hover:bg-gray-600 active:bg-gray-500 disabled:opacity-40 transition cursor-pointer shrink-0">
+          {running && runMode === 'test' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+          Run
+        </button>
+        <button onClick={runSubmit} disabled={running || !sessionOK || !lcQ}
+          style={{ touchAction: 'manipulation' }}
+          className="flex items-center gap-1.5 px-3 sm:px-4 py-2 min-h-[36px] bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-500 active:bg-green-400 disabled:opacity-40 transition cursor-pointer shrink-0">
+          {running && runMode === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+          Submit
+        </button>
       </div>
 
       {/* Session hint */}
