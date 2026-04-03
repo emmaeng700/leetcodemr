@@ -1,9 +1,10 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react'
 import { getProgress, getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import CodePanel from '@/components/CodePanel'
 
 interface Question {
   id: number
@@ -12,6 +13,8 @@ interface Question {
   slug: string
   tags: string[]
   source: string[]
+  python_solution?: string
+  cpp_solution?: string
 }
 
 export default function SpeedsterPage() {
@@ -20,7 +23,14 @@ export default function SpeedsterPage() {
   const [progress,  setProgress]  = useState<Record<string, any>>({})
   const [perDay,    setPerDay]    = useState(3)
   const [loading,   setLoading]  = useState(true)
-  const [dayIdx,    setDayIdx]   = useState(0)
+
+  // Day card state
+  const [dayIdx,  setDayIdx]  = useState(0)
+
+  // Flashcard state
+  const [cardIdx, setCardIdx] = useState(0)
+  const [flipped, setFlipped] = useState(false)
+  const [fading,  setFading]  = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -50,11 +60,41 @@ export default function SpeedsterPage() {
     days.push(planOrder.slice(i, i + perDay))
   }
 
-  const totalDays = days.length
+  const totalDays  = days.length
   const currentDay = days[dayIdx] ?? []
+  const daySolved  = currentDay.filter(id => !!progress[String(id)]?.solved).length
 
-  // How many questions in this day are solved
-  const daySolved = currentDay.filter(id => !!progress[String(id)]?.solved).length
+  // Flashcard helpers
+  const total      = planOrder.length
+  const currentQ   = qMap[planOrder[cardIdx]]
+
+  const fadeSwap = useCallback((fn: () => void) => {
+    setFading(true)
+    setTimeout(() => { fn(); setFading(false) }, 180)
+  }, [])
+
+  const handleFlip = useCallback(() => {
+    fadeSwap(() => setFlipped(f => !f))
+  }, [fadeSwap])
+
+  const go = useCallback((dir: number) => {
+    fadeSwap(() => {
+      setFlipped(false)
+      setCardIdx(i => Math.max(0, Math.min(total - 1, i + dir)))
+    })
+  }, [total, fadeSwap])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (e.key === 'ArrowRight') go(1)
+      if (e.key === 'ArrowLeft')  go(-1)
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); handleFlip() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [go, handleFlip])
 
   if (loading) return (
     <div className="flex items-center justify-center h-64 text-gray-400 text-sm gap-2">
@@ -65,7 +105,7 @@ export default function SpeedsterPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
 
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="flex items-center gap-3 mb-6">
         <div className="w-9 h-9 rounded-xl bg-yellow-100 flex items-center justify-center shrink-0">
           <Gauge size={18} className="text-yellow-600" />
@@ -76,65 +116,44 @@ export default function SpeedsterPage() {
         </div>
       </div>
 
-      {/* Day navigation */}
+      {/* ── Day card section ── */}
       <div className="flex items-center justify-between mb-4">
-        <button
-          onClick={() => setDayIdx(i => Math.max(0, i - 1))}
-          disabled={dayIdx === 0}
-          className="flex items-center gap-1 px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:border-yellow-300 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-        >
+        <button onClick={() => setDayIdx(i => Math.max(0, i - 1))} disabled={dayIdx === 0}
+          className="flex items-center gap-1 px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:border-yellow-300 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
           <ChevronLeft size={16} /> Prev
         </button>
-
         <div className="text-center">
           <p className="text-base font-black text-gray-800">Day {dayIdx + 1}</p>
           <p className="text-xs text-gray-400">{daySolved}/{currentDay.length} solved · {dayIdx + 1} of {totalDays} days</p>
         </div>
-
-        <button
-          onClick={() => setDayIdx(i => Math.min(totalDays - 1, i + 1))}
-          disabled={dayIdx === totalDays - 1}
-          className="flex items-center gap-1 px-4 py-2 rounded-xl bg-yellow-500 text-white text-sm font-semibold hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-        >
+        <button onClick={() => setDayIdx(i => Math.min(totalDays - 1, i + 1))} disabled={dayIdx === totalDays - 1}
+          className="flex items-center gap-1 px-4 py-2 rounded-xl bg-yellow-500 text-white text-sm font-semibold hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
           Next <ChevronRight size={16} />
         </button>
       </div>
 
       {/* Progress bar */}
-      <div className="h-1 bg-gray-100 rounded-full mb-6 overflow-hidden">
-        <div
-          className="h-full bg-yellow-400 rounded-full transition-all duration-300"
-          style={{ width: totalDays ? `${((dayIdx + 1) / totalDays) * 100}%` : '0%' }}
-        />
+      <div className="h-1 bg-gray-100 rounded-full mb-5 overflow-hidden">
+        <div className="h-full bg-yellow-400 rounded-full transition-all duration-300"
+          style={{ width: totalDays ? `${((dayIdx + 1) / totalDays) * 100}%` : '0%' }} />
       </div>
 
       {/* Day card */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-3">
         {currentDay.map((qid, i) => {
           const q = qMap[qid]
           if (!q) return null
           const solved = !!progress[String(qid)]?.solved
           return (
-            <Link
-              key={qid}
-              href={`/speedster/${qid}`}
-              className={`flex items-center gap-3 px-5 py-4 transition-colors group ${
-                i !== 0 ? 'border-t border-gray-100' : ''
-              } ${solved
-                ? 'bg-green-50 hover:bg-green-100/60'
-                : 'hover:bg-yellow-50/40'
-              }`}
-            >
+            <Link key={qid} href={`/speedster/${qid}`}
+              className={`flex items-center gap-3 px-5 py-4 transition-colors group ${i !== 0 ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
               <div className="shrink-0">
                 {solved
                   ? <CheckCircle size={18} className="text-green-500" />
-                  : <Circle size={18} className="text-gray-200 group-hover:text-yellow-300 transition-colors" />
-                }
+                  : <Circle size={18} className="text-gray-200 group-hover:text-yellow-300 transition-colors" />}
               </div>
               <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
-              <span className={`flex-1 text-sm font-semibold truncate ${solved ? 'text-green-700' : 'text-gray-800'}`}>
-                {q.title}
-              </span>
+              <span className={`flex-1 text-sm font-semibold truncate ${solved ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
               <DifficultyBadge difficulty={q.difficulty} />
               <ChevronRight size={14} className="text-gray-300 group-hover:text-yellow-400 shrink-0 transition-colors" />
             </Link>
@@ -142,20 +161,111 @@ export default function SpeedsterPage() {
         })}
       </div>
 
-      {/* Day jump dots */}
+      {/* Day dots */}
       {totalDays <= 20 && (
-        <div className="flex justify-center gap-1.5 mt-5 flex-wrap">
+        <div className="flex justify-center gap-1.5 mb-10 flex-wrap">
           {days.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setDayIdx(i)}
-              className={`rounded-full transition-all ${
-                i === dayIdx ? 'w-3 h-3 bg-yellow-500' : 'w-2 h-2 bg-gray-200 hover:bg-yellow-300'
-              }`}
-            />
+            <button key={i} onClick={() => setDayIdx(i)}
+              className={`rounded-full transition-all ${i === dayIdx ? 'w-3 h-3 bg-yellow-500' : 'w-2 h-2 bg-gray-200 hover:bg-yellow-300'}`} />
           ))}
         </div>
       )}
+
+      {/* ── Flashcard section ── */}
+      <div className="border-t-2 border-dashed border-yellow-200 pt-8">
+
+        <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">⚡ Flashcards</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Tap card to flip · ← → to navigate · Space to flip</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-500 mb-5">
+          <span className="bg-yellow-50 text-yellow-700 border border-yellow-200 px-3 py-1.5 rounded-full">
+            {total === 0 ? '0 / 0' : `${cardIdx + 1} / ${total}`}
+          </span>
+          <button onClick={() => fadeSwap(() => { setCardIdx(0); setFlipped(false) })}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full border bg-white text-gray-500 border-gray-200 hover:border-gray-400 transition-colors">
+            <RotateCcw size={12} /> Reset
+          </button>
+        </div>
+
+        {currentQ && (
+          <>
+            <div onClick={handleFlip} className="cursor-pointer select-none"
+              style={{ opacity: fading ? 0 : 1, transition: 'opacity 0.18s ease' }}>
+
+              {!flipped ? (
+                /* FRONT */
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-gray-100">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-gray-400 font-mono">#{currentQ.id}</span>
+                      <DifficultyBadge difficulty={currentQ.difficulty} />
+                      {(currentQ.source || []).map(s => (
+                        <span key={s} className="text-xs bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100">{s}</span>
+                      ))}
+                    </div>
+                    <span className="hidden sm:inline text-xs text-gray-300 font-medium">Tap to reveal →</span>
+                  </div>
+                  <div className="px-5 py-3">
+                    <h3 className="text-lg font-bold text-gray-800">{currentQ.title}</h3>
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {(currentQ.tags || []).map(tag => (
+                        <span key={tag} className="text-xs bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="px-5 pb-5">
+                    <img src={`/question-images/${currentQ.id}.jpg`} alt={currentQ.title}
+                      className="w-full rounded-lg"
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                      onClick={e => e.stopPropagation()} />
+                  </div>
+                </div>
+              ) : (
+                /* BACK */
+                <div className="bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
+                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-indigo-100 bg-indigo-50">
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                      <span className="text-xs text-gray-400 font-mono">#{currentQ.id}</span>
+                      <DifficultyBadge difficulty={currentQ.difficulty} />
+                      <span className="text-sm font-bold text-indigo-700 truncate">{currentQ.title}</span>
+                    </div>
+                    <span className="text-xs text-indigo-400 font-medium shrink-0">← Flip back</span>
+                  </div>
+                  <div className="p-4" onClick={e => e.stopPropagation()}>
+                    <CodePanel pythonCode={currentQ.python_solution} cppCode={currentQ.cpp_solution} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Flashcard navigation */}
+            <div className="flex items-center justify-between mt-5">
+              <button onClick={() => go(-1)} disabled={cardIdx === 0}
+                className="flex items-center gap-1 px-3 sm:px-5 py-2.5 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:border-yellow-300 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                <ChevronLeft size={16} /> Prev
+              </button>
+              <div className="flex items-center gap-1.5 overflow-x-auto max-w-[160px] sm:max-w-none">
+                {total <= 15 ? (
+                  planOrder.map((_, i) => (
+                    <button key={i} onClick={() => { setCardIdx(i); setFlipped(false) }}
+                      className={`rounded-full transition-all ${i === cardIdx ? 'w-3 h-3 bg-yellow-500' : 'w-2 h-2 bg-gray-200 hover:bg-gray-400'}`} />
+                  ))
+                ) : (
+                  <span className="text-xs text-gray-400 font-mono">{cardIdx + 1} / {total}</span>
+                )}
+              </div>
+              <button onClick={() => go(1)} disabled={cardIdx === total - 1}
+                className="flex items-center gap-1 px-3 sm:px-5 py-2.5 rounded-xl bg-yellow-500 text-white text-sm font-semibold hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                Next <ChevronRight size={16} />
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }
