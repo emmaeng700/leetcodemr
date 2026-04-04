@@ -11,46 +11,100 @@
       background: #f9fafb;
       min-height: 100vh;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 1.5rem;
+      gap: 1.25rem;
     }
     .card {
       background: white;
       border-radius: 1.25rem;
-      padding: 2.5rem 2rem;
-      max-width: 360px;
+      padding: 2rem 1.75rem;
+      max-width: 380px;
       width: 100%;
       text-align: center;
       box-shadow: 0 4px 24px rgba(0,0,0,0.08);
     }
     .icon {
-      width: 56px; height: 56px;
+      width: 52px; height: 52px;
       background: #eef2ff;
       border-radius: 1rem;
       display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 1.25rem;
-      font-size: 1.75rem;
+      margin: 0 auto 1rem;
+      font-size: 1.6rem;
     }
-    h1 { font-size: 1.2rem; font-weight: 700; color: #111827; margin-bottom: 0.5rem; }
-    p  { font-size: 0.875rem; color: #6b7280; line-height: 1.6; margin-bottom: 1.5rem; }
-    button {
+    h1 { font-size: 1.15rem; font-weight: 700; color: #111827; margin-bottom: 0.4rem; }
+    p  { font-size: 0.85rem; color: #6b7280; line-height: 1.6; margin-bottom: 1.25rem; }
+    .btn-primary {
       background: #4f46e5; color: white;
       border: none; border-radius: 0.75rem;
-      padding: 0.625rem 1.5rem;
-      font-size: 0.875rem; font-weight: 600;
+      padding: 0.6rem 1.25rem;
+      font-size: 0.85rem; font-weight: 600;
       cursor: pointer; width: 100%;
       transition: background 0.15s;
+      text-decoration: none; display: block;
     }
-    button:hover { background: #4338ca; }
+    .btn-primary:hover { background: #4338ca; }
+
+    .nav-card {
+      background: white;
+      border-radius: 1.25rem;
+      padding: 1.25rem 1.75rem;
+      max-width: 380px;
+      width: 100%;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    }
+    .nav-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #9ca3af;
+      margin-bottom: 0.75rem;
+    }
+    .nav-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+    .nav-link {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.6rem 0.75rem;
+      background: #f3f4f6;
+      border-radius: 0.625rem;
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #374151;
+      transition: background 0.15s;
+    }
+    .nav-link:hover { background: #e5e7eb; }
+    .nav-link span.em { font-size: 1rem; }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="icon">📡</div>
-    <h1>You're offline</h1>
-    <p>This page needs an internet connection. Check your connection and try again — all question pages, flashcards, and images work offline once cached.</p>
-    <button onclick="location.reload()">Try again</button>
+    <h1>This page needs internet</h1>
+    <p>You're offline. Go back or navigate to a page that works offline.</p>
+    <a class="btn-primary" onclick="history.length > 1 ? history.back() : location.href='/'" href="/">← Go back</a>
+  </div>
+
+  <div class="nav-card">
+    <div class="nav-label">Works offline</div>
+    <div class="nav-grid">
+      <a class="nav-link" href="/"><span class="em">🏠</span> Questions</a>
+      <a class="nav-link" href="/flashcards"><span class="em">🃏</span> Flashcards</a>
+      <a class="nav-link" href="/speedster"><span class="em">⚡</span> Speedster</a>
+      <a class="nav-link" href="/behavioral"><span class="em">🎯</span> Behavioral</a>
+      <a class="nav-link" href="/system-design"><span class="em">🏗️</span> System Design</a>
+      <a class="nav-link" href="/dsa"><span class="em">📐</span> DSA</a>
+      <a class="nav-link" href="/gems"><span class="em">💎</span> Gems</a>
+      <a class="nav-link" href="/patterns"><span class="em">🔁</span> Patterns</a>
+      <a class="nav-link" href="/quick-review"><span class="em">⚡</span> Quick Review</a>
+      <a class="nav-link" href="/about"><span class="em">ℹ️</span> About</a>
+    </div>
   </div>
 </body>
 </html>
