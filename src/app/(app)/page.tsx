@@ -124,6 +124,11 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     await setInterviewDate(val, '')
     setEditing(false)
   }
+  const handleDateClear = async () => {
+    setDate('')
+    await setInterviewDate('', '')
+    setEditing(false)
+  }
   const daysLeft = date ? Math.ceil((new Date(date + 'T12:00:00').getTime() - Date.now()) / 86400000) : null
   const diffColor: Record<string, string> = {
     Easy: 'bg-green-100 text-green-700 border-green-200',
@@ -146,6 +151,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
               onBlur={e => { if (e.target.value) handleDateSave(e.target.value); else setEditing(false) }}
               autoFocus />
             <button onClick={() => setEditing(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+            {date && <button onClick={handleDateClear} className="text-xs text-red-400 hover:text-red-600">Remove</button>}
           </div>
         ) : date ? (
           <div>
@@ -153,7 +159,11 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
               {daysLeft !== null && daysLeft <= 0 ? 'Today!' : daysLeft + 'd'}
             </div>
             <p className="text-xs text-gray-400">{daysLeft !== null && daysLeft <= 0 ? 'Interview day!' : 'until your interview'}</p>
-            <button onClick={() => setEditing(true)} className="text-xs text-indigo-500 hover:underline mt-1">Change date</button>
+            <div className="flex items-center gap-3 mt-1">
+              <button onClick={() => setEditing(true)} className="text-xs text-indigo-500 hover:underline">Change date</button>
+              <span className="text-gray-200">·</span>
+              <button onClick={handleDateClear} className="text-xs text-red-400 hover:text-red-600 hover:underline">Remove</button>
+            </div>
           </div>
         ) : (
           <div>
