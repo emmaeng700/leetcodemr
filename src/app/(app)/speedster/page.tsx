@@ -285,7 +285,7 @@ export default function SpeedsterPage() {
                   </div>
                   <div className="px-3 sm:px-5 pb-3 sm:pb-5">
                     <img src={`/question-images/${currentQ.id}.jpg`} alt={currentQ.title}
-                      className="w-full rounded-lg max-h-48 sm:max-h-64 object-contain object-top"
+                      className="w-full rounded-lg"
                       onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
                       onClick={e => e.stopPropagation()} />
                   </div>
@@ -525,7 +525,7 @@ export default function SpeedsterPage() {
                   </div>
                   <div className="px-3 sm:px-5 pb-3 sm:pb-5">
                     <img src={`/question-images/${currentQ.id}.jpg`} alt={currentQ.title}
-                      className="w-full rounded-lg max-h-48 sm:max-h-64 object-contain object-top"
+                      className="w-full rounded-lg"
                       onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
                       onClick={e => e.stopPropagation()} />
                   </div>
