@@ -10,6 +10,8 @@ import { formatTime } from '@/lib/utils'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
+import OfflineBanner from '@/components/OfflineBanner'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 
 interface Question {
   id: number
@@ -58,6 +60,7 @@ function PremiumBlock({ slug }: { slug?: string }) {
 
 export default function MockInterviewPage() {
   const router = useRouter()
+  const online = useOnlineStatus()
   const [phase, setPhase] = useState<Phase>('setup')
   const [difficulty, setDifficulty] = useState('All')
   const [unseenOnly, setUnseenOnly] = useState(true)
@@ -215,6 +218,7 @@ export default function MockInterviewPage() {
   /* ── SETUP ── */
   if (phase === 'setup') return (
     <div className="max-w-xl mx-auto px-4 py-10">
+      {!online && <OfflineBanner feature="Mock Interview (LeetCode editor + submission)" />}
       <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2 mb-6">
         <Timer className="text-indigo-500" /> Mock Interview
       </h1>

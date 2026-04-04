@@ -1,7 +1,24 @@
-const CACHE = 'lm-v2'
+const CACHE = 'lm-v3'
 
-// Pre-cache these on install
+// Pre-cache on install: data files + all static page shells
 const PRECACHE = [
+  '/',
+  '/flashcards',
+  '/speedster',
+  '/behavioral',
+  '/system-design',
+  '/dsa',
+  '/gems',
+  '/patterns',
+  '/quick-review',
+  '/about',
+  '/daily',
+  '/review',
+  '/sr-queue',
+  '/stats',
+  '/line-game',
+  '/mock',
+  '/leetcode-api',
   '/questions_full.json',
   '/behavioral_questions.json',
   '/manifest.json',
@@ -32,12 +49,14 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return
   if (url.origin !== self.location.origin) return
 
-  // Never cache API routes or auth
+  // Never cache API routes (they need live network)
   if (url.pathname.startsWith('/api/')) return
 
   const isStatic =
-    url.pathname.startsWith('/_next/static/') ||
-    url.pathname.startsWith('/question-images/') ||
+    url.pathname.startsWith('/_next/static/') ||   // JS/CSS chunks — cache-first
+    url.pathname.startsWith('/_next/data/') ||      // RSC payloads — cache-first
+    url.pathname.startsWith('/question-images/') || // all question images
+    url.pathname.startsWith('/icons/') ||
     url.pathname.endsWith('.json') ||
     url.pathname.endsWith('.jpg') ||
     url.pathname.endsWith('.png') ||
@@ -47,29 +66,52 @@ self.addEventListener('fetch', e => {
     url.pathname.endsWith('.woff')
 
   if (isStatic) {
-    // Cache-first: serve from cache, fetch & store if missing
+    // Cache-first: serve instantly from cache, fetch & store if missing
     e.respondWith(
       caches.match(e.request).then(cached => {
         if (cached) return cached
         return fetch(e.request).then(res => {
-          if (res.ok) {
-            caches.open(CACHE).then(c => c.put(e.request, res.clone()))
-          }
+          if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()))
           return res
-        }).catch(() => cached || new Response('Offline', { status: 503 }))
+        }).catch(() => new Response('Offline', { status: 503 }))
       })
     )
-  } else {
-    // Network-first for pages: try network, fall back to cache
-    e.respondWith(
-      fetch(e.request)
-        .then(res => {
-          if (res.ok) {
-            caches.open(CACHE).then(c => c.put(e.request, res.clone()))
+    return
+  }
+
+  // Network-first for pages: try network (+ update cache), fall back to cache
+  e.respondWith(
+    fetch(e.request)
+      .then(res => {
+        if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()))
+        return res
+      })
+      .catch(() => caches.match(e.request).then(c => c || new Response('Offline', { status: 503 })))
+  )
+})
+
+// Listen for cache-images message from the app
+self.addEventListener('message', e => {
+  if (e.data?.type === 'CACHE_ALL_IMAGES') {
+    const ids = e.data.ids || []
+    caches.open(CACHE).then(async cache => {
+      let done = 0
+      for (const id of ids) {
+        const url = `/question-images/${id}.jpg`
+        try {
+          const existing = await cache.match(url)
+          if (!existing) {
+            const res = await fetch(url)
+            if (res.ok) await cache.put(url, res)
           }
-          return res
-        })
-        .catch(() => caches.match(e.request))
-    )
+        } catch {}
+        done++
+        // Report progress back to all clients
+        const clients = await self.clients.matchAll()
+        clients.forEach(c => c.postMessage({ type: 'CACHE_PROGRESS', done, total: ids.length }))
+      }
+      const clients = await self.clients.matchAll()
+      clients.forEach(c => c.postMessage({ type: 'CACHE_DONE' }))
+    })
   }
 })
