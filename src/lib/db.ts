@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { srInterval } from './utils'
 
 const USER_ID = 'emmanuel'
 
@@ -391,13 +392,7 @@ export async function clearInterviewDate() {
 }
 
 // ─── Spaced Repetition ───────────────────────────────────────────────────────
-// Cycle of 10 reviews: 7→12→21→26→35→40→49→54→63→68, then rewinds to 7.
-// Uses (n % 10) so the pattern repeats forever — questions never stop
-// being reviewed, and the longest gap is ~68 days before resetting.
-function srInterval(n: number): number {
-  const pos = n % 10
-  return Math.floor(pos / 2) * 14 + (pos % 2 === 0 ? 7 : 12)
-}
+// srInterval is imported from utils.ts — single source of truth.
 
 export async function completeReview(questionId: number) {
   const { data: existing } = await supabase

@@ -37,9 +37,13 @@ export function isDue(nextReview: string | null): boolean {
 }
 
 // ── Spaced repetition ────────────────────────────────────────────────────────
-// Matches srInterval() in db.ts: cycle of 10, rewinds to 7 after ~68 days.
-// 7→12→21→26→35→40→49→54→63→68→7→12→...
-export function nextIntervalDays(reviewCount: number): number {
-  const pos = reviewCount % 10
+// Single source of truth — imported by db.ts too so both stay in sync.
+// Cycle of 10: 7→12→21→26→35→40→49→54→63→68→7→12→...
+export function srInterval(n: number): number {
+  const pos = n % 10
   return Math.floor(pos / 2) * 14 + (pos % 2 === 0 ? 7 : 12)
+}
+
+export function nextIntervalDays(reviewCount: number): number {
+  return srInterval(reviewCount)
 }
