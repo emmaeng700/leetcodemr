@@ -320,7 +320,7 @@ export default function SpeedsterPage() {
           </div>
 
           {/* key=slug forces a fresh editor load whenever the flashcard changes */}
-          <div className="h-[780px] rounded-xl overflow-hidden">
+          <div className="h-[820px] rounded-xl overflow-hidden flex flex-col">
             <LeetCodeEditor
               key={currentQ.slug}
               appQuestionId={currentQ.id}
