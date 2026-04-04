@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2, WifiOff } from 'lucide-react'
 import { getProgress, getStudyPlan } from '@/lib/db'
@@ -37,6 +37,9 @@ export default function SpeedsterPage() {
   // Mobile panel: 'cards' = day cards + flashcards, 'editor' = code editor
   const [mobilePanel, setMobilePanel] = useState<'cards' | 'editor'>('cards')
   const online = useOnlineStatus()
+
+  // Ref to the mobile scrollable panel so we can lock scroll position on flip
+  const cardsPanelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     async function load() {
@@ -93,7 +96,15 @@ export default function SpeedsterPage() {
   }, [])
 
   const handleFlip = useCallback(() => {
+    // Capture scroll position before the flip causes a layout reflow
+    const panel = cardsPanelRef.current
+    const savedScroll = panel ? panel.scrollTop : window.scrollY
     fadeSwap(() => setFlipped(f => !f))
+    // Restore after the 180ms fade settles
+    setTimeout(() => {
+      if (panel) panel.scrollTop = savedScroll
+      else window.scrollTo(0, savedScroll)
+    }, 200)
   }, [fadeSwap])
 
   const go = useCallback((dir: number) => {
@@ -262,7 +273,7 @@ export default function SpeedsterPage() {
         {currentQ && (
           <>
             <div onClick={handleFlip} className="cursor-pointer select-none"
-              style={{ opacity: fading ? 0 : 1, transition: 'opacity 0.18s ease' }}>
+              style={{ opacity: fading ? 0 : 1, transition: 'opacity 0.18s ease', touchAction: 'manipulation' }}>
 
               {!flipped ? (
                 /* FRONT */
@@ -370,7 +381,7 @@ export default function SpeedsterPage() {
         </div>
 
         {/* Cards panel */}
-        <div className={`${mobilePanel === 'cards' ? 'flex' : 'hidden'} flex-col flex-1 min-h-0 overflow-y-auto`}>
+        <div ref={cardsPanelRef} className={`${mobilePanel === 'cards' ? 'flex' : 'hidden'} flex-col flex-1 min-h-0 overflow-y-auto`}>
           {cardsContent}
         </div>
 
@@ -516,7 +527,7 @@ export default function SpeedsterPage() {
 
           {currentQ && (
             <div onClick={handleFlip} className="cursor-pointer select-none"
-              style={{ opacity: fading ? 0 : 1, transition: 'opacity 0.18s ease' }}>
+              style={{ opacity: fading ? 0 : 1, transition: 'opacity 0.18s ease', touchAction: 'manipulation' }}>
 
               {!flipped ? (
                 /* FRONT */
