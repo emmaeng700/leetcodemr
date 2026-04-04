@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react'
+import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List } from 'lucide-react'
 import { getProgress, getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
@@ -28,9 +28,11 @@ export default function SpeedsterPage() {
   const [dayIdx,  setDayIdx]  = useState(0)
 
   // Flashcard state
-  const [cardIdx, setCardIdx] = useState(0)
-  const [flipped, setFlipped] = useState(false)
-  const [fading,  setFading]  = useState(false)
+  const [cardIdx,      setCardIdx]      = useState(0)
+  const [flipped,      setFlipped]      = useState(false)
+  const [fading,       setFading]       = useState(false)
+  const [showCardList, setShowCardList] = useState(false)
+  const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     async function load() {
@@ -67,6 +69,16 @@ export default function SpeedsterPage() {
   // Flashcard helpers
   const total      = planOrder.length
   const currentQ   = qMap[planOrder[cardIdx]]
+  const solvedCount = planOrder.filter(id => !!progress[String(id)]?.solved).length
+
+  // Close card list on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (listRef.current && !listRef.current.contains(e.target as Node)) setShowCardList(false)
+    }
+    if (showCardList) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showCardList])
 
   const fadeSwap = useCallback((fn: () => void) => {
     setFading(true)
@@ -172,22 +184,67 @@ export default function SpeedsterPage() {
       )}
 
       {/* ── Flashcard section ── */}
-      <div className="border-t-2 border-dashed border-yellow-200 pt-8">
+      <div className="border-t-2 border-dashed border-yellow-200 pt-6">
 
-        <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
-          <div>
-            <h2 className="text-xl font-bold text-gray-800">⚡ Flashcards</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Tap card to flip · ← → to navigate · Space to flip</p>
-          </div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-bold text-gray-800">⚡ Flashcards</h2>
+          <p className="text-xs text-gray-400 hidden sm:block">Tap card to flip · ← → keys · Space</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-500 mb-5">
-          <span className="bg-yellow-50 text-yellow-700 border border-yellow-200 px-3 py-1.5 rounded-full">
-            {total === 0 ? '0 / 0' : `${cardIdx + 1} / ${total}`}
-          </span>
+        {/* Learn-style nav bar */}
+        <div className="flex items-center gap-2 mb-4">
+          <button onClick={() => go(-1)} disabled={cardIdx === 0}
+            className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-yellow-400 hover:text-yellow-600 disabled:opacity-30 transition-colors">
+            <ChevronLeft size={15} />
+          </button>
+
+          <div className="relative" ref={listRef}>
+            <button onClick={() => setShowCardList(v => !v)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-yellow-400 transition-colors">
+              <List size={12} />
+              <span className="font-mono">{cardIdx + 1}/{total}</span>
+              <span className="text-gray-300">·</span>
+              <span className="text-green-600">{solvedCount} solved</span>
+            </button>
+
+            {showCardList && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-72 max-h-80 overflow-y-auto">
+                {planOrder.map((qid, i) => {
+                  const q = qMap[qid]
+                  if (!q) return null
+                  const done = !!progress[String(qid)]?.solved
+                  return (
+                    <button key={qid} onClick={() => { setCardIdx(i); setFlipped(false); setShowCardList(false) }}
+                      className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-yellow-50 border-b border-gray-50 last:border-0 transition-colors text-sm ${i === cardIdx ? 'bg-yellow-50' : ''}`}>
+                      <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{q.id}</span>
+                      <span className="flex-1 truncate text-gray-700">{q.title}</span>
+                      <span className={`text-xs font-semibold shrink-0 ${q.difficulty === 'Easy' ? 'text-green-600' : q.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
+                        {q.difficulty[0]}
+                      </span>
+                      {done && <CheckCircle size={11} className="text-green-500 shrink-0" />}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <button onClick={() => go(1)} disabled={cardIdx === total - 1}
+            className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-yellow-400 hover:text-yellow-600 disabled:opacity-30 transition-colors">
+            <ChevronRight size={15} />
+          </button>
+
+          {/* Progress bar */}
+          <div className="flex-1 bg-gray-100 rounded-full h-1.5 min-w-[40px]">
+            <div className="bg-yellow-400 h-1.5 rounded-full transition-all"
+              style={{ width: total ? `${((cardIdx + 1) / total) * 100}%` : '0%' }} />
+          </div>
+
+          {/* Reset */}
           <button onClick={() => fadeSwap(() => { setCardIdx(0); setFlipped(false) })}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full border bg-white text-gray-500 border-gray-200 hover:border-gray-400 transition-colors">
-            <RotateCcw size={12} /> Reset
+            title="Reset to start"
+            className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300 transition-colors">
+            <RotateCcw size={13} />
           </button>
         </div>
 
@@ -242,27 +299,6 @@ export default function SpeedsterPage() {
               )}
             </div>
 
-            {/* Flashcard navigation */}
-            <div className="flex items-center justify-between mt-5">
-              <button onClick={() => go(-1)} disabled={cardIdx === 0}
-                className="flex items-center gap-1 px-3 sm:px-5 py-2.5 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:border-yellow-300 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                <ChevronLeft size={16} /> Prev
-              </button>
-              <div className="flex items-center gap-1.5 overflow-x-auto max-w-[160px] sm:max-w-none">
-                {total <= 15 ? (
-                  planOrder.map((_, i) => (
-                    <button key={i} onClick={() => { setCardIdx(i); setFlipped(false) }}
-                      className={`rounded-full transition-all ${i === cardIdx ? 'w-3 h-3 bg-yellow-500' : 'w-2 h-2 bg-gray-200 hover:bg-gray-400'}`} />
-                  ))
-                ) : (
-                  <span className="text-xs text-gray-400 font-mono">{cardIdx + 1} / {total}</span>
-                )}
-              </div>
-              <button onClick={() => go(1)} disabled={cardIdx === total - 1}
-                className="flex items-center gap-1 px-3 sm:px-5 py-2.5 rounded-xl bg-yellow-500 text-white text-sm font-semibold hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                Next <ChevronRight size={16} />
-              </button>
-            </div>
           </>
         )}
       </div>
