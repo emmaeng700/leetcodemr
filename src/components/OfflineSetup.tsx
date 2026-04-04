@@ -2,8 +2,17 @@
 import { useEffect, useState } from 'react'
 import { Download, CheckCircle, WifiOff, X } from 'lucide-react'
 
-const IMG_CACHE = 'lm-images'  // matches sw.js IMG_CACHE
-const DONE_KEY  = 'lm_offline_ready'
+const IMG_CACHE   = 'lm-images'        // matches sw.js IMG_CACHE
+const DONE_KEY    = 'lm_offline_ready'
+const PAGES_KEY   = 'lm_pages_cached'
+
+// All app pages that need auth — cached from the client so the cookie is present
+const APP_PAGES = [
+  '/', '/flashcards', '/speedster', '/behavioral', '/system-design',
+  '/dsa', '/gems', '/patterns', '/quick-review', '/about',
+  '/daily', '/review', '/sr-queue', '/stats', '/line-game',
+  '/mock', '/leetcode-api',
+]
 
 export default function OfflineSetup() {
   const [status,   setStatus]   = useState<'idle' | 'downloading' | 'done' | 'hidden'>('hidden')
@@ -20,8 +29,9 @@ export default function OfflineSetup() {
           const cache = await caches.open(IMG_CACHE)
           const keys  = await cache.keys()
           if (keys.length === 0) {
-            // Cache was wiped (e.g. SW version bump) — prompt again
+            // Cache was wiped — prompt again
             localStorage.removeItem(DONE_KEY)
+            localStorage.removeItem(PAGES_KEY)
             setStatus('idle')
           }
           // else: images still there, stay hidden
@@ -33,6 +43,20 @@ export default function OfflineSetup() {
       setStatus('idle')
     }
     check()
+
+    // Silently cache all app pages in the background (with auth cookie).
+    // Pages require auth so the SW can't cache them during install.
+    // We do this once from the client where the lm_auth cookie is present.
+    async function cachePages() {
+      if (localStorage.getItem(PAGES_KEY)) return
+      const sw = await navigator.serviceWorker.ready
+      if (!sw.active) return
+      sw.active.postMessage({ type: 'CACHE_PAGES', pages: APP_PAGES })
+      localStorage.setItem(PAGES_KEY, '1')
+    }
+    // Wait a few seconds so it doesn't compete with initial page load
+    const t = setTimeout(cachePages, 4000)
+    return () => clearTimeout(t)
   }, [])
 
   async function cacheAllImages() {
@@ -56,6 +80,12 @@ export default function OfflineSetup() {
         setProgress(done)
       }
       localStorage.setItem(DONE_KEY, '1')
+      // Also re-cache pages now that user is definitely authenticated
+      localStorage.removeItem(PAGES_KEY)
+      const sw = await navigator.serviceWorker.ready
+      sw.active?.postMessage({ type: 'CACHE_PAGES', pages: APP_PAGES })
+      localStorage.setItem(PAGES_KEY, '1')
+
       setStatus('done')
       setTimeout(() => setStatus('hidden'), 4000)
     } catch {

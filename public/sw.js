@@ -1,25 +1,11 @@
 const CACHE     = 'lm-v5'
 const IMG_CACHE = 'lm-images'   // stable — never wiped on SW updates
 
+// Only cache resources that don't require auth cookies.
+// App pages are cached by the network-first handler as the user visits them,
+// OR via CACHE_PAGES message sent from the client (with auth cookies).
 const PRECACHE = [
-  '/',
   '/offline.html',
-  '/flashcards',
-  '/speedster',
-  '/behavioral',
-  '/system-design',
-  '/dsa',
-  '/gems',
-  '/patterns',
-  '/quick-review',
-  '/about',
-  '/daily',
-  '/review',
-  '/sr-queue',
-  '/stats',
-  '/line-game',
-  '/mock',
-  '/leetcode-api',
   '/questions_full.json',
   '/behavioral_questions.json',
   '/manifest.json',
@@ -194,6 +180,26 @@ self.addEventListener('fetch', e => {
         return new Response('', { status: 503 })
       })
   )
+})
+
+// ── Cache app pages message (sent from client with auth cookies) ──────────────
+// Pages require auth, so they can only be cached after the user is logged in.
+// The client sends this message with credentials already in the cookie jar.
+self.addEventListener('message', e => {
+  if (e.data?.type === 'CACHE_PAGES') {
+    const pages = e.data.pages || []
+    caches.open(CACHE).then(async cache => {
+      for (const url of pages) {
+        try {
+          const existing = await cache.match(url)
+          if (!existing) {
+            const res = await fetch(url, { credentials: 'include' })
+            if (res.ok) await cache.put(url, res)
+          }
+        } catch {}
+      }
+    })
+  }
 })
 
 // ── Cache all images message from the app ─────────────────────────────────────
