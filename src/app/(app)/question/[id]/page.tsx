@@ -94,7 +94,7 @@ export default function QuestionPage() {
       </button>
 
       {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-5 mb-5">
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-1.5 mb-1">
@@ -171,11 +171,11 @@ export default function QuestionPage() {
           <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-3">
             <BookOpen size={14} /> Problem
           </h2>
-          <div className="p-2">
+          <div className="p-1 sm:p-2">
             <img
               src={`/question-images/${question.id}.jpg`}
               alt={question.title}
-              className="w-full rounded-lg"
+              className="w-full rounded-lg max-h-56 sm:max-h-80 md:max-h-96 object-contain object-top"
               onError={() => setImageError(true)}
             />
           </div>

@@ -80,7 +80,7 @@ export default function CodePanel({ pythonCode = '', cppCode = '' }: CodePanelPr
 
         {code ? (
           <div className="overflow-x-auto code-block">
-            <pre className="p-4 text-[11px] sm:text-[12px] md:text-[13px] leading-relaxed m-0">
+            <pre className="p-3 sm:p-4 text-[12px] sm:text-[12px] md:text-[13px] leading-relaxed m-0">
               <code ref={codeRef} className={`language-${lang}`} />
             </pre>
           </div>

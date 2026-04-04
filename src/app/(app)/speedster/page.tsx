@@ -167,7 +167,7 @@ export default function SpeedsterPage() {
           const solved = !!progress[String(qid)]?.solved
           return (
             <Link key={qid} href={`/speedster/${qid}`}
-              className={`flex items-center gap-3 px-5 py-4 transition-colors group ${i !== 0 ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
+              className={`flex items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 transition-colors group ${i !== 0 ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
               <div className="shrink-0">
                 {solved
                   ? <CheckCircle size={18} className="text-green-500" />
@@ -265,7 +265,7 @@ export default function SpeedsterPage() {
               {!flipped ? (
                 /* FRONT */
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-gray-100">
+                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-gray-100">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs text-gray-400 font-mono">#{currentQ.id}</span>
                       <DifficultyBadge difficulty={currentQ.difficulty} />
@@ -275,7 +275,7 @@ export default function SpeedsterPage() {
                     </div>
                     <span className="hidden sm:inline text-xs text-gray-300 font-medium">Tap to reveal →</span>
                   </div>
-                  <div className="px-5 py-3">
+                  <div className="px-3 sm:px-5 py-2 sm:py-3">
                     <h3 className="text-lg font-bold text-gray-800">{currentQ.title}</h3>
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {(currentQ.tags || []).map(tag => (
@@ -283,9 +283,9 @@ export default function SpeedsterPage() {
                       ))}
                     </div>
                   </div>
-                  <div className="px-5 pb-5">
+                  <div className="px-3 sm:px-5 pb-3 sm:pb-5">
                     <img src={`/question-images/${currentQ.id}.jpg`} alt={currentQ.title}
-                      className="w-full rounded-lg"
+                      className="w-full rounded-lg max-h-48 sm:max-h-64 object-contain object-top"
                       onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
                       onClick={e => e.stopPropagation()} />
                   </div>
@@ -293,7 +293,7 @@ export default function SpeedsterPage() {
               ) : (
                 /* BACK */
                 <div className="bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
-                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-indigo-100 bg-indigo-50">
+                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-indigo-100 bg-indigo-50">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <span className="text-xs text-gray-400 font-mono">#{currentQ.id}</span>
                       <DifficultyBadge difficulty={currentQ.difficulty} />
@@ -408,7 +408,7 @@ export default function SpeedsterPage() {
             const solved = !!progress[String(qid)]?.solved
             return (
               <Link key={qid} href={`/speedster/${qid}`}
-                className={`flex items-center gap-3 px-5 py-4 transition-colors group ${i !== 0 ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
+                className={`flex items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 transition-colors group ${i !== 0 ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
                 <div className="shrink-0">
                   {solved
                     ? <CheckCircle size={18} className="text-green-500" />
@@ -505,7 +505,7 @@ export default function SpeedsterPage() {
               {!flipped ? (
                 /* FRONT */
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-gray-100">
+                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-gray-100">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs text-gray-400 font-mono">#{currentQ.id}</span>
                       <DifficultyBadge difficulty={currentQ.difficulty} />
@@ -515,7 +515,7 @@ export default function SpeedsterPage() {
                     </div>
                     <span className="text-xs text-gray-300 font-medium">Tap to reveal →</span>
                   </div>
-                  <div className="px-5 py-3">
+                  <div className="px-3 sm:px-5 py-2 sm:py-3">
                     <h3 className="text-lg font-bold text-gray-800">{currentQ.title}</h3>
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {(currentQ.tags || []).map(tag => (
@@ -523,9 +523,9 @@ export default function SpeedsterPage() {
                       ))}
                     </div>
                   </div>
-                  <div className="px-5 pb-5">
+                  <div className="px-3 sm:px-5 pb-3 sm:pb-5">
                     <img src={`/question-images/${currentQ.id}.jpg`} alt={currentQ.title}
-                      className="w-full rounded-lg"
+                      className="w-full rounded-lg max-h-48 sm:max-h-64 object-contain object-top"
                       onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
                       onClick={e => e.stopPropagation()} />
                   </div>
@@ -533,7 +533,7 @@ export default function SpeedsterPage() {
               ) : (
                 /* BACK */
                 <div className="bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
-                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-indigo-100 bg-indigo-50">
+                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-indigo-100 bg-indigo-50">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <span className="text-xs text-gray-400 font-mono">#{currentQ.id}</span>
                       <DifficultyBadge difficulty={currentQ.difficulty} />
