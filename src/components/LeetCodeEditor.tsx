@@ -81,6 +81,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
   /* Editor */
   const [lang,        setLang]       = useState<'python3' | 'cpp'>('python3')
   const [code,        setCode]       = useState('')
+  const [retryKey,    setRetryKey]   = useState(0)
   const [extensions,  setExtensions] = useState<any[]>([])
   const [editorTheme, setTheme]      = useState<any>(null)
 
@@ -162,9 +163,10 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
           setLcErr('Could not load question data from LeetCode.')
           return
         }
-        // Premium question with no session / session expired
+        // Premium question — differentiate between "no session" and "session expired"
         if (q.isPaidOnly && !q.codeSnippets?.length) {
-          setLcErr('premium')
+          const hasSession = !!(localStorage.getItem('lc_session') && localStorage.getItem('lc_csrf'))
+          setLcErr(hasSession ? 'premium-expired' : 'premium-no-session')
           return
         }
         setLcQ(q)
@@ -177,7 +179,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
       .catch(e => setLcErr(String(e)))
       .finally(() => setLcLoad(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug])
+  }, [slug, retryKey])
 
   const handleCodeChange = (val: string) => setCode(val)
 
@@ -333,25 +335,68 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
       )}
       {lcErr && (
         <div className="flex-1 flex items-center justify-center p-6 text-center">
-          {lcErr === 'premium' ? (
-            <div className="space-y-2">
-              <div className="text-2xl">🔒</div>
-              <p className="text-xs text-gray-300 font-semibold">LeetCode Premium required</p>
-              <p className="text-xs text-gray-500 max-w-xs">
-                The editor needs your LeetCode session to load this question.
-                {!sessionOK && ' Add your session token using the "Setup LeetCode session" button above.'}
+          {lcErr === 'premium-expired' ? (
+            <div className="space-y-3">
+              <div className="text-2xl">⚠️</div>
+              <p className="text-sm text-gray-200 font-semibold">Session token may have expired</p>
+              <p className="text-xs text-gray-400 max-w-xs">
+                Your LeetCode session is saved but this premium question couldn't load.
+                Your token may have expired — go to LeetCode, copy a fresh
+                <code className="mx-1 px-1 py-0.5 bg-gray-800 rounded text-orange-300">LEETCODE_SESSION</code>
+                and update it on the LeetCode page.
               </p>
-              <a
-                href={`https://leetcode.com/problems/${slug}/`}
-                target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-orange-500 text-white text-xs font-semibold rounded-lg hover:bg-orange-600 transition"
-              >
-                Open on LeetCode ↗
-              </a>
+              <div className="flex flex-wrap gap-2 justify-center">
+                <button
+                  onClick={() => { setLcErr(''); setRetryKey(k => k + 1) }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-500 transition"
+                >
+                  Retry
+                </button>
+                <a
+                  href={`https://leetcode.com/problems/${slug}/`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white text-xs font-semibold rounded-lg hover:bg-orange-600 transition"
+                >
+                  Open on LeetCode ↗
+                </a>
+              </div>
+            </div>
+          ) : lcErr === 'premium-no-session' ? (
+            <div className="space-y-3">
+              <div className="text-2xl">🔒</div>
+              <p className="text-sm text-gray-200 font-semibold">LeetCode Premium question</p>
+              <p className="text-xs text-gray-400 max-w-xs">
+                Add your LeetCode session token using the
+                <span className="text-orange-300 font-semibold mx-1">Setup session</span>
+                button above, then retry.
+              </p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                <button
+                  onClick={() => { setLcErr(''); setRetryKey(k => k + 1) }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-500 transition"
+                >
+                  Retry
+                </button>
+                <a
+                  href={`https://leetcode.com/problems/${slug}/`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white text-xs font-semibold rounded-lg hover:bg-orange-600 transition"
+                >
+                  Open on LeetCode ↗
+                </a>
+              </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-xs text-red-400">
-              <XCircle size={14} className="shrink-0" /> Could not load question: {lcErr}
+            <div className="flex flex-col items-center gap-2 text-xs text-red-400">
+              <div className="flex items-center gap-2">
+                <XCircle size={14} className="shrink-0" /> Could not load question: {lcErr}
+              </div>
+              <button
+                onClick={() => { setLcErr(''); setRetryKey(k => k + 1) }}
+                className="mt-1 px-3 py-1.5 bg-gray-700 text-gray-200 text-xs font-semibold rounded-lg hover:bg-gray-600 transition"
+              >
+                Retry
+              </button>
             </div>
           )}
         </div>
