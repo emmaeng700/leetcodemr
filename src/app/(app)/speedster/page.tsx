@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2 } from 'lucide-react'
 import { getProgress, getStudyPlan } from '@/lib/db'
@@ -33,8 +33,6 @@ export default function SpeedsterPage() {
   const [flipped,      setFlipped]      = useState(false)
   const [fading,       setFading]       = useState(false)
   const [showCardList, setShowCardList] = useState(false)
-  const listRef = useRef<HTMLDivElement>(null)
-
   // Mobile panel: 'cards' = day cards + flashcards, 'editor' = code editor
   const [mobilePanel, setMobilePanel] = useState<'cards' | 'editor'>('cards')
 
@@ -75,10 +73,13 @@ export default function SpeedsterPage() {
   const currentQ   = qMap[planOrder[cardIdx]]
   const solvedCount = planOrder.filter(id => !!progress[String(id)]?.solved).length
 
-  // Close card list on outside click
+  // Close card list on outside click — use class check so it works regardless
+  // of whether mobile or desktop DOM node is active (both render simultaneously)
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (listRef.current && !listRef.current.contains(e.target as Node)) setShowCardList(false)
+      if (!(e.target as HTMLElement).closest?.('.speedster-card-list-wrapper')) {
+        setShowCardList(false)
+      }
     }
     if (showCardList) document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
@@ -206,7 +207,7 @@ export default function SpeedsterPage() {
             <ChevronLeft size={15} />
           </button>
 
-          <div className="relative" ref={listRef}>
+          <div className="relative speedster-card-list-wrapper">
             <button onClick={() => setShowCardList(v => !v)}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-yellow-400 transition-colors">
               <List size={12} />
@@ -447,7 +448,7 @@ export default function SpeedsterPage() {
               <ChevronLeft size={15} />
             </button>
 
-            <div className="relative" ref={listRef}>
+            <div className="relative speedster-card-list-wrapper">
               <button onClick={() => setShowCardList(v => !v)}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-yellow-400 transition-colors">
                 <List size={12} />
