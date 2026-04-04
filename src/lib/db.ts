@@ -391,11 +391,12 @@ export async function clearInterviewDate() {
 }
 
 // ─── Spaced Repetition ───────────────────────────────────────────────────────
-// Formula: alternates +5 / +9 days, starting at 7.
-// srInterval(n) = floor(n/2)*14 + (n is even ? 7 : 12)
-// e.g. 0→7, 1→12, 2→21, 3→26, 4→35, 5→40 ... infinite, no cap.
+// Formula: alternates +5/+9 days starting at 7, hard-capped at 70.
+// 0→7, 1→12, 2→21, 3→26, 4→35, 5→40, 6→49, 7→54, 8→63, 9+→70
+// At 70 the cycle repeats every 70 days — every learned question
+// comes back within 70 days no matter how well you know it.
 function srInterval(n: number): number {
-  return Math.floor(n / 2) * 14 + (n % 2 === 0 ? 7 : 12)
+  return Math.min(70, Math.floor(n / 2) * 14 + (n % 2 === 0 ? 7 : 12))
 }
 
 export async function completeReview(questionId: number) {

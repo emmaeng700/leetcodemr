@@ -37,8 +37,8 @@ export function isDue(nextReview: string | null): boolean {
 }
 
 // ── Spaced repetition ────────────────────────────────────────────────────────
-export const SR_INTERVALS = [2, 4, 8, 16, 32, 64, 128, 256, 365]
-
+// Matches srInterval() in db.ts exactly, capped at 70 days so every
+// learned question is reviewed at least once every 70 days.
 export function nextIntervalDays(reviewCount: number): number {
-  return SR_INTERVALS[Math.min(reviewCount, SR_INTERVALS.length - 1)]
+  return Math.min(70, Math.floor(reviewCount / 2) * 14 + (reviewCount % 2 === 0 ? 7 : 12))
 }
