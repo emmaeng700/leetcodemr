@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Download, CheckCircle, WifiOff, X } from 'lucide-react'
 
-const IMG_CACHE = 'lm-images'
+const IMG_CACHE = 'lm-images'  // matches sw.js IMG_CACHE
 const DONE_KEY  = 'lm_offline_ready'
 
 export default function OfflineSetup() {
