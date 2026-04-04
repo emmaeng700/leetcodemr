@@ -391,12 +391,12 @@ export async function clearInterviewDate() {
 }
 
 // ─── Spaced Repetition ───────────────────────────────────────────────────────
-// Formula: alternates +5/+9 days starting at 7, hard-capped at 70.
-// 0→7, 1→12, 2→21, 3→26, 4→35, 5→40, 6→49, 7→54, 8→63, 9+→70
-// At 70 the cycle repeats every 70 days — every learned question
-// comes back within 70 days no matter how well you know it.
+// Cycle of 10 reviews: 7→12→21→26→35→40→49→54→63→68, then rewinds to 7.
+// Uses (n % 10) so the pattern repeats forever — questions never stop
+// being reviewed, and the longest gap is ~68 days before resetting.
 function srInterval(n: number): number {
-  return Math.min(70, Math.floor(n / 2) * 14 + (n % 2 === 0 ? 7 : 12))
+  const pos = n % 10
+  return Math.floor(pos / 2) * 14 + (pos % 2 === 0 ? 7 : 12)
 }
 
 export async function completeReview(questionId: number) {
