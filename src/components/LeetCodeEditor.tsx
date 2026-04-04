@@ -116,7 +116,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
         import('@codemirror/commands'),
       ])
       setTheme(oneDark)
-      const { keymap } = viewMod
+      const { keymap, EditorView } = viewMod
       const { Prec } = stateMod
       const { indentWithTab } = cmdMod
       const { indentationMarkers } = await import('@replit/codemirror-indentation-markers')
@@ -129,11 +129,18 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
         const base = line.text.match(/^(\s*)/)?.[1] ?? ''
         const extra = (line.text.trimEnd().endsWith(':') || line.text.trimEnd().endsWith('{')) ? '    ' : ''
         const ins = '\n' + base + extra
-        view.dispatch({ changes: { from, to, insert: ins }, selection: { anchor: from + ins.length } })
+        view.dispatch({ changes: { from, to, insert: ins }, selection: { anchor: from + ins.length }, scrollIntoView: true })
         return true
       }
       const keys = Prec.highest(keymap.of([{ key: 'Enter', run: smartEnter }, indentWithTab]))
-      setExtensions([lang === 'python3' ? python() : cpp(), keys, indentationMarkers()])
+      // lineWrapping on mobile prevents horizontal scroll hiding line starts
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
+      setExtensions([
+        lang === 'python3' ? python() : cpp(),
+        keys,
+        indentationMarkers(),
+        ...(isMobile ? [EditorView.lineWrapping] : []),
+      ])
     }
     loadExts()
   }, [lang])
