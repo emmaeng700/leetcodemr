@@ -115,9 +115,9 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile menu — absolute overlay so it never pushes content down */}
       {open && (
-        <div className="md:hidden border-t border-gray-100 bg-white px-4 py-3 space-y-1 max-h-[80vh] overflow-y-auto">
+        <div className="md:hidden absolute top-full left-0 right-0 z-50 border-t border-gray-100 bg-white shadow-xl px-4 py-3 space-y-1 max-h-[80vh] overflow-y-auto">
           {[
             { label: 'Study',      group: STUDY_LINKS },
             { label: 'Drill',      group: DRILL_LINKS },
