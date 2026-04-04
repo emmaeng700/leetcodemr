@@ -1,8 +1,9 @@
-const CACHE = 'lm-v3'
+const CACHE = 'lm-v4'
 
-// Pre-cache on install: data files + all static page shells
+// Pages and assets to pre-cache on install
 const PRECACHE = [
   '/',
+  '/offline.html',
   '/flashcards',
   '/speedster',
   '/behavioral',
@@ -28,9 +29,15 @@ const PRECACHE = [
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE)
-      .then(c => c.addAll(PRECACHE))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE).then(async cache => {
+      // Cache each item individually so one failure doesn't break the whole install
+      await Promise.allSettled(
+        PRECACHE.map(url =>
+          cache.add(url).catch(() => { /* skip if unavailable */ })
+        )
+      )
+      return self.skipWaiting()
+    })
   )
 })
 
@@ -49,13 +56,13 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return
   if (url.origin !== self.location.origin) return
 
-  // Never cache API routes (they need live network)
+  // Never intercept API routes (need live network)
   if (url.pathname.startsWith('/api/')) return
 
   const isStatic =
-    url.pathname.startsWith('/_next/static/') ||   // JS/CSS chunks — cache-first
-    url.pathname.startsWith('/_next/data/') ||      // RSC payloads — cache-first
-    url.pathname.startsWith('/question-images/') || // all question images
+    url.pathname.startsWith('/_next/static/') ||   // JS/CSS chunks
+    url.pathname.startsWith('/_next/data/') ||      // RSC payloads
+    url.pathname.startsWith('/question-images/') || // question images
     url.pathname.startsWith('/icons/') ||
     url.pathname.endsWith('.json') ||
     url.pathname.endsWith('.jpg') ||
@@ -63,30 +70,46 @@ self.addEventListener('fetch', e => {
     url.pathname.endsWith('.svg') ||
     url.pathname.endsWith('.ico') ||
     url.pathname.endsWith('.woff2') ||
-    url.pathname.endsWith('.woff')
+    url.pathname.endsWith('.woff') ||
+    url.pathname === '/offline.html'
 
   if (isStatic) {
-    // Cache-first: serve instantly from cache, fetch & store if missing
+    // Cache-first: serve instantly, fetch & store if missing
     e.respondWith(
       caches.match(e.request).then(cached => {
         if (cached) return cached
         return fetch(e.request).then(res => {
           if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()))
           return res
-        }).catch(() => new Response('Offline', { status: 503 }))
+        }).catch(() => {
+          // For images, return empty 404 rather than breaking the page
+          if (url.pathname.startsWith('/question-images/')) {
+            return new Response('', { status: 404 })
+          }
+          return new Response('', { status: 503 })
+        })
       })
     )
     return
   }
 
-  // Network-first for pages: try network (+ update cache), fall back to cache
+  // Network-first for pages: try network (update cache), fall back to cache, then offline.html
   e.respondWith(
     fetch(e.request)
       .then(res => {
         if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()))
         return res
       })
-      .catch(() => caches.match(e.request).then(c => c || new Response('Offline', { status: 503 })))
+      .catch(() =>
+        caches.match(e.request).then(cached => {
+          if (cached) return cached
+          // Fall back to offline page for navigation requests
+          if (e.request.mode === 'navigate') {
+            return caches.match('/offline.html')
+          }
+          return new Response('', { status: 503 })
+        })
+      )
   )
 })
 
@@ -106,7 +129,6 @@ self.addEventListener('message', e => {
           }
         } catch {}
         done++
-        // Report progress back to all clients
         const clients = await self.clients.matchAll()
         clients.forEach(c => c.postMessage({ type: 'CACHE_PROGRESS', done, total: ids.length }))
       }

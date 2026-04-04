@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Download, CheckCircle, WifiOff, X } from 'lucide-react'
 
-const CACHE_NAME  = 'lm-v3'
+const CACHE_NAME  = 'lm-v4'
 const DONE_KEY    = 'lm_offline_ready'
 
 export default function OfflineSetup() {
