@@ -19,14 +19,23 @@ export default function CodePanel({ pythonCode = '', cppCode = '' }: CodePanelPr
   const [copied, setCopied] = useState(false)
   const codeRef = useRef<HTMLElement>(null)
 
-  const code = lang === 'python' ? pythonCode : cppCode
+  const rawCode = lang === 'python' ? pythonCode : cppCode
+
+  // Normalise indentation: tabs → 4 spaces, trim trailing whitespace per line
+  const code = rawCode
+    ? rawCode
+        .split('\n')
+        .map(line => line.replace(/\t/g, '    ').trimEnd())
+        .join('\n')
+        .trimEnd()
+    : ''
 
   useEffect(() => {
-    if (codeRef.current && code) {
-      codeRef.current.removeAttribute('data-highlighted')
-      codeRef.current.textContent = code
-      hljs.highlightElement(codeRef.current)
-    }
+    if (!codeRef.current || !code) return
+    // Use hljs.highlight() (returns HTML string) instead of highlightElement()
+    // so complex class / helper-function structures are parsed in one clean pass
+    const result = hljs.highlight(code, { language: lang, ignoreIllegals: true })
+    codeRef.current.innerHTML = result.value
   }, [code, lang])
 
   const copy = async () => {
@@ -72,9 +81,7 @@ export default function CodePanel({ pythonCode = '', cppCode = '' }: CodePanelPr
         {code ? (
           <div className="overflow-x-auto code-block">
             <pre className="p-4 text-[11px] sm:text-[12px] md:text-[13px] leading-relaxed m-0">
-              <code ref={codeRef} className={`language-${lang}`}>
-                {code}
-              </code>
+              <code ref={codeRef} className={`language-${lang}`} />
             </pre>
           </div>
         ) : (

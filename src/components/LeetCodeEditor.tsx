@@ -120,14 +120,15 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
       const { indentWithTab } = cmdMod
       const { indentationMarkers } = await import('@replit/codemirror-indentation-markers')
       // smartEnter preserves current line indentation and adds 4 spaces after : or {
-      // Prec.highest ensures it runs before any other keymap handler
+      // Handles selections correctly (replaces from→to) so design questions
+      // with multi-method starter code don't corrupt indentation on Enter.
       const smartEnter = (view: any) => {
-        const { from } = view.state.selection.main
+        const { from, to } = view.state.selection.main
         const line = view.state.doc.lineAt(from)
         const base = line.text.match(/^(\s*)/)?.[1] ?? ''
         const extra = (line.text.trimEnd().endsWith(':') || line.text.trimEnd().endsWith('{')) ? '    ' : ''
         const ins = '\n' + base + extra
-        view.dispatch({ changes: { from, to: from, insert: ins }, selection: { anchor: from + ins.length } })
+        view.dispatch({ changes: { from, to, insert: ins }, selection: { anchor: from + ins.length } })
         return true
       }
       const keys = Prec.highest(keymap.of([{ key: 'Enter', run: smartEnter }, indentWithTab]))
@@ -169,8 +170,9 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
         setLcQ(q)
         const parsed = parseCases(q.exampleTestcases ?? '', q.metaData ?? '{}')
         setCases(parsed); setActiveCase(0); setTestInput(parsed[0]?.raw ?? '')
-        // Always start fresh with LeetCode's starter code
-        setCode(q.codeSnippets?.find(s => s.langSlug === lang)?.code ?? '')
+        // Always start fresh with LeetCode's starter code (normalised)
+        const raw = q.codeSnippets?.find(s => s.langSlug === lang)?.code ?? ''
+        setCode(raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\t/g, '    '))
       })
       .catch(e => setLcErr(String(e)))
       .finally(() => setLcLoad(false))
@@ -179,9 +181,15 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
 
   const handleCodeChange = (val: string) => setCode(val)
 
+  // Normalize code from LeetCode: \r\n → \n, tabs → 4 spaces.
+  // Design questions often have mixed line endings / tab indentation
+  // which causes visual indentation mismatches in CodeMirror.
+  const normalizeCode = (raw: string) =>
+    raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\t/g, '    ')
+
   const switchLang = (l: 'python3' | 'cpp') => {
     setLang(l)
-    if (lcQ) setCode(lcQ.codeSnippets?.find(s => s.langSlug === l)?.code ?? '')
+    if (lcQ) setCode(normalizeCode(lcQ.codeSnippets?.find(s => s.langSlug === l)?.code ?? ''))
     setResult(null)
   }
 
