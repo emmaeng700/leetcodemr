@@ -1,11 +1,12 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2 } from 'lucide-react'
+import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2, WifiOff } from 'lucide-react'
 import { getProgress, getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 
 interface Question {
   id: number
@@ -35,6 +36,7 @@ export default function SpeedsterPage() {
   const [showCardList, setShowCardList] = useState(false)
   // Mobile panel: 'cards' = day cards + flashcards, 'editor' = code editor
   const [mobilePanel, setMobilePanel] = useState<'cards' | 'editor'>('cards')
+  const online = useOnlineStatus()
 
   useEffect(() => {
     async function load() {
@@ -323,12 +325,26 @@ export default function SpeedsterPage() {
 
   // ─── Editor panel content — mirrors learn page exactly ───
   const editorContent = currentQ ? (
-    <LeetCodeEditor
-      key={currentQ.slug}
-      appQuestionId={currentQ.id}
-      slug={currentQ.slug}
-      speedster
-    />
+    online ? (
+      <LeetCodeEditor
+        key={currentQ.slug}
+        appQuestionId={currentQ.id}
+        slug={currentQ.slug}
+        speedster
+      />
+    ) : (
+      /* Offline fallback — show cached solution instead of broken editor */
+      <div className="flex flex-col flex-1 min-h-0 bg-[#1a1a2e] overflow-y-auto">
+        <div className="flex items-center gap-2 px-4 py-3 bg-[#16213e] border-b border-gray-700/50 shrink-0">
+          <WifiOff size={13} className="text-amber-400 shrink-0" />
+          <p className="text-xs text-amber-300 font-semibold">You're offline — live editor unavailable</p>
+        </div>
+        <div className="p-4">
+          <p className="text-xs text-gray-400 mb-3">Showing saved solution for #{currentQ.id} · {currentQ.title}</p>
+          <CodePanel pythonCode={currentQ.python_solution} cppCode={currentQ.cpp_solution} />
+        </div>
+      </div>
+    )
   ) : null
 
   // ─── Mobile: full-height layout with tab bar ───
@@ -565,14 +581,26 @@ export default function SpeedsterPage() {
               </div>
             </div>
 
-            <div className="h-[820px] rounded-xl overflow-hidden flex flex-col">
-              <LeetCodeEditor
-                key={currentQ.slug}
-                appQuestionId={currentQ.id}
-                slug={currentQ.slug}
-                speedster
-              />
-            </div>
+            {online ? (
+              <div className="h-[820px] rounded-xl overflow-hidden flex flex-col">
+                <LeetCodeEditor
+                  key={currentQ.slug}
+                  appQuestionId={currentQ.id}
+                  slug={currentQ.slug}
+                  speedster
+                />
+              </div>
+            ) : (
+              <div className="rounded-xl overflow-hidden border border-gray-200">
+                <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border-b border-amber-200">
+                  <WifiOff size={13} className="text-amber-500 shrink-0" />
+                  <p className="text-xs text-amber-700 font-semibold">You're offline — live editor unavailable. Showing saved solution.</p>
+                </div>
+                <div className="p-4">
+                  <CodePanel pythonCode={currentQ.python_solution} cppCode={currentQ.cpp_solution} />
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
