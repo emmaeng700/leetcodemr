@@ -271,7 +271,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
         .cm-editor { font-size: 11px; }
         @media (min-width: 640px)  { .cm-editor { font-size: 12px; } }
         @media (min-width: 1024px) { .cm-editor { font-size: 13px; } }
-        .cm-scroller { overflow-x: auto !important; overflow-y: auto !important; overscroll-behavior: contain; touch-action: pan-y; }
+        .cm-scroller { overflow-x: auto !important; overflow-y: auto !important; overscroll-behavior: contain; touch-action: pan-x pan-y; }
         .cm-content, .cm-line { word-break: normal; white-space: pre; }
         .cm-editor { touch-action: none; }
         .cm-editor, .cm-content { max-width: 100%; }
