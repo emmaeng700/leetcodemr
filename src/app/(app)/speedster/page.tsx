@@ -1,10 +1,11 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List } from 'lucide-react'
+import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2 } from 'lucide-react'
 import { getProgress, getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
+import LeetCodeEditor from '@/components/LeetCodeEditor'
 
 interface Question {
   id: number
@@ -115,7 +116,7 @@ export default function SpeedsterPage() {
   )
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="max-w-4xl mx-auto px-4 py-6">
 
       {/* ── Header ── */}
       <div className="flex items-center gap-3 mb-6">
@@ -302,6 +303,33 @@ export default function SpeedsterPage() {
           </>
         )}
       </div>
+
+      {/* ── Editor section ── */}
+      {currentQ && (
+        <div className="border-t-2 border-dashed border-yellow-200 pt-6 mt-6">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-7 h-7 rounded-lg bg-yellow-100 flex items-center justify-center shrink-0">
+              <Code2 size={14} className="text-yellow-600" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-gray-800">Code Editor</h2>
+              <p className="text-xs text-gray-400">
+                #{currentQ.id} · {currentQ.title} — submissions won't mark as solved
+              </p>
+            </div>
+          </div>
+
+          {/* key=slug forces a fresh editor load whenever the flashcard changes */}
+          <div className="h-[540px] rounded-xl overflow-hidden">
+            <LeetCodeEditor
+              key={currentQ.slug}
+              appQuestionId={currentQ.id}
+              slug={currentQ.slug}
+              speedster
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
