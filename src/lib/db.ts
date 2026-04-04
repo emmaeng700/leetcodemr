@@ -386,6 +386,10 @@ export async function setInterviewDate(target_date: string, company: string) {
   }, { onConflict: 'user_id' })
 }
 
+export async function clearInterviewDate() {
+  await supabase.from('interview_date').delete().eq('user_id', USER_ID)
+}
+
 // ─── Spaced Repetition ───────────────────────────────────────────────────────
 // Formula: alternates +5 / +9 days, starting at 7.
 // srInterval(n) = floor(n/2)*14 + (n is even ? 7 : 12)

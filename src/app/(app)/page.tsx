@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Search, Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp } from 'lucide-react'
-import { getProgress, updateProgress, getActivityLog, getDueReviews, getInterviewDate, setInterviewDate } from '@/lib/db'
+import { getProgress, updateProgress, getActivityLog, getDueReviews, getInterviewDate, setInterviewDate, clearInterviewDate } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
 
@@ -126,7 +126,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   }
   const handleDateClear = async () => {
     setDate('')
-    await setInterviewDate('', '')
+    await clearInterviewDate()
     setEditing(false)
   }
   const daysLeft = date ? Math.ceil((new Date(date + 'T12:00:00').getTime() - Date.now()) / 86400000) : null
