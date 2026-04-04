@@ -145,7 +145,7 @@ export default function SRQueuePage() {
           <RefreshCw className="text-indigo-600" size={22} /> SR Queue
         </h1>
         <p className="text-sm text-gray-400 mt-1">
-          {solved.length} solved · {dueCount} due now · review schedule uses your 7→12→21→26… formula
+          {solved.length} solved · {dueCount} due now · 7→12→21→26→…→68d then rewinds to 7
         </p>
       </div>
 
