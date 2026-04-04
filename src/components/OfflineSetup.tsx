@@ -2,8 +2,8 @@
 import { useEffect, useState } from 'react'
 import { Download, CheckCircle, WifiOff, X } from 'lucide-react'
 
-const CACHE_NAME  = 'lm-v4'
-const DONE_KEY    = 'lm_offline_ready'
+const IMG_CACHE = 'lm-images'
+const DONE_KEY  = 'lm_offline_ready'
 
 export default function OfflineSetup() {
   const [status,   setStatus]   = useState<'idle' | 'downloading' | 'done' | 'hidden'>('hidden')
@@ -11,10 +11,28 @@ export default function OfflineSetup() {
   const [total,    setTotal]    = useState(0)
 
   useEffect(() => {
-    // Only show if SW is supported and images aren't already cached
     if (!('serviceWorker' in navigator) || !('caches' in window)) return
-    if (localStorage.getItem(DONE_KEY)) return
-    setStatus('idle')
+
+    async function check() {
+      // If previously marked done, verify images are actually still cached
+      if (localStorage.getItem(DONE_KEY)) {
+        try {
+          const cache = await caches.open(IMG_CACHE)
+          const keys  = await cache.keys()
+          if (keys.length === 0) {
+            // Cache was wiped (e.g. SW version bump) — prompt again
+            localStorage.removeItem(DONE_KEY)
+            setStatus('idle')
+          }
+          // else: images still there, stay hidden
+        } catch {
+          setStatus('idle')
+        }
+        return
+      }
+      setStatus('idle')
+    }
+    check()
   }, [])
 
   async function cacheAllImages() {
@@ -23,7 +41,7 @@ export default function OfflineSetup() {
     try {
       const questions: Array<{ id: number }> = await fetch('/questions_full.json').then(r => r.json())
       setTotal(questions.length)
-      const cache = await caches.open(CACHE_NAME)
+      const cache = await caches.open(IMG_CACHE)
       let done = 0
       for (const q of questions) {
         const url = `/question-images/${q.id}.jpg`
