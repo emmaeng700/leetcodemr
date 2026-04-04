@@ -53,7 +53,7 @@ export default function CodePanel({ pythonCode = '', cppCode = '' }: CodePanelPr
         .code-block { counter-reset: line; }
         .code-block code { display: block; }
       `}</style>
-      <div className="rounded-xl overflow-hidden border border-gray-700 bg-[#282c34]">
+      <div className="w-full min-w-0 rounded-xl overflow-hidden border border-gray-700 bg-[#282c34]">
         {/* Toolbar */}
         <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#21252b] border-b border-gray-700">
           <div className="flex gap-1">

@@ -314,7 +314,7 @@ export default function SpeedsterPage() {
                     </div>
                     <span className="text-xs text-indigo-400 font-medium shrink-0">← Flip back</span>
                   </div>
-                  <div className="p-4" onClick={e => e.stopPropagation()}>
+                  <div className="p-3 sm:p-4 min-w-0 overflow-hidden" onClick={e => e.stopPropagation()}>
                     <CodePanel pythonCode={currentQ.python_solution} cppCode={currentQ.cpp_solution} />
                   </div>
                 </div>
@@ -568,7 +568,7 @@ export default function SpeedsterPage() {
                     </div>
                     <span className="text-xs text-indigo-400 font-medium shrink-0">← Flip back</span>
                   </div>
-                  <div className="p-4" onClick={e => e.stopPropagation()}>
+                  <div className="p-3 sm:p-4 min-w-0 overflow-hidden" onClick={e => e.stopPropagation()}>
                     <CodePanel pythonCode={currentQ.python_solution} cppCode={currentQ.cpp_solution} />
                   </div>
                 </div>
