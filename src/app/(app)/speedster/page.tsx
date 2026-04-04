@@ -272,7 +272,7 @@ export default function SpeedsterPage() {
 
         {currentQ && (
           <>
-            <div onClick={handleFlip} className="cursor-pointer select-none"
+            <div onClick={handleFlip} className="cursor-pointer select-none w-full min-w-0 overflow-hidden"
               style={{ opacity: fading ? 0 : 1, transition: 'opacity 0.18s ease', touchAction: 'manipulation' }}>
 
               {!flipped ? (
@@ -305,7 +305,7 @@ export default function SpeedsterPage() {
                 </div>
               ) : (
                 /* BACK */
-                <div className="bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
+                <div className="w-full min-w-0 bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
                   <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-indigo-100 bg-indigo-50">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <span className="text-xs text-gray-400 font-mono">#{currentQ.id}</span>
@@ -526,7 +526,7 @@ export default function SpeedsterPage() {
           </div>
 
           {currentQ && (
-            <div onClick={handleFlip} className="cursor-pointer select-none"
+            <div onClick={handleFlip} className="cursor-pointer select-none w-full min-w-0 overflow-hidden"
               style={{ opacity: fading ? 0 : 1, transition: 'opacity 0.18s ease', touchAction: 'manipulation' }}>
 
               {!flipped ? (
@@ -559,7 +559,7 @@ export default function SpeedsterPage() {
                 </div>
               ) : (
                 /* BACK */
-                <div className="bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
+                <div className="w-full min-w-0 bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
                   <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-indigo-100 bg-indigo-50">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <span className="text-xs text-gray-400 font-mono">#{currentQ.id}</span>
