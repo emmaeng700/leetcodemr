@@ -238,7 +238,7 @@ export default function QuestionPage() {
           onBlur={saveNotes}
           rows={4}
           placeholder="Write your notes, intuition, edge cases..."
-          className="w-full text-sm border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+          className="w-full text-sm text-gray-900 border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
         />
         <button
           onClick={saveNotes}

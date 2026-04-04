@@ -68,7 +68,7 @@ body {
   }
 }
 
-/* Prevent iOS auto-zoom on all inputs/textareas/selects — font-size must be ≥16px to avoid zoom */
+/* Prevent iOS auto-zoom — font-size must be ≥16px */
 input[type="text"],
 input[type="password"],
 input[type="email"],
@@ -78,4 +78,15 @@ input[type="search"],
 textarea,
 select {
   font-size: 16px !important;
+}
+
+/* Fix iOS Safari blurry / faint typed text.
+   Safari uses -webkit-text-fill-color (not color) for the actual glyph colour.
+   Without this, user-typed text can appear grey/washed-out even when color is set.
+   opacity:1 prevents Safari dimming disabled-looking fields. */
+input,
+textarea,
+select {
+  -webkit-text-fill-color: currentColor;
+  opacity: 1;
 }

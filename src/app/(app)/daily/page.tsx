@@ -228,7 +228,7 @@ export default function DailyPage() {
                   max="20"
                   value={perDay}
                   onChange={e => setPerDay(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-16 px-2 py-1.5 border-2 border-gray-200 rounded-xl text-sm text-center focus:outline-none focus:border-indigo-400"
+                  className="w-16 px-2 py-1.5 border-2 border-gray-200 rounded-xl text-sm text-center text-gray-900 focus:outline-none focus:border-indigo-400"
                 />
               </div>
             </div>
@@ -240,7 +240,7 @@ export default function DailyPage() {
                 value={startDate}
                 min={todayISO()}
                 onChange={e => setStartDate(e.target.value)}
-                className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-indigo-400"
+                className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-indigo-400"
               />
             </div>
 
@@ -251,7 +251,7 @@ export default function DailyPage() {
                 value={planCode}
                 onChange={e => setPlanCode(e.target.value)}
                 placeholder="e.g. grind2026"
-                className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-indigo-400"
+                className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-indigo-400"
               />
               <p className="text-xs text-gray-400 mt-1">You need this code to reset the plan. Do not forget it.</p>
             </div>
@@ -361,7 +361,7 @@ export default function DailyPage() {
               onKeyDown={e => e.key === 'Enter' && handleResetConfirm()}
               placeholder="Your lock code"
               autoFocus
-              className={`px-3 py-2 rounded-lg border text-sm focus:outline-none transition-colors ${
+              className={`px-3 py-2 rounded-lg border text-sm text-gray-900 focus:outline-none transition-colors ${
                 resetError ? 'border-red-500 bg-red-100' : 'border-gray-300 bg-white'
               }`}
             />

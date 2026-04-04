@@ -146,7 +146,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
         {editing ? (
           <div className="flex gap-2 items-center flex-wrap">
             <input type="date" defaultValue={date} min={todayISO()}
-              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              className="text-sm text-gray-900 border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300"
               onKeyDown={e => { if (e.key === 'Enter') handleDateSave((e.target as HTMLInputElement).value) }}
               onBlur={e => { if (e.target.value) handleDateSave(e.target.value); else setEditing(false) }}
               autoFocus />
@@ -322,7 +322,7 @@ export default function HomePage() {
         <div className="relative mb-3">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search questions..."
-            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+            className="w-full pl-9 pr-4 py-2 text-sm text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" />
         </div>
         <div className="flex flex-wrap gap-1">
           {DIFFICULTIES.map(d => (

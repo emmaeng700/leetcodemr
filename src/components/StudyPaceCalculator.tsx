@@ -82,7 +82,7 @@ export default function StudyPaceCalculator({ total = 0, solved = 0, planStartDa
         <div className="flex-1 min-w-[160px]">
           <label className="block text-xs font-semibold text-gray-500 mb-1">Start date</label>
           <input type="date" value={startDate} onChange={e => setStartDate(e.target.value || todayStr())}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300 w-full" />
+            className="text-sm text-gray-900 border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300 w-full" />
         </div>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
