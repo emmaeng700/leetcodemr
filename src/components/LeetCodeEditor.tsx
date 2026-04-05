@@ -65,13 +65,18 @@ interface Props {
 }
 
 /* ── Mobile keyboard toolbar ───────────────────────────── */
-function MobileKeybar({ editorViewRef }: { editorViewRef: React.RefObject<any> }) {
+function MobileKeybar({ editorViewRef, cursorPosRef }: {
+  editorViewRef: React.RefObject<any>
+  cursorPosRef:  React.RefObject<{ from: number; to: number }>
+}) {
   const press = (action: string | (() => void)) => {
     const view = editorViewRef.current
     if (!view) return
     if (typeof action === 'function') { action(); return }
 
-    const { from, to } = view.state.selection.main
+    // Use the ref-tracked position — more reliable on iOS than reading
+    // view.state.selection.main at pointer-down time (iOS can shift it).
+    const { from, to } = cursorPosRef.current ?? view.state.selection.main
 
     // Arrow movement
     if (action === 'ArrowLeft')  { view.dispatch({ selection: { anchor: Math.max(0, from - 1) } }); view.focus(); return }
@@ -177,7 +182,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
   const [retryKey,    setRetryKey]   = useState(0)
   const [extensions,  setExtensions] = useState<any[]>([])
   const [editorTheme, setTheme]      = useState<any>(null)
-  const editorViewRef = useRef<any>(null)
+  const editorViewRef  = useRef<any>(null)
+  const cursorPosRef   = useRef<{ from: number; to: number }>({ from: 0, to: 0 })
 
   /* Bottom panel */
   const [bottomTab,  setBottomTab]  = useState<'testcase' | 'result' | 'solutions'>('testcase')
@@ -230,10 +236,20 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
       }
       const keys = Prec.highest(keymap.of([{ key: 'Enter', run: smartEnter }, indentWithTab]))
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
+      // Track stable cursor position in a ref — iOS touch events can move CM's
+      // internal selection between onPointerDown and when we read it, so we
+      // read from this ref instead of view.state.selection at button-press time.
+      const cursorTracker = EditorView.updateListener.of((update: any) => {
+        if (update.selectionSet || update.docChanged) {
+          const sel = update.state.selection.main
+          cursorPosRef.current = { from: sel.from, to: sel.to }
+        }
+      })
       setExtensions([
         lang === 'python3' ? python() : cpp(),
         keys,
         indentationMarkers(),
+        cursorTracker,
         ...(isMobile ? [EditorView.lineWrapping] : []),
       ])
     }
@@ -551,7 +567,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
 
       {/* ── Mobile keyboard toolbar — sm:hidden ── */}
       {!lcLoad && !lcErr && (
-        <MobileKeybar editorViewRef={editorViewRef} />
+        <MobileKeybar editorViewRef={editorViewRef} cursorPosRef={cursorPosRef} />
       )}
 
       {/* ── Bottom panel ── */}
