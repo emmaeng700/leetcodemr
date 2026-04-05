@@ -34,6 +34,8 @@ export default function SpeedsterPage() {
   const [flipped,      setFlipped]      = useState(false)
   const [fading,       setFading]       = useState(false)
   const [showCardList, setShowCardList] = useState(false)
+  const [filterDiff,   setFilterDiff]   = useState<'All' | 'Easy' | 'Medium' | 'Hard'>('All')
+  const [filterSolved, setFilterSolved] = useState<'All' | 'Unsolved' | 'Solved'>('All')
   // Mobile panel: 'cards' = day cards + flashcards, 'editor' = code editor
   const [mobilePanel, setMobilePanel] = useState<'cards' | 'editor'>('cards')
   const online = useOnlineStatus()
@@ -73,10 +75,22 @@ export default function SpeedsterPage() {
   const currentDay = days[dayIdx] ?? []
   const daySolved  = currentDay.filter(id => !!progress[String(id)]?.solved).length
 
-  // Flashcard helpers
-  const total      = planOrder.length
-  const currentQ   = qMap[planOrder[cardIdx]]
+  // Flashcard helpers — respects active filters
+  const filteredOrder = planOrder.filter(id => {
+    const q = qMap[id]
+    if (!q) return false
+    if (filterDiff !== 'All' && q.difficulty !== filterDiff) return false
+    const solved = !!progress[String(id)]?.solved
+    if (filterSolved === 'Unsolved' && solved) return false
+    if (filterSolved === 'Solved'   && !solved) return false
+    return true
+  })
+  const total       = filteredOrder.length
+  const currentQ    = qMap[filteredOrder[cardIdx]]
   const solvedCount = planOrder.filter(id => !!progress[String(id)]?.solved).length
+
+  // Reset to first card when filters change
+  useEffect(() => { setCardIdx(0); setFlipped(false) }, [filterDiff, filterSolved])
 
   // Close card list on outside click — use class check so it works regardless
   // of whether mobile or desktop DOM node is active (both render simultaneously)
@@ -132,6 +146,45 @@ export default function SpeedsterPage() {
   if (loading) return (
     <div className="flex items-center justify-center h-64 text-gray-400 text-sm gap-2">
       <Gauge size={16} className="animate-spin" /> Loading…
+    </div>
+  )
+
+  // ─── Flashcard filter bar (shared) ───
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-1.5 mb-3">
+      {(['All', 'Easy', 'Medium', 'Hard'] as const).map(d => (
+        <button key={d} onClick={() => setFilterDiff(d)} style={{ touchAction: 'manipulation' }}
+          className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+            filterDiff === d
+              ? d === 'Easy'   ? 'bg-green-500 text-white border-green-500'
+              : d === 'Medium' ? 'bg-yellow-500 text-white border-yellow-500'
+              : d === 'Hard'   ? 'bg-red-500 text-white border-red-500'
+              : 'bg-gray-800 text-white border-gray-800'
+              : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+          }`}>
+          {d}
+        </button>
+      ))}
+      <div className="w-px h-4 bg-gray-200 mx-0.5 shrink-0" />
+      <button onClick={() => setFilterSolved(s => s === 'Unsolved' ? 'All' : 'Unsolved')} style={{ touchAction: 'manipulation' }}
+        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+          filterSolved === 'Unsolved' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+        }`}>
+        Unsolved
+      </button>
+      <button onClick={() => setFilterSolved(s => s === 'Solved' ? 'All' : 'Solved')} style={{ touchAction: 'manipulation' }}
+        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+          filterSolved === 'Solved' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+        }`}>
+        Solved
+      </button>
+      {(filterDiff !== 'All' || filterSolved !== 'All') && (
+        <button onClick={() => { setFilterDiff('All'); setFilterSolved('All') }} style={{ touchAction: 'manipulation' }}
+          className="px-2 py-1 rounded-lg text-xs text-gray-400 border border-gray-200 hover:text-gray-600 transition-colors">
+          Clear
+        </button>
+      )}
+      <span className="text-xs text-gray-400 ml-auto shrink-0">{total} shown</span>
     </div>
   )
 
@@ -213,6 +266,8 @@ export default function SpeedsterPage() {
           <p className="text-xs text-gray-400 hidden sm:block">Tap card to flip · ← → keys · Space</p>
         </div>
 
+        {filterBar}
+
         {/* Learn-style nav bar */}
         <div className="flex items-center gap-2 mb-4">
           <button onClick={() => go(-1)} disabled={cardIdx === 0}
@@ -230,8 +285,8 @@ export default function SpeedsterPage() {
             </button>
 
             {showCardList && (
-              <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-72 max-h-80 overflow-y-auto">
-                {planOrder.map((qid, i) => {
+              <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[min(288px,calc(100vw-1rem))] max-h-80 overflow-y-auto">
+                {filteredOrder.map((qid, i) => {
                   const q = qMap[qid]
                   if (!q) return null
                   const done = !!progress[String(qid)]?.solved
@@ -270,6 +325,9 @@ export default function SpeedsterPage() {
           </button>
         </div>
 
+        {total === 0 && (
+          <div className="text-center py-10 text-gray-400 text-sm">No questions match this filter.</div>
+        )}
         {currentQ && (
           <>
             <div onClick={handleFlip} className="cursor-pointer select-none w-full min-w-0"
@@ -468,6 +526,8 @@ export default function SpeedsterPage() {
             <p className="text-xs text-gray-400">Tap card to flip · ← → keys · Space</p>
           </div>
 
+          {filterBar}
+
           {/* Learn-style nav bar */}
           <div className="flex items-center gap-2 mb-4">
             <button onClick={() => go(-1)} disabled={cardIdx === 0}
@@ -486,7 +546,7 @@ export default function SpeedsterPage() {
 
               {showCardList && (
                 <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[min(288px,calc(100vw-1rem))] max-h-80 overflow-y-auto">
-                  {planOrder.map((qid, i) => {
+                  {filteredOrder.map((qid, i) => {
                     const q = qMap[qid]
                     if (!q) return null
                     const done = !!progress[String(qid)]?.solved
@@ -525,6 +585,9 @@ export default function SpeedsterPage() {
             </button>
           </div>
 
+          {total === 0 && (
+            <div className="text-center py-10 text-gray-400 text-sm">No questions match this filter.</div>
+          )}
           {currentQ && (
             <div onClick={handleFlip} className="cursor-pointer select-none w-full min-w-0"
               style={{ opacity: fading ? 0 : 1, transition: 'opacity 0.18s ease', touchAction: 'manipulation' }}>
