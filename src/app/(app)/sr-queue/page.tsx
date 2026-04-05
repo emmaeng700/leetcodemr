@@ -128,13 +128,23 @@ export default function SRQueuePage() {
     .map(id => ({ q: qMap[id], p: progress[String(id)] }))
     .filter(({ q, p }) => q && p?.solved)
 
-  const overdue  = solved.filter(({ p }) => p.next_review && daysUntil(p.next_review) < 0)
-  const dueToday = solved.filter(({ p }) => p.next_review && daysUntil(p.next_review) === 0)
+  const MAX_DAILY = 15
+
+  const allOverdue  = solved.filter(({ p }) => p.next_review && daysUntil(p.next_review) < 0)
+  const allDueToday = solved.filter(({ p }) => p.next_review && daysUntil(p.next_review) === 0)
+  const allDue = [...allOverdue, ...allDueToday]
+
+  // Cap total due today at MAX_DAILY — overflow goes into Later
+  const todayQueue = allDue.slice(0, MAX_DAILY)
+  const overflow   = allDue.slice(MAX_DAILY)
+
+  const overdue  = todayQueue.filter(({ p }) => daysUntil(p.next_review) < 0)
+  const dueToday = todayQueue.filter(({ p }) => daysUntil(p.next_review) === 0)
   const soon     = solved.filter(({ p }) => p.next_review && daysUntil(p.next_review) > 0 && daysUntil(p.next_review) <= 7)
-  const later    = solved.filter(({ p }) => p.next_review && daysUntil(p.next_review) > 7)
+  const later    = [...overflow, ...solved.filter(({ p }) => p.next_review && daysUntil(p.next_review) > 7)]
   const none     = solved.filter(({ p }) => !p.next_review)
 
-  const dueCount = overdue.length + dueToday.length
+  const dueCount = todayQueue.length
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -145,7 +155,7 @@ export default function SRQueuePage() {
           <RefreshCw className="text-indigo-600" size={22} /> SR Queue
         </h1>
         <p className="text-sm text-gray-400 mt-1">
-          {solved.length} solved · {dueCount} due now · 7→12→21→26→…→68d then rewinds to 7
+          {solved.length} solved · {dueCount} due now (max {MAX_DAILY}/day) · 7→12→21→26→…→68d then rewinds to 7
         </p>
       </div>
 

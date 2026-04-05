@@ -272,7 +272,7 @@ export default function SpeedsterPage() {
 
         {currentQ && (
           <>
-            <div onClick={handleFlip} className="cursor-pointer select-none"
+            <div onClick={handleFlip} className="cursor-pointer select-none w-full min-w-0"
               style={{ opacity: fading ? 0 : 1, transition: 'opacity 0.18s ease', touchAction: 'manipulation' }}>
 
               {!flipped ? (
@@ -305,7 +305,7 @@ export default function SpeedsterPage() {
                 </div>
               ) : (
                 /* BACK */
-                <div className="bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
+                <div className="bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden w-full min-w-0">
                   <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-indigo-100 bg-indigo-50">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <span className="text-xs text-gray-400 font-mono">#{currentQ.id}</span>
@@ -314,7 +314,7 @@ export default function SpeedsterPage() {
                     </div>
                     <span className="text-xs text-indigo-400 font-medium shrink-0">← Flip back</span>
                   </div>
-                  <div className="p-4" onClick={e => e.stopPropagation()}>
+                  <div className="p-4 min-w-0" onClick={e => e.stopPropagation()}>
                     <CodePanel pythonCode={currentQ.python_solution} cppCode={currentQ.cpp_solution} />
                   </div>
                 </div>
@@ -350,7 +350,7 @@ export default function SpeedsterPage() {
           <WifiOff size={13} className="text-amber-400 shrink-0" />
           <p className="text-xs text-amber-300 font-semibold">You're offline — live editor unavailable</p>
         </div>
-        <div className="p-4">
+        <div className="p-4 min-w-0 w-full">
           <p className="text-xs text-gray-400 mb-3">Showing saved solution for #{currentQ.id} · {currentQ.title}</p>
           <CodePanel pythonCode={currentQ.python_solution} cppCode={currentQ.cpp_solution} />
         </div>
@@ -526,7 +526,7 @@ export default function SpeedsterPage() {
           </div>
 
           {currentQ && (
-            <div onClick={handleFlip} className="cursor-pointer select-none"
+            <div onClick={handleFlip} className="cursor-pointer select-none w-full min-w-0"
               style={{ opacity: fading ? 0 : 1, transition: 'opacity 0.18s ease', touchAction: 'manipulation' }}>
 
               {!flipped ? (
@@ -559,7 +559,7 @@ export default function SpeedsterPage() {
                 </div>
               ) : (
                 /* BACK */
-                <div className="bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
+                <div className="bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden w-full min-w-0">
                   <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-indigo-100 bg-indigo-50">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <span className="text-xs text-gray-400 font-mono">#{currentQ.id}</span>
@@ -568,7 +568,7 @@ export default function SpeedsterPage() {
                     </div>
                     <span className="text-xs text-indigo-400 font-medium shrink-0">← Flip back</span>
                   </div>
-                  <div className="p-4" onClick={e => e.stopPropagation()}>
+                  <div className="p-4 min-w-0" onClick={e => e.stopPropagation()}>
                     <CodePanel pythonCode={currentQ.python_solution} cppCode={currentQ.cpp_solution} />
                   </div>
                 </div>
