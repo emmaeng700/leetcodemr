@@ -65,6 +65,88 @@ function seededRandom(seed: string) {
   return Math.abs(h)
 }
 
+const STREAK_MESSAGES: Record<string, string[]> = {
+  '0':  ['Start your streak today!', 'Day 1 begins with a single problem 💡', 'Every expert was once a beginner 🌱', 'Your future self will thank you 🙏'],
+  '1':  ['First step taken — keep going! 🚶', 'One day in, momentum is building 💪', 'You showed up. That\'s everything. ✅'],
+  '2':  ['Two days straight — you\'re building a habit! 🔥', 'Consistency beats intensity. Day 2! 💯', 'Two down, many more to go 🎯'],
+  '3':  ['Three days strong! 🔥🔥', 'The magic happens at day 3 ✨', 'Three days of showing up — that\'s discipline 💪'],
+  '5':  ['Halfway to a full week! 🎯', 'Five days in — you\'re on fire 🔥', 'Five-day grinder detected 🤖'],
+  '7':  ['One full week! 🎉', 'Seven days of pure dedication 🏆', 'A week of coding greatness — unstoppable! ⚡'],
+  '14': ['Two week warrior! ⚡', '14 days and counting — elite consistency 🥇', 'Two weeks? You\'re built different 🦾'],
+  '21': ['Three week streak — legendary! 🏅', '21 days = a fully formed habit 🧠', 'Three weeks straight — nothing stops you! 🚀'],
+  '30': ['30-day grinder — absolute beast! 🔥🏆', 'A month of dedication — FAANG ready! 🎯', '30 days! You\'re going to crush that interview 💼'],
+}
+
+function getStreakMessage(streak: number): string {
+  const msgs =
+    streak === 0 ? STREAK_MESSAGES['0'] :
+    streak === 1 ? STREAK_MESSAGES['1'] :
+    streak <= 2  ? STREAK_MESSAGES['2'] :
+    streak <= 4  ? STREAK_MESSAGES['3'] :
+    streak <= 6  ? STREAK_MESSAGES['5'] :
+    streak <= 13 ? STREAK_MESSAGES['7'] :
+    streak <= 20 ? STREAK_MESSAGES['14'] :
+    streak <= 29 ? STREAK_MESSAGES['21'] :
+                   STREAK_MESSAGES['30']
+  // pick one deterministically per day so it doesn't change on re-render
+  const seed = todayISO() + streak
+  let h = 0; for (let i = 0; i < seed.length; i++) h = Math.imul(31, h) + seed.charCodeAt(i) | 0
+  return msgs[Math.abs(h) % msgs.length]
+}
+
+function StreakCard({ streak, log }: { streak: number; log: Record<string, number> }) {
+  // Build Mon→Sun for the current ISO week
+  const today = new Date()
+  const dayOfWeek = today.getDay() // 0=Sun
+  const monday = new Date(today)
+  monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7))
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    const key = d.toISOString().split('T')[0]
+    const isToday = key === todayISO()
+    const isFuture = d > today && !isToday
+    return { label: ['M','T','W','T','F','S','S'][i], key, active: !!log[key], isToday, isFuture }
+  })
+
+  const weekActive = weekDays.filter(d => d.active).length
+  const message = getStreakMessage(streak)
+
+  return (
+    <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-4 mb-3 shadow-sm">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <div className="flex items-center gap-2 mb-0.5">
+            <Flame size={18} className="text-orange-500" />
+            <span className="text-2xl font-black text-orange-500">{streak}</span>
+            <span className="text-sm font-bold text-orange-400">{streak === 1 ? 'day' : 'days'}</span>
+          </div>
+          <p className="text-xs text-orange-700 font-medium leading-snug max-w-[200px]">{message}</p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-xs font-bold text-gray-500 mb-0.5">This week</p>
+          <p className="text-lg font-black text-gray-700">{weekActive}<span className="text-xs font-semibold text-gray-400"> / 7</span></p>
+        </div>
+      </div>
+      {/* Week day dots */}
+      <div className="flex gap-1.5 justify-between">
+        {weekDays.map((d, i) => (
+          <div key={i} className="flex flex-col items-center gap-1 flex-1">
+            <div className={`w-full aspect-square rounded-full max-w-[28px] transition-colors ${
+              d.active   ? 'bg-orange-400 shadow-sm' :
+              d.isToday  ? 'bg-orange-100 border-2 border-orange-300' :
+              d.isFuture ? 'bg-gray-100' :
+                           'bg-gray-200'
+            }`} />
+            <span className={`text-[10px] font-semibold ${d.isToday ? 'text-orange-500' : 'text-gray-400'}`}>{d.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function WeakestPatternWidget({ questions, progress }: { questions: Question[]; progress: Record<string, ProgressData> }) {
   const patternStats = QUICK_PATTERNS.map(p => {
     const qs = questions.filter(q => (q.tags || []).some(t => p.tags.includes(t)))
@@ -95,12 +177,14 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   const [date, setDate] = useState('')
   const [editing, setEditing] = useState(false)
   const [streak, setStreak] = useState(0)
+  const [activityLog, setActivityLog] = useState<Record<string, number>>({})
   const [dailyQ, setDailyQ] = useState<Question | null>(null)
   const [loaded, setLoaded] = useState(false)
   useEffect(() => {
     async function load() {
       const [log, interviewData] = await Promise.all([getActivityLog(), getInterviewDate()])
       setStreak(computeStreak(log))
+      setActivityLog(log)
       if (interviewData?.target_date) setDate(interviewData.target_date)
       setLoaded(true)
     }
@@ -137,11 +221,12 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   }
   if (!loaded) return null
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+    <>
+      <StreakCard streak={streak} log={activityLog} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-bold text-gray-500 flex items-center gap-1"><Target size={13} /> Interview Countdown</span>
-          {streak > 0 && <span className="flex items-center gap-1 text-xs font-bold text-orange-500"><Flame size={13} /> {streak}d streak</span>}
         </div>
         {editing ? (
           <div className="flex gap-2 items-center flex-wrap">
@@ -189,6 +274,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
         ) : <p className="text-xs text-gray-400">Loading…</p>}
       </div>
     </div>
+    </>
   )
 }
 
