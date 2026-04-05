@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2, WifiOff } from 'lucide-react'
-import { getProgress, getStudyPlan } from '@/lib/db'
+import { getProgress, getStudyPlan, getFcVisited, addFcVisited } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
@@ -36,6 +36,7 @@ export default function SpeedsterPage() {
   const [showCardList, setShowCardList] = useState(false)
   const [filterDiff,   setFilterDiff]   = useState<'All' | 'Easy' | 'Medium' | 'Hard'>('All')
   const [filterSolved, setFilterSolved] = useState<'All' | 'Unsolved' | 'Solved'>('All')
+  const [visited,      setVisited]      = useState<Set<number>>(new Set())
   // Mobile panel: 'cards' = day cards + flashcards, 'editor' = code editor
   const [mobilePanel, setMobilePanel] = useState<'cards' | 'editor'>('cards')
   const online = useOnlineStatus()
@@ -45,13 +46,15 @@ export default function SpeedsterPage() {
 
   useEffect(() => {
     async function load() {
-      const [qs, plan, prog] = await Promise.all([
+      const [qs, plan, prog, vis] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getStudyPlan(),
         getProgress(),
+        getFcVisited(),
       ])
       setQuestions(qs)
       setProgress(prog)
+      setVisited(vis)
       if (plan?.question_order?.length) {
         setPlanOrder(plan.question_order)
         setPerDay(plan.per_day || 3)
@@ -117,14 +120,24 @@ export default function SpeedsterPage() {
       if (panel) panel.scrollTop = savedScroll
       else window.scrollTo(0, savedScroll)
     }
-    fadeSwap(() => setFlipped(f => !f))
+    fadeSwap(() => {
+      setFlipped(f => {
+        const nowFlipping = !f
+        // Auto-mark as visited when revealing the back for the first time
+        if (nowFlipping && currentQ && !visited.has(currentQ.id)) {
+          setVisited(prev => { const next = new Set(prev); next.add(currentQ.id); return next })
+          addFcVisited(currentQ.id)
+        }
+        return nowFlipping
+      })
+    })
     // Restore once after the fade (180ms), then once more after paint
     // to handle browser scroll-adjustment caused by content height change
     setTimeout(() => {
       restore()
       requestAnimationFrame(restore)
     }, 190)
-  }, [fadeSwap])
+  }, [fadeSwap, currentQ, visited])
 
   const go = useCallback((dir: number) => {
     fadeSwap(() => {
@@ -190,6 +203,9 @@ export default function SpeedsterPage() {
         </button>
       )}
       <span className="text-xs text-gray-400 ml-auto shrink-0">{total} shown</span>
+      <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">
+        <CheckCircle size={11} /> {visited.size} visited
+      </span>
     </div>
   )
 
@@ -349,7 +365,23 @@ export default function SpeedsterPage() {
                         <span key={s} className="text-xs bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100">{s}</span>
                       ))}
                     </div>
-                    <span className="hidden sm:inline text-xs text-gray-300 font-medium">Tap to reveal →</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          const next = new Set(visited)
+                          if (next.has(currentQ.id)) { next.delete(currentQ.id) } else { next.add(currentQ.id); addFcVisited(currentQ.id) }
+                          setVisited(next)
+                        }}
+                        style={{ touchAction: 'manipulation' }}
+                        className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors ${
+                          visited.has(currentQ.id) ? 'bg-green-50 text-green-600 border-green-300' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-green-300 hover:text-green-500'
+                        }`}
+                      >
+                        {visited.has(currentQ.id) ? <><CheckCircle size={11} /> Visited</> : <><Circle size={11} /> Mark visited</>}
+                      </button>
+                      <span className="hidden sm:inline text-xs text-gray-300 font-medium">Tap to reveal →</span>
+                    </div>
                   </div>
                   <div className="px-3 sm:px-5 py-2 sm:py-3">
                     <h3 className="text-lg font-bold text-gray-800">{currentQ.title}</h3>
