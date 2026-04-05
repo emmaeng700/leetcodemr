@@ -555,7 +555,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
       )}
 
       {/* ── Bottom panel ── */}
-      <div className={`${bottomTab === 'solutions' ? 'h-64 sm:h-72' : 'h-44 sm:h-52'} border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0 transition-all duration-200`}>
+      <div className={`${bottomTab === 'solutions' ? 'h-[28rem] sm:h-96' : 'h-44 sm:h-52'} border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0 transition-all duration-200`}>
         {/* Tabs */}
         <div className="flex items-center border-b border-gray-700/50 shrink-0 overflow-x-auto scrollbar-none">
           {(['testcase', 'result', 'solutions'] as const).map(tab => (
