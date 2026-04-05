@@ -508,37 +508,49 @@ export default function LeetCodePage() {
     <div className="flex flex-col h-[calc(100vh-56px)] bg-[#1a1a2e] text-gray-100 overflow-hidden">
 
       {/* ── Top bar ──────────────────────────────────────── */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-[#16213e] border-b border-gray-700/50 shrink-0">
-        {/* Daily pill */}
-        {daily && !qLoad && (
-          <button onClick={() => { setSlugInput(daily.question.titleSlug); loadQuestion(daily.question.titleSlug) }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-orange-500/20 text-orange-400 text-xs font-medium rounded-lg hover:bg-orange-500/30 transition shrink-0 border border-orange-500/30">
-            <Calendar size={11} /> Daily
-          </button>
-        )}
+      <div className="flex flex-col gap-1.5 px-3 pt-2 pb-2 bg-[#16213e] border-b border-gray-700/50 shrink-0">
+        {/* Row 1 (mobile): Daily pill + Session badge side by side */}
+        <div className="flex items-center gap-2">
+          {/* Daily pill */}
+          {daily && !qLoad && (
+            <button onClick={() => { setSlugInput(daily.question.titleSlug); loadQuestion(daily.question.titleSlug) }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-orange-500/20 text-orange-400 text-xs font-medium rounded-lg hover:bg-orange-500/30 transition shrink-0 border border-orange-500/30">
+              <Calendar size={11} /> Daily
+            </button>
+          )}
 
-        {/* Search */}
-        <div className="flex flex-1 gap-1.5 items-center bg-gray-800/60 rounded-lg px-3 py-1.5 border border-gray-700/50">
-          <Search size={12} className="text-gray-500 shrink-0" />
-          <input
-            type="text" value={slugInput} onChange={e => setSlugInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && loadQuestion()}
-            placeholder="Paste LeetCode URL or slug — e.g.  two-sum"
-            className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-500 outline-none min-w-0"
-          />
-          <button onClick={() => loadQuestion()} disabled={qLoad || !slugInput.trim()}
-            className="flex items-center gap-1 px-2 py-0.5 bg-indigo-600 text-white text-xs font-semibold rounded hover:bg-indigo-500 disabled:opacity-40 transition shrink-0">
-            {qLoad ? <Loader2 size={10} className="animate-spin" /> : <ChevronRight size={10} />}
-            Load
+          {/* Session badge — pushed to right on mobile Row 1, hidden on sm+ (shown in Row 2 below) */}
+          <button onClick={() => setSPO(o => !o)}
+            className={`sm:hidden ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition shrink-0 ${sessionOK ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/30 hover:bg-orange-500/20'}`}>
+            <Key size={11} />
+            {sessionOK ? 'Connected' : 'Setup'}
           </button>
         </div>
 
-        {/* Session badge */}
-        <button onClick={() => setSPO(o => !o)}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition shrink-0 ${sessionOK ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/30 hover:bg-orange-500/20'}`}>
-          <Key size={11} />
-          {sessionOK ? 'Connected' : 'Setup'}
-        </button>
+        {/* Row 2: Search + Load (full width on mobile) + Session badge (desktop only) */}
+        <div className="flex items-center gap-2">
+          <div className="flex flex-1 gap-1.5 items-center bg-gray-800/60 rounded-lg px-3 py-1.5 border border-gray-700/50">
+            <Search size={12} className="text-gray-500 shrink-0" />
+            <input
+              type="text" value={slugInput} onChange={e => setSlugInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && loadQuestion()}
+              placeholder="Paste LeetCode URL or slug…"
+              className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-500 outline-none min-w-0"
+            />
+            <button onClick={() => loadQuestion()} disabled={qLoad || !slugInput.trim()}
+              className="flex items-center gap-1 px-2 py-0.5 bg-indigo-600 text-white text-xs font-semibold rounded hover:bg-indigo-500 disabled:opacity-40 transition shrink-0">
+              {qLoad ? <Loader2 size={10} className="animate-spin" /> : <ChevronRight size={10} />}
+              Load
+            </button>
+          </div>
+
+          {/* Session badge — desktop only (shown on sm+) */}
+          <button onClick={() => setSPO(o => !o)}
+            className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition shrink-0 ${sessionOK ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/30 hover:bg-orange-500/20'}`}>
+            <Key size={11} />
+            {sessionOK ? 'Connected' : 'Setup'}
+          </button>
+        </div>
       </div>
 
       {/* ── Session panel overlay ─────────────────────────── */}
@@ -636,11 +648,11 @@ export default function LeetCodePage() {
           {/* LEFT PANEL — Description */}
           <div className={`${mobilePanel === 'desc' ? 'flex' : 'hidden'} sm:flex w-full sm:w-[42%] flex-col border-r border-gray-700/50 overflow-hidden`}>
             {/* Left tabs */}
-            <div className="flex border-b border-gray-700/50 shrink-0 bg-[#16213e]">
+            <div className="flex overflow-x-auto border-b border-gray-700/50 shrink-0 bg-[#16213e] scrollbar-none">
               {(['description', 'editorial', 'accepted', 'profile'] as const).map(tab => (
                 <button key={tab} onClick={() => setLeftTab(tab)}
-                  className={`px-4 py-2.5 text-xs font-semibold capitalize transition ${leftTab === tab ? (tab === 'accepted' ? 'text-green-400 border-b-2 border-green-400' : 'text-indigo-400 border-b-2 border-indigo-400') : 'text-gray-500 hover:text-gray-300'}`}>
-                  {tab === 'profile' ? 'Profile' : tab === 'editorial' ? 'Editorial' : tab === 'accepted' ? '🏆 My Solutions' : 'Description'}
+                  className={`px-3 sm:px-4 py-2.5 text-xs font-semibold capitalize transition shrink-0 ${leftTab === tab ? (tab === 'accepted' ? 'text-green-400 border-b-2 border-green-400' : 'text-indigo-400 border-b-2 border-indigo-400') : 'text-gray-500 hover:text-gray-300'}`}>
+                  {tab === 'profile' ? 'Profile' : tab === 'editorial' ? 'Editorial' : tab === 'accepted' ? '🏆 Solutions' : 'Description'}
                 </button>
               ))}
             </div>
@@ -673,7 +685,11 @@ export default function LeetCodePage() {
                 <div
                   className="text-sm text-gray-300 leading-relaxed prose prose-invert prose-sm max-w-none
                     prose-pre:bg-gray-800 prose-pre:text-green-300 prose-code:bg-gray-800 prose-code:text-orange-300
-                    prose-code:px-1 prose-code:rounded prose-strong:text-gray-100"
+                    prose-code:px-1 prose-code:rounded prose-strong:text-gray-100
+                    [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_pre]:whitespace-pre-wrap
+                    [&_table]:block [&_table]:overflow-x-auto [&_table]:max-w-full
+                    [&_img]:max-w-full [&_p]:break-words [&_li]:break-words
+                    overflow-x-hidden"
                   dangerouslySetInnerHTML={{ __html: question.content }}
                 />
               </div>
