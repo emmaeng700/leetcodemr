@@ -51,7 +51,7 @@ export default function CodePanel({ pythonCode = '', cppCode = '' }: CodePanelPr
         .hljs { background: #282c34; color: #abb2bf; }
         ${CODE_HIGHLIGHT_TOKEN_CSS}
         .code-block { counter-reset: line; }
-        .code-block code { display: block; }
+        .code-block code { display: block; color: #abb2bf; }
       `}</style>
       <div className="rounded-xl overflow-hidden border border-gray-700 bg-[#282c34]">
         {/* Toolbar */}
