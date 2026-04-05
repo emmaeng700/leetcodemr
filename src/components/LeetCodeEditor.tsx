@@ -555,11 +555,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
       )}
 
       {/* ── Bottom panel ── */}
-      <div className={`
-        ${bottomTab === 'solutions'
-          ? 'absolute bottom-0 left-0 right-0 h-[70%] z-20 border-t-2 border-emerald-600/40 shadow-2xl'
-          : 'h-44 sm:h-52 shrink-0 border-t border-gray-700/50'}
-        flex flex-col bg-[#16213e] transition-all duration-200`}>
+      <div className="h-44 sm:h-52 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
         {/* Tabs */}
         <div className="flex items-center border-b border-gray-700/50 shrink-0 overflow-x-auto scrollbar-none">
           {(['testcase', 'result', 'solutions'] as const).map(tab => (
@@ -611,21 +607,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
                   className="w-full bg-gray-800/70 border border-gray-700/50 rounded-lg px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none resize-none" />
               )}
             </div>
-          )}
-
-          {/* My Solutions tab */}
-          {bottomTab === 'solutions' && (
-            <AcceptedSolutions
-              surface="dark"
-              submissions={acSols.submissions}
-              loading={acSols.subsLoading}
-              selectedSub={acSols.selectedSub}
-              subCodeLoading={acSols.subCodeLoading}
-              copied={acSols.copiedSub}
-              onSelect={acSols.loadSubCode}
-              onCopy={acSols.copyCode}
-              onBack={acSols.clearSub}
-            />
           )}
 
           {/* Result tab */}
@@ -713,6 +694,37 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
           )}
         </div>
       </div>
+
+      {/* ── My Solutions fixed bottom-sheet — completely outside flex flow ── */}
+      {bottomTab === 'solutions' && (
+        <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col bg-[#16213e] border-t-2 border-emerald-600/50 shadow-2xl" style={{ height: '68vh' }}>
+          {/* Sheet header: all 3 tabs + close */}
+          <div className="flex items-center border-b border-gray-700/50 shrink-0 overflow-x-auto scrollbar-none">
+            {(['testcase', 'result', 'solutions'] as const).map(tab => (
+              <button key={tab} onClick={() => setBottomTab(tab)}
+                className={`px-3 sm:px-4 py-2.5 text-xs font-semibold whitespace-nowrap shrink-0 transition ${tab === 'solutions' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-gray-500 hover:text-gray-300'}`}>
+                {tab === 'testcase' ? 'Testcase' : tab === 'result' ? 'Test Result' : '🏆 My Solutions'}
+              </button>
+            ))}
+            <button onClick={() => setBottomTab('testcase')}
+              className="ml-auto mr-3 text-xs text-gray-500 hover:text-gray-200 shrink-0">✕</button>
+          </div>
+          {/* Solutions content */}
+          <div className="flex-1 overflow-y-auto p-3 min-h-0">
+            <AcceptedSolutions
+              surface="dark"
+              submissions={acSols.submissions}
+              loading={acSols.subsLoading}
+              selectedSub={acSols.selectedSub}
+              subCodeLoading={acSols.subCodeLoading}
+              copied={acSols.copiedSub}
+              onSelect={acSols.loadSubCode}
+              onCopy={acSols.copyCode}
+              onBack={acSols.clearSub}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
