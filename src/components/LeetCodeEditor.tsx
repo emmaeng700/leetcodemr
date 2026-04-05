@@ -120,7 +120,7 @@ function MobileKeybar({ editorViewRef }: { editorViewRef: React.RefObject<any> }
   const btnCls = 'flex items-center justify-center rounded-md bg-[#2c313a] active:bg-[#3e4451] text-gray-200 font-mono font-semibold select-none'
 
   // Row 1: symbols  |  Row 2: arrows + backspace
-  const row1 = ['()', '[]', '{}', '^', '%', '+', '-', '=', '<', '>', '*', '~', '#']
+  const row1 = ['()', '[]', '{}', '=', '+', '-', '*', '<', '>', '#', '%', '^', '~']
   const row2 = [
     { label: '←', action: 'ArrowLeft' },
     { label: '↑', action: 'ArrowUp' },
