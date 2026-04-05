@@ -218,17 +218,27 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
         const base = line.text.match(/^(\s*)/)?.[1] ?? ''
         const extra = (line.text.trimEnd().endsWith(':') || line.text.trimEnd().endsWith('{')) ? '    ' : ''
         const ins = '\n' + base + extra
-        view.dispatch({ changes: { from, to, insert: ins }, selection: { anchor: from + ins.length }, scrollIntoView: true })
+        // No scrollIntoView — prevents horizontal scroll jump on mobile
+        view.dispatch({ changes: { from, to, insert: ins }, selection: { anchor: from + ins.length } })
         return true
       }
       const keys = Prec.highest(keymap.of([{ key: 'Enter', run: smartEnter }, indentWithTab]))
-      // lineWrapping on mobile prevents horizontal scroll hiding line starts
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
+      // On mobile: lock horizontal scroll after every edit so the user is
+      // never thrown off the left edge. Manual touch-pan still works fine.
+      const lockHScroll = isMobile ? EditorView.updateListener.of((update: any) => {
+        if (update.docChanged || update.selectionSet) {
+          requestAnimationFrame(() => {
+            if (update.view.scrollDOM) update.view.scrollDOM.scrollLeft = 0
+          })
+        }
+      }) : []
       setExtensions([
         lang === 'python3' ? python() : cpp(),
         keys,
         indentationMarkers(),
         ...(isMobile ? [EditorView.lineWrapping] : []),
+        lockHScroll,
       ])
     }
     loadExts()
