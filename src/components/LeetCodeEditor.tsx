@@ -100,23 +100,27 @@ function MobileKeybar({ editorViewRef }: { editorViewRef: React.RefObject<any> }
       view.focus(); return
     }
 
-    // Auto-pair brackets — insert pair and place cursor inside
-    const pairs: Record<string, string> = { '(': ')', '[': ']', '{': '}' }
-    if (pairs[action]) {
-      const ins = action + pairs[action]
-      view.dispatch({ changes: { from, to, insert: ins }, selection: { anchor: from + 1 }, scrollIntoView: true })
+    // Paired brackets — insert pair and place cursor inside
+    const pairedMap: Record<string, { ins: string; cursor: number }> = {
+      '()': { ins: '()', cursor: 1 },
+      '[]': { ins: '[]', cursor: 1 },
+      '{}': { ins: '{}', cursor: 1 },
+    }
+    if (pairedMap[action]) {
+      const { ins, cursor } = pairedMap[action]
+      view.dispatch({ changes: { from, to, insert: ins }, selection: { anchor: from + cursor } })
       view.focus(); return
     }
 
     // Plain insert
-    view.dispatch({ changes: { from, to, insert: action }, selection: { anchor: from - (to - from) + action.length }, scrollIntoView: true })
+    view.dispatch({ changes: { from, to, insert: action }, selection: { anchor: from - (to - from) + action.length } })
     view.focus()
   }
 
   const btnCls = 'flex items-center justify-center rounded-md bg-[#2c313a] active:bg-[#3e4451] text-gray-200 font-mono font-semibold select-none'
 
   // Row 1: symbols  |  Row 2: arrows + backspace
-  const row1 = ['(', ')', '[', ']', '{', '}', '-', '=', '<', '>', '%', "'", '#']
+  const row1 = ['(', '()', '[', '[]', '{', '{}', '-', '=', '<', '>', '%', "'", '#']
   const row2 = [
     { label: '←', action: 'ArrowLeft' },
     { label: '↑', action: 'ArrowUp' },
