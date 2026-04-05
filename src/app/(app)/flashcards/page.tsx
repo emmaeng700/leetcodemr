@@ -89,18 +89,9 @@ function FlashcardsInner() {
     if (!q) return
     const savedScroll = window.scrollY
     const restore = () => window.scrollTo(0, savedScroll)
-    fadeSwap(() => {
-      const nowFlipping = !flipped
-      setFlipped(nowFlipping)
-      if (nowFlipping && !visited.has(q.id)) {
-        const next = new Set(visited)
-        next.add(q.id)
-        setVisited(next)
-        addFcVisited(q.id)
-      }
-    })
+    fadeSwap(() => setFlipped(f => !f))
     setTimeout(() => { restore(); requestAnimationFrame(restore) }, 190)
-  }, [q, flipped, fadeSwap, visited])
+  }, [fadeSwap])
 
   const go = useCallback((dir: number) => {
     fadeSwap(() => {
