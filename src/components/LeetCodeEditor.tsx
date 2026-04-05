@@ -3,9 +3,10 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import {
   Play, Send, Loader2, CheckCircle, XCircle, Clock, Cpu,
-  AlertCircle, Key, ChevronDown, ChevronUp, Star,
+  AlertCircle, Key, ChevronDown, ChevronUp, Star, Trophy,
 } from 'lucide-react'
 import { getProgress, updateProgress } from '@/lib/db'
+import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
 
@@ -179,7 +180,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
   const editorViewRef = useRef<any>(null)
 
   /* Bottom panel */
-  const [bottomTab,  setBottomTab]  = useState<'testcase' | 'result'>('testcase')
+  const [bottomTab,  setBottomTab]  = useState<'testcase' | 'result' | 'solutions'>('testcase')
+  const acSols = useAcceptedSolutions(slug, bottomTab === 'solutions')
   const [cases,      setCases]      = useState<TestCase[]>([])
   const [activeCase, setActiveCase] = useState(0)
   const [testInput,  setTestInput]  = useState('')
@@ -553,13 +555,13 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
       )}
 
       {/* ── Bottom panel ── */}
-      <div className="h-44 sm:h-52 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
+      <div className={`${bottomTab === 'solutions' ? 'h-64 sm:h-72' : 'h-44 sm:h-52'} border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0 transition-all duration-200`}>
         {/* Tabs */}
-        <div className="flex items-center border-b border-gray-700/50 shrink-0">
-          {(['testcase', 'result'] as const).map(tab => (
+        <div className="flex items-center border-b border-gray-700/50 shrink-0 overflow-x-auto scrollbar-none">
+          {(['testcase', 'result', 'solutions'] as const).map(tab => (
             <button key={tab} onClick={() => setBottomTab(tab)}
-              className={`px-4 py-2 text-xs font-semibold capitalize transition ${bottomTab === tab ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-500 hover:text-gray-300'}`}>
-              {tab === 'testcase' ? 'Testcase' : 'Test Result'}
+              className={`px-3 sm:px-4 py-2 text-xs font-semibold whitespace-nowrap shrink-0 transition ${bottomTab === tab ? (tab === 'solutions' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-indigo-400 border-b-2 border-indigo-400') : 'text-gray-500 hover:text-gray-300'}`}>
+              {tab === 'testcase' ? 'Testcase' : tab === 'result' ? 'Test Result' : '🏆 My Solutions'}
             </button>
           ))}
           {pollMsg && (
@@ -605,6 +607,21 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
                   className="w-full bg-gray-800/70 border border-gray-700/50 rounded-lg px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none resize-none" />
               )}
             </div>
+          )}
+
+          {/* My Solutions tab */}
+          {bottomTab === 'solutions' && (
+            <AcceptedSolutions
+              surface="dark"
+              submissions={acSols.submissions}
+              loading={acSols.subsLoading}
+              selectedSub={acSols.selectedSub}
+              subCodeLoading={acSols.subCodeLoading}
+              copied={acSols.copiedSub}
+              onSelect={acSols.loadSubCode}
+              onCopy={acSols.copyCode}
+              onBack={acSols.clearSub}
+            />
           )}
 
           {/* Result tab */}
