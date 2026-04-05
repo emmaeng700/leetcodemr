@@ -78,32 +78,43 @@ function MobileKeybar({ editorViewRef, cursorPosRef }: {
     // view.state.selection.main at pointer-down time (iOS can shift it).
     const { from, to } = cursorPosRef.current ?? view.state.selection.main
 
-    // Arrow movement
-    if (action === 'ArrowLeft')  { view.dispatch({ selection: { anchor: Math.max(0, from - 1) } }); view.focus(); return }
-    if (action === 'ArrowRight') { view.dispatch({ selection: { anchor: Math.min(view.state.doc.length, from + 1) } }); view.focus(); return }
+    // Arrow movement — update cursorPosRef manually since these are selection-only
+    // dispatches (no docChanged), so the updateListener won't track them.
+    if (action === 'ArrowLeft') {
+      const pos = Math.max(0, from - 1)
+      view.dispatch({ selection: { anchor: pos } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
+    }
+    if (action === 'ArrowRight') {
+      const pos = Math.min(view.state.doc.length, from + 1)
+      view.dispatch({ selection: { anchor: pos } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
+    }
     if (action === 'ArrowUp') {
       const line = view.state.doc.lineAt(from)
-      if (line.number === 1) { view.dispatch({ selection: { anchor: 0 } }); view.focus(); return }
+      if (line.number === 1) { view.dispatch({ selection: { anchor: 0 } }); cursorPosRef.current = { from: 0, to: 0 }; view.focus(); return }
       const prevLine = view.state.doc.line(line.number - 1)
       const col = from - line.from
-      view.dispatch({ selection: { anchor: prevLine.from + Math.min(col, prevLine.length) } }); view.focus(); return
+      const pos = prevLine.from + Math.min(col, prevLine.length)
+      view.dispatch({ selection: { anchor: pos } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
     }
     if (action === 'ArrowDown') {
       const line = view.state.doc.lineAt(from)
-      if (line.number === view.state.doc.lines) { view.dispatch({ selection: { anchor: view.state.doc.length } }); view.focus(); return }
+      if (line.number === view.state.doc.lines) { const pos = view.state.doc.length; view.dispatch({ selection: { anchor: pos } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return }
       const nextLine = view.state.doc.line(line.number + 1)
       const col = from - line.from
-      view.dispatch({ selection: { anchor: nextLine.from + Math.min(col, nextLine.length) } }); view.focus(); return
+      const pos = nextLine.from + Math.min(col, nextLine.length)
+      view.dispatch({ selection: { anchor: pos } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
     }
 
     // Backspace
     if (action === '⌫') {
       if (from !== to) {
-        view.dispatch({ changes: { from, to, insert: '' } }); view.focus(); return
+        const pos = from
+        view.dispatch({ changes: { from, to, insert: '' } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
       }
       if (from === 0) return
-      view.dispatch({ changes: { from: from - 1, to: from, insert: '' }, selection: { anchor: from - 1 } })
-      view.focus(); return
+      const pos = from - 1
+      view.dispatch({ changes: { from: pos, to: from, insert: '' }, selection: { anchor: pos } })
+      cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
     }
 
     // Paired brackets — insert pair and place cursor inside
@@ -114,13 +125,15 @@ function MobileKeybar({ editorViewRef, cursorPosRef }: {
     }
     if (pairedMap[action]) {
       const { ins, cursor } = pairedMap[action]
-      view.dispatch({ changes: { from, to, insert: ins }, selection: { anchor: from + cursor } })
-      view.focus(); return
+      const pos = from + cursor
+      view.dispatch({ changes: { from, to, insert: ins }, selection: { anchor: pos } })
+      cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
     }
 
     // Plain insert — cursor goes right after the inserted text
-    view.dispatch({ changes: { from, to, insert: action }, selection: { anchor: from + action.length } })
-    view.focus()
+    const pos = from + action.length
+    view.dispatch({ changes: { from, to, insert: action }, selection: { anchor: pos } })
+    cursorPosRef.current = { from: pos, to: pos }; view.focus()
   }
 
   const btnCls = 'flex items-center justify-center rounded-md bg-[#2c313a] active:bg-[#3e4451] text-gray-200 font-mono font-semibold select-none'
@@ -236,11 +249,12 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
       }
       const keys = Prec.highest(keymap.of([{ key: 'Enter', run: smartEnter }, indentWithTab]))
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
-      // Track stable cursor position in a ref — iOS touch events can move CM's
-      // internal selection between onPointerDown and when we read it, so we
-      // read from this ref instead of view.state.selection at button-press time.
+      // Track cursor only on doc changes (user typing).
+      // Ignoring selection-only updates prevents iOS from corrupting the ref
+      // when it silently repositions the cursor after a paired bracket insert.
+      // Arrow key toolbar buttons update the ref manually instead.
       const cursorTracker = EditorView.updateListener.of((update: any) => {
-        if (update.selectionSet || update.docChanged) {
+        if (update.docChanged) {
           const sel = update.state.selection.main
           cursorPosRef.current = { from: sel.from, to: sel.to }
         }
