@@ -47,12 +47,18 @@ const QUICK_PATTERNS = [
   { name: 'DFS',              tags: ['DFS', 'Depth-First Search'] },
 ]
 
-function todayISO() { return new Date().toISOString().split('T')[0] }
+function todayISO() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+function localISO(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
 function computeStreak(log: Record<string, number>) {
   let streak = 0
   const d = new Date()
   while (true) {
-    const key = d.toISOString().split('T')[0]
+    const key = localISO(d)
     if (!log[key]) break
     streak++
     d.setDate(d.getDate() - 1)
@@ -104,7 +110,7 @@ function StreakCard({ streak, log }: { streak: number; log: Record<string, numbe
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday)
     d.setDate(monday.getDate() + i)
-    const key = d.toISOString().split('T')[0]
+    const key = localISO(d)
     const isToday = key === todayISO()
     const isFuture = d > today && !isToday
     return { label: ['M','T','W','T','F','S','S'][i], key, active: !!log[key], isToday, isFuture }
