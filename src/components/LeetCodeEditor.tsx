@@ -224,21 +224,11 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
       }
       const keys = Prec.highest(keymap.of([{ key: 'Enter', run: smartEnter }, indentWithTab]))
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
-      // On mobile: lock horizontal scroll after every edit so the user is
-      // never thrown off the left edge. Manual touch-pan still works fine.
-      const lockHScroll = isMobile ? EditorView.updateListener.of((update: any) => {
-        if (update.docChanged || update.selectionSet) {
-          requestAnimationFrame(() => {
-            if (update.view.scrollDOM) update.view.scrollDOM.scrollLeft = 0
-          })
-        }
-      }) : []
       setExtensions([
         lang === 'python3' ? python() : cpp(),
         keys,
         indentationMarkers(),
         ...(isMobile ? [EditorView.lineWrapping] : []),
-        lockHScroll,
       ])
     }
     loadExts()
@@ -381,6 +371,10 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
         .cm-content, .cm-line { word-break: normal; white-space: pre; }
         .cm-editor { touch-action: none; }
         .cm-editor, .cm-content { max-width: 100%; }
+        @media (max-width: 639px) {
+          .cm-scroller { overflow-x: hidden !important; }
+          .cm-content, .cm-line { white-space: pre-wrap; word-break: break-all; }
+        }
       `}</style>
 
       {/* ── Toolbar ── */}
