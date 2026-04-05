@@ -256,7 +256,7 @@ function FlashcardsInner() {
                   <img
                     src={`/question-images/${q.id}.jpg`}
                     alt={q.title}
-                    className="w-full rounded-lg"
+                    className="w-full max-h-52 sm:max-h-72 object-contain object-top rounded-lg"
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
                     onClick={e => e.stopPropagation()}
                   />
@@ -306,7 +306,7 @@ function FlashcardsInner() {
                     key={i}
                     onClick={() => { setIdx(i); setFlipped(false) }}
                     className={`rounded-full transition-all ${
-                      i === idx ? 'w-3 h-3 bg-indigo-500' : 'w-2 h-2 bg-gray-200 hover:bg-gray-400'
+                      i === idx ? 'w-4 h-4 bg-indigo-500' : 'w-3 h-3 bg-gray-200 hover:bg-gray-400'
                     }`}
                   />
                 ))

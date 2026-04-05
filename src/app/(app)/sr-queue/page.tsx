@@ -112,6 +112,7 @@ export default function SRQueuePage() {
   }, [])
 
   const handleDone = useCallback(async (qId: number) => {
+    if (!online) return
     setCompleting(qId)
     const result = await completeReview(qId)
     setProgress(prev => ({

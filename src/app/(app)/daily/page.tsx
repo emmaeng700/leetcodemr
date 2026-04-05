@@ -272,7 +272,7 @@ export default function DailyPage() {
 
         <button
           onClick={handleGenerate}
-          disabled={generating || !planCode.trim()}
+          disabled={generating || !planCode.trim() || !online}
           className="w-full py-4 bg-gray-900 text-white font-bold text-base rounded-2xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
         >
           <Rocket size={18} />
@@ -323,7 +323,7 @@ export default function DailyPage() {
                 Today's Qs
               </button>
               {showList && (
-                <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-72 max-h-80 overflow-y-auto">
+                <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[min(288px,calc(100vw-1rem))] max-h-80 overflow-y-auto">
                   {todayQs.map(q => (
                     <a key={q.id} href={`/practice/${q.id}`} onClick={() => setShowList(false)}
                       className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-indigo-50 border-b border-gray-50 transition-colors text-sm">

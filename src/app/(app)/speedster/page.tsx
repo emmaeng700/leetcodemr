@@ -200,7 +200,7 @@ export default function SpeedsterPage() {
         <div className="flex justify-center gap-1.5 mb-10 flex-wrap">
           {days.map((_, i) => (
             <button key={i} onClick={() => setDayIdx(i)}
-              className={`rounded-full transition-all ${i === dayIdx ? 'w-3 h-3 bg-yellow-500' : 'w-2 h-2 bg-gray-200 hover:bg-yellow-300'}`} />
+              className={`rounded-full transition-all ${i === dayIdx ? 'w-4 h-4 bg-yellow-500' : 'w-3 h-3 bg-gray-200 hover:bg-yellow-300'}`} />
           ))}
         </div>
       )}
@@ -298,7 +298,7 @@ export default function SpeedsterPage() {
                   </div>
                   <div className="px-3 sm:px-5 pb-3 sm:pb-5">
                     <img src={`/question-images/${currentQ.id}.jpg`} alt={currentQ.title}
-                      className="w-full rounded-lg"
+                      className="w-full max-h-52 sm:max-h-72 object-contain object-top rounded-lg"
                       onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
                       onClick={e => e.stopPropagation()} />
                   </div>
@@ -455,7 +455,7 @@ export default function SpeedsterPage() {
           <div className="flex justify-center gap-1.5 mb-10 flex-wrap">
             {days.map((_, i) => (
               <button key={i} onClick={() => setDayIdx(i)}
-                className={`rounded-full transition-all ${i === dayIdx ? 'w-3 h-3 bg-yellow-500' : 'w-2 h-2 bg-gray-200 hover:bg-yellow-300'}`} />
+                className={`rounded-full transition-all ${i === dayIdx ? 'w-4 h-4 bg-yellow-500' : 'w-3 h-3 bg-gray-200 hover:bg-yellow-300'}`} />
             ))}
           </div>
         )}
@@ -485,7 +485,7 @@ export default function SpeedsterPage() {
               </button>
 
               {showCardList && (
-                <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-72 max-h-80 overflow-y-auto">
+                <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[min(288px,calc(100vw-1rem))] max-h-80 overflow-y-auto">
                   {planOrder.map((qid, i) => {
                     const q = qMap[qid]
                     if (!q) return null
@@ -552,7 +552,7 @@ export default function SpeedsterPage() {
                   </div>
                   <div className="px-3 sm:px-5 pb-3 sm:pb-5">
                     <img src={`/question-images/${currentQ.id}.jpg`} alt={currentQ.title}
-                      className="w-full rounded-lg"
+                      className="w-full max-h-52 sm:max-h-72 object-contain object-top rounded-lg"
                       onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
                       onClick={e => e.stopPropagation()} />
                   </div>

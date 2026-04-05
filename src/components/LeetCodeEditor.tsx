@@ -450,7 +450,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
       )}
 
       {/* ── Bottom panel ── */}
-      <div className="h-52 sm:h-64 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
+      <div className="h-44 sm:h-52 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
         {/* Tabs */}
         <div className="flex items-center border-b border-gray-700/50 shrink-0">
           {(['testcase', 'result'] as const).map(tab => (
