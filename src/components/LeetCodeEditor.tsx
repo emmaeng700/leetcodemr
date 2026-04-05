@@ -368,7 +368,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
 
   /* ══ RENDER ══════════════════════════════════════════════ */
   return (
-    <div className="flex flex-col overflow-x-hidden rounded-none sm:rounded-xl border-0 sm:border border-gray-700/50 bg-[#1a1a2e] flex-1 min-h-0 w-full">
+    <div className="relative flex flex-col overflow-x-hidden rounded-none sm:rounded-xl border-0 sm:border border-gray-700/50 bg-[#1a1a2e] flex-1 min-h-0 w-full">
       <style>{`
         .cm-editor { font-size: 11px; }
         @media (min-width: 640px)  { .cm-editor { font-size: 12px; } }
@@ -555,7 +555,11 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
       )}
 
       {/* ── Bottom panel ── */}
-      <div className={`${bottomTab === 'solutions' ? 'h-56 sm:h-64' : 'h-44 sm:h-52'} border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0 transition-all duration-200`}>
+      <div className={`
+        ${bottomTab === 'solutions'
+          ? 'absolute bottom-0 left-0 right-0 h-[70%] z-20 border-t-2 border-emerald-600/40 shadow-2xl'
+          : 'h-44 sm:h-52 shrink-0 border-t border-gray-700/50'}
+        flex flex-col bg-[#16213e] transition-all duration-200`}>
         {/* Tabs */}
         <div className="flex items-center border-b border-gray-700/50 shrink-0 overflow-x-auto scrollbar-none">
           {(['testcase', 'result', 'solutions'] as const).map(tab => (
