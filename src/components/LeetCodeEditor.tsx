@@ -63,6 +63,94 @@ interface Props {
   speedster?: boolean
 }
 
+/* ── Mobile keyboard toolbar ───────────────────────────── */
+function MobileKeybar({ editorViewRef }: { editorViewRef: React.RefObject<any> }) {
+  const press = (action: string | (() => void)) => {
+    const view = editorViewRef.current
+    if (!view) return
+    if (typeof action === 'function') { action(); return }
+
+    const { from, to } = view.state.selection.main
+
+    // Arrow movement
+    if (action === 'ArrowLeft')  { view.dispatch({ selection: { anchor: Math.max(0, from - 1) } }); view.focus(); return }
+    if (action === 'ArrowRight') { view.dispatch({ selection: { anchor: Math.min(view.state.doc.length, from + 1) } }); view.focus(); return }
+    if (action === 'ArrowUp') {
+      const line = view.state.doc.lineAt(from)
+      if (line.number === 1) { view.dispatch({ selection: { anchor: 0 } }); view.focus(); return }
+      const prevLine = view.state.doc.line(line.number - 1)
+      const col = from - line.from
+      view.dispatch({ selection: { anchor: prevLine.from + Math.min(col, prevLine.length) } }); view.focus(); return
+    }
+    if (action === 'ArrowDown') {
+      const line = view.state.doc.lineAt(from)
+      if (line.number === view.state.doc.lines) { view.dispatch({ selection: { anchor: view.state.doc.length } }); view.focus(); return }
+      const nextLine = view.state.doc.line(line.number + 1)
+      const col = from - line.from
+      view.dispatch({ selection: { anchor: nextLine.from + Math.min(col, nextLine.length) } }); view.focus(); return
+    }
+
+    // Backspace
+    if (action === '⌫') {
+      if (from !== to) {
+        view.dispatch({ changes: { from, to, insert: '' } }); view.focus(); return
+      }
+      if (from === 0) return
+      view.dispatch({ changes: { from: from - 1, to: from, insert: '' }, selection: { anchor: from - 1 } })
+      view.focus(); return
+    }
+
+    // Auto-pair brackets — insert pair and place cursor inside
+    const pairs: Record<string, string> = { '(': ')', '[': ']', '{': '}' }
+    if (pairs[action]) {
+      const ins = action + pairs[action]
+      view.dispatch({ changes: { from, to, insert: ins }, selection: { anchor: from + 1 }, scrollIntoView: true })
+      view.focus(); return
+    }
+
+    // Plain insert
+    view.dispatch({ changes: { from, to, insert: action }, selection: { anchor: from - (to - from) + action.length }, scrollIntoView: true })
+    view.focus()
+  }
+
+  const btnCls = 'flex items-center justify-center rounded-md bg-[#2c313a] active:bg-[#3e4451] text-gray-200 font-mono font-semibold select-none'
+
+  // Row 1: symbols  |  Row 2: arrows + backspace
+  const row1 = ['(', ')', '[', ']', '{', '}', ':', '=', ',', '.', '"', "'", '#']
+  const row2 = [
+    { label: '←', action: 'ArrowLeft' },
+    { label: '↑', action: 'ArrowUp' },
+    { label: '↓', action: 'ArrowDown' },
+    { label: '→', action: 'ArrowRight' },
+    { label: '⌫', action: '⌫' },
+  ]
+
+  return (
+    <div className="sm:hidden shrink-0 bg-[#21252b] border-t border-gray-700/50 px-1 py-1 space-y-1">
+      {/* Symbol row — horizontal scroll */}
+      <div className="flex gap-1 overflow-x-auto pb-0.5" style={{ touchAction: 'pan-x' }}>
+        {row1.map(k => (
+          <button key={k} onPointerDown={e => { e.preventDefault(); press(k) }}
+            style={{ touchAction: 'manipulation', minWidth: 32 }}
+            className={`${btnCls} h-8 px-2 text-xs shrink-0`}>
+            {k}
+          </button>
+        ))}
+      </div>
+      {/* Nav row */}
+      <div className="flex gap-1">
+        {row2.map(({ label, action }) => (
+          <button key={label} onPointerDown={e => { e.preventDefault(); press(action) }}
+            style={{ touchAction: 'manipulation' }}
+            className={`${btnCls} flex-1 h-9 text-sm ${label === '⌫' ? 'bg-[#3a2a2a] active:bg-[#5a3a3a] text-red-300' : ''}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /* ══════════════════════════════════════════════════════════ */
 export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speedster = false }: Props) {
   const onAcceptedRef = useRef(onAccepted)
@@ -84,6 +172,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
   const [retryKey,    setRetryKey]   = useState(0)
   const [extensions,  setExtensions] = useState<any[]>([])
   const [editorTheme, setTheme]      = useState<any>(null)
+  const editorViewRef = useRef<any>(null)
 
   /* Bottom panel */
   const [bottomTab,  setBottomTab]  = useState<'testcase' | 'result'>('testcase')
@@ -440,6 +529,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
           <CodeMirror
             value={code}
             onChange={handleCodeChange}
+            onCreateEditor={(view) => { editorViewRef.current = view }}
             height="100%"
             theme={editorTheme ?? 'dark'}
             extensions={extensions}
@@ -447,6 +537,11 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
             style={{ height: '100%', maxWidth: '100%', overflowX: 'hidden' }}
           />
         </div>
+      )}
+
+      {/* ── Mobile keyboard toolbar — sm:hidden ── */}
+      {!lcLoad && !lcErr && (
+        <MobileKeybar editorViewRef={editorViewRef} />
       )}
 
       {/* ── Bottom panel ── */}
