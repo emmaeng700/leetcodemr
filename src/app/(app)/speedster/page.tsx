@@ -7,6 +7,7 @@ import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
 
 interface Question {
   id: number
@@ -34,9 +35,11 @@ export default function SpeedsterPage() {
   const [flipped,      setFlipped]      = useState(false)
   const [fading,       setFading]       = useState(false)
   const [showCardList, setShowCardList] = useState(false)
-  const [filterDiff,   setFilterDiff]   = useState<'All' | 'Easy' | 'Medium' | 'Hard'>('All')
-  const [filterSolved, setFilterSolved] = useState<'All' | 'Unsolved' | 'Solved'>('All')
-  const [visited,      setVisited]      = useState<Set<number>>(new Set())
+  const [filterDiff,    setFilterDiff]    = useState<'All' | 'Easy' | 'Medium' | 'Hard'>('All')
+  const [filterSolved,  setFilterSolved]  = useState<'All' | 'Unsolved' | 'Solved'>('All')
+  const [filterSource,  setFilterSource]  = useState('All')
+  const [filterPattern, setFilterPattern] = useState<string | null>(null)
+  const [visited,       setVisited]       = useState<Set<number>>(new Set())
   // Mobile panel: 'cards' = day cards + flashcards, 'editor' = code editor
   const [mobilePanel, setMobilePanel] = useState<'cards' | 'editor'>('cards')
   const online = useOnlineStatus()
@@ -86,6 +89,11 @@ export default function SpeedsterPage() {
     const solved = !!progress[String(id)]?.solved
     if (filterSolved === 'Unsolved' && solved) return false
     if (filterSolved === 'Solved'   && !solved) return false
+    if (filterSource !== 'All' && !(q.source || []).includes(filterSource)) return false
+    if (filterPattern) {
+      const patTags = QUICK_PATTERNS.find(p => p.name === filterPattern)?.tags ?? []
+      if (!(q.tags || []).some(t => (patTags as readonly string[]).includes(t))) return false
+    }
     return true
   })
   const total       = filteredOrder.length
@@ -93,7 +101,7 @@ export default function SpeedsterPage() {
   const solvedCount = planOrder.filter(id => !!progress[String(id)]?.solved).length
 
   // Reset to first card when filters change
-  useEffect(() => { setCardIdx(0); setFlipped(false) }, [filterDiff, filterSolved])
+  useEffect(() => { setCardIdx(0); setFlipped(false) }, [filterDiff, filterSolved, filterSource, filterPattern])
 
   // Close card list on outside click — use class check so it works regardless
   // of whether mobile or desktop DOM node is active (both render simultaneously)
@@ -158,44 +166,81 @@ export default function SpeedsterPage() {
   )
 
   // ─── Flashcard filter bar (shared) ───
+  const anyFilter = filterDiff !== 'All' || filterSolved !== 'All' || filterSource !== 'All' || filterPattern !== null
   const filterBar = (
-    <div className="flex flex-wrap items-center gap-1.5 mb-3">
-      {(['All', 'Easy', 'Medium', 'Hard'] as const).map(d => (
-        <button key={d} onClick={() => setFilterDiff(d)} style={{ touchAction: 'manipulation' }}
+    <div className="space-y-2 mb-3">
+      {/* Row 1: Difficulty + Solved status */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {(['All', 'Easy', 'Medium', 'Hard'] as const).map(d => (
+          <button key={d} onClick={() => setFilterDiff(d)} style={{ touchAction: 'manipulation' }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+              filterDiff === d
+                ? d === 'Easy'   ? 'bg-green-500 text-white border-green-500'
+                : d === 'Medium' ? 'bg-yellow-500 text-white border-yellow-500'
+                : d === 'Hard'   ? 'bg-red-500 text-white border-red-500'
+                : 'bg-gray-800 text-white border-gray-800'
+                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+            }`}>
+            {d}
+          </button>
+        ))}
+        <div className="w-px h-4 bg-gray-200 mx-0.5 shrink-0" />
+        <button onClick={() => setFilterSolved(s => s === 'Unsolved' ? 'All' : 'Unsolved')} style={{ touchAction: 'manipulation' }}
           className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-            filterDiff === d
-              ? d === 'Easy'   ? 'bg-green-500 text-white border-green-500'
-              : d === 'Medium' ? 'bg-yellow-500 text-white border-yellow-500'
-              : d === 'Hard'   ? 'bg-red-500 text-white border-red-500'
-              : 'bg-gray-800 text-white border-gray-800'
-              : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+            filterSolved === 'Unsolved' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
           }`}>
-          {d}
+          Unsolved
         </button>
-      ))}
-      <div className="w-px h-4 bg-gray-200 mx-0.5 shrink-0" />
-      <button onClick={() => setFilterSolved(s => s === 'Unsolved' ? 'All' : 'Unsolved')} style={{ touchAction: 'manipulation' }}
-        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-          filterSolved === 'Unsolved' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
-        }`}>
-        Unsolved
-      </button>
-      <button onClick={() => setFilterSolved(s => s === 'Solved' ? 'All' : 'Solved')} style={{ touchAction: 'manipulation' }}
-        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-          filterSolved === 'Solved' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
-        }`}>
-        Solved
-      </button>
-      {(filterDiff !== 'All' || filterSolved !== 'All') && (
-        <button onClick={() => { setFilterDiff('All'); setFilterSolved('All') }} style={{ touchAction: 'manipulation' }}
-          className="px-2 py-1 rounded-lg text-xs text-gray-400 border border-gray-200 hover:text-gray-600 transition-colors">
-          Clear
+        <button onClick={() => setFilterSolved(s => s === 'Solved' ? 'All' : 'Solved')} style={{ touchAction: 'manipulation' }}
+          className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+            filterSolved === 'Solved' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+          }`}>
+          Solved
+        </button>
+        <span className="text-xs text-gray-400 ml-auto shrink-0">{total} shown</span>
+        <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">
+          <CheckCircle size={11} /> {visited.size} visited
+        </span>
+      </div>
+
+      {/* Row 2: Source */}
+      <div className="flex flex-wrap gap-1.5">
+        {QUESTION_SOURCES.map(s => (
+          <button key={s.value} onClick={() => setFilterSource(s.value)} style={{ touchAction: 'manipulation' }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+              filterSource === s.value ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'
+            }`}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Row 3: Patterns */}
+      <div className="flex flex-wrap gap-1.5">
+        <button onClick={() => setFilterPattern(null)} style={{ touchAction: 'manipulation' }}
+          className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+            !filterPattern ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'
+          }`}>
+          All Patterns
+        </button>
+        {QUICK_PATTERNS.map(p => (
+          <button key={p.name} onClick={() => setFilterPattern(filterPattern === p.name ? null : p.name)} style={{ touchAction: 'manipulation' }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+              filterPattern === p.name ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'
+            }`}>
+            {p.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Clear all */}
+      {anyFilter && (
+        <button onClick={() => { setFilterDiff('All'); setFilterSolved('All'); setFilterSource('All'); setFilterPattern(null) }}
+          style={{ touchAction: 'manipulation' }}
+          className="px-2.5 py-1 rounded-lg text-xs text-gray-400 border border-gray-200 hover:text-gray-600 transition-colors">
+          Clear all filters
         </button>
       )}
-      <span className="text-xs text-gray-400 ml-auto shrink-0">{total} shown</span>
-      <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">
-        <CheckCircle size={11} /> {visited.size} visited
-      </span>
     </div>
   )
 
