@@ -120,24 +120,14 @@ export default function SpeedsterPage() {
       if (panel) panel.scrollTop = savedScroll
       else window.scrollTo(0, savedScroll)
     }
-    fadeSwap(() => {
-      setFlipped(f => {
-        const nowFlipping = !f
-        // Auto-mark as visited when revealing the back for the first time
-        if (nowFlipping && currentQ && !visited.has(currentQ.id)) {
-          setVisited(prev => { const next = new Set(prev); next.add(currentQ.id); return next })
-          addFcVisited(currentQ.id)
-        }
-        return nowFlipping
-      })
-    })
+    fadeSwap(() => setFlipped(f => !f))
     // Restore once after the fade (180ms), then once more after paint
     // to handle browser scroll-adjustment caused by content height change
     setTimeout(() => {
       restore()
       requestAnimationFrame(restore)
     }, 190)
-  }, [fadeSwap, currentQ, visited])
+  }, [fadeSwap])
 
   const go = useCallback((dir: number) => {
     fadeSwap(() => {
