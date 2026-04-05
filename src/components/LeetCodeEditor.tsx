@@ -113,8 +113,8 @@ function MobileKeybar({ editorViewRef }: { editorViewRef: React.RefObject<any> }
       view.focus(); return
     }
 
-    // Plain insert
-    view.dispatch({ changes: { from, to, insert: action }, selection: { anchor: from - (to - from) + action.length } })
+    // Plain insert — cursor goes right after the inserted text
+    view.dispatch({ changes: { from, to, insert: action }, selection: { anchor: from + action.length } })
     view.focus()
   }
 
