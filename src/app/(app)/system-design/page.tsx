@@ -101,7 +101,12 @@ function SDFlashcards() {
     fadeSwap(() => { setDeck(buildDeck(cat, next)); setIdx(0); setFlipped(false) })
   }
 
-  const handleFlip = () => fadeSwap(() => setFlipped(f => !f))
+  const handleFlip = () => {
+    const savedScroll = window.scrollY
+    const restore = () => window.scrollTo(0, savedScroll)
+    fadeSwap(() => setFlipped(f => !f))
+    setTimeout(() => { restore(); requestAnimationFrame(restore) }, 190)
+  }
 
   const go = useCallback((dir: number) => {
     fadeSwap(() => {

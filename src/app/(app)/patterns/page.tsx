@@ -134,11 +134,14 @@ function PatternFlashcards({
 
   const handleFlip = useCallback(() => {
     if (!card) return
+    const savedScroll = window.scrollY
+    const restore = () => window.scrollTo(0, savedScroll)
     fadeSwap(() => {
       const next = !flipped
       setFlipped(next)
       if (next) onVisit(card.id)
     })
+    setTimeout(() => { restore(); requestAnimationFrame(restore) }, 190)
   }, [card, flipped, fadeSwap, onVisit])
 
   const toggleVisited = useCallback((e: React.MouseEvent, id: number) => {

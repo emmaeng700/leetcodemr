@@ -110,15 +110,20 @@ export default function SpeedsterPage() {
   }, [])
 
   const handleFlip = useCallback(() => {
-    // Capture scroll position before the flip causes a layout reflow
     const panel = cardsPanelRef.current
+    // Capture scroll immediately — before React does anything
     const savedScroll = panel ? panel.scrollTop : window.scrollY
-    fadeSwap(() => setFlipped(f => !f))
-    // Restore after the 180ms fade settles
-    setTimeout(() => {
+    const restore = () => {
       if (panel) panel.scrollTop = savedScroll
       else window.scrollTo(0, savedScroll)
-    }, 200)
+    }
+    fadeSwap(() => setFlipped(f => !f))
+    // Restore once after the fade (180ms), then once more after paint
+    // to handle browser scroll-adjustment caused by content height change
+    setTimeout(() => {
+      restore()
+      requestAnimationFrame(restore)
+    }, 190)
   }, [fadeSwap])
 
   const go = useCallback((dir: number) => {

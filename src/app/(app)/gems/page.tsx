@@ -48,6 +48,8 @@ export default function GemsPage() {
 
   const handleFlip = useCallback(() => {
     if (!card) return
+    const savedScroll = window.scrollY
+    const restore = () => window.scrollTo(0, savedScroll)
     fadeSwap(() => {
       const nowFlipping = !flipped
       setFlipped(nowFlipping)
@@ -58,6 +60,7 @@ export default function GemsPage() {
         addGemsVisited(card.id)
       }
     })
+    setTimeout(() => { restore(); requestAnimationFrame(restore) }, 190)
   }, [card, flipped, fadeSwap, visited])
 
   const go = useCallback((dir: number) => {
