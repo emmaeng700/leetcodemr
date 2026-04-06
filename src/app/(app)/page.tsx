@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Search, Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp } from 'lucide-react'
 import { getProgress, updateProgress, getActivityLog, getDueReviews, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate } from '@/lib/db'
-import { computeDailyGoalsMetToday } from '@/lib/streakGoals'
+import { computeDailyGoalsMetToday, computePlanStreakDisplayNumber } from '@/lib/streakGoals'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
 
@@ -198,7 +198,6 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   const router = useRouter()
   const [date, setDate] = useState('')
   const [editing, setEditing] = useState(false)
-  const [streak, setStreak] = useState(0)
   const [activityLog, setActivityLog] = useState<Record<string, number>>({})
   const [studyPlan, setStudyPlan] = useState<Awaited<ReturnType<typeof getStudyPlan>>>(null)
   const [dueReviews, setDueReviews] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
@@ -215,7 +214,6 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
         getDueReviews(),
       ])
       if (cancelled) return
-      setStreak(computeStreak(log))
       setActivityLog(log)
       setStudyPlan(plan)
       setDueReviews(due)
@@ -236,12 +234,13 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
       const [log, due] = await Promise.all([getActivityLog(), getDueReviews()])
       if (cancelled) return
       setActivityLog(log)
-      setStreak(computeStreak(log))
       setDueReviews(due)
     })()
     return () => { cancelled = true }
   }, [progress, loaded])
   const goalsMetToday = computeDailyGoalsMetToday(studyPlan, progress, dueReviews.length)
+  const streakDisplay =
+    computePlanStreakDisplayNumber(studyPlan, progress, dueReviews.length) ?? computeStreak(activityLog)
   useEffect(() => {
     if (!questions.length) return
     const todayKey = 'daily_q_' + todayISO()
@@ -274,7 +273,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   if (!loaded) return null
   return (
     <>
-      <StreakCard streak={streak} log={activityLog} goalsMetToday={goalsMetToday} />
+      <StreakCard streak={streakDisplay} log={activityLog} goalsMetToday={goalsMetToday} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <div className="flex items-center justify-between mb-3">
