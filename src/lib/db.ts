@@ -77,7 +77,11 @@ export async function updateProgress(questionId: number, data: any) {
   }, { onConflict: 'user_id,question_id' })
   if (upsertErr) console.error('[db] updateProgress:', upsertErr.message)
 
-  await syncStreakActivityFromGoals()
+  try {
+    await syncStreakActivityFromGoals()
+  } catch (e) {
+    console.error('[db] syncStreakActivityFromGoals:', e)
+  }
   return upsertErr?.message ?? null
 }
 
@@ -433,7 +437,11 @@ export async function completeReview(questionId: number) {
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,question_id' })
 
-  await syncStreakActivityFromGoals()
+  try {
+    await syncStreakActivityFromGoals()
+  } catch (e) {
+    console.error('[db] syncStreakActivityFromGoals:', e)
+  }
 
   return { review_count: newCount, next_review: nextReview }
 }

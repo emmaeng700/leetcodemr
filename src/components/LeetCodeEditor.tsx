@@ -354,11 +354,16 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
             if (alreadySolved) {
               setSolvedStatus('already')
             } else {
-              const err = await updateProgress(appQuestionId, { solved: true })
-              if (err) {
-                toast.error(`Couldn’t mark as solved: ${err}`)
-              } else {
-                setSolvedStatus('marked')
+              try {
+                const err = await updateProgress(appQuestionId, { solved: true })
+                if (err) {
+                  toast.error(`Couldn’t mark as solved: ${err}`)
+                } else {
+                  setSolvedStatus('marked')
+                }
+              } catch (e) {
+                console.error('[LeetCodeEditor] updateProgress:', e)
+                toast.error(`Couldn’t mark as solved: ${e instanceof Error ? e.message : String(e)}`)
               }
             }
             onAcceptedRef.current?.()

@@ -21,7 +21,8 @@ function computePlanStreakCore(
 ): { goalsMet: boolean; streakNumber: number } {
   const solvedSet = buildSolvedSet(progress)
 
-  const diffDays = diffDaysSincePlanStart(plan.start_date)
+  const diffDaysRaw = diffDaysSincePlanStart(plan.start_date)
+  const diffDays = Number.isFinite(diffDaysRaw) ? diffDaysRaw : 0
   const totalDays = Math.ceil(plan.question_order.length / plan.per_day)
 
   if (diffDays < 0) {
@@ -52,7 +53,8 @@ function computePlanStreakCore(
   )
   const remaining = dayIds.filter((id: number) => !solvedSet.has(id)).length
   const goalsMet = remaining === 0 && dueReviewCount === 0
-  const streakNumber = goalsMet ? activeDayIndex + 1 : activeDayIndex
+  const safeIdx = Number.isFinite(activeDayIndex) ? Math.max(0, activeDayIndex) : 0
+  const streakNumber = goalsMet ? safeIdx + 1 : safeIdx
 
   return { goalsMet, streakNumber }
 }

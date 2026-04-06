@@ -20,7 +20,9 @@ export function diffDaysSincePlanStart(planStartDate: string): number {
   start.setHours(0, 0, 0, 0)
   const now = new Date(today)
   now.setHours(0, 0, 0, 0)
-  return Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(now.getTime())) return 0
+  const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+  return Number.isFinite(diffDays) ? diffDays : 0
 }
 
 /** Supabase may return `question_order` as number[] or a JSON string. */
