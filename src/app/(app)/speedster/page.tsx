@@ -8,6 +8,7 @@ import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
+import toast from 'react-hot-toast'
 
 interface Question {
   id: number
@@ -487,8 +488,13 @@ export default function SpeedsterPage() {
         slug={currentQ.slug}
         speedster
         onAccepted={async () => {
-          await addMasteryRunEvent(currentQ.id, 1)
+          const res = await addMasteryRunEvent(currentQ.id, 1)
+          if (!res.ok) {
+            toast.error(`Failed to save mastery run — ${res.error ?? 'check Supabase RLS'}`)
+            return
+          }
           setRuns(prev => ({ ...prev, [String(currentQ.id)]: (prev[String(currentQ.id)] ?? 0) + 1 }))
+          toast.success('Mastery run saved')
         }}
       />
     ) : (
@@ -753,8 +759,13 @@ export default function SpeedsterPage() {
                   slug={currentQ.slug}
                   speedster
                   onAccepted={async () => {
-                    await addMasteryRunEvent(currentQ.id, 1)
+                    const res = await addMasteryRunEvent(currentQ.id, 1)
+                    if (!res.ok) {
+                      toast.error(`Failed to save mastery run — ${res.error ?? 'check Supabase RLS'}`)
+                      return
+                    }
                     setRuns(prev => ({ ...prev, [String(currentQ.id)]: (prev[String(currentQ.id)] ?? 0) + 1 }))
+                    toast.success('Mastery run saved')
                   }}
                 />
               </div>

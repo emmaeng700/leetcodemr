@@ -87,9 +87,29 @@ export async function addMasteryRunEvent(questionId: number, count = 1) {
   }))
   const { error } = await supabase.from('mastery_run_events').insert(inserts)
   if (error) console.error('[db] addMasteryRunEvent:', error.message)
+  return { ok: !error, error: error?.message ?? null }
 }
 
 export async function getMasteryRunsByQuestion(): Promise<Record<string, number>> {
+  // Prefer server-side aggregation when possible; if it's not available,
+  // fall back to counting rows client-side.
+  const { data: grouped, error: groupedErr } = await supabase
+    .from('mastery_run_events')
+    .select('question_id, count:question_id')
+    .eq('user_id', USER_ID)
+    // @ts-ignore - supabase-js supports group() via PostgREST; types may lag
+    .group('question_id')
+
+  if (!groupedErr && Array.isArray(grouped) && grouped.length > 0) {
+    const out: Record<string, number> = {}
+    for (const row of grouped as any[]) {
+      out[String(row.question_id)] = Number(row.count ?? 0) || 0
+    }
+    return out
+  }
+
+  if (groupedErr) console.error('[db] getMasteryRunsByQuestion(grouped):', groupedErr.message)
+
   const { data, error } = await supabase
     .from('mastery_run_events')
     .select('question_id')
