@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { Search, Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp } from 'lucide-react'
 import { getProgress, updateProgress, getActivityLog, getDueReviews, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate } from '@/lib/db'
-import { computeDailyGoalsMetToday, computePlanStreakDisplayNumber } from '@/lib/streakGoals'
+import { computeDailyGoalsMetToday, computePlanStreakDisplayNumber, normalizeStudyPlanRow } from '@/lib/streakGoals'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
 
@@ -239,8 +239,10 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     return () => { cancelled = true }
   }, [progress, loaded])
   const goalsMetToday = computeDailyGoalsMetToday(studyPlan, progress, dueReviews.length)
-  const streakDisplay =
-    computePlanStreakDisplayNumber(studyPlan, progress, dueReviews.length) ?? computeStreak(activityLog)
+  const planNorm = normalizeStudyPlanRow(studyPlan)
+  const streakDisplay = planNorm
+    ? (computePlanStreakDisplayNumber(studyPlan, progress, dueReviews.length) ?? 0)
+    : computeStreak(activityLog)
   useEffect(() => {
     if (!questions.length) return
     const todayKey = 'daily_q_' + todayISO()

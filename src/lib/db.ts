@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { computeDailyGoalsMetToday } from './streakGoals'
+import { todayISOChicago } from './studyPlanDay'
 import { srInterval } from './utils'
 
 const USER_ID = 'emmanuel'
@@ -471,7 +472,7 @@ export async function recalibrateSRDates() {
 
 export async function getDueReviews(): Promise<Array<{ id: number; review_count: number; next_review: string }>> {
   await recalibrateSRDates()
-  const today = todayISO()
+  const today = todayISOChicago()
   const { data } = await supabase
     .from('progress')
     .select('question_id,next_review,review_count')
@@ -484,7 +485,7 @@ export async function getDueReviews(): Promise<Array<{ id: number; review_count:
 
 /** Same rules as notify-daily email: streak day counts only when today's active daily block is fully solved AND no SR reviews are due. */
 export async function syncStreakActivityFromGoals(): Promise<void> {
-  const today = todayISO()
+  const today = todayISOChicago()
   const plan = await getStudyPlan()
   const { data: progressRows } = await supabase
     .from('progress')
