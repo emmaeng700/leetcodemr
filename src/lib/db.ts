@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { computeDailyGoalsMetToday } from './streakGoals'
 import { srInterval } from './utils'
 
 const USER_ID = 'emmanuel'
@@ -490,48 +491,18 @@ export async function syncStreakActivityFromGoals(): Promise<void> {
     .select('question_id,solved')
     .eq('user_id', USER_ID)
 
-  const solvedSet = new Set<number>(
-    (progressRows ?? []).filter((r: any) => r.solved).map((r: any) => Number(r.question_id))
-  )
+  const progressMap: Record<string, { solved?: boolean }> = {}
+  for (const row of progressRows ?? []) {
+    const r = row as { question_id: number; solved: boolean }
+    progressMap[String(r.question_id)] = { solved: !!r.solved }
+  }
 
   const clearToday = async () => {
     await supabase.from('activity_log').delete().eq('user_id', USER_ID).eq('date', today)
   }
 
-  if (!plan?.question_order?.length) {
-    await clearToday()
-    return
-  }
-
-  const start = new Date(plan.start_date + 'T00:00:00')
-  const now = new Date(today + 'T00:00:00')
-  start.setHours(0, 0, 0, 0)
-  now.setHours(0, 0, 0, 0)
-  const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-  const totalDays = Math.ceil(plan.question_order.length / plan.per_day)
-
-  if (diffDays < 0 || diffDays >= totalDays) {
-    await clearToday()
-    return
-  }
-
-  let activeDayIndex = diffDays
-  for (let i = 0; i <= diffDays; i++) {
-    const ids: number[] = plan.question_order.slice(i * plan.per_day, i * plan.per_day + plan.per_day)
-    if (!ids.every(id => solvedSet.has(id))) {
-      activeDayIndex = i
-      break
-    }
-  }
-
-  const dayIds = plan.question_order.slice(
-    activeDayIndex * plan.per_day,
-    activeDayIndex * plan.per_day + plan.per_day
-  )
-  const remaining = dayIds.filter((id: number) => !solvedSet.has(id)).length
-
   const dueReviews = await getDueReviews()
-  const goalsMet = remaining === 0 && dueReviews.length === 0
+  const goalsMet = computeDailyGoalsMetToday(plan, progressMap, dueReviews.length)
 
   if (goalsMet) {
     await supabase.from('activity_log').upsert({

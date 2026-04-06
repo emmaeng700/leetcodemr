@@ -1,9 +1,10 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Search, Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp } from 'lucide-react'
-import { getProgress, updateProgress, getActivityLog, getDueReviews, getInterviewDate, setInterviewDate, clearInterviewDate } from '@/lib/db'
+import { getProgress, updateProgress, getActivityLog, getDueReviews, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate } from '@/lib/db'
+import { computeDailyGoalsMetToday } from '@/lib/streakGoals'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
 
@@ -105,7 +106,16 @@ function getStreakMessage(streak: number): string {
   return msgs[Math.abs(h) % msgs.length]
 }
 
-function StreakCard({ streak, log }: { streak: number; log: Record<string, number> }) {
+function StreakCard({
+  streak,
+  log,
+  goalsMetToday,
+}: {
+  streak: number
+  log: Record<string, number>
+  /** Today’s dot uses live daily+SR rules; stale activity_log rows can’t show “done” early. */
+  goalsMetToday: boolean
+}) {
   // Build Mon→Sun for the current ISO week
   const today = new Date()
   const dayOfWeek = today.getDay() // 0=Sun
@@ -118,7 +128,8 @@ function StreakCard({ streak, log }: { streak: number; log: Record<string, numbe
     const key = localISO(d)
     const isToday = key === todayISO()
     const isFuture = d > today && !isToday
-    return { label: ['M','T','W','T','F','S','S'][i], key, active: !!log[key], isToday, isFuture }
+    const active = isToday ? goalsMetToday : !!log[key]
+    return { label: ['M','T','W','T','F','S','S'][i], key, active, isToday, isFuture }
   })
 
   const weekActive = weekDays.filter(d => d.active).length
@@ -189,18 +200,48 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   const [editing, setEditing] = useState(false)
   const [streak, setStreak] = useState(0)
   const [activityLog, setActivityLog] = useState<Record<string, number>>({})
+  const [studyPlan, setStudyPlan] = useState<Awaited<ReturnType<typeof getStudyPlan>>>(null)
+  const [dueReviews, setDueReviews] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
   const [dailyQ, setDailyQ] = useState<Question | null>(null)
   const [loaded, setLoaded] = useState(false)
+  const streakHydratedRef = useRef(false)
   useEffect(() => {
+    let cancelled = false
     async function load() {
-      const [log, interviewData] = await Promise.all([getActivityLog(), getInterviewDate()])
+      const [log, interviewData, plan, due] = await Promise.all([
+        getActivityLog(),
+        getInterviewDate(),
+        getStudyPlan(),
+        getDueReviews(),
+      ])
+      if (cancelled) return
       setStreak(computeStreak(log))
       setActivityLog(log)
+      setStudyPlan(plan)
+      setDueReviews(due)
       if (interviewData?.target_date) setDate(interviewData.target_date)
       setLoaded(true)
     }
     load()
+    return () => { cancelled = true }
   }, [])
+  useEffect(() => {
+    if (!loaded) return
+    if (!streakHydratedRef.current) {
+      streakHydratedRef.current = true
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const [log, due] = await Promise.all([getActivityLog(), getDueReviews()])
+      if (cancelled) return
+      setActivityLog(log)
+      setStreak(computeStreak(log))
+      setDueReviews(due)
+    })()
+    return () => { cancelled = true }
+  }, [progress, loaded])
+  const goalsMetToday = computeDailyGoalsMetToday(studyPlan, progress, dueReviews.length)
   useEffect(() => {
     if (!questions.length) return
     const todayKey = 'daily_q_' + todayISO()
@@ -233,7 +274,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   if (!loaded) return null
   return (
     <>
-      <StreakCard streak={streak} log={activityLog} />
+      <StreakCard streak={streak} log={activityLog} goalsMetToday={goalsMetToday} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <div className="flex items-center justify-between mb-3">
