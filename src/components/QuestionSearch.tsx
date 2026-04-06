@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 
 type Q = { id: number; title: string; slug?: string }
@@ -12,6 +12,7 @@ function normalize(s: string) {
 
 export default function QuestionSearch({ className = '' }: { className?: string }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [questions, setQuestions] = useState<Q[] | null>(null)
@@ -59,6 +60,15 @@ export default function QuestionSearch({ className = '' }: { className?: string 
       .slice(0, 8)
   }, [query, questions])
 
+  function applyToCurrentPage(q: string) {
+    const p = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+    const trimmed = q.trim()
+    if (!trimmed) p.delete('search')
+    else p.set('search', trimmed)
+    setOpen(false)
+    router.push(`${pathname}${p.toString() ? `?${p.toString()}` : ''}`)
+  }
+
   function goTo(id: number) {
     setOpen(false)
     setQuery('')
@@ -77,12 +87,11 @@ export default function QuestionSearch({ className = '' }: { className?: string 
         onFocus={() => setOpen(true)}
         onKeyDown={e => {
           if (e.key === 'Enter') {
-            const first = matches[0]
-            if (first) goTo(first.id)
+            applyToCurrentPage(query)
           }
           if (e.key === 'Escape') setOpen(false)
         }}
-        placeholder="Search questions… (#id or title)"
+        placeholder="Filter this page… (#id or title)"
         className="w-full pl-9 pr-3 py-2 text-sm text-gray-900 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
       />
 
