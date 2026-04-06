@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { Search, Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp } from 'lucide-react'
 import { getProgress, updateProgress, getActivityLog, getDueReviews, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate } from '@/lib/db'
 import { computeDailyGoalsMetToday, computePlanStreakDisplayNumber } from '@/lib/streakGoals'
@@ -386,6 +386,8 @@ function buildStudyParams(
 }
 
 export default function HomePage() {
+  const pathname = usePathname()
+  const prevPathRef = useRef<string | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, ProgressData>>({})
   const [loading, setLoading] = useState(true)
@@ -401,6 +403,25 @@ export default function HomePage() {
       setQuestions(qs); setProgress(prog); setLoading(false)
     })
   }, [])
+
+  // Supabase is source of truth — reload is safe. Re-sync client state when returning to this page
+  // or the tab so streak/progress match DB without requiring a full refresh.
+  useEffect(() => {
+    const prev = prevPathRef.current
+    prevPathRef.current = pathname
+    if (pathname === '/' && prev !== null && prev !== '/') {
+      getProgress().then(prog => setProgress(prog)).catch(() => {})
+    }
+  }, [pathname])
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || pathname !== '/') return
+      getProgress().then(prog => setProgress(prog)).catch(() => {})
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [pathname])
 
   const DIFF_ORDER: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
 
