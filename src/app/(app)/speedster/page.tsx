@@ -2,13 +2,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2, WifiOff } from 'lucide-react'
-import { getProgress, getStudyPlan, getFcVisited, addFcVisited } from '@/lib/db'
+import { addMasteryRun, getProgress, getStudyPlan, getFcVisited, addFcVisited } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
-import { getMasteryRunsMap, incrementMasteryRuns } from '@/lib/masteryRuns'
 
 interface Question {
   id: number
@@ -72,8 +71,12 @@ export default function SpeedsterPage() {
   }, [])
 
   useEffect(() => {
-    setRuns(getMasteryRunsMap())
-  }, [])
+    const map: Record<string, number> = {}
+    for (const [qid, p] of Object.entries(progress)) {
+      map[qid] = (p as any)?.mastery_runs ?? 0
+    }
+    setRuns(map)
+  }, [progress])
 
   const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
 
@@ -489,9 +492,12 @@ export default function SpeedsterPage() {
         appQuestionId={currentQ.id}
         slug={currentQ.slug}
         speedster
-        onAccepted={() => {
-          const next = incrementMasteryRuns(currentQ.id, 1)
-          setRuns(prev => ({ ...prev, [String(currentQ.id)]: next }))
+        onAccepted={async () => {
+          const next = await addMasteryRun(currentQ.id, 1)
+          setProgress(prev => ({
+            ...prev,
+            [String(currentQ.id)]: { ...(prev[String(currentQ.id)] || {}), mastery_runs: next },
+          }))
         }}
       />
     ) : (
@@ -755,9 +761,12 @@ export default function SpeedsterPage() {
                   appQuestionId={currentQ.id}
                   slug={currentQ.slug}
                   speedster
-                  onAccepted={() => {
-                    const next = incrementMasteryRuns(currentQ.id, 1)
-                    setRuns(prev => ({ ...prev, [String(currentQ.id)]: next }))
+                  onAccepted={async () => {
+                    const next = await addMasteryRun(currentQ.id, 1)
+                    setProgress(prev => ({
+                      ...prev,
+                      [String(currentQ.id)]: { ...(prev[String(currentQ.id)] || {}), mastery_runs: next },
+                    }))
                   }}
                 />
               </div>

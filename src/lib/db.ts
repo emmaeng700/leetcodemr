@@ -29,6 +29,7 @@ export async function getProgress() {
       next_review: row.next_review,
       last_reviewed: row.last_reviewed,
       status: row.status,
+      mastery_runs: row.mastery_runs ?? 0,
     }
   }
   return result
@@ -68,6 +69,7 @@ export async function updateProgress(questionId: number, data: any) {
     starred: data.starred ?? existing?.starred ?? false,
     notes: data.notes ?? existing?.notes ?? '',
     status: data.status ?? existing?.status ?? null,
+    mastery_runs: data.mastery_runs ?? existing?.mastery_runs ?? 0,
     review_count: reviewCount,
     next_review: nextReview,
     last_reviewed: lastReviewed,
@@ -76,6 +78,26 @@ export async function updateProgress(questionId: number, data: any) {
   if (upsertErr) console.error('[db] updateProgress:', upsertErr.message)
 
   await logActivity()
+}
+
+export async function addMasteryRun(questionId: number, by = 1) {
+  const { data: existing } = await supabase
+    .from('progress')
+    .select('mastery_runs')
+    .eq('user_id', USER_ID)
+    .eq('question_id', questionId)
+    .single()
+
+  const next = Math.max(0, (existing?.mastery_runs ?? 0) + by)
+  const { error } = await supabase.from('progress').upsert({
+    user_id: USER_ID,
+    question_id: questionId,
+    mastery_runs: next,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id,question_id' })
+
+  if (error) console.error('[db] addMasteryRun:', error.message)
+  return next
 }
 
 // ─── Activity & Solved Logs ───────────────────────────────────────────────────
