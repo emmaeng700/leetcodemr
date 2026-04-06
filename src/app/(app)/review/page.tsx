@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { getProgress, getDueReviews, completeReview } from '@/lib/db'
+import { getMasteryRunsByQuestion, getProgress, getDueReviews, completeReview } from '@/lib/db'
 import { isDue, formatLocalDate } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import { Brain, CheckCircle, Clock, CalendarCheck, Flame, Trophy, TrendingUp } from 'lucide-react'
@@ -38,6 +38,7 @@ export default function ReviewPage() {
   const online = useOnlineStatus()
   const [allQ, setAllQ] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, any>>({})
+  const [runs, setRuns] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState<number | null>(null)
   const router = useRouter()
@@ -46,9 +47,11 @@ export default function ReviewPage() {
     Promise.all([
       fetch('/questions_full.json').then(r => r.json()),
       getProgress(),
-    ]).then(([qs, prog]) => {
+      getMasteryRunsByQuestion(),
+    ]).then(([qs, prog, mr]) => {
       setAllQ(qs)
       setProgress(prog)
+      setRuns(mr)
       setLoading(false)
     })
   }, [])
@@ -85,7 +88,7 @@ export default function ReviewPage() {
   }, {})
 
   for (const q of withProgress) {
-    const n = q.p.mastery_runs ?? 0
+    const n = runs[String(q.id)] ?? 0
     const b = masteryBucket(n)
     statusCounts[b] = (statusCounts[b] || 0) + 1
   }
@@ -238,7 +241,7 @@ export default function ReviewPage() {
           <TrendingUp size={15} className="text-gray-500" /> All Questions by Status
         </h2>
         {['mastered', 'revised', 'reviewed', 'learnt'].map(st => {
-          const qs = withProgress.filter(q => masteryBucket(q.p.mastery_runs ?? 0) === st)
+          const qs = withProgress.filter(q => masteryBucket(runs[String(q.id)] ?? 0) === st)
           if (!qs.length) return null
           const style = STATUS_COUNTS_COLORS[st]
           return (
@@ -263,7 +266,7 @@ export default function ReviewPage() {
                         {style.label}
                       </span>
                       <span className="text-xs text-gray-400 hidden sm:inline">
-                        Runs {q.p.mastery_runs ?? 0}/4
+                        Runs {runs[String(q.id)] ?? 0}/4
                       </span>
                       {q.p.solved && q.p.next_review && (
                         <span className="text-xs text-gray-400 hidden sm:inline">

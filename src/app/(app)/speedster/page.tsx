@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2, WifiOff } from 'lucide-react'
-import { addMasteryRun, getProgress, getStudyPlan, getFcVisited, addFcVisited } from '@/lib/db'
+import { addMasteryRunEvent, getMasteryRunsByQuestion, getProgress, getStudyPlan, getFcVisited, addFcVisited } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
@@ -50,15 +50,17 @@ export default function SpeedsterPage() {
 
   useEffect(() => {
     async function load() {
-      const [qs, plan, prog, vis] = await Promise.all([
+      const [qs, plan, prog, vis, mr] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getStudyPlan(),
         getProgress(),
         getFcVisited(),
+        getMasteryRunsByQuestion(),
       ])
       setQuestions(qs)
       setProgress(prog)
       setVisited(vis)
+      setRuns(mr)
       if (plan?.question_order?.length) {
         setPlanOrder(plan.question_order)
         setPerDay(plan.per_day || 3)
@@ -69,14 +71,6 @@ export default function SpeedsterPage() {
     }
     load()
   }, [])
-
-  useEffect(() => {
-    const map: Record<string, number> = {}
-    for (const [qid, p] of Object.entries(progress)) {
-      map[qid] = (p as any)?.mastery_runs ?? 0
-    }
-    setRuns(map)
-  }, [progress])
 
   const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
 
@@ -493,11 +487,8 @@ export default function SpeedsterPage() {
         slug={currentQ.slug}
         speedster
         onAccepted={async () => {
-          const next = await addMasteryRun(currentQ.id, 1)
-          setProgress(prev => ({
-            ...prev,
-            [String(currentQ.id)]: { ...(prev[String(currentQ.id)] || {}), mastery_runs: next },
-          }))
+          await addMasteryRunEvent(currentQ.id, 1)
+          setRuns(prev => ({ ...prev, [String(currentQ.id)]: (prev[String(currentQ.id)] ?? 0) + 1 }))
         }}
       />
     ) : (
@@ -762,11 +753,8 @@ export default function SpeedsterPage() {
                   slug={currentQ.slug}
                   speedster
                   onAccepted={async () => {
-                    const next = await addMasteryRun(currentQ.id, 1)
-                    setProgress(prev => ({
-                      ...prev,
-                      [String(currentQ.id)]: { ...(prev[String(currentQ.id)] || {}), mastery_runs: next },
-                    }))
+                    await addMasteryRunEvent(currentQ.id, 1)
+                    setRuns(prev => ({ ...prev, [String(currentQ.id)]: (prev[String(currentQ.id)] ?? 0) + 1 }))
                   }}
                 />
               </div>

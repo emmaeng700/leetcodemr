@@ -80,24 +80,32 @@ export async function updateProgress(questionId: number, data: any) {
   await logActivity()
 }
 
-export async function addMasteryRun(questionId: number, by = 1) {
-  const { data: existing } = await supabase
-    .from('progress')
-    .select('mastery_runs')
-    .eq('user_id', USER_ID)
-    .eq('question_id', questionId)
-    .single()
-
-  const next = Math.max(0, (existing?.mastery_runs ?? 0) + by)
-  const { error } = await supabase.from('progress').upsert({
+export async function addMasteryRunEvent(questionId: number, count = 1) {
+  const inserts = Array.from({ length: Math.max(1, count) }, () => ({
     user_id: USER_ID,
     question_id: questionId,
-    mastery_runs: next,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id,question_id' })
+  }))
+  const { error } = await supabase.from('mastery_run_events').insert(inserts)
+  if (error) console.error('[db] addMasteryRunEvent:', error.message)
+}
 
-  if (error) console.error('[db] addMasteryRun:', error.message)
-  return next
+export async function getMasteryRunsByQuestion(): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from('mastery_run_events')
+    .select('question_id')
+    .eq('user_id', USER_ID)
+
+  if (error) {
+    console.error('[db] getMasteryRunsByQuestion:', error.message)
+    return {}
+  }
+
+  const out: Record<string, number> = {}
+  for (const row of data ?? []) {
+    const id = String((row as any).question_id)
+    out[id] = (out[id] ?? 0) + 1
+  }
+  return out
 }
 
 // ─── Activity & Solved Logs ───────────────────────────────────────────────────
