@@ -116,21 +116,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ skipped: 'All done for today!' })
   }
 
-  // ── Idempotency: prevent double sends per day (CT) ──────────────────────────
-  // If this endpoint gets invoked twice (duplicate cron, retries, manual ping),
-  // ensure we only send one email per day.
-  const logKey = `${USER_ID}::notify-daily`
-  const { data: alreadySent } = await supabase
-    .from('activity_log')
-    .select('count')
-    .eq('user_id', logKey)
-    .eq('date', todayStr)
-    .single()
-
-  if ((alreadySent?.count ?? 0) > 0) {
-    return NextResponse.json({ skipped: 'Already sent today' })
-  }
-
   // ── Build email ─────────────────────────────────────────────────────────────
   const appUrl = 'https://leetcodemr.vercel.app'
   const dayNumber = activeDayIndex + 1
@@ -285,12 +270,6 @@ export async function GET(req: NextRequest) {
     console.error('[notify-daily] Resend error:', error)
     return NextResponse.json({ error }, { status: 500 })
   }
-
-  await supabase.from('activity_log').upsert({
-    user_id: logKey,
-    date: todayStr,
-    count: 1,
-  }, { onConflict: 'user_id,date' })
 
   return NextResponse.json({ sent: true, remaining, day: dayNumber, emailId: emailData?.id })
 }
