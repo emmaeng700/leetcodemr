@@ -1,6 +1,7 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List } from 'lucide-react'
@@ -106,6 +107,8 @@ function getTodayInfo(plan: StudyPlan, allQuestions: Question[], progress: Recor
 }
 
 export default function DailyPage() {
+  const pathname = usePathname()
+  const prevPathRef = useRef<string | null>(null)
   const online = useOnlineStatus()
   const [allQuestions, setAllQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, ProgressData>>({})
@@ -130,6 +133,15 @@ export default function DailyPage() {
   // Extra days
   const [extraDays, setExtraDays] = useState(0)
 
+  const refreshProgress = useCallback(async () => {
+    try {
+      const prog = await getProgress()
+      setProgress(prog)
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
   useEffect(() => {
     async function load() {
       const [qs, prog, p] = await Promise.all([
@@ -144,6 +156,35 @@ export default function DailyPage() {
     }
     load()
   }, [])
+
+  // When coming back from /practice (or any route), merge latest solved state immediately — no full-page reload.
+  useEffect(() => {
+    if (!loading && pathname === '/daily') {
+      const prev = prevPathRef.current
+      prevPathRef.current = pathname
+      if (prev !== null && prev !== '/daily') {
+        void refreshProgress()
+      }
+    } else {
+      prevPathRef.current = pathname
+    }
+  }, [pathname, loading, refreshProgress])
+
+  useEffect(() => {
+    if (loading || pathname !== '/daily') return
+    const onVis = () => {
+      if (document.visibilityState === 'visible') void refreshProgress()
+    }
+    const onPageShow = (e: Event) => {
+      if ((e as PageTransitionEvent).persisted) void refreshProgress()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('pageshow', onPageShow)
+    }
+  }, [loading, pathname, refreshProgress])
 
   const { days: previewDays, date: previewFinish } = calcFinish(startDate, perDay, allQuestions.length)
 
