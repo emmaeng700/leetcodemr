@@ -57,6 +57,11 @@ function localISO(d: Date) {
 function computeStreak(log: Record<string, number>) {
   let streak = 0
   const d = new Date()
+  // If today isn’t a “goals met” day yet, don’t zero the streak — count backward from
+  // yesterday so the number stays “14 days through yesterday” while you finish today.
+  if (!log[localISO(d)]) {
+    d.setDate(d.getDate() - 1)
+  }
   while (true) {
     const key = localISO(d)
     if (!log[key]) break
