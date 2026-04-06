@@ -126,8 +126,9 @@ export default function DailyPage() {
   const [resetAttempt, setResetAttempt] = useState('')
   const [resetError, setResetError] = useState(false)
 
-  // Past days
+  // Past days (accordion per day + global “show more” for long plans)
   const [expandedDays, setExpandedDays] = useState<Record<number, boolean>>({})
+  const [pastDaysShowAll, setPastDaysShowAll] = useState(false)
   const [showList, setShowList] = useState(false)
 
   // Extra days
@@ -330,7 +331,9 @@ export default function DailyPage() {
   const todayQs = todayInfo.questions || []
   const todayDone = (todayInfo.questionIds || []).filter(id => isSolved(id)).length
   const pastDayCount = todayInfo.dayNumber ? todayInfo.dayNumber - 1 : totalDays
-  const displayPast = Math.min(pastDayCount, 14)
+  const PAST_DAYS_INITIAL = 7
+  const displayPast = pastDaysShowAll ? pastDayCount : Math.min(PAST_DAYS_INITIAL, pastDayCount)
+  const hasMorePastToReveal = pastDayCount > PAST_DAYS_INITIAL
 
   return (
     <div className="max-w-xl mx-auto px-4 py-8">
@@ -627,10 +630,19 @@ export default function DailyPage() {
         </div>
       )}
 
-      {/* PAST DAYS */}
+      {/* PAST DAYS — most recent first; default 7 rows, expand for full history */}
       {displayPast > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <h2 className="font-bold text-gray-700 text-sm mb-3">Past Days</h2>
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <div>
+              <h2 className="font-bold text-gray-700 text-sm">Past Days</h2>
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                {pastDaysShowAll
+                  ? `All ${pastDayCount} completed day${pastDayCount !== 1 ? 's' : ''}`
+                  : `Last ${Math.min(PAST_DAYS_INITIAL, pastDayCount)} of ${pastDayCount} · newest first`}
+              </p>
+            </div>
+          </div>
           <div className="space-y-2">
             {Array.from({ length: displayPast }, (_, i) => {
               const dayIdx = (todayInfo.dayNumber ? todayInfo.dayNumber - 2 - i : totalDays - 1 - i)
@@ -681,6 +693,17 @@ export default function DailyPage() {
               )
             })}
           </div>
+          {hasMorePastToReveal && (
+            <button
+              type="button"
+              onClick={() => setPastDaysShowAll(v => !v)}
+              className="mt-4 w-full py-2.5 text-sm font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-xl hover:bg-indigo-100 transition-colors"
+            >
+              {pastDaysShowAll
+                ? 'Show less (last 7 days)'
+                : `Show ${pastDayCount - PAST_DAYS_INITIAL} more day${pastDayCount - PAST_DAYS_INITIAL !== 1 ? 's' : ''}`}
+            </button>
+          )}
         </div>
       )}
     </div>
