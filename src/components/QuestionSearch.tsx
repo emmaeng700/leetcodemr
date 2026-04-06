@@ -13,6 +13,7 @@ function normalize(s: string) {
 export default function QuestionSearch({ className = '' }: { className?: string }) {
   const router = useRouter()
   const pathname = usePathname()
+  const supportsFiltering = pathname === '/flashcards' || pathname.startsWith('/learn')
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [questions, setQuestions] = useState<Q[] | null>(null)
@@ -87,7 +88,12 @@ export default function QuestionSearch({ className = '' }: { className?: string 
         onFocus={() => setOpen(true)}
         onKeyDown={e => {
           if (e.key === 'Enter') {
-            applyToCurrentPage(query)
+            if (supportsFiltering) {
+              applyToCurrentPage(query)
+            } else {
+              const first = matches[0]
+              if (first) goTo(first.id)
+            }
           }
           if (e.key === 'Escape') setOpen(false)
         }}
@@ -104,9 +110,9 @@ export default function QuestionSearch({ className = '' }: { className?: string 
               <div key={q.id} className="flex items-stretch border-b border-gray-50 last:border-b-0">
                 <button
                   type="button"
-                  onClick={() => applyToCurrentPage(`#${q.id}`)}
+                  onClick={() => (supportsFiltering ? applyToCurrentPage(`#${q.id}`) : goTo(q.id))}
                   className="flex-1 text-left px-3 py-2 hover:bg-gray-50 transition-colors"
-                  title="Filter current page"
+                  title={supportsFiltering ? 'Filter current page' : 'Open question'}
                 >
                   <div className="text-sm font-semibold text-gray-900">#{q.id} {q.title}</div>
                 </button>

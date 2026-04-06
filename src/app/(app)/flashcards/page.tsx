@@ -65,7 +65,11 @@ function FlashcardsInner() {
     let filtered = all
     if (filterDiff !== 'All') filtered = filtered.filter(q => q.difficulty === filterDiff)
     if (filterSource !== 'All') filtered = filtered.filter(q => (q.source || []).includes(filterSource))
-    if (initSearch) filtered = filtered.filter(q => q.title.toLowerCase().includes(initSearch.toLowerCase()))
+    if (initSearch) {
+      const s = initSearch.toLowerCase()
+      const byId = s.replace(/^#/, '')
+      filtered = filtered.filter(q => q.title.toLowerCase().includes(s) || String(q.id).includes(byId))
+    }
     if (filterPattern) {
       const patTags = QUICK_PATTERNS.find(p => p.name === filterPattern)?.tags ?? []
       filtered = filtered.filter(q => (q.tags || []).some(t => (patTags as readonly string[]).includes(t)))
@@ -76,7 +80,7 @@ function FlashcardsInner() {
     setDeck(isShuffled ? shuffle(filtered) : filtered)
     setIdx(0)
     setFlipped(false)
-  }, [filterDiff, filterSource, filterPattern, all, isShuffled])
+  }, [filterDiff, filterSource, filterPattern, all, isShuffled, initSearch, initStarred, initSolved, progress])
 
   const q = deck[idx] || null
 
