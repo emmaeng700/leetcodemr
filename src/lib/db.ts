@@ -29,7 +29,6 @@ export async function getProgress() {
       next_review: row.next_review,
       last_reviewed: row.last_reviewed,
       status: row.status,
-      mastery_runs: row.mastery_runs ?? 0,
     }
   }
   return result
@@ -69,7 +68,6 @@ export async function updateProgress(questionId: number, data: any) {
     starred: data.starred ?? existing?.starred ?? false,
     notes: data.notes ?? existing?.notes ?? '',
     status: data.status ?? existing?.status ?? null,
-    mastery_runs: data.mastery_runs ?? existing?.mastery_runs ?? 0,
     review_count: reviewCount,
     next_review: nextReview,
     last_reviewed: lastReviewed,
