@@ -614,7 +614,7 @@ export default function SpeedsterPage() {
                 <List size={12} />
                 <span className="font-mono">{cardIdx + 1}/{total}</span>
                 <span className="text-gray-300">·</span>
-                <span className="text-green-600">{solvedCount} solved</span>
+                <span className="flex items-center gap-0.5 text-green-600"><CheckCircle size={10} />{filteredVisited}/{total} visited</span>
               </button>
 
               {showCardList && (
