@@ -3,11 +3,6 @@
     "src/app/api/run-code/route.ts": {
       "maxDuration": 30
     }
-  },
-  "crons": [
-    {
-      "path": "/api/notify-daily",
-      "schedule": "0 13 * * *"
-    }
-  ]
+  }
+  
 }
