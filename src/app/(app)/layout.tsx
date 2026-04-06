@@ -2,7 +2,7 @@ import Navbar from '@/components/Navbar'
 import ScrollRestorer from '@/components/ScrollRestorer'
 import OfflineSetup from '@/components/OfflineSetup'
 import { Toaster } from 'react-hot-toast'
-import QuestionSearch from '@/components/QuestionSearch'
+import QuestionSearchGate from '@/components/QuestionSearchGate'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -10,7 +10,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <ScrollRestorer />
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 pt-4">
-        <QuestionSearch />
+        <QuestionSearchGate />
       </div>
       <main className="overflow-x-hidden">{children}</main>
       <OfflineSetup />
