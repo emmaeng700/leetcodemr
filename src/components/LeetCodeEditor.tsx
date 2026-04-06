@@ -344,6 +344,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
         if (mode === 'submit' && data.status_code === 10) {
           if (speedster) {
             setSolvedStatus('speedster')
+            onAcceptedRef.current?.()
           } else {
             const prog = await getProgress()
             const alreadySolved = Array.isArray(prog)

@@ -6,6 +6,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { getProgress, getDueReviews, completeReview } from '@/lib/db'
 import { isDue, formatLocalDate } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import { getMasteryRunsMap } from '@/lib/masteryRuns'
 import { Brain, CheckCircle, Clock, CalendarCheck, Flame, Trophy, TrendingUp } from 'lucide-react'
 
 interface Question {
@@ -38,6 +39,7 @@ export default function ReviewPage() {
   const online = useOnlineStatus()
   const [allQ, setAllQ] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, any>>({})
+  const [runs, setRuns] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState<number | null>(null)
   const router = useRouter()
@@ -49,6 +51,7 @@ export default function ReviewPage() {
     ]).then(([qs, prog]) => {
       setAllQ(qs)
       setProgress(prog)
+      setRuns(getMasteryRunsMap())
       setLoading(false)
     })
   }, [])
@@ -76,11 +79,19 @@ export default function ReviewPage() {
   const upcoming = inSR.filter(q => !isDue(q.p.next_review))
     .sort((a, b) => a.p.next_review.localeCompare(b.p.next_review))
 
-  const hasStatus = withProgress.filter(q => q.p.status)
-  const statusCounts = hasStatus.reduce((acc: Record<string, number>, q) => {
-    acc[q.p.status] = (acc[q.p.status] || 0) + 1
+  const masteryBucket = (n: number) =>
+    n >= 4 ? 'mastered' : n >= 3 ? 'revised' : n >= 2 ? 'reviewed' : 'learnt'
+
+  const statusCounts = Object.keys(STATUS_COUNTS_COLORS).reduce((acc: Record<string, number>, k) => {
+    acc[k] = 0
     return acc
   }, {})
+
+  for (const q of withProgress) {
+    const n = runs[String(q.id)] ?? 0
+    const b = masteryBucket(n)
+    statusCounts[b] = (statusCounts[b] || 0) + 1
+  }
 
   const upcomingBuckets: Record<string, typeof upcoming> = {}
   upcoming.forEach(q => {
@@ -229,13 +240,8 @@ export default function ReviewPage() {
         <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
           <TrendingUp size={15} className="text-gray-500" /> All Questions by Status
         </h2>
-        {hasStatus.length === 0 && (
-          <div className="bg-white border border-gray-100 rounded-xl p-6 text-center text-gray-400 text-sm">
-            No questions tracked yet. Mark questions as <strong>Solved</strong> and set your status to start.
-          </div>
-        )}
         {['mastered', 'revised', 'reviewed', 'learnt'].map(st => {
-          const qs = hasStatus.filter(q => q.p.status === st)
+          const qs = withProgress.filter(q => masteryBucket(runs[String(q.id)] ?? 0) === st)
           if (!qs.length) return null
           const style = STATUS_COUNTS_COLORS[st]
           return (
@@ -258,6 +264,9 @@ export default function ReviewPage() {
                     <div className="flex items-center gap-2 shrink-0">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${STATUS_STYLE[st]}`}>
                         {style.label}
+                      </span>
+                      <span className="text-xs text-gray-400 hidden sm:inline">
+                        Runs {runs[String(q.id)] ?? 0}/4
                       </span>
                       {q.p.solved && q.p.next_review && (
                         <span className="text-xs text-gray-400 hidden sm:inline">

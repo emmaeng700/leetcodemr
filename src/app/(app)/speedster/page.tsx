@@ -8,6 +8,7 @@ import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
+import { getMasteryRunsMap, incrementMasteryRuns } from '@/lib/masteryRuns'
 
 interface Question {
   id: number
@@ -40,6 +41,7 @@ export default function SpeedsterPage() {
   const [filterSource,  setFilterSource]  = useState('All')
   const [filterPattern, setFilterPattern] = useState<string | null>(null)
   const [visited,       setVisited]       = useState<Set<number>>(new Set())
+  const [runs, setRuns] = useState<Record<string, number>>({})
   // Mobile panel: 'cards' = day cards + flashcards, 'editor' = code editor
   const [mobilePanel, setMobilePanel] = useState<'cards' | 'editor'>('cards')
   const online = useOnlineStatus()
@@ -67,6 +69,10 @@ export default function SpeedsterPage() {
       setLoading(false)
     }
     load()
+  }, [])
+
+  useEffect(() => {
+    setRuns(getMasteryRunsMap())
   }, [])
 
   const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
@@ -98,6 +104,7 @@ export default function SpeedsterPage() {
   })
   const total          = filteredOrder.length
   const currentQ       = qMap[filteredOrder[cardIdx]]
+  const currentRuns    = currentQ ? (runs[String(currentQ.id)] ?? 0) : 0
   const solvedCount    = planOrder.filter(id => !!progress[String(id)]?.solved).length
   const filteredVisited = filteredOrder.filter(id => visited.has(id)).length
 
@@ -298,6 +305,9 @@ export default function SpeedsterPage() {
               </div>
               <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
               <span className={`flex-1 text-sm font-semibold truncate ${solved ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
+              <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
+                Runs {runs[String(q.id)] ?? 0}/4
+              </span>
               <DifficultyBadge difficulty={q.difficulty} />
               <ChevronRight size={14} className="text-gray-300 group-hover:text-yellow-400 shrink-0 transition-colors" />
             </Link>
@@ -352,6 +362,9 @@ export default function SpeedsterPage() {
                       className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-yellow-50 border-b border-gray-50 last:border-0 transition-colors text-sm ${i === cardIdx ? 'bg-yellow-50' : ''}`}>
                       <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{q.id}</span>
                       <span className="flex-1 truncate text-gray-700">{q.title}</span>
+                      <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
+                        {runs[String(q.id)] ?? 0}/4
+                      </span>
                       <span className={`text-xs font-semibold shrink-0 ${q.difficulty === 'Easy' ? 'text-green-600' : q.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
                         {q.difficulty[0]}
                       </span>
@@ -402,6 +415,9 @@ export default function SpeedsterPage() {
                       ))}
                     </div>
                     <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-full">
+                        Mastery runs: {currentRuns}/4
+                      </span>
                       <button
                         onClick={e => {
                           e.stopPropagation()
@@ -473,6 +489,10 @@ export default function SpeedsterPage() {
         appQuestionId={currentQ.id}
         slug={currentQ.slug}
         speedster
+        onAccepted={() => {
+          const next = incrementMasteryRuns(currentQ.id, 1)
+          setRuns(prev => ({ ...prev, [String(currentQ.id)]: next }))
+        }}
       />
     ) : (
       /* Offline fallback — show cached solution instead of broken editor */
@@ -735,6 +755,10 @@ export default function SpeedsterPage() {
                   appQuestionId={currentQ.id}
                   slug={currentQ.slug}
                   speedster
+                  onAccepted={() => {
+                    const next = incrementMasteryRuns(currentQ.id, 1)
+                    setRuns(prev => ({ ...prev, [String(currentQ.id)]: next }))
+                  }}
                 />
               </div>
             ) : (
