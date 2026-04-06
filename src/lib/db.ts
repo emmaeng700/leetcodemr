@@ -75,7 +75,7 @@ export async function updateProgress(questionId: number, data: any) {
   }, { onConflict: 'user_id,question_id' })
   if (upsertErr) console.error('[db] updateProgress:', upsertErr.message)
 
-  await logActivity()
+  await syncStreakActivityFromGoals()
   return upsertErr?.message ?? null
 }
 
@@ -109,22 +109,6 @@ export async function getMasteryRunsByQuestion(): Promise<Record<string, number>
 }
 
 // ─── Activity & Solved Logs ───────────────────────────────────────────────────
-export async function logActivity() {
-  const today = todayISO()
-  const { data } = await supabase
-    .from('activity_log')
-    .select('count')
-    .eq('user_id', USER_ID)
-    .eq('date', today)
-    .single()
-
-  await supabase.from('activity_log').upsert({
-    user_id: USER_ID,
-    date: today,
-    count: (data?.count ?? 0) + 1,
-  }, { onConflict: 'user_id,date' })
-}
-
 export async function logSolvedToday() {
   const today = todayISO()
   const { data } = await supabase
@@ -447,6 +431,8 @@ export async function completeReview(questionId: number) {
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,question_id' })
 
+  await syncStreakActivityFromGoals()
+
   return { review_count: newCount, next_review: nextReview }
 }
 
@@ -493,6 +479,69 @@ export async function getDueReviews(): Promise<Array<{ id: number; review_count:
     .lte('next_review', today)
 
   return (data ?? []).map((r: any) => ({ id: r.question_id, review_count: r.review_count, next_review: r.next_review }))
+}
+
+/** Same rules as notify-daily email: streak day counts only when today's active daily block is fully solved AND no SR reviews are due. */
+export async function syncStreakActivityFromGoals(): Promise<void> {
+  const today = todayISO()
+  const plan = await getStudyPlan()
+  const { data: progressRows } = await supabase
+    .from('progress')
+    .select('question_id,solved')
+    .eq('user_id', USER_ID)
+
+  const solvedSet = new Set<number>(
+    (progressRows ?? []).filter((r: any) => r.solved).map((r: any) => Number(r.question_id))
+  )
+
+  const clearToday = async () => {
+    await supabase.from('activity_log').delete().eq('user_id', USER_ID).eq('date', today)
+  }
+
+  if (!plan?.question_order?.length) {
+    await clearToday()
+    return
+  }
+
+  const start = new Date(plan.start_date + 'T00:00:00')
+  const now = new Date(today + 'T00:00:00')
+  start.setHours(0, 0, 0, 0)
+  now.setHours(0, 0, 0, 0)
+  const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+  const totalDays = Math.ceil(plan.question_order.length / plan.per_day)
+
+  if (diffDays < 0 || diffDays >= totalDays) {
+    await clearToday()
+    return
+  }
+
+  let activeDayIndex = diffDays
+  for (let i = 0; i <= diffDays; i++) {
+    const ids: number[] = plan.question_order.slice(i * plan.per_day, i * plan.per_day + plan.per_day)
+    if (!ids.every(id => solvedSet.has(id))) {
+      activeDayIndex = i
+      break
+    }
+  }
+
+  const dayIds = plan.question_order.slice(
+    activeDayIndex * plan.per_day,
+    activeDayIndex * plan.per_day + plan.per_day
+  )
+  const remaining = dayIds.filter((id: number) => !solvedSet.has(id)).length
+
+  const dueReviews = await getDueReviews()
+  const goalsMet = remaining === 0 && dueReviews.length === 0
+
+  if (goalsMet) {
+    await supabase.from('activity_log').upsert({
+      user_id: USER_ID,
+      date: today,
+      count: 1,
+    }, { onConflict: 'user_id,date' })
+  } else {
+    await clearToday()
+  }
 }
 
 // ─── Pattern FC Visited ───────────────────────────────────────────────────────
