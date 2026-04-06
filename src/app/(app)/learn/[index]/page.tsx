@@ -97,6 +97,7 @@ function LearnInner() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const qs = searchParams.toString()
   const initDiff    = searchParams.get('diff')    || 'All'
   const initSource  = searchParams.get('source')  || 'All'
   const initSearch  = searchParams.get('search')  || ''
@@ -174,7 +175,10 @@ function LearnInner() {
   const filtered = ordered.filter(q => {
     if (filterDiff !== 'All' && q.difficulty !== filterDiff) return false
     if (filterSource !== 'All' && !(q.source || []).includes(filterSource)) return false
-    if (initSearch && !q.title.toLowerCase().includes(initSearch.toLowerCase())) return false
+    if (initSearch) {
+      const s = initSearch.toLowerCase()
+      if (!q.title.toLowerCase().includes(s) && !String(q.id).includes(s.replace(/^#/, ''))) return false
+    }
     if (activePatternTags.length > 0 && !(q.tags || []).some(t => activePatternTags.includes(t))) return false
     const p = progress[String(q.id)] || {}
     if (initStarred && !p.starred) return false
@@ -316,19 +320,19 @@ function LearnInner() {
     if (safeIdx < filtered.length - 1) {
       const ni = safeIdx + 1
       setIdx(ni)
-      router.push(`/learn/${ni}`, { scroll: false })
+      router.push(`/learn/${ni}${qs ? `?${qs}` : ''}`, { scroll: false })
     }
   }
   const goPrev = () => {
     if (safeIdx > 0) {
       const ni = safeIdx - 1
       setIdx(ni)
-      router.push(`/learn/${ni}`, { scroll: false })
+      router.push(`/learn/${ni}${qs ? `?${qs}` : ''}`, { scroll: false })
     }
   }
   const goTo = (i: number) => {
     setIdx(i)
-    router.push(`/learn/${i}`, { scroll: false })
+    router.push(`/learn/${i}${qs ? `?${qs}` : ''}`, { scroll: false })
     setShowList(false)
   }
 
@@ -493,14 +497,14 @@ function LearnInner() {
           {/* Difficulty + Source */}
           <div className="flex items-center flex-wrap gap-2">
             {['All', 'Easy', 'Medium', 'Hard'].map(d => (
-              <button key={d} onClick={() => { setFilterDiff(d); setIdx(0); router.push('/learn/0', { scroll: false }) }}
+              <button key={d} onClick={() => { setFilterDiff(d); setIdx(0); router.push(`/learn/0${qs ? `?${qs}` : ''}`, { scroll: false }) }}
                 className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${filterDiff === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'}`}>
                 {d}
               </button>
             ))}
             <span className="w-px h-4 bg-gray-300 shrink-0" />
             {['All', 'Grind 169', 'Denny Zhang', 'Premium 98', 'CodeSignal'].map(s => (
-              <button key={s} onClick={() => { setFilterSource(s); setIdx(0); router.push('/learn/0', { scroll: false }) }}
+              <button key={s} onClick={() => { setFilterSource(s); setIdx(0); router.push(`/learn/0${qs ? `?${qs}` : ''}`, { scroll: false }) }}
                 className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${filterSource === s ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'}`}>
                 {s}
               </button>
@@ -509,13 +513,13 @@ function LearnInner() {
 
           {/* Pattern filter */}
           <div className="flex items-center flex-wrap gap-2">
-            <button onClick={() => { setFilterPattern(null); setIdx(0); router.push('/learn/0', { scroll: false }) }}
+            <button onClick={() => { setFilterPattern(null); setIdx(0); router.push(`/learn/0${qs ? `?${qs}` : ''}`, { scroll: false }) }}
               className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${!filterPattern ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'}`}>
               All Patterns
             </button>
             {QUICK_PATTERNS.map(p => (
               <button key={p.name}
-                onClick={() => { setFilterPattern(filterPattern === p.name ? null : p.name); setIdx(0); router.push('/learn/0', { scroll: false }) }}
+                onClick={() => { setFilterPattern(filterPattern === p.name ? null : p.name); setIdx(0); router.push(`/learn/0${qs ? `?${qs}` : ''}`, { scroll: false }) }}
                 className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${filterPattern === p.name ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'}`}>
                 {p.name}
               </button>
