@@ -96,9 +96,10 @@ export default function SpeedsterPage() {
     }
     return true
   })
-  const total       = filteredOrder.length
-  const currentQ    = qMap[filteredOrder[cardIdx]]
-  const solvedCount = planOrder.filter(id => !!progress[String(id)]?.solved).length
+  const total          = filteredOrder.length
+  const currentQ       = qMap[filteredOrder[cardIdx]]
+  const solvedCount    = planOrder.filter(id => !!progress[String(id)]?.solved).length
+  const filteredVisited = filteredOrder.filter(id => visited.has(id)).length
 
   // Reset to first card when filters change
   useEffect(() => { setCardIdx(0); setFlipped(false) }, [filterDiff, filterSolved, filterSource, filterPattern])
@@ -197,9 +198,8 @@ export default function SpeedsterPage() {
           }`}>
           Solved
         </button>
-        <span className="text-xs text-gray-400 ml-auto shrink-0">{total} shown</span>
-        <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">
-          <CheckCircle size={11} /> {visited.size} visited
+        <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full ml-auto shrink-0">
+          <CheckCircle size={11} /> {filteredVisited}/{total} visited
         </span>
       </div>
 
@@ -337,7 +337,7 @@ export default function SpeedsterPage() {
               <List size={12} />
               <span className="font-mono">{cardIdx + 1}/{total}</span>
               <span className="text-gray-300">·</span>
-              <span className="text-green-600">{solvedCount} solved</span>
+              <span className="flex items-center gap-0.5 text-green-600"><CheckCircle size={10} />{filteredVisited}/{total}</span>
             </button>
 
             {showCardList && (
