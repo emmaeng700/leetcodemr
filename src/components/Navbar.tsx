@@ -13,6 +13,8 @@ import {
 const STUDY_LINKS = [
   { href: '/',        label: 'Questions', icon: Home,     also: ['/practice', '/question'] },
   { href: '/daily',   label: 'Daily',     icon: Calendar },
+  { href: '/sr-queue', label: 'SR Queue', icon: RefreshCw },
+  { href: '/review',  label: 'Reviews',  icon: Brain },
   { href: '/learn/0', label: 'Learn',     icon: BookOpen },
 ]
 
@@ -32,8 +34,6 @@ const PRACTICE_LINKS = [...STUDY_LINKS, ...DRILL_LINKS]
 const FLASHCARD_LINKS = [
   { href: '/flashcards',   label: 'Flashcards',   icon: Layers },
   { href: '/quick-review', label: 'Quick Review', icon: Clock },
-  { href: '/gems',         label: 'Gems',         icon: Gem },
-  { href: '/dsa',          label: 'DSA',          icon: Code2 },
 ]
 
 // Group 3 — Deep-dive topics
@@ -44,9 +44,9 @@ const TOPIC_LINKS = [
 
 // Group 4 — Meta
 const META_LINKS = [
-  { href: '/sr-queue', label: 'SR Queue', icon: RefreshCw },
+  { href: '/gems',  label: 'Gems', icon: Gem },
+  { href: '/dsa',   label: 'DSA',  icon: Code2 },
   { href: '/stats',  label: 'Stats',   icon: BarChart2 },
-  { href: '/review', label: 'Reviews', icon: Brain },
   { href: '/about',  label: 'About',   icon: Info },
 ]
 
