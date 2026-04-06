@@ -20,14 +20,6 @@ function nowHourCT(): number {
   return parseInt(parts.find(p => p.type === 'hour')?.value ?? '0')
 }
 
-function nowMinuteCT(): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: TZ,
-    minute: 'numeric',
-  }).formatToParts(new Date())
-  return parseInt(parts.find(p => p.type === 'minute')?.value ?? '0')
-}
-
 export async function GET(req: NextRequest) {
   // Vercel cron sends: Authorization: Bearer <CRON_SECRET>
   // Manual calls can send: ?secret=<CRON_SECRET>
@@ -124,13 +116,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ skipped: 'All done for today!' })
   }
 
-  // ── Idempotency: prevent double sends per 30-min window (CT) ────────────────
-  // This endpoint may be invoked twice per schedule (duplicate cron, retries).
-  // Allow reminders multiple times per day, but only once per 30-minute slot.
-  const hourNow = nowHourCT()
-  const minuteNow = nowMinuteCT()
-  const halfHourSlot = hourNow * 2 + (minuteNow >= 30 ? 1 : 0) // 0..47
-  const logKey = `${USER_ID}::notify-daily::slot-${halfHourSlot}`
+  // ── Idempotency: prevent double sends per day (CT) ──────────────────────────
+  // If this endpoint gets invoked twice (duplicate cron, retries, manual ping),
+  // ensure we only send one email per day.
+  const logKey = `${USER_ID}::notify-daily`
   const { data: alreadySent } = await supabase
     .from('activity_log')
     .select('count')
@@ -139,7 +128,7 @@ export async function GET(req: NextRequest) {
     .single()
 
   if ((alreadySent?.count ?? 0) > 0) {
-    return NextResponse.json({ skipped: 'Already sent this slot' })
+    return NextResponse.json({ skipped: 'Already sent today' })
   }
 
   // ── Build email ─────────────────────────────────────────────────────────────
