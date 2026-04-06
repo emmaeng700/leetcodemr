@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Search } from 'lucide-react'
+import { ExternalLink, Search } from 'lucide-react'
 
 type Q = { id: number; title: string; slug?: string }
 
@@ -101,14 +101,24 @@ export default function QuestionSearch({ className = '' }: { className?: string 
             <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
           ) : (
             matches.map(q => (
-              <button
-                key={q.id}
-                type="button"
-                onClick={() => goTo(q.id)}
-                className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors"
-              >
-                <div className="text-sm font-semibold text-gray-900">#{q.id} {q.title}</div>
-              </button>
+              <div key={q.id} className="flex items-stretch border-b border-gray-50 last:border-b-0">
+                <button
+                  type="button"
+                  onClick={() => applyToCurrentPage(`#${q.id}`)}
+                  className="flex-1 text-left px-3 py-2 hover:bg-gray-50 transition-colors"
+                  title="Filter current page"
+                >
+                  <div className="text-sm font-semibold text-gray-900">#{q.id} {q.title}</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goTo(q.id)}
+                  className="px-3 py-2 text-gray-400 hover:text-indigo-600 hover:bg-gray-50 transition-colors"
+                  title="Open question"
+                >
+                  <ExternalLink size={14} />
+                </button>
+              </div>
             ))
           )}
         </div>
