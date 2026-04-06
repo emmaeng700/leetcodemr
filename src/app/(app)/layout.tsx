@@ -2,12 +2,16 @@ import Navbar from '@/components/Navbar'
 import ScrollRestorer from '@/components/ScrollRestorer'
 import OfflineSetup from '@/components/OfflineSetup'
 import { Toaster } from 'react-hot-toast'
+import QuestionSearch from '@/components/QuestionSearch'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       <ScrollRestorer />
       <Navbar />
+      <div className="max-w-7xl mx-auto px-4 pt-4">
+        <QuestionSearch />
+      </div>
       <main className="overflow-x-hidden">{children}</main>
       <OfflineSetup />
       <Toaster position="bottom-right" />
