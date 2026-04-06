@@ -247,9 +247,17 @@ export async function GET(req: NextRequest) {
 </body>
 </html>`
 
+  const to = Array.from(
+    new Set([process.env.NOTIFICATION_EMAIL, process.env.NOTIFICATION_EMAIL_SECONDARY].filter(Boolean))
+  )
+
+  if (to.length === 0) {
+    return NextResponse.json({ error: 'Missing NOTIFICATION_EMAIL' }, { status: 500 })
+  }
+
   const { data: emailData, error } = await resend.emails.send({
     from: 'LeetMastery <onboarding@resend.dev>',
-    to: [process.env.NOTIFICATION_EMAIL!, 'emmanuelopponga07@gmail.com'],
+    to,
     subject: subjects[tod],
     html,
   })

@@ -46,6 +46,7 @@ Optional (for cron-triggered daily notifications and admin Supabase access):
 | `RESEND_API_KEY` | [Resend](https://resend.com) API key for email |
 | `CRON_SECRET` | Shared secret for securing the notify endpoint |
 | `NOTIFICATION_EMAIL` | Recipient for daily notifications |
+| `NOTIFICATION_EMAIL_SECONDARY` | Optional second recipient (no duplicates if same as primary) |
 
 ## Scripts
 
