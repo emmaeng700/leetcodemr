@@ -2,6 +2,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import QuestionSearch from '@/components/QuestionSearch'
 import {
   BookOpen, Menu, X, LogOut, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
@@ -72,7 +73,11 @@ export default function Navbar() {
             <span>LeetMastery</span>
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="hidden md:block flex-1 px-6">
+            <QuestionSearch className="max-w-xl" />
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleLogout}
               className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -118,6 +123,9 @@ export default function Navbar() {
       {/* Mobile menu — absolute overlay so it never pushes content down */}
       {open && (
         <div className="md:hidden absolute top-full left-0 right-0 z-50 border-t border-gray-100 bg-white shadow-xl px-4 py-3 space-y-1 max-h-[80vh] overflow-y-auto">
+          <div className="pb-2">
+            <QuestionSearch />
+          </div>
           {[
             { label: 'Study',      group: STUDY_LINKS },
             { label: 'Drill',      group: DRILL_LINKS },
