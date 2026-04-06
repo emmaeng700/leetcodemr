@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { getProgress, updateProgress } from '@/lib/db'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
+import toast from 'react-hot-toast'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
 
@@ -353,8 +354,12 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
             if (alreadySolved) {
               setSolvedStatus('already')
             } else {
-              await updateProgress(appQuestionId, { solved: true })
-              setSolvedStatus('marked')
+              const err = await updateProgress(appQuestionId, { solved: true })
+              if (err) {
+                toast.error(`Couldn’t mark as solved: ${err}`)
+              } else {
+                setSolvedStatus('marked')
+              }
             }
             onAcceptedRef.current?.()
           }

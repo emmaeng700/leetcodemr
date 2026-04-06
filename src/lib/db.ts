@@ -76,6 +76,7 @@ export async function updateProgress(questionId: number, data: any) {
   if (upsertErr) console.error('[db] updateProgress:', upsertErr.message)
 
   await logActivity()
+  return upsertErr?.message ?? null
 }
 
 export async function addMasteryRunEvent(questionId: number, count = 1) {
