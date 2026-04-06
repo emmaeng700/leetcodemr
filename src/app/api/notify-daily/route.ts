@@ -248,7 +248,11 @@ export async function GET(req: NextRequest) {
 </html>`
 
   const to = Array.from(
-    new Set([process.env.NOTIFICATION_EMAIL, process.env.NOTIFICATION_EMAIL_SECONDARY].filter(Boolean))
+    new Set(
+      [process.env.NOTIFICATION_EMAIL, process.env.NOTIFICATION_EMAIL_SECONDARY].filter(
+        (v): v is string => typeof v === 'string' && v.trim().length > 0
+      )
+    )
   )
 
   if (to.length === 0) {
