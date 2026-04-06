@@ -1,6 +1,7 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { Suspense, useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { RefreshCw, CheckCircle, ArrowRight } from 'lucide-react'
 import { getProgress, getStudyPlan, completeReview } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -90,8 +91,10 @@ function Section({ title, items, urgency, accent, completing, onDone }: {
   )
 }
 
-export default function SRQueuePage() {
+function SRQueueInner() {
   const online = useOnlineStatus()
+  const searchParams = useSearchParams()
+  const search = (searchParams.get('search') || '').trim().toLowerCase()
   const [questions, setQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, any>>({})
   const [planOrder, setPlanOrder] = useState<number[]>([])
@@ -145,6 +148,18 @@ export default function SRQueuePage() {
   const later    = [...overflow, ...solved.filter(({ p }) => p.next_review && daysUntil(p.next_review) > 7)]
   const none     = solved.filter(({ p }) => !p.next_review)
 
+  const matchesSearch = ({ q }: RowItem) => {
+    if (!search) return true
+    const byId = search.replace(/^#/, '')
+    return String(q.id).includes(byId) || q.title.toLowerCase().includes(search)
+  }
+
+  const overdueF  = overdue.filter(matchesSearch)
+  const dueTodayF = dueToday.filter(matchesSearch)
+  const soonF     = soon.filter(matchesSearch)
+  const laterF    = later.filter(matchesSearch)
+  const noneF     = none.filter(matchesSearch)
+
   const dueCount = todayQueue.length
 
   return (
@@ -181,13 +196,21 @@ export default function SRQueuePage() {
         </div>
       ) : (
         <>
-          <Section title="🔴 Overdue"    items={overdue}  urgency="overdue" accent="bg-red-50 border-red-100 text-red-700"       completing={completing} onDone={handleDone} />
-          <Section title="🟡 Due Today"  items={dueToday} urgency="today"   accent="bg-orange-50 border-orange-100 text-orange-700" completing={completing} onDone={handleDone} />
-          <Section title="📅 This Week"  items={soon}     urgency="soon"    accent="bg-yellow-50 border-yellow-100 text-yellow-700" completing={completing} onDone={handleDone} />
-          <Section title="⏳ Later"      items={later}    urgency="later"   accent="bg-gray-50 border-gray-100 text-gray-700"      completing={completing} onDone={handleDone} />
-          {none.length > 0 && <Section title="— Not scheduled" items={none} urgency="none" accent="bg-gray-50 border-gray-100 text-gray-600" completing={completing} onDone={handleDone} />}
+          <Section title="🔴 Overdue"    items={overdueF}  urgency="overdue" accent="bg-red-50 border-red-100 text-red-700"       completing={completing} onDone={handleDone} />
+          <Section title="🟡 Due Today"  items={dueTodayF} urgency="today"   accent="bg-orange-50 border-orange-100 text-orange-700" completing={completing} onDone={handleDone} />
+          <Section title="📅 This Week"  items={soonF}     urgency="soon"    accent="bg-yellow-50 border-yellow-100 text-yellow-700" completing={completing} onDone={handleDone} />
+          <Section title="⏳ Later"      items={laterF}    urgency="later"   accent="bg-gray-50 border-gray-100 text-gray-700"      completing={completing} onDone={handleDone} />
+          {noneF.length > 0 && <Section title="— Not scheduled" items={noneF} urgency="none" accent="bg-gray-50 border-gray-100 text-gray-600" completing={completing} onDone={handleDone} />}
         </>
       )}
     </div>
+  )
+}
+
+export default function SRQueuePage() {
+  return (
+    <Suspense fallback={<div className="text-center py-32 text-gray-400 animate-pulse text-sm">Loading…</div>}>
+      <SRQueueInner />
+    </Suspense>
   )
 }
