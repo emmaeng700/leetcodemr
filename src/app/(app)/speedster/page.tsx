@@ -198,8 +198,9 @@ export default function SpeedsterPage() {
           }`}>
           Solved
         </button>
-        <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full ml-auto shrink-0">
-          <CheckCircle size={11} /> {filteredVisited}/{total} visited
+        <span className="text-xs text-gray-400 ml-auto shrink-0">{total} shown</span>
+        <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">
+          <CheckCircle size={11} /> {visited.size} visited
         </span>
       </div>
 
