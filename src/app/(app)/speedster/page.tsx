@@ -51,24 +51,30 @@ export default function SpeedsterPage() {
 
   useEffect(() => {
     async function load() {
-      const [qs, plan, prog, vis, mr] = await Promise.all([
-        fetch('/questions_full.json').then(r => r.json()),
-        getStudyPlan(),
-        getProgress(),
-        getFcVisited(),
-        getMasteryRunsByQuestion(),
-      ])
-      setQuestions(qs)
-      setProgress(prog)
-      setVisited(vis)
-      setRuns(mr)
-      if (plan?.question_order?.length) {
-        setPlanOrder(plan.question_order)
-        setPerDay(plan.per_day || 3)
-      } else {
-        setPlanOrder((qs as Question[]).map(q => q.id))
+      try {
+        const [qs, plan, prog, vis, mr] = await Promise.all([
+          fetch('/questions_full.json').then(r => r.json()),
+          getStudyPlan(),
+          getProgress(),
+          getFcVisited(),
+          getMasteryRunsByQuestion(),
+        ])
+        setQuestions(qs)
+        setProgress(prog)
+        setVisited(vis)
+        setRuns(mr)
+        if (plan?.question_order?.length) {
+          setPlanOrder(plan.question_order)
+          setPerDay(plan.per_day || 3)
+        } else {
+          setPlanOrder((qs as Question[]).map(q => q.id))
+        }
+      } catch (e) {
+        console.error('[speedster] load failed:', e)
+        toast.error('Failed to load Speedster data — check console/Supabase policies')
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
     load()
   }, [])

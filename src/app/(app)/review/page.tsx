@@ -53,6 +53,9 @@ export default function ReviewPage() {
       setProgress(prog)
       setRuns(mr)
       setLoading(false)
+    }).catch((e) => {
+      console.error('[review] load failed:', e)
+      setLoading(false)
     })
   }, [])
 
