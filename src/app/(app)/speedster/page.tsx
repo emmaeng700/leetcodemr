@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2, WifiOff, Brain } from 'lucide-react'
 import { addMasteryRunEvent, getMasteryRunsByQuestion, getProgress, getStudyPlan, getFcVisited, addFcVisited } from '@/lib/db'
@@ -51,6 +51,7 @@ export default function SpeedsterPage() {
 
   // Day card state
   const [dayIdx,  setDayIdx]  = useState(0)
+  const [speedsterStartISO, setSpeedsterStartISO] = useState<string>('')
 
   // Upcoming reviews (SR) strip state
   const [reviewWeek, setReviewWeek] = useState(0) // 0 = today→+7, 1 = +7→+14, etc.
@@ -137,6 +138,31 @@ export default function SpeedsterPage() {
   for (let i = 0; i < planOrder.length; i += perDay) {
     days.push(planOrder.slice(i, i + perDay))
   }
+
+  // Determine "today's" day index in the schedule based on a stored start date.
+  // This makes the "Today" button jump to the correct day number as time passes.
+  useEffect(() => {
+    try {
+      const key = 'speedster_start_iso'
+      const existing = localStorage.getItem(key)
+      const base = existing || todayISOChicago()
+      if (!existing) localStorage.setItem(key, base)
+      setSpeedsterStartISO(base)
+    } catch { /* ignore */ }
+  }, [])
+
+  const todayScheduleIdx = useMemo(() => {
+    try {
+      if (!speedsterStartISO) return 0
+      const [sy, sm, sd] = speedsterStartISO.split('-').map(Number)
+      const [ty, tm, td] = todayISOChicago().split('-').map(Number)
+      const start = new Date(sy, (sm ?? 1) - 1, sd ?? 1, 12, 0, 0).getTime()
+      const today = new Date(ty, (tm ?? 1) - 1, td ?? 1, 12, 0, 0).getTime()
+      const diff = Math.floor((today - start) / (24 * 60 * 60 * 1000))
+      if (!Number.isFinite(diff) || diff < 0) return 0
+      return diff
+    } catch { return 0 }
+  }, [speedsterStartISO])
 
   const totalDays  = days.length
   const currentDay = days[dayIdx] ?? []
@@ -360,6 +386,19 @@ export default function SpeedsterPage() {
         <div className="text-center">
           <p className="text-base font-black text-gray-800">Day {dayIdx + 1}</p>
           <p className="text-xs text-gray-400">{daySolved}/{currentDay.length} solved · {dayIdx + 1} of {totalDays} days</p>
+          <button
+            type="button"
+            onClick={() => {
+              const idx = Math.max(0, Math.min(totalDays - 1, todayScheduleIdx))
+              setDayIdx(idx)
+              const panel = cardsPanelRef.current
+              if (panel) panel.scrollTo({ top: 0, behavior: 'smooth' })
+              else window.scrollTo({ top: 0, behavior: 'smooth' })
+            }}
+            className="mt-2 inline-flex items-center justify-center rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-1 text-xs font-bold text-yellow-700 hover:border-yellow-300 hover:bg-yellow-100 transition-colors"
+          >
+            Today
+          </button>
         </div>
         <button onClick={() => setDayIdx(i => Math.min(totalDays - 1, i + 1))} disabled={dayIdx === totalDays - 1}
           className="flex items-center gap-1 px-4 py-2 rounded-xl bg-yellow-500 text-white text-sm font-semibold hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
