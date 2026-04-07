@@ -70,12 +70,10 @@ function MobileKeybar({
   editorViewRef,
   cursorPosRef,
   onResetCode,
-  onCopyCode,
 }: {
   editorViewRef: React.RefObject<any>
   cursorPosRef:  React.RefObject<{ from: number; to: number }>
   onResetCode: () => void
-  onCopyCode: () => void
 }) {
   const press = (action: string | (() => void)) => {
     const view = editorViewRef.current
@@ -142,7 +140,6 @@ function MobileKeybar({
     { label: '↓', action: 'ArrowDown' },
     { label: '⌫', action: '⌫' },
     { label: 'RST', action: () => onResetCode() },
-    { label: 'CPY', action: () => onCopyCode() },
   ]
 
   return (
@@ -344,50 +341,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
     setResult(null)
     setResultErr('')
   }, [lcQ, lang])
-
-  const copyCurrentCode = useCallback(() => {
-    const text = code ?? ''
-    // Prefer async clipboard API when available
-    if (typeof navigator !== 'undefined' && (navigator as any).clipboard?.writeText) {
-      ;(navigator as any).clipboard.writeText(text).then(
-        () => toast.success('Code copied'),
-        () => {
-          // Fallback to execCommand path if async writeText fails
-          try {
-            const ta = document.createElement('textarea')
-            ta.value = text
-            ta.style.position = 'fixed'
-            ta.style.left = '-9999px'
-            document.body.appendChild(ta)
-            ta.focus()
-            ta.select()
-            document.execCommand('copy')
-            document.body.removeChild(ta)
-            toast.success('Code copied')
-          } catch {
-            toast.error('Could not copy code')
-          }
-        },
-      )
-      return
-    }
-
-    // Legacy fallback (no navigator.clipboard)
-    try {
-      const ta = document.createElement('textarea')
-      ta.value = text
-      ta.style.position = 'fixed'
-      ta.style.left = '-9999px'
-      document.body.appendChild(ta)
-      ta.focus()
-      ta.select()
-      document.execCommand('copy')
-      document.body.removeChild(ta)
-      toast.success('Code copied')
-    } catch {
-      toast.error('Could not copy code')
-    }
-  }, [code])
 
   const switchLang = (l: 'python3' | 'cpp') => {
     setLang(l)
@@ -664,7 +617,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
           editorViewRef={editorViewRef}
           cursorPosRef={cursorPosRef}
           onResetCode={resetToStarter}
-          onCopyCode={copyCurrentCode}
         />
       )}
 
