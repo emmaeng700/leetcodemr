@@ -419,6 +419,32 @@ function LearnInner() {
 
   const solvedCount = filtered.filter(fq => progress[String(fq.id)]?.solved).length
 
+  const questionListItems = (
+    <>
+      {filtered.map((fq, i) => {
+        const fp = progress[String(fq.id)] || {}
+        return (
+          <button
+            key={fq.id}
+            type="button"
+            onClick={() => goTo(i)}
+            className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-indigo-50 border-b border-gray-50 ${i === safeIdx ? 'bg-indigo-50' : ''}`}
+          >
+            <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{fq.id}</span>
+            <span className="min-w-0 flex-1 truncate text-gray-700">{fq.title}</span>
+            <span
+              className={`text-xs font-semibold shrink-0 ${fq.difficulty === 'Easy' ? 'text-green-600' : fq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}
+            >
+              {fq.difficulty[0]}
+            </span>
+            {fp.solved && <CheckCircle size={11} className="text-green-500 shrink-0" />}
+          </button>
+        )
+      })}
+      {filtered.length === 0 && <p className="text-center text-sm text-gray-400 py-6">No questions match.</p>}
+    </>
+  )
+
   return (
     <div className="flex flex-col h-[calc(100vh-56px)]">
 
@@ -490,25 +516,18 @@ function LearnInner() {
             <span className="hidden sm:inline text-green-600">{solvedCount} solved</span>
           </button>
 
-          {/* Question list dropdown */}
+          {/* Question list: mobile = fixed, centered on viewport; sm+ = under button */}
           {showList && (
-            <div className="absolute top-full left-0 z-[100] mt-1 max-h-[min(70vh,20rem)] w-[min(calc(100vw-2rem),20rem)] overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
-              {filtered.map((fq, i) => {
-                const fp = progress[String(fq.id)] || {}
-                return (
-                  <button key={fq.id} onClick={() => goTo(i)}
-                    className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-indigo-50 border-b border-gray-50 ${i === safeIdx ? 'bg-indigo-50' : ''}`}>
-                    <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{fq.id}</span>
-                    <span className="min-w-0 flex-1 truncate text-gray-700">{fq.title}</span>
-                    <span className={`text-xs font-semibold shrink-0 ${fq.difficulty === 'Easy' ? 'text-green-600' : fq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
-                      {fq.difficulty[0]}
-                    </span>
-                    {fp.solved && <CheckCircle size={11} className="text-green-500 shrink-0" />}
-                  </button>
-                )
-              })}
-              {filtered.length === 0 && <p className="text-center text-sm text-gray-400 py-6">No questions match.</p>}
-            </div>
+            <>
+              <div
+                className="fixed inset-0 top-14 z-[99] bg-black/25 sm:hidden"
+                aria-hidden
+                onClick={() => setShowList(false)}
+              />
+              <div className="fixed left-1/2 top-[calc(56px+3.25rem)] z-[100] max-h-[min(70vh,22rem)] w-[min(calc(100vw-2rem),20rem)] -translate-x-1/2 overflow-y-auto overscroll-contain rounded-xl border border-gray-200 bg-white shadow-xl sm:absolute sm:left-0 sm:top-full sm:mt-1 sm:max-h-[min(70vh,20rem)] sm:translate-x-0 sm:w-[min(calc(100vw-2rem),20rem)]">
+                {questionListItems}
+              </div>
+            </>
           )}
         </div>
 
