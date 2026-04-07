@@ -93,6 +93,16 @@ function parseSlug(input: string) {
   return m ? m[1] : input.trim().toLowerCase().replace(/\s+/g, '-')
 }
 
+function absolutizeLeetCodeUrl(raw: string | undefined): string {
+  const src = String(raw ?? '').trim()
+  if (!src) return ''
+  if (src.startsWith('http://') || src.startsWith('https://')) return src
+  if (src.startsWith('//')) return `https:${src}`
+  if (src.startsWith('/')) return `https://leetcode.com${src}`
+  // Some editorials include relative paths; treat as leetcode.com relative.
+  return `https://leetcode.com/${src.replace(/^\.?\//, '')}`
+}
+
 /* ─── Constants ──────────────────────────────────────────── */
 const DIFF_CLS: Record<string, string> = {
   Easy:   'text-green-500',
@@ -536,7 +546,30 @@ export default function LeetCodePage() {
                       remarkPlugins={[remarkGfm]}
                       rehypePlugins={[rehypeRaw]}
                       components={{
-                        iframe: () => null,
+                        iframe: ({ src, ...props }: any) => {
+                          const url = absolutizeLeetCodeUrl(src)
+                          // Only allow embeds from known-safe hosts
+                          const ok =
+                            url.startsWith('https://leetcode.com/') ||
+                            url.startsWith('https://www.youtube.com/') ||
+                            url.startsWith('https://youtube.com/') ||
+                            url.startsWith('https://player.vimeo.com/')
+                          if (!ok) return null
+                          return (
+                            <div className="my-4 overflow-hidden rounded-xl border border-gray-700 bg-black">
+                              <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
+                                <iframe
+                                  src={url}
+                                  className="absolute inset-0 h-full w-full"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                  referrerPolicy="no-referrer"
+                                  {...props}
+                                />
+                              </div>
+                            </div>
+                          )
+                        },
                         h2: ({ children }: any) => <h2 className="text-base font-bold text-gray-100 mt-6 mb-2 pb-1 border-b border-gray-700">{children}</h2>,
                         h3: ({ children }: any) => <h3 className="text-sm font-bold text-indigo-400 mt-5 mb-2 flex items-center gap-1.5"><span className="w-1 h-4 bg-indigo-400 rounded-full inline-block shrink-0"/>{children}</h3>,
                         h4: ({ children }: any) => <h4 className="text-sm font-semibold text-gray-300 mt-3 mb-1.5">{children}</h4>,
@@ -564,13 +597,32 @@ export default function LeetCodePage() {
                         table: ({ children }: any) => <div className="overflow-x-auto my-3"><table className="text-xs border-collapse w-full">{children}</table></div>,
                         th: ({ children }: any) => <th className="bg-gray-800 border border-gray-700 px-3 py-1.5 text-left font-semibold text-gray-200">{children}</th>,
                         td: ({ children }: any) => <td className="border border-gray-700 px-3 py-1.5 text-gray-300">{children}</td>,
-                        img: ({ src, alt }: any) => <img src={src} alt={alt ?? ''} className="max-w-full rounded-lg my-3 border border-gray-700" />,
+                        img: ({ src, alt }: any) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={absolutizeLeetCodeUrl(src)}
+                            alt={alt ?? ''}
+                            loading="lazy"
+                            className="max-w-full rounded-lg my-3 border border-gray-700"
+                          />
+                        ),
+                        video: ({ src, ...props }: any) => {
+                          const url = absolutizeLeetCodeUrl(src)
+                          if (!url) return null
+                          return (
+                            <video
+                              src={url}
+                              controls
+                              playsInline
+                              className="my-4 w-full max-w-full rounded-xl border border-gray-700 bg-black"
+                              {...props}
+                            />
+                          )
+                        },
                       }}
                     >
                       {editorial
                         .replace(/\[TOC\]/g, '')
-                        .replace(/##\s*Video Solution[\s\S]*?(?=##\s|\z)/m, '')
-                        .replace(/<div[^>]*class="video-container"[^>]*>[\s\S]*?<\/div>/g, '')
                         .replace(/\$\$([^$]+)\$\$/g, '`$1`')
                         .trim()}
                     </ReactMarkdown>
