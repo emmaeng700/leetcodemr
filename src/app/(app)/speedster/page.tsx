@@ -210,6 +210,21 @@ export default function SpeedsterPage() {
     })
   }, [total, fadeSwap])
 
+  const jumpToTodayFromFlashcards = useCallback(() => {
+    const ids = currentDay
+    const targetId = ids?.[0]
+    if (!targetId) return
+    const idx = filteredOrder.findIndex(id => id === targetId)
+    if (idx < 0) {
+      toast.error('Today’s first question is hidden by your flashcard filters.')
+      return
+    }
+    fadeSwap(() => {
+      setFlipped(false)
+      setCardIdx(idx)
+    })
+  }, [currentDay, filteredOrder, fadeSwap])
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const el = e.target as HTMLElement
@@ -549,6 +564,16 @@ export default function SpeedsterPage() {
             title="Reset to start"
             className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300 transition-colors">
             <RotateCcw size={13} />
+          </button>
+
+          {/* Jump to today's questions */}
+          <button
+            type="button"
+            onClick={jumpToTodayFromFlashcards}
+            title="Jump flashcards to today's first question"
+            className="ml-1 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-yellow-200 bg-yellow-50 text-xs font-bold text-yellow-700 hover:border-yellow-300 hover:bg-yellow-100 transition-colors"
+          >
+            Today
           </button>
         </div>
 
