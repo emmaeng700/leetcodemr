@@ -143,7 +143,7 @@ export default function SpeedsterQuestionPage() {
   })
 
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)]">
+    <div className="flex flex-col h-[calc(100dvh-56px)]">
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 border-b border-gray-100 bg-white shrink-0 gap-2">

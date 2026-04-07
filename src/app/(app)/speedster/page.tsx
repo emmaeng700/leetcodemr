@@ -676,7 +676,7 @@ export default function SpeedsterPage() {
   return (
     <>
       {/* ── MOBILE layout: full viewport height, tab-switched panels ── */}
-      <div className="flex flex-col md:hidden h-[calc(100vh-56px)]">
+      <div className="flex flex-col md:hidden h-[calc(100dvh-56px)]">
         {/* Tab bar */}
         <div className="flex border-b border-gray-100 bg-white shrink-0">
           <button

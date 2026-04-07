@@ -280,7 +280,7 @@ export default function MockInterviewPage() {
 
   /* ── ACTIVE ── */
   if (phase === 'active' && question) return (
-    <div className="flex flex-col h-[calc(100vh-56px)]">
+    <div className="flex flex-col h-[calc(100dvh-56px)]">
 
       {/* Timer top bar */}
       <div className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 border-b shrink-0 ${urgent ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-200'}`}>

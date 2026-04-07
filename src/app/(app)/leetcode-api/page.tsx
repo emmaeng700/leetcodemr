@@ -500,13 +500,13 @@ export default function LeetCodePage() {
 
   /* ══ RENDER ══════════════════════════════════════════════ */
   if (!online) return (
-    <div className="flex flex-col items-center justify-center h-[calc(100vh-56px)] gap-4 text-center px-4">
+    <div className="flex flex-col items-center justify-center h-[calc(100dvh-56px)] gap-4 text-center px-4">
       <OfflineBanner feature="LeetCode section" />
     </div>
   )
 
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)] bg-[#1a1a2e] text-gray-100 overflow-hidden">
+    <div className="flex flex-col h-[calc(100dvh-56px)] bg-[#1a1a2e] text-gray-100 overflow-hidden">
 
       {/* ── Top bar ──────────────────────────────────────── */}
       <div className="flex flex-col gap-1.5 px-3 pt-2 pb-2 bg-[#16213e] border-b border-gray-700/50 shrink-0">

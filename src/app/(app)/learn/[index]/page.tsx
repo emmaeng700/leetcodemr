@@ -468,7 +468,7 @@ function LearnInner() {
 
   return (
     <>
-    <div className="flex flex-col h-[calc(100vh-56px)]">
+    <div className="flex flex-col h-[calc(100dvh-56px)]">
 
       {/* ── Study mode modal ── */}
       {studyMode === null && (
@@ -952,7 +952,7 @@ function LearnInner() {
 
 export default function LearnPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-[calc(100vh-56px)] text-gray-400 text-sm gap-2"><Loader2 size={16} className="animate-spin" /> Loading…</div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-[calc(100dvh-56px)] text-gray-400 text-sm gap-2"><Loader2 size={16} className="animate-spin" /> Loading…</div>}>
       <LearnInner />
     </Suspense>
   )
