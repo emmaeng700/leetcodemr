@@ -516,6 +516,13 @@ function LearnInner() {
         >
           Hub
         </a>
+        <a
+          href="/learn/submissions"
+          className="shrink-0 text-[11px] font-bold text-emerald-700 hover:text-emerald-900 hover:underline"
+          title="Accepted submit counts"
+        >
+          AC
+        </a>
         <span className="text-xs text-gray-300 font-medium hidden sm:inline">Learn</span>
         <span className="w-px h-4 bg-gray-200 hidden sm:inline-block" />
 

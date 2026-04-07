@@ -15,7 +15,7 @@ import {
   AlertCircle, Clock, Cpu, Info, Calendar, ExternalLink,
   Tag, ChevronRight, Star, BookOpen,
 } from 'lucide-react'
-import { getProgress, updateProgress } from '@/lib/db'
+import { getProgress, updateProgress, incrementAcSubmitCount } from '@/lib/db'
 
 hljs.registerLanguage('python', pythonLang)
 hljs.registerLanguage('cpp', cppLang)
@@ -381,6 +381,7 @@ export default function LeetCodePage() {
           if (!match) {
             setSolvedStatus('not-in-library')
           } else {
+            void incrementAcSubmitCount(match.id)
             const prog = await getProgress()
             const alreadySolved = Array.isArray(prog)
               ? prog.some((p: any) => p.question_id === match.id && p.solved)

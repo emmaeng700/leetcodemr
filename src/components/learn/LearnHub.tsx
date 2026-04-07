@@ -11,6 +11,7 @@ import {
   Flame,
   LayoutGrid,
   Loader2,
+  Send,
   Sparkles,
   Star,
   Target,
@@ -272,6 +273,26 @@ export default function LearnHub() {
               </Link>
             ))}
           </div>
+        </div>
+
+        {/* AC submit tracker */}
+        <div className="mt-10">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-black text-gray-800">
+            <Send size={16} className="text-emerald-600" />
+            Submit reps
+          </h2>
+          <Link
+            href="/learn/submissions"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50/90 to-white px-5 py-4 shadow-sm transition hover:border-emerald-300"
+          >
+            <div className="min-w-0">
+              <p className="font-bold text-gray-900">Accepted submit counts</p>
+              <p className="mt-0.5 text-xs text-gray-600">
+                Full library table (10 per page) — problems with fewer AC submits sort first.
+              </p>
+            </div>
+            <ArrowRight className="shrink-0 text-emerald-600" size={20} />
+          </Link>
         </div>
 
         {/* Due reviews */}

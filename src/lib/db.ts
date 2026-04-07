@@ -36,6 +36,43 @@ export async function getProgress() {
   return result
 }
 
+/** Increment count when user gets Accepted on a Submit (tracked per app question id). */
+export async function incrementAcSubmitCount(questionId: number) {
+  const { data: existing } = await supabase
+    .from('ac_submit_counts')
+    .select('count')
+    .eq('user_id', USER_ID)
+    .eq('question_id', questionId)
+    .maybeSingle()
+  const next = (existing?.count ?? 0) + 1
+  const { error } = await supabase.from('ac_submit_counts').upsert(
+    {
+      user_id: USER_ID,
+      question_id: questionId,
+      count: next,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,question_id' },
+  )
+  if (error) console.error('[db] incrementAcSubmitCount:', error.message)
+}
+
+export async function getAcSubmitCounts(): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from('ac_submit_counts')
+    .select('question_id, count')
+    .eq('user_id', USER_ID)
+  if (error) {
+    console.error('[db] getAcSubmitCounts:', error.message)
+    return {}
+  }
+  const out: Record<string, number> = {}
+  for (const row of data || []) {
+    out[String((row as { question_id: number }).question_id)] = (row as { count: number }).count
+  }
+  return out
+}
+
 export async function updateProgress(questionId: number, data: any) {
   const { data: existing } = await supabase
     .from('progress')

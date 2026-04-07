@@ -5,7 +5,7 @@ import {
   Play, Send, Loader2, CheckCircle, XCircle, Clock, Cpu,
   AlertCircle, Key, ChevronDown, ChevronUp, Star, Trophy,
 } from 'lucide-react'
-import { getProgress, updateProgress } from '@/lib/db'
+import { getProgress, updateProgress, incrementAcSubmitCount } from '@/lib/db'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import toast from 'react-hot-toast'
 
@@ -343,6 +343,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
 
         /* Sync to app on Accepted Submit */
         if (mode === 'submit' && data.status_code === 10) {
+          void incrementAcSubmitCount(appQuestionId)
           if (speedster) {
             setSolvedStatus('speedster')
             onAcceptedRef.current?.()

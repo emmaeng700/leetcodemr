@@ -156,6 +156,15 @@ CREATE TABLE IF NOT EXISTS fc_daily_log (
   UNIQUE(user_id, date)
 );
 
+-- Accepted submit counts (LeetCode Submit → Accepted, any screen with app question id)
+CREATE TABLE IF NOT EXISTS ac_submit_counts (
+  user_id TEXT NOT NULL DEFAULT 'emmanuel',
+  question_id INTEGER NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, question_id)
+);
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- ROW LEVEL SECURITY
 -- Single-user app: all rows restricted to user_id = 'emmanuel'

@@ -101,3 +101,9 @@ ALTER TABLE fc_daily_log ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "owner only" ON fc_daily_log;
 CREATE POLICY "owner only" ON fc_daily_log
   FOR ALL USING (user_id = 'emmanuel') WITH CHECK (user_id = 'emmanuel');
+
+-- ── ac_submit_counts ──────────────────────────────────────────────────────────
+ALTER TABLE ac_submit_counts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "owner only" ON ac_submit_counts;
+CREATE POLICY "owner only" ON ac_submit_counts
+  FOR ALL USING (user_id = 'emmanuel') WITH CHECK (user_id = 'emmanuel');
