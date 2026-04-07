@@ -75,7 +75,7 @@ const DAILY_Q = `query { activeDailyCodingChallengeQuestion { date link question
 const USER_Q  = `query($u:String!){matchedUser(username:$u){username profile{realName ranking userAvatar}submitStatsGlobal{acSubmissionNum{difficulty count}}}}`
 const QUEST_Q = `query($s:String!){question(titleSlug:$s){questionId questionFrontendId title titleSlug difficulty content topicTags{name} codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`
 const SEARCH_Q    = `query($q:String!){problemsetQuestionListV2(categorySlug:"",limit:1,skip:0,searchKeyword:$q,filters:{filterCombineType:ALL}){questions{titleSlug title}}}`
-const SEARCH_MANY_Q = `query($q:String!,$limit:Int!){problemsetQuestionListV2(categorySlug:"",limit:$limit,skip:0,searchKeyword:$q,filters:{filterCombineType:ALL}){questions{titleSlug title questionFrontendId}}}`
+const SEARCH_MANY_Q = `query($q:String!,$limit:Int!,$skip:Int!){problemsetQuestionListV2(categorySlug:"",limit:$limit,skip:$skip,searchKeyword:$q,filters:{filterCombineType:ALL}){totalLength questions{titleSlug title questionFrontendId}}}`
 const EDITORIAL_Q = `query($s:String!){question(titleSlug:$s){solution{content paidOnly}}}`
 const PLAYGROUND_Q = `query($u:String!){allPlaygroundCodes(uuid:$u){code langSlug}}`
 
@@ -155,6 +155,8 @@ export default function LeetCodePage() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [lcMatches, setLcMatches] = useState<Array<{ slug: string; title: string; frontendId?: string }>>([])
   const [lcSearching, setLcSearching] = useState(false)
+  const [lcHasMore, setLcHasMore] = useState(false)
+  const [lcNextSkip, setLcNextSkip] = useState(0)
   useEffect(() => {
     fetch('/questions_full.json')
       .then(r => r.json())
@@ -176,32 +178,53 @@ export default function LeetCodePage() {
       .slice(0, 8)
   }, [slugInput, appQuestions])
 
-  useEffect(() => {
-    const q = slugInput.trim()
-    if (!searchOpen || q.length < 2) { setLcMatches([]); setLcSearching(false); return }
-    if (!(session && csrfToken)) { setLcMatches([]); setLcSearching(false); return }
-
+  const fetchLcSuggestions = useCallback(async (q: string, skip: number, append: boolean) => {
     const id = ++lcSearchReqId.current
     setLcSearching(true)
+    try {
+      const data = await gql(SEARCH_MANY_Q, { q, limit: 50, skip }, { session, csrfToken })
+      if (lcSearchReqId.current !== id) return
+      const qs: Array<{ titleSlug: string; title: string; questionFrontendId?: string }> =
+        data?.problemsetQuestionListV2?.questions ?? []
+      const total: number = data?.problemsetQuestionListV2?.totalLength ?? qs.length
+
+      setLcMatches(prev => {
+        const incoming = qs.map(x => ({ slug: x.titleSlug, title: x.title, frontendId: x.questionFrontendId }))
+        const next = append ? [...prev, ...incoming] : incoming
+        const seen = new Set<string>()
+        return next.filter(x => {
+          if (seen.has(x.slug)) return false
+          seen.add(x.slug)
+          return true
+        })
+      })
+
+      const nextSkip = skip + qs.length
+      setLcNextSkip(nextSkip)
+      setLcHasMore(nextSkip < total && qs.length > 0)
+    } catch {
+      if (lcSearchReqId.current !== id) return
+      if (!append) setLcMatches([])
+      setLcHasMore(false)
+      setLcNextSkip(0)
+    } finally {
+      if (lcSearchReqId.current !== id) return
+      setLcSearching(false)
+    }
+  }, [session, csrfToken])
+
+  useEffect(() => {
+    const q = slugInput.trim()
+    if (!searchOpen || q.length < 2) { setLcMatches([]); setLcSearching(false); setLcHasMore(false); setLcNextSkip(0); return }
+    if (!(session && csrfToken)) { setLcMatches([]); setLcSearching(false); setLcHasMore(false); setLcNextSkip(0); return }
     const t = window.setTimeout(async () => {
-      try {
-        const data = await gql(SEARCH_MANY_Q, { q, limit: 20 }, { session, csrfToken })
-        if (lcSearchReqId.current !== id) return
-        const qs: Array<{ titleSlug: string; title: string; questionFrontendId?: string }> =
-          data?.problemsetQuestionListV2?.questions ?? []
-        setLcMatches(qs.map(x => ({ slug: x.titleSlug, title: x.title, frontendId: x.questionFrontendId })))
-      } catch {
-        if (lcSearchReqId.current !== id) return
-        setLcMatches([])
-      } finally {
-        if (lcSearchReqId.current !== id) return
-        setLcSearching(false)
-      }
+      await fetchLcSuggestions(q, 0, false)
     }, 200)
     return () => {
       window.clearTimeout(t)
     }
-  }, [slugInput, searchOpen, session, csrfToken])
+  }, [slugInput, searchOpen, session, csrfToken, fetchLcSuggestions])
+
 
   useEffect(() => {
     function onDown(e: MouseEvent | TouchEvent) {
@@ -492,6 +515,17 @@ export default function LeetCodePage() {
                     <div className="text-[11px] text-gray-500">{m.slug}</div>
                   </button>
                 ))}
+
+                {lcHasMore && (
+                  <button
+                    type="button"
+                    disabled={lcSearching}
+                    onClick={() => fetchLcSuggestions(slugInput.trim(), lcNextSkip, true)}
+                    className="w-full px-3 py-2 text-left text-xs font-semibold text-indigo-300 hover:bg-white/5 transition-colors border-t border-gray-800 disabled:opacity-50"
+                  >
+                    {lcSearching ? 'Loading more…' : 'More results'}
+                  </button>
+                )}
 
                 {matches.length > 0 && (
                   <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-500 border-t border-gray-800">
