@@ -103,6 +103,25 @@ function absolutizeLeetCodeUrl(raw: string | undefined): string {
   return `https://leetcode.com/${src.replace(/^\.?\//, '')}`
 }
 
+function absolutizeSrcSet(raw: string | undefined): string | undefined {
+  const s = String(raw ?? '').trim()
+  if (!s) return undefined
+  // srcset = "url1 1x, url2 2x" (or widths). Rewrite each URL part.
+  return s
+    .split(',')
+    .map(part => {
+      const trimmed = part.trim()
+      if (!trimmed) return ''
+      const pieces = trimmed.split(/\s+/)
+      const url = pieces[0]
+      const rest = pieces.slice(1).join(' ')
+      const abs = absolutizeLeetCodeUrl(url)
+      return rest ? `${abs} ${rest}` : abs
+    })
+    .filter(Boolean)
+    .join(', ')
+}
+
 /* ─── Constants ──────────────────────────────────────────── */
 const DIFF_CLS: Record<string, string> = {
   Easy:   'text-green-500',
@@ -369,7 +388,7 @@ export default function LeetCodePage() {
     <div className="flex flex-col h-[calc(100dvh-56px)] bg-[#1a1a2e] text-gray-100 overflow-hidden">
 
       {/* ── Top bar ──────────────────────────────────────── */}
-      <div className="flex flex-col gap-1.5 px-3 pt-2 pb-2 bg-[#16213e] border-b border-gray-700/50 shrink-0">
+      <div className="relative z-40 flex flex-col gap-1.5 px-3 pt-2 pb-2 bg-[#16213e] border-b border-gray-700/50 shrink-0 overflow-visible">
         {/* Row 1 (mobile): Daily pill + Session badge side by side */}
         <div className="flex items-center gap-2">
           {/* Daily pill */}
@@ -520,7 +539,7 @@ export default function LeetCodePage() {
         </div>
       ) : question && (
         /* ── Split layout ── */
-        <div className="flex-1 flex flex-col sm:flex-row overflow-hidden">
+        <div className="relative z-0 flex-1 flex flex-col sm:flex-row overflow-hidden">
 
           {/* Mobile tab switcher */}
           <div className="sm:hidden flex border-b border-gray-700/50 bg-[#16213e] shrink-0">
@@ -609,7 +628,9 @@ export default function LeetCodePage() {
                             url.startsWith('https://leetcode.com/') ||
                             url.startsWith('https://www.youtube.com/') ||
                             url.startsWith('https://youtube.com/') ||
-                            url.startsWith('https://player.vimeo.com/')
+                            url.startsWith('https://player.vimeo.com/') ||
+                            url.startsWith('https://player.bilibili.com/') ||
+                            url.startsWith('https://www.bilibili.com/')
                           if (!ok) return null
                           return (
                             <div className="my-4 overflow-hidden rounded-xl border border-gray-700 bg-black">
@@ -653,21 +674,31 @@ export default function LeetCodePage() {
                         table: ({ children }: any) => <div className="overflow-x-auto my-3"><table className="text-xs border-collapse w-full">{children}</table></div>,
                         th: ({ children }: any) => <th className="bg-gray-800 border border-gray-700 px-3 py-1.5 text-left font-semibold text-gray-200">{children}</th>,
                         td: ({ children }: any) => <td className="border border-gray-700 px-3 py-1.5 text-gray-300">{children}</td>,
-                        img: ({ src, alt }: any) => (
+                        img: ({ src, alt, ...props }: any) => {
+                          const resolved = src ?? props['data-src'] ?? props['dataSrc']
+                          const url = absolutizeLeetCodeUrl(resolved)
+                          const srcSet = absolutizeSrcSet(props.srcSet ?? props['srcset'])
+                          return (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={absolutizeLeetCodeUrl(src)}
+                            src={url}
                             alt={alt ?? ''}
+                            srcSet={srcSet}
                             loading="lazy"
                             className="max-w-full rounded-lg my-3 border border-gray-700"
+                            referrerPolicy="no-referrer"
                           />
+                          )
+                        },
+                        source: ({ src, ...props }: any) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <source src={absolutizeLeetCodeUrl(src)} {...props} />
                         ),
                         video: ({ src, ...props }: any) => {
                           const url = absolutizeLeetCodeUrl(src)
-                          if (!url) return null
                           return (
                             <video
-                              src={url}
+                              {...(url ? { src: url } : {})}
                               controls
                               playsInline
                               className="my-4 w-full max-w-full rounded-xl border border-gray-700 bg-black"
