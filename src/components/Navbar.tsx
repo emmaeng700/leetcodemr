@@ -38,12 +38,12 @@ const FLASHCARD_LINKS = [
 const TOPIC_LINKS = [
   { href: '/behavioral',    label: 'Behavioral',   icon: MessageSquare },
   { href: '/system-design', label: 'System Design',icon: Server },
+  { href: '/gems',  label: 'Gems', icon: Gem },
+  { href: '/dsa',   label: 'DSA',  icon: Code2 },
 ]
 
 // Group 4 — Meta
 const META_LINKS = [
-  { href: '/gems',  label: 'Gems', icon: Gem },
-  { href: '/dsa',   label: 'DSA',  icon: Code2 },
   { href: '/sr-queue', label: 'SR Queue', icon: RefreshCw },
   { href: '/review',  label: 'Reviews',  icon: Brain },
   { href: '/stats',  label: 'Stats',   icon: BarChart2 },
