@@ -75,6 +75,7 @@ export default function SpeedsterPage() {
   const cardsPanelRef = useRef<HTMLDivElement>(null)
   const cardListWrapMobileRef = useRef<HTMLDivElement>(null)
   const cardListWrapDesktopRef = useRef<HTMLDivElement>(null)
+  const todayCardsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     async function load() {
@@ -210,20 +211,6 @@ export default function SpeedsterPage() {
     })
   }, [total, fadeSwap])
 
-  const jumpToTodayFromFlashcards = useCallback(() => {
-    const ids = currentDay
-    const targetId = ids?.[0]
-    if (!targetId) return
-    const idx = filteredOrder.findIndex(id => id === targetId)
-    if (idx < 0) {
-      toast.error('Today’s first question is hidden by your flashcard filters.')
-      return
-    }
-    fadeSwap(() => {
-      setFlipped(false)
-      setCardIdx(idx)
-    })
-  }, [currentDay, filteredOrder, fadeSwap])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -566,15 +553,6 @@ export default function SpeedsterPage() {
             <RotateCcw size={13} />
           </button>
 
-          {/* Jump to today's questions */}
-          <button
-            type="button"
-            onClick={jumpToTodayFromFlashcards}
-            title="Jump flashcards to today's first question"
-            className="ml-1 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-yellow-200 bg-yellow-50 text-xs font-bold text-yellow-700 hover:border-yellow-300 hover:bg-yellow-100 transition-colors"
-          >
-            Today
-          </button>
         </div>
 
         {total === 0 && (
@@ -744,7 +722,7 @@ export default function SpeedsterPage() {
         </div>
 
         {/* ── Day card section ── */}
-        <div className="flex items-center justify-between mb-4">
+        <div ref={todayCardsRef} className="flex items-center justify-between mb-4">
           <button onClick={() => setDayIdx(i => Math.max(0, i - 1))} disabled={dayIdx === 0}
             className="flex items-center gap-1 px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:border-yellow-300 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
             <ChevronLeft size={16} /> Prev
@@ -752,6 +730,13 @@ export default function SpeedsterPage() {
           <div className="text-center">
             <p className="text-base font-black text-gray-800">Day {dayIdx + 1}</p>
             <p className="text-xs text-gray-400">{daySolved}/{currentDay.length} solved · {dayIdx + 1} of {totalDays} days</p>
+            <button
+              type="button"
+              onClick={() => todayCardsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className="mt-2 inline-flex items-center justify-center rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-1 text-xs font-bold text-yellow-700 hover:border-yellow-300 hover:bg-yellow-100 transition-colors"
+            >
+              Today questions
+            </button>
           </div>
           <button onClick={() => setDayIdx(i => Math.min(totalDays - 1, i + 1))} disabled={dayIdx === totalDays - 1}
             className="flex items-center gap-1 px-4 py-2 rounded-xl bg-yellow-500 text-white text-sm font-semibold hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
