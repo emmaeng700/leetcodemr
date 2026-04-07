@@ -138,7 +138,6 @@ function MobileKeybar({
     { label: '→', action: 'ArrowRight' },
     { label: '↑', action: 'ArrowUp' },
     { label: '↓', action: 'ArrowDown' },
-    { label: '⌫', action: '⌫' },
     { label: 'RST', action: () => onResetCode() },
   ]
 
