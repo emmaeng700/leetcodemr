@@ -15,13 +15,13 @@ const STUDY_LINKS = [
   { href: '/daily',   label: 'Daily',     icon: Calendar },
   { href: '/speedster', label: 'Speedster', icon: Gauge },
   { href: '/learn/0', label: 'Learn', icon: BookOpen },
+  { href: '/leetcode-api', label: 'LeetCode',  icon: Zap },
 ]
 
 // Group 1b — Speed / drill links (shown right of the | separator)
 const DRILL_LINKS = [
   { href: '/line-game',    label: 'Game',      icon: Gamepad2 },
   { href: '/mock',         label: 'Mock',      icon: Timer },
-  { href: '/leetcode-api', label: 'LeetCode',  icon: Zap },
   { href: '/patterns',     label: 'Patterns',  icon: GitBranch },
 ]
 
