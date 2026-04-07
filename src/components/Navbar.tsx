@@ -13,14 +13,12 @@ import {
 const STUDY_LINKS = [
   { href: '/',        label: 'Questions', icon: Home,     also: ['/practice', '/question'] },
   { href: '/daily',   label: 'Daily',     icon: Calendar },
-  { href: '/sr-queue', label: 'SR Queue', icon: RefreshCw },
-  { href: '/review',  label: 'Reviews',  icon: Brain },
+  { href: '/speedster', label: 'Speedster', icon: Gauge },
   { href: '/learn/0', label: 'Learn', icon: BookOpen },
 ]
 
 // Group 1b — Speed / drill links (shown right of the | separator)
 const DRILL_LINKS = [
-  { href: '/speedster',    label: 'Speedster', icon: Gauge },
   { href: '/line-game',    label: 'Game',      icon: Gamepad2 },
   { href: '/mock',         label: 'Mock',      icon: Timer },
   { href: '/leetcode-api', label: 'LeetCode',  icon: Zap },
@@ -46,6 +44,8 @@ const TOPIC_LINKS = [
 const META_LINKS = [
   { href: '/gems',  label: 'Gems', icon: Gem },
   { href: '/dsa',   label: 'DSA',  icon: Code2 },
+  { href: '/sr-queue', label: 'SR Queue', icon: RefreshCw },
+  { href: '/review',  label: 'Reviews',  icon: Brain },
   { href: '/stats',  label: 'Stats',   icon: BarChart2 },
   { href: '/about',  label: 'About',   icon: Info },
 ]
