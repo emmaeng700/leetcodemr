@@ -113,6 +113,7 @@ const DIFF_CLS: Record<string, string> = {
 /* ══════════════════════════════════════════════════════════ */
 export default function LeetCodePage() {
   const online = useOnlineStatus()
+  const searchWrapRef = useRef<HTMLDivElement | null>(null)
   /* Session */
   const [session,    setSession]    = useState('')
   const [csrfToken,  setCsrfToken]  = useState('')
@@ -128,13 +129,42 @@ export default function LeetCodePage() {
 
   /* Editor is handled by shared LeetCodeEditor */
 
-  /* App question list — loaded once to match solved-sync */
-  const [appQuestions, setAppQuestions] = useState<{ id: number; slug: string }[]>([])
+  /* App question list — loaded once to match solved-sync + local typeahead */
+  const [appQuestions, setAppQuestions] = useState<Array<{ id: number; slug: string; title?: string }>>([])
+  const [searchOpen, setSearchOpen] = useState(false)
   useEffect(() => {
     fetch('/questions_full.json')
       .then(r => r.json())
-      .then((qs: { id: number; slug: string }[]) => setAppQuestions(qs))
+      .then((qs: Array<{ id: number; slug: string; title?: string }>) => setAppQuestions(qs))
       .catch(() => {})
+  }, [])
+
+  const matches = useMemo(() => {
+    const q = slugInput.trim().toLowerCase()
+    if (!q) return []
+    const byId = q.replace(/^#/, '')
+    return appQuestions
+      .filter(x => {
+        if (byId && String(x.id).includes(byId)) return true
+        if ((x.slug ?? '').toLowerCase().includes(q)) return true
+        if ((x.title ?? '').toLowerCase().includes(q)) return true
+        return false
+      })
+      .slice(0, 8)
+  }, [slugInput, appQuestions])
+
+  useEffect(() => {
+    function onDown(e: MouseEvent | TouchEvent) {
+      const t = e.target as Node
+      if (searchWrapRef.current?.contains(t)) return
+      setSearchOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('touchstart', onDown, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('touchstart', onDown)
+    }
   }, [])
 
   /* Left panel tab */
@@ -360,10 +390,13 @@ export default function LeetCodePage() {
 
         {/* Row 2: Search + Load (full width on mobile) + Session badge (desktop only) */}
         <div className="flex items-center gap-2">
-          <div className="flex flex-1 gap-1.5 items-center bg-gray-800/60 rounded-lg px-3 py-1.5 border border-gray-700/50">
+          <div ref={searchWrapRef} className="relative flex flex-1 gap-1.5 items-center bg-gray-800/60 rounded-lg px-3 py-1.5 border border-gray-700/50">
             <Search size={12} className="text-gray-500 shrink-0" />
             <input
-              type="text" value={slugInput} onChange={e => setSlugInput(e.target.value)}
+              type="text"
+              value={slugInput}
+              onChange={e => { setSlugInput(e.target.value); setSearchOpen(true) }}
+              onFocus={() => setSearchOpen(true)}
               onKeyDown={e => e.key === 'Enter' && loadQuestion()}
               placeholder="Paste LeetCode URL or slug…"
               className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-500 outline-none min-w-0"
@@ -373,6 +406,29 @@ export default function LeetCodePage() {
               {qLoad ? <Loader2 size={10} className="animate-spin" /> : <ChevronRight size={10} />}
               Load
             </button>
+
+            {/* Typeahead suggestions (local library) */}
+            {searchOpen && slugInput.trim().length > 0 && matches.length > 0 && (
+              <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-gray-700 bg-[#0b1020] shadow-2xl">
+                {matches.map(m => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => {
+                      setSlugInput(m.slug)
+                      setSearchOpen(false)
+                      loadQuestion(m.slug)
+                    }}
+                    className="w-full px-3 py-2 text-left hover:bg-white/5 transition-colors border-b border-gray-800 last:border-b-0"
+                  >
+                    <div className="text-xs font-semibold text-gray-100">
+                      #{m.id} {m.title ?? m.slug}
+                    </div>
+                    <div className="text-[11px] text-gray-500">{m.slug}</div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Session badge — desktop only (shown on sm+) */}
