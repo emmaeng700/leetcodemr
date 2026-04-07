@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense, useMemo, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
@@ -97,7 +97,6 @@ function LearnInner() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const qs = searchParams.toString()
   const initDiff    = searchParams.get('diff')    || 'All'
   const initSource  = searchParams.get('source')  || 'All'
   const initSearch  = searchParams.get('search')  || ''
@@ -110,7 +109,6 @@ function LearnInner() {
   const [questions, setQuestions]   = useState<Question[]>([])
   const [planOrder, setPlanOrder]   = useState<number[]>([])
   const [progress, setProgress]     = useState<Record<string, any>>({})
-  const [idx, setIdx]               = useState(Number(params.index ?? 0))
   const [notes, setNotes]           = useState('')
   const [saving, setSaving]         = useState(false)
   const [showList, setShowList]     = useState(false)
@@ -129,6 +127,52 @@ function LearnInner() {
   const [showFilters, setShowFilters]       = useState(false)
   const [mobilePanel, setMobilePanel]       = useState<'description' | 'editor'>('description')
   const listRef = useRef<HTMLDivElement>(null)
+
+  const rawParamIndex = params.index
+  const indexSegment = Array.isArray(rawParamIndex) ? rawParamIndex[0] : rawParamIndex
+  const routeIndexRaw = Number(indexSegment ?? 0)
+  const routeIndex =
+    Number.isFinite(routeIndexRaw) && routeIndexRaw >= 0 ? Math.floor(routeIndexRaw) : 0
+
+  /** Merge filter UI + existing search params so prev/next keep ?diff= etc. */
+  const buildLearnQuery = useCallback(
+    (overrides?: {
+      diff?: typeof filterDiff
+      source?: typeof filterSource
+      pattern?: typeof filterPattern | null
+    }) => {
+      const sp = new URLSearchParams(searchParams.toString())
+      const diff = overrides?.diff !== undefined ? overrides.diff : filterDiff
+      const source = overrides?.source !== undefined ? overrides.source : filterSource
+      const pattern = overrides?.pattern !== undefined ? overrides.pattern : filterPattern
+      if (diff !== 'All') sp.set('diff', diff)
+      else sp.delete('diff')
+      if (source !== 'All') sp.set('source', source)
+      else sp.delete('source')
+      if (pattern) {
+        const tags = QUICK_PATTERNS.find(p => p.name === pattern)?.tags ?? []
+        if (tags.length) sp.set('tags', tags.join(','))
+      } else {
+        sp.delete('tags')
+      }
+      return sp.toString()
+    },
+    [searchParams, filterDiff, filterSource, filterPattern],
+  )
+
+  const learnQs = useMemo(() => buildLearnQuery(), [buildLearnQuery])
+
+  useEffect(() => {
+    setFilterDiff(searchParams.get('diff') || 'All')
+    setFilterSource(searchParams.get('source') || 'All')
+    const tr = searchParams.get('tags') || ''
+    const tags = tr ? tr.split(',') : []
+    setFilterPattern(
+      tags.length > 0
+        ? (QUICK_PATTERNS.find(p => p.tags.some(t => tags.includes(t)))?.name ?? null)
+        : null,
+    )
+  }, [searchParams])
 
   // Live LeetCode description
   const [lcContent, setLcContent]   = useState<string | null>(null)
@@ -187,7 +231,7 @@ function LearnInner() {
     return true
   })
 
-  const safeIdx   = Math.min(idx, Math.max(filtered.length - 1, 0))
+  const safeIdx = Math.min(routeIndex, Math.max(filtered.length - 1, 0))
   const q         = filtered[safeIdx] || null
   const p         = q ? (progress[String(q.id)] || {}) : {}
   const solved    = p.solved    || false
@@ -197,6 +241,13 @@ function LearnInner() {
   const nextReview  = p.next_review  || null
   const due = isDue(nextReview) && solved
   const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(q?.slug, leftTab === 'accepted')
+
+  useEffect(() => {
+    if (filtered.length === 0) return
+    if (routeIndex !== safeIdx) {
+      router.replace(`/learn/${safeIdx}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
+    }
+  }, [filtered.length, routeIndex, safeIdx, learnQs, router])
 
   // Persist study mode to localStorage
   useEffect(() => {
@@ -319,20 +370,17 @@ function LearnInner() {
   const goNext = () => {
     if (safeIdx < filtered.length - 1) {
       const ni = safeIdx + 1
-      setIdx(ni)
-      router.push(`/learn/${ni}${qs ? `?${qs}` : ''}`, { scroll: false })
+      router.push(`/learn/${ni}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
     }
   }
   const goPrev = () => {
     if (safeIdx > 0) {
       const ni = safeIdx - 1
-      setIdx(ni)
-      router.push(`/learn/${ni}${qs ? `?${qs}` : ''}`, { scroll: false })
+      router.push(`/learn/${ni}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
     }
   }
   const goTo = (i: number) => {
-    setIdx(i)
-    router.push(`/learn/${i}${qs ? `?${qs}` : ''}`, { scroll: false })
+    router.push(`/learn/${i}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
     setShowList(false)
   }
 
@@ -497,14 +545,14 @@ function LearnInner() {
           {/* Difficulty + Source */}
           <div className="flex items-center flex-wrap gap-2">
             {['All', 'Easy', 'Medium', 'Hard'].map(d => (
-              <button key={d} onClick={() => { setFilterDiff(d); setIdx(0); router.push(`/learn/0${qs ? `?${qs}` : ''}`, { scroll: false }) }}
+              <button key={d} onClick={() => { setFilterDiff(d); const q = buildLearnQuery({ diff: d }); router.push(`/learn/0${q ? `?${q}` : ''}`, { scroll: false }) }}
                 className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${filterDiff === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'}`}>
                 {d}
               </button>
             ))}
             <span className="w-px h-4 bg-gray-300 shrink-0" />
             {['All', 'Grind 169', 'Denny Zhang', 'Premium 98', 'CodeSignal'].map(s => (
-              <button key={s} onClick={() => { setFilterSource(s); setIdx(0); router.push(`/learn/0${qs ? `?${qs}` : ''}`, { scroll: false }) }}
+              <button key={s} onClick={() => { setFilterSource(s); const q = buildLearnQuery({ source: s }); router.push(`/learn/0${q ? `?${q}` : ''}`, { scroll: false }) }}
                 className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${filterSource === s ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'}`}>
                 {s}
               </button>
@@ -513,13 +561,18 @@ function LearnInner() {
 
           {/* Pattern filter */}
           <div className="flex items-center flex-wrap gap-2">
-            <button onClick={() => { setFilterPattern(null); setIdx(0); router.push(`/learn/0${qs ? `?${qs}` : ''}`, { scroll: false }) }}
+            <button onClick={() => { setFilterPattern(null); const q = buildLearnQuery({ pattern: null }); router.push(`/learn/0${q ? `?${q}` : ''}`, { scroll: false }) }}
               className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${!filterPattern ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'}`}>
               All Patterns
             </button>
             {QUICK_PATTERNS.map(p => (
               <button key={p.name}
-                onClick={() => { setFilterPattern(filterPattern === p.name ? null : p.name); setIdx(0); router.push(`/learn/0${qs ? `?${qs}` : ''}`, { scroll: false }) }}
+                onClick={() => {
+                  const next = filterPattern === p.name ? null : p.name
+                  setFilterPattern(next)
+                  const q = buildLearnQuery({ pattern: next })
+                  router.push(`/learn/0${q ? `?${q}` : ''}`, { scroll: false })
+                }}
                 className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${filterPattern === p.name ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'}`}>
                 {p.name}
               </button>

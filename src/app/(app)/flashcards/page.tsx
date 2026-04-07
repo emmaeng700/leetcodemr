@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Shuffle, RotateCcw, Layers, CheckCircle, Circle } from 'lucide-react'
 import { getFcVisited, addFcVisited } from '@/lib/db'
@@ -45,6 +45,7 @@ function FlashcardsInner() {
   )
   const [isShuffled, setIsShuffled] = useState(false)
   const [visited, setVisited] = useState<Set<number>>(new Set())
+  const filterNavKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -77,9 +78,16 @@ function FlashcardsInner() {
     if (initStarred) filtered = filtered.filter(q => progress[q.id]?.starred)
     if (initSolved === true)  filtered = filtered.filter(q => progress[q.id]?.solved)
     if (initSolved === false) filtered = filtered.filter(q => !progress[q.id]?.solved)
-    setDeck(isShuffled ? shuffle(filtered) : filtered)
-    setIdx(0)
-    setFlipped(false)
+    const next = isShuffled ? shuffle(filtered) : filtered
+    setDeck(next)
+    const navKey = `${filterDiff}|${filterSource}|${filterPattern}|${isShuffled}|${initSearch}|${initStarred}|${initSolved}|${all.length}`
+    if (filterNavKeyRef.current !== navKey) {
+      filterNavKeyRef.current = navKey
+      setIdx(0)
+      setFlipped(false)
+    } else {
+      setIdx(i => Math.min(i, Math.max(0, next.length - 1)))
+    }
   }, [filterDiff, filterSource, filterPattern, all, isShuffled, initSearch, initStarred, initSolved, progress])
 
   const q = deck[idx] || null
