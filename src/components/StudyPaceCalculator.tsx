@@ -142,6 +142,8 @@ export default function StudyPaceCalculator({ total = 0, solved = 0, planStartDa
         today.setHours(12, 0, 0, 0)
         const start = new Date(planStartDate + 'T12:00:00')
         const daysElapsed = Math.max(0, Math.floor((today.getTime() - start.getTime()) / 86400000))
+        /** 1-based plan day (matches “Day N” in the summary line). */
+        const planDayNumber = daysElapsed + 1
         const weeksElapsed = Math.floor(daysElapsed / 7)
         const perWeek = planPD * 7
         const perMonth = planPD * 30
@@ -172,7 +174,8 @@ export default function StudyPaceCalculator({ total = 0, solved = 0, planStartDa
           actualMilestones.sort((a, b) => a.date.getTime() - b.date.getTime())
         }
 
-        const expectedNow = Math.min(daysElapsed * planPD, planRemaining)
+        // Pace target through end of today’s plan day: N × per_day (same N as “Day N” above)
+        const expectedNow = Math.min(planDayNumber * planPD, total)
         const actualNow = solved
         const diff = actualNow - expectedNow
         const statusColor = diff >= 0 ? 'text-green-600' : diff >= -10 ? 'text-amber-500' : 'text-red-500'
@@ -186,7 +189,7 @@ export default function StudyPaceCalculator({ total = 0, solved = 0, planStartDa
             {/* Today summary */}
             <div className={`flex items-center justify-between rounded-xl px-4 py-3 border mb-3 ${statusBg}`}>
               <div>
-                <p className="text-xs font-semibold text-gray-500">Day {daysElapsed + 1} · Week {weeksElapsed + 1}</p>
+                <p className="text-xs font-semibold text-gray-500">Day {planDayNumber} · Week {weeksElapsed + 1}</p>
                 <p className="text-xs text-gray-400 mt-0.5">Expected <span className="font-bold text-gray-600">{expectedNow}</span> · Actual <span className="font-bold text-gray-800">{actualNow}</span></p>
               </div>
               <span className={`text-sm font-black ${statusColor}`}>{statusLabel}</span>
