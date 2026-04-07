@@ -1,5 +1,5 @@
-import LearnHub from '@/components/learn/LearnHub'
+import { redirect } from 'next/navigation'
 
-export default function LearnPage() {
-  return <LearnHub />
+export default function LearnRedirect() {
+  redirect('/learn/0')
 }

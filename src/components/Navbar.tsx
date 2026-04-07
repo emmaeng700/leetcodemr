@@ -15,7 +15,7 @@ const STUDY_LINKS = [
   { href: '/daily',   label: 'Daily',     icon: Calendar },
   { href: '/sr-queue', label: 'SR Queue', icon: RefreshCw },
   { href: '/review',  label: 'Reviews',  icon: Brain },
-  { href: '/learn', label: 'Learn', icon: BookOpen },
+  { href: '/learn/0', label: 'Learn', icon: BookOpen },
 ]
 
 // Group 1b — Speed / drill links (shown right of the | separator)
