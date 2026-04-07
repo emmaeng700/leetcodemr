@@ -139,10 +139,9 @@ export default function LearnAcSubmitTable({ onSolve }: { onSolve?: (questionId:
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white">
-        <table className="w-full min-w-[380px] text-left text-sm">
+        <table className="w-full min-w-[320px] text-left text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50 text-[10px] font-bold uppercase tracking-wide text-gray-500">
-              <th className="px-3 py-2">ID</th>
               <th className="px-3 py-2">Title</th>
               <th className="whitespace-nowrap px-2 py-2 text-right">Solve</th>
               <th className="px-3 py-2 text-right">AC</th>
@@ -151,7 +150,6 @@ export default function LearnAcSubmitTable({ onSolve }: { onSolve?: (questionId:
           <tbody>
             {slice.map(row => (
               <tr key={row.id} className="border-b border-gray-50 last:border-0 hover:bg-indigo-50/50">
-                <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-gray-400">#{row.id}</td>
                 <td className="max-w-[12rem] px-3 py-2 text-xs font-semibold text-gray-800 sm:max-w-none">
                   <span className="line-clamp-2 sm:line-clamp-none">{row.title}</span>
                 </td>
