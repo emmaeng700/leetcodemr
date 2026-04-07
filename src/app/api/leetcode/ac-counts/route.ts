@@ -1,0 +1,92 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const LC_GRAPHQL = 'https://leetcode.com/graphql'
+const USER_ID = 'emmanuel'
+
+const SUBMISSION_PAGE = 20
+const MAX_PAGES = 600
+
+const QUERY = `query AcCountPage($offset: Int!, $limit: Int!, $slug: String) {
+  submissionList(offset: $offset, limit: $limit, questionSlug: $slug) {
+    hasNext
+    submissions {
+      statusDisplay
+      titleSlug
+    }
+  }
+}`
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+)
+
+/** Accepted submission counts per problem slug from the user's LeetCode session (paginated submission history). */
+export async function POST(req: NextRequest) {
+  let session = ''
+  let csrfToken = ''
+  try {
+    const body = await req.json()
+    session = body.session ?? body.lc_session ?? ''
+    csrfToken = body.csrfToken ?? body.lc_csrf ?? ''
+  } catch {
+    /* empty body */
+  }
+
+  if (!session || !csrfToken) {
+    const { data } = await supabase
+      .from('user_settings')
+      .select('lc_session, lc_csrf')
+      .eq('user_id', USER_ID)
+      .single()
+    session = data?.lc_session ?? ''
+    csrfToken = data?.lc_csrf ?? ''
+  }
+
+  if (!session || !csrfToken) {
+    return NextResponse.json({ bySlug: {} as Record<string, number>, error: 'no_session' })
+  }
+
+  const bySlug: Record<string, number> = {}
+  let offset = 0
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const res = await fetch(LC_GRAPHQL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Referer: 'https://leetcode.com',
+        Origin: 'https://leetcode.com',
+        Cookie: `LEETCODE_SESSION=${session}; csrftoken=${csrfToken}`,
+        'X-CSRFToken': csrfToken,
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+      body: JSON.stringify({
+        query: QUERY,
+        variables: { offset, limit: SUBMISSION_PAGE },
+      }),
+    })
+
+    const json = await res.json()
+    if (json.errors?.length) {
+      const msg = String(json.errors[0]?.message ?? 'graphql_error')
+      return NextResponse.json({ bySlug: {}, error: msg }, { status: 400 })
+    }
+
+    const list = json?.data?.submissionList
+    if (!list) break
+
+    for (const s of list.submissions ?? []) {
+      if (s.statusDisplay === 'Accepted' && s.titleSlug) {
+        bySlug[s.titleSlug] = (bySlug[s.titleSlug] ?? 0) + 1
+      }
+    }
+
+    offset += SUBMISSION_PAGE
+    if (!list.hasNext) break
+  }
+
+  return NextResponse.json({ bySlug })
+}
