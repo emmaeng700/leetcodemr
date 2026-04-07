@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2, WifiOff } from 'lucide-react'
+import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2, WifiOff, Brain } from 'lucide-react'
 import { addMasteryRunEvent, getMasteryRunsByQuestion, getProgress, getStudyPlan, getFcVisited, addFcVisited } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
@@ -22,6 +22,26 @@ interface Question {
   cpp_solution?: string
 }
 
+function todayISOChicago() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
+}
+
+function isoAddDays(iso: string, days: number) {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(y, (m ?? 1) - 1, d ?? 1, 12, 0, 0)
+  dt.setDate(dt.getDate() + days)
+  const yy = dt.getFullYear()
+  const mm = String(dt.getMonth() + 1).padStart(2, '0')
+  const dd = String(dt.getDate()).padStart(2, '0')
+  return `${yy}-${mm}-${dd}`
+}
+
+function fmtShort(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(y, (m ?? 1) - 1, d ?? 1, 12, 0, 0)
+  return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
 export default function SpeedsterPage() {
   const [questions, setQuestions] = useState<Question[]>([])
   const [planOrder, setPlanOrder] = useState<number[]>([])
@@ -31,6 +51,10 @@ export default function SpeedsterPage() {
 
   // Day card state
   const [dayIdx,  setDayIdx]  = useState(0)
+
+  // Upcoming reviews (SR) strip state
+  const [reviewWeek, setReviewWeek] = useState(0) // 0 = today→+7, 1 = +7→+14, etc.
+  const [reviewFocus, setReviewFocus] = useState<'due' | string>('due')
 
   // Flashcard state
   const [cardIdx,      setCardIdx]      = useState(0)
@@ -83,6 +107,29 @@ export default function SpeedsterPage() {
   }, [])
 
   const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
+
+  const srItems = planOrder
+    .map(id => {
+      const p = progress[String(id)] || {}
+      return { id, next_review: p.next_review as string | null | undefined, review_count: p.review_count as number | undefined, solved: !!p.solved }
+    })
+    .filter(x => x.solved && !!x.next_review)
+
+  const srToday = todayISOChicago()
+  const srStart = isoAddDays(srToday, reviewWeek * 7)
+  const srEnd = isoAddDays(srStart, 7)
+  const srDays = Array.from({ length: 8 }, (_, i) => isoAddDays(srStart, i)) // start..start+7
+
+  const srDue = srItems.filter(x => (x.next_review as string) <= srStart)
+  const srByDay: Record<string, typeof srItems> = {}
+  for (const d of srDays) srByDay[d] = []
+  for (const it of srItems) {
+    const nr = it.next_review as string
+    if (nr < srStart) continue
+    if (nr > srEnd) continue
+    if (!srByDay[nr]) srByDay[nr] = []
+    srByDay[nr].push(it)
+  }
 
   // Group into days
   const days: number[][] = []
@@ -359,6 +406,94 @@ export default function SpeedsterPage() {
           ))}
         </div>
       )}
+
+      {/* ── Reviews due + next 7 days (SR) ── */}
+      <div className="mb-10">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+              <Brain size={16} className="text-indigo-600" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-gray-800">Reviews</p>
+              <p className="text-xs text-gray-400">
+                {reviewWeek === 0 ? 'Due + next 7 days' : `${fmtShort(srStart)} → ${fmtShort(srEnd)}`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => { setReviewWeek(w => Math.max(0, w - 1)); setReviewFocus('due') }}
+              disabled={reviewWeek === 0}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-xs font-semibold text-gray-600 hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft size={14} /> Prev
+            </button>
+            <button
+              type="button"
+              onClick={() => { setReviewWeek(w => w + 1); setReviewFocus(srDays[0] ?? 'due') }}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors"
+            >
+              Next <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          {/* Day pills */}
+          <div className="flex gap-1.5 overflow-x-auto px-3 py-2 border-b border-gray-100 scrollbar-none">
+            <button
+              type="button"
+              onClick={() => setReviewFocus('due')}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                reviewFocus === 'due' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
+              }`}
+            >
+              Due <span className="opacity-80">· {srDue.length}</span>
+            </button>
+            {srDays.map(d => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setReviewFocus(d)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                  reviewFocus === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
+                }`}
+              >
+                {fmtShort(d)} <span className="opacity-80">· {srByDay[d]?.length ?? 0}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* List */}
+          <div className="p-3 space-y-2">
+            {(reviewFocus === 'due' ? srDue : (srByDay[reviewFocus] ?? [])).length === 0 ? (
+              <div className="text-xs text-gray-400 py-2">No reviews in this bucket.</div>
+            ) : (
+              (reviewFocus === 'due' ? srDue : (srByDay[reviewFocus] ?? [])).map(it => {
+                const q = qMap[it.id]
+                if (!q) return null
+                return (
+                  <Link
+                    key={it.id}
+                    href={`/practice/${it.id}`}
+                    className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/40 transition-colors"
+                  >
+                    <span className="text-xs text-gray-400 font-mono shrink-0">#{it.id}</span>
+                    <span className="flex-1 min-w-0 text-sm font-semibold text-gray-800 truncate">{q.title}</span>
+                    <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full shrink-0">
+                      Review #{(it.review_count ?? 0) + 1}
+                    </span>
+                    <DifficultyBadge difficulty={q.difficulty} />
+                    <ChevronRight size={14} className="text-gray-300 shrink-0" />
+                  </Link>
+                )
+              })
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* ── Flashcard section ── */}
       <div className="border-t-2 border-dashed border-yellow-200 pt-6">
