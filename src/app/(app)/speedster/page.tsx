@@ -51,14 +51,7 @@ export default function SpeedsterPage() {
 
   // Day card state
   const [dayIdx,  setDayIdx]  = useState(0)
-  const [speedsterStartISO, setSpeedsterStartISO] = useState<string>(() => {
-    try {
-      if (typeof window === 'undefined') return ''
-      return localStorage.getItem('speedster_start_iso') || todayISOChicago()
-    } catch {
-      return ''
-    }
-  })
+  const [planStartISO, setPlanStartISO] = useState<string>('')
 
   // Upcoming reviews (SR) strip state
   const [reviewWeek, setReviewWeek] = useState(0) // 0 = today→+7, 1 = +7→+14, etc.
@@ -102,6 +95,7 @@ export default function SpeedsterPage() {
         if (plan?.question_order?.length) {
           setPlanOrder(plan.question_order)
           setPerDay(plan.per_day || 3)
+          if (plan?.start_date) setPlanStartISO(String(plan.start_date))
         } else {
           setPlanOrder((qs as Question[]).map(q => q.id))
         }
@@ -146,22 +140,10 @@ export default function SpeedsterPage() {
     days.push(planOrder.slice(i, i + perDay))
   }
 
-  // Determine "today's" day index in the schedule based on a stored start date.
-  // This makes the "Today" button jump to the correct day number as time passes.
-  useEffect(() => {
-    try {
-      const key = 'speedster_start_iso'
-      const existing = localStorage.getItem(key)
-      const base = existing || speedsterStartISO || todayISOChicago()
-      if (!existing) localStorage.setItem(key, base)
-      setSpeedsterStartISO(base)
-    } catch { /* ignore */ }
-  }, [speedsterStartISO])
-
   const todayScheduleIdx = useMemo(() => {
     try {
-      if (!speedsterStartISO) return 0
-      const [sy, sm, sd] = speedsterStartISO.split('-').map(Number)
+      const base = planStartISO || todayISOChicago()
+      const [sy, sm, sd] = base.split('-').map(Number)
       const [ty, tm, td] = todayISOChicago().split('-').map(Number)
       const start = new Date(sy, (sm ?? 1) - 1, sd ?? 1, 12, 0, 0).getTime()
       const today = new Date(ty, (tm ?? 1) - 1, td ?? 1, 12, 0, 0).getTime()
@@ -169,7 +151,7 @@ export default function SpeedsterPage() {
       if (!Number.isFinite(diff) || diff < 0) return 0
       return diff
     } catch { return 0 }
-  }, [speedsterStartISO])
+  }, [planStartISO])
 
   const totalDays  = days.length
   const currentDay = days[dayIdx] ?? []
@@ -393,21 +375,6 @@ export default function SpeedsterPage() {
         <div className="text-center">
           <p className="text-base font-black text-gray-800">Day {dayIdx + 1}</p>
           <p className="text-xs text-gray-400">{daySolved}/{currentDay.length} solved · {dayIdx + 1} of {totalDays} days</p>
-          <button
-            type="button"
-            onPointerDown={e => {
-              e.preventDefault()
-              const idx = Math.max(0, Math.min(totalDays - 1, todayScheduleIdx))
-              setDayIdx(idx)
-              const panel = cardsPanelRef.current
-              if (panel) panel.scrollTo({ top: 0, behavior: 'smooth' })
-              else window.scrollTo({ top: 0, behavior: 'smooth' })
-            }}
-            className="mt-2 inline-flex items-center justify-center rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-1 text-xs font-bold text-yellow-700 hover:border-yellow-300 hover:bg-yellow-100 transition-colors"
-            style={{ touchAction: 'manipulation' }}
-          >
-            Today
-          </button>
         </div>
         <button onClick={() => setDayIdx(i => Math.min(totalDays - 1, i + 1))} disabled={dayIdx === totalDays - 1}
           className="flex items-center gap-1 px-4 py-2 rounded-xl bg-yellow-500 text-white text-sm font-semibold hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
@@ -446,6 +413,22 @@ export default function SpeedsterPage() {
           )
         })}
       </div>
+
+      <button
+        type="button"
+        onPointerDown={e => {
+          e.preventDefault()
+          const idx = Math.max(0, Math.min(totalDays - 1, todayScheduleIdx))
+          setDayIdx(idx)
+          const panel = cardsPanelRef.current
+          if (panel) panel.scrollTo({ top: 0, behavior: 'smooth' })
+          else window.scrollTo({ top: 0, behavior: 'smooth' })
+        }}
+        className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-800 text-sm font-bold hover:bg-yellow-100 transition-colors"
+        style={{ touchAction: 'manipulation' }}
+      >
+        View today questions
+      </button>
 
       {/* Day dots */}
       {totalDays <= 20 && (
