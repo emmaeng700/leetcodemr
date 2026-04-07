@@ -63,6 +63,8 @@ interface Props {
   slug: string
   onAccepted?: () => void
   speedster?: boolean
+  /** If false, runs/submits to LeetCode but won't sync progress or AC counts to the app DB. */
+  syncToApp?: boolean
 }
 
 /* ── Mobile keyboard toolbar ───────────────────────────── */
@@ -168,7 +170,7 @@ function MobileKeybar({
 }
 
 /* ══════════════════════════════════════════════════════════ */
-export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speedster = false }: Props) {
+export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speedster = false, syncToApp = true }: Props) {
   const onAcceptedRef = useRef(onAccepted)
   useEffect(() => { onAcceptedRef.current = onAccepted }, [onAccepted])
 
@@ -362,6 +364,11 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
 
         /* Sync to app on Accepted Submit */
         if (mode === 'submit' && data.status_code === 10) {
+          if (!syncToApp) {
+            setSolvedStatus('not-in-library')
+            onAcceptedRef.current?.()
+            return
+          }
           void incrementAcSubmitCount(appQuestionId)
           if (speedster) {
             setSolvedStatus('speedster')

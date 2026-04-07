@@ -1,8 +1,7 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import dynamic from 'next/dynamic'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
@@ -11,11 +10,11 @@ import pythonLang from 'highlight.js/lib/languages/python'
 import cppLang from 'highlight.js/lib/languages/cpp'
 import {
   Search, Trophy, CheckCircle, XCircle, Loader2, User,
-  Play, Send, Key, Eye, EyeOff, ChevronDown, ChevronUp,
-  AlertCircle, Clock, Cpu, Info, Calendar, ExternalLink,
+  Play, Key, Eye, EyeOff, ChevronDown, ChevronUp,
+  Info, Calendar, ExternalLink,
   Tag, ChevronRight, Star, BookOpen,
 } from 'lucide-react'
-import { getProgress, updateProgress, incrementAcSubmitCount } from '@/lib/db'
+import LeetCodeEditor from '@/components/LeetCodeEditor'
 
 hljs.registerLanguage('python', pythonLang)
 hljs.registerLanguage('cpp', cppLang)
@@ -54,9 +53,6 @@ function EditorialCodeBlock({ code, lang }: { code: string; lang: string }) {
   )
 }
 
-const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
-
-
 /* ─── Types ─────────────────────────────────────────────── */
 interface DailyChallenge {
   date: string; link: string
@@ -74,28 +70,6 @@ interface QuestionDetail {
   codeSnippets: { lang: string; langSlug: string; code: string }[]
   exampleTestcases: string; sampleTestCase: string; metaData: string
 }
-interface LCResult {
-  state: string
-  status_code?: number
-  status_msg?: string
-  run_success?: boolean
-  correct_answer?: boolean
-  total_correct?: number
-  total_testcases?: number
-  runtime_percentile?: number
-  memory_percentile?: number
-  status_runtime?: string
-  status_memory?: string
-  code_answer?: string[]
-  code_output?: string[]
-  expected_code_answer?: string[]
-  std_output_list?: string[]
-  last_testcase?: string
-  compare_result?: string
-  full_compile_error?: string
-  full_runtime_error?: string
-}
-
 /* ─── GraphQL ────────────────────────────────────────────── */
 const DAILY_Q = `query { activeDailyCodingChallengeQuestion { date link question { questionId title titleSlug difficulty topicTags { name } } } }`
 const USER_Q  = `query($u:String!){matchedUser(username:$u){username profile{realName ranking userAvatar}submitStatsGlobal{acSubmissionNum{difficulty count}}}}`
@@ -119,44 +93,11 @@ function parseSlug(input: string) {
   return m ? m[1] : input.trim().toLowerCase().replace(/\s+/g, '-')
 }
 
-/** Split exampleTestcases into individual cases using metaData param count */
-interface TestCase { params: { name: string; value: string }[]; raw: string }
-
-function parseCases(exampleTestcases: string, metaData: string): TestCase[] {
-  try {
-    const meta = JSON.parse(metaData)
-    const params: { name: string }[] = meta.params ?? []
-    const numParams = params.length
-    if (numParams === 0) return [{ params: [], raw: exampleTestcases }]
-
-    const lines = exampleTestcases.split('\n')
-    const cases: TestCase[] = []
-    for (let i = 0; i + numParams <= lines.length; i += numParams) {
-      const slice = lines.slice(i, i + numParams)
-      // Skip if all lines are empty (trailing newline)
-      if (slice.every(l => l.trim() === '')) continue
-      cases.push({
-        params: params.map((p, j) => ({ name: p.name, value: slice[j] ?? '' })),
-        raw: slice.join('\n'),
-      })
-    }
-    return cases.length ? cases : [{ params: [], raw: exampleTestcases }]
-  } catch {
-    return [{ params: [], raw: exampleTestcases }]
-  }
-}
-
 /* ─── Constants ──────────────────────────────────────────── */
-const LANG_LABEL: Record<string, string> = { python3: 'Python 3', cpp: 'C++' }
-const LC_LANG:    Record<string, string> = { python3: 'python3',  cpp: 'cpp'  }
 const DIFF_CLS: Record<string, string> = {
   Easy:   'text-green-500',
   Medium: 'text-yellow-500',
   Hard:   'text-red-500',
-}
-const STATUS_CLS: Record<number, string> = {
-  10: 'text-green-500', 11: 'text-red-500', 12: 'text-red-500',
-  13: 'text-red-500',   14: 'text-orange-500', 15: 'text-red-500', 20: 'text-red-500',
 }
 
 /* ══════════════════════════════════════════════════════════ */
@@ -175,22 +116,7 @@ export default function LeetCodePage() {
   const [qLoad,     setQL]          = useState(false)
   const [qErr,      setQE]          = useState('')
 
-  /* Editor */
-  const [lang, setLang]             = useState<'python3' | 'cpp'>('python3')
-  const [code, setCode]             = useState('')
-  const [extensions, setExtensions] = useState<any[]>([])
-  const [editorTheme, setEditorTheme] = useState<any>(null)
-
-  /* Bottom panel */
-  const [bottomTab,  setBottomTab]  = useState<'testcase' | 'result'>('testcase')
-  const [testInput,  setTestInput]  = useState('')
-  const [cases,      setCases]      = useState<TestCase[]>([])
-  const [activeCase, setActiveCase] = useState(0)
-  const [running,    setRunning]    = useState(false)
-  const [runMode,    setRunMode]    = useState<'test' | 'submit' | null>(null)
-  const [pollMsg,    setPollMsg]    = useState('')
-  const [result,     setResult]     = useState<LCResult | null>(null)
-  const [solvedStatus, setSolvedStatus] = useState<'marked' | 'already' | 'not-in-library' | null>(null)
+  /* Editor is handled by shared LeetCodeEditor */
 
   /* App question list — loaded once to match solved-sync */
   const [appQuestions, setAppQuestions] = useState<{ id: number; slug: string }[]>([])
@@ -200,7 +126,6 @@ export default function LeetCodePage() {
       .then((qs: { id: number; slug: string }[]) => setAppQuestions(qs))
       .catch(() => {})
   }, [])
-  const [resultErr,  setResultErr]  = useState('')
 
   /* Left panel tab */
   const [leftTab, setLeftTab]       = useState<'description' | 'editorial' | 'accepted' | 'profile'>('description')
@@ -255,37 +180,6 @@ export default function LeetCodePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /* ── Load CodeMirror extensions (lang-aware) ── */
-  useEffect(() => {
-    async function loadExts() {
-      const [{ python }, { cpp }, { oneDark }, viewMod, stateMod, cmdMod] = await Promise.all([
-        import('@codemirror/lang-python'),
-        import('@codemirror/lang-cpp'),
-        import('@codemirror/theme-one-dark'),
-        import('@codemirror/view'),
-        import('@codemirror/state'),
-        import('@codemirror/commands'),
-      ])
-      setEditorTheme(oneDark)
-      const { keymap } = viewMod
-      const { Prec } = stateMod
-      const { indentWithTab } = cmdMod
-      const { indentationMarkers } = await import('@replit/codemirror-indentation-markers')
-      const smartEnter = (view: any) => {
-        const { from } = view.state.selection.main
-        const line = view.state.doc.lineAt(from)
-        const baseIndent = line.text.match(/^(\s*)/)?.[1] ?? ''
-        const extra = (line.text.trimEnd().endsWith(':') || line.text.trimEnd().endsWith('{')) ? '    ' : ''
-        const ins = '\n' + baseIndent + extra
-        view.dispatch({ changes: { from, to: from, insert: ins }, selection: { anchor: from + ins.length } })
-        return true
-      }
-      const smartKeys = Prec.highest(keymap.of([{ key: 'Enter', run: smartEnter }, indentWithTab]))
-      setExtensions([lang === 'python3' ? python() : cpp(), smartKeys, indentationMarkers()])
-    }
-    loadExts()
-  }, [lang])
-
   const saveSession = async () => {
     const s = session.trim()
     const c = csrfToken.trim()
@@ -328,7 +222,7 @@ export default function LeetCodePage() {
   const loadQuestion = useCallback(async (overrideSlug?: string) => {
     const slug = overrideSlug ?? parseSlug(slugInput)
     if (!slug) return
-    setQL(true); setQE(''); setQuestion(null); setResult(null); setResultErr(''); setLeftTab('description'); setEditorial(null); editorialSlugRef.current = null
+    setQL(true); setQE(''); setQuestion(null); setLeftTab('description'); setEditorial(null); editorialSlugRef.current = null
     try {
       const creds = session && csrfToken ? { session, csrfToken } : undefined
       let resolvedSlug = slug
@@ -346,89 +240,9 @@ export default function LeetCodePage() {
       if (!data.question) throw new Error('Question not found — try pasting the full LeetCode URL')
       const q: QuestionDetail = data.question
       setQuestion(q)
-      const parsed = parseCases(q.exampleTestcases, q.metaData)
-      setCases(parsed)
-      setActiveCase(0)
-      setTestInput(parsed[0]?.raw ?? q.sampleTestCase ?? '')
-      setCode(q.codeSnippets.find(s => s.langSlug === lang)?.code ?? '')
     } catch (e) { setQE(String(e)) }
     finally { setQL(false) }
-  }, [slugInput, lang, session, csrfToken])
-
-  const switchLang = (l: 'python3' | 'cpp') => {
-    setLang(l)
-    if (question) setCode(question.codeSnippets.find(s => s.langSlug === l)?.code ?? '')
-    setResult(null)
-  }
-
-  /* ── Poll ── */
-  const poll = useCallback(async (checkId: string, slug: string, mode: 'test' | 'submit') => {
-    for (let i = 0; i < 30; i++) {
-      await new Promise(r => setTimeout(r, 1000))
-      setPollMsg(`Judging… ${i + 1}s`)
-      const res = await fetch('/api/leetcode/check', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ checkId, titleSlug: slug, session, csrfToken }),
-      })
-      const data: LCResult = await res.json()
-      if (data.state !== 'PENDING' && data.state !== 'STARTED') {
-        setResult(data); setRunning(false); setPollMsg(''); setBottomTab('result')
-
-        /* ── Sync to app if Accepted on a Submit ── */
-        if (mode === 'submit' && data.status_code === 10 && question) {
-          const qFrontendId = parseInt(question.questionFrontendId)
-          const match = appQuestions.find(q => q.id === qFrontendId || q.slug === question.titleSlug)
-          if (!match) {
-            setSolvedStatus('not-in-library')
-          } else {
-            void incrementAcSubmitCount(match.id)
-            const prog = await getProgress()
-            const alreadySolved = Array.isArray(prog)
-              ? prog.some((p: any) => p.question_id === match.id && p.solved)
-              : (prog as any)?.[String(match.id)]?.solved
-            if (alreadySolved) {
-              setSolvedStatus('already')
-            } else {
-              await updateProgress(match.id, { solved: true })
-              setSolvedStatus('marked')
-            }
-          }
-        }
-        return
-      }
-    }
-    setResultErr('Timed out.'); setRunning(false); setPollMsg('')
-  }, [session, csrfToken, question, appQuestions])
-
-  /* ── Run test ── */
-  const runTest = async () => {
-    if (!question || !sessionOK) return
-    setRunning(true); setRunMode('test'); setResult(null); setResultErr(''); setSolvedStatus(null); setPollMsg('Sending…'); setBottomTab('result')
-    try {
-      const res = await fetch('/api/leetcode/test', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ titleSlug: question.titleSlug, questionId: question.questionId, lang: LC_LANG[lang], code, testInput: cases[activeCase]?.raw || testInput || question.sampleTestCase, session, csrfToken }),
-      })
-      const data = await res.json()
-      if (data.error) { setResultErr(data.error); setRunning(false); setPollMsg(''); return }
-      await poll(data.interpret_id, question.titleSlug, 'test')
-    } catch (e) { setResultErr(String(e)); setRunning(false); setPollMsg('') }
-  }
-
-  /* ── Submit ── */
-  const runSubmit = async () => {
-    if (!question || !sessionOK) return
-    setRunning(true); setRunMode('submit'); setResult(null); setResultErr(''); setSolvedStatus(null); setPollMsg('Submitting…'); setBottomTab('result')
-    try {
-      const res = await fetch('/api/leetcode/submit', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ titleSlug: question.titleSlug, questionId: question.questionId, lang: LC_LANG[lang], code, session, csrfToken }),
-      })
-      const data = await res.json()
-      if (data.error) { setResultErr(data.error); setRunning(false); setPollMsg(''); return }
-      await poll(data.submission_id, question.titleSlug, 'submit')
-    } catch (e) { setResultErr(String(e)); setRunning(false); setPollMsg('') }
-  }
+  }, [slugInput, session, csrfToken])
 
   /* ── Profile ── */
   const fetchProfile = async () => {
@@ -496,7 +310,13 @@ export default function LeetCodePage() {
 
   const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.titleSlug, leftTab === 'accepted')
   const acStats = profile?.submitStatsGlobal.acSubmissionNum ?? []
-  const isAC = result?.status_code === 10
+
+  const matchId = useMemo(() => {
+    if (!question) return 0
+    const qFrontendId = Number.parseInt(question.questionFrontendId || '0', 10)
+    const match = appQuestions.find(q => q.id === qFrontendId || q.slug === question.titleSlug)
+    return match?.id ?? 0
+  }, [question, appQuestions])
 
   /* ══ RENDER ══════════════════════════════════════════════ */
   if (!online) return (
@@ -817,236 +637,9 @@ export default function LeetCodePage() {
             )}
           </div>
 
-          {/* RIGHT PANEL — Editor + Bottom */}
+          {/* RIGHT PANEL — Shared editor */}
           <div className={`${mobilePanel === 'code' ? 'flex' : 'hidden'} sm:flex flex-1 flex-col overflow-hidden`}>
-
-            {/* Editor toolbar */}
-            <div className="flex flex-col bg-[#16213e] border-b border-gray-700/50 shrink-0">
-              <div className="flex items-center gap-2 px-3 py-2">
-                {/* Language selector */}
-                <div className="flex gap-1">
-                  {(['python3', 'cpp'] as const).map(l => (
-                    <button key={l} onClick={() => switchLang(l)}
-                      className={`px-2.5 py-1 text-xs font-semibold rounded transition ${lang === l ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'}`}>
-                      {LANG_LABEL[l]}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex-1" />
-                {/* Action buttons — inline on desktop */}
-                <div className="hidden sm:flex items-center gap-2">
-                  {!sessionOK && (
-                    <span className="flex items-center gap-1 text-xs text-orange-400">
-                      <AlertCircle size={11} /> Setup session to run
-                    </span>
-                  )}
-                  <button onClick={runTest} disabled={running || !sessionOK}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 text-gray-200 text-xs font-semibold rounded-lg hover:bg-gray-600 disabled:opacity-40 transition">
-                    {running && runMode === 'test' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-                    Run
-                  </button>
-                  <button onClick={runSubmit} disabled={running || !sessionOK}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-500 disabled:opacity-40 transition">
-                    {running && runMode === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                    Submit
-                  </button>
-                </div>
-              </div>
-              {/* Mobile Run/Submit row */}
-              <div className="sm:hidden flex gap-2 px-3 pb-2">
-                {!sessionOK && (
-                  <span className="flex items-center gap-1 text-xs text-orange-400 mr-auto">
-                    <AlertCircle size={11} /> Setup session
-                  </span>
-                )}
-                <button onClick={runTest} disabled={running || !sessionOK}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-gray-700 text-gray-200 text-xs font-semibold rounded-lg disabled:opacity-40 transition"
-                  style={{ touchAction: 'manipulation' }}>
-                  {running && runMode === 'test' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-                  Run
-                </button>
-                <button onClick={runSubmit} disabled={running || !sessionOK}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-green-600 text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition"
-                  style={{ touchAction: 'manipulation' }}>
-                  {running && runMode === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                  Submit
-                </button>
-              </div>
-            </div>
-
-            {/* CodeMirror editor */}
-            <div className="h-48 sm:flex-1 sm:min-h-0 overflow-hidden">
-              <CodeMirror
-                value={code}
-                onChange={setCode}
-                height="100%"
-                theme={editorTheme ?? 'dark'}
-                extensions={extensions}
-                basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
-                style={{ height: '100%', fontSize: '13px' }}
-              />
-            </div>
-
-            {/* Bottom panel — Testcase / Result */}
-            <div className="h-44 sm:h-52 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
-              {/* Bottom tabs */}
-              <div className="flex items-center border-b border-gray-700/50 shrink-0">
-                {(['testcase', 'result'] as const).map(tab => (
-                  <button key={tab} onClick={() => setBottomTab(tab)}
-                    className={`px-4 py-2 text-xs font-semibold capitalize transition ${bottomTab === tab ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-500 hover:text-gray-300'}`}>
-                    {tab === 'testcase' ? 'Testcase' : 'Test Result'}
-                  </button>
-                ))}
-                {pollMsg && (
-                  <span className="ml-3 flex items-center gap-1.5 text-xs text-gray-400">
-                    <Loader2 size={11} className="animate-spin text-indigo-400" /> {pollMsg}
-                  </span>
-                )}
-                {result && (
-                  <span className={`ml-3 text-xs font-bold ${STATUS_CLS[result.status_code ?? 0] ?? 'text-gray-400'}`}>
-                    {result.status_msg}
-                  </span>
-                )}
-              </div>
-
-              {/* Bottom content */}
-              <div className="flex-1 overflow-y-auto p-3">
-                {bottomTab === 'testcase' && (
-                  <div className="space-y-2">
-                    {/* Case tabs */}
-                    {cases.length > 0 && (
-                      <div className="flex gap-1 flex-wrap">
-                        {cases.map((_, i) => (
-                          <button key={i}
-                            onClick={() => { setActiveCase(i); setTestInput(cases[i].raw) }}
-                            className={`px-3 py-1 text-xs font-medium rounded-md transition ${activeCase === i ? 'bg-gray-600 text-white' : 'bg-gray-800/60 text-gray-400 hover:text-gray-200 hover:bg-gray-700/60'}`}>
-                            Case {i + 1}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {/* Labeled params for active case */}
-                    {cases[activeCase]?.params.length > 0 ? (
-                      <div className="space-y-2">
-                        {cases[activeCase].params.map(p => (
-                          <div key={p.name}>
-                            <p className="text-xs text-gray-500 mb-1">{p.name} =</p>
-                            <div className="bg-gray-800/70 border border-gray-700/50 rounded-lg px-3 py-2 text-xs font-mono text-gray-200">
-                              {p.value}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <textarea value={testInput} onChange={e => setTestInput(e.target.value)} rows={4}
-                        className="w-full bg-gray-800/70 border border-gray-700/50 rounded-lg px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-indigo-500 resize-none" />
-                    )}
-                  </div>
-                )}
-
-                {bottomTab === 'result' && (
-                  <div className="space-y-2 text-xs">
-                    {resultErr && (
-                      <p className="text-red-400 flex items-center gap-1"><XCircle size={12} /> {resultErr}</p>
-                    )}
-                    {!result && !resultErr && !pollMsg && (
-                      <p className="text-gray-600">Run your code first.</p>
-                    )}
-                    {result && (
-                      <div className="space-y-2">
-                        {/* Status */}
-                        <div className={`flex items-center gap-2 font-bold text-sm ${STATUS_CLS[result.status_code ?? 0] ?? 'text-gray-400'}`}>
-                          {isAC ? <CheckCircle size={15} /> : <XCircle size={15} />}
-                          {result.status_msg}
-                          {result.total_testcases && (
-                            <span className="text-gray-500 font-normal text-xs ml-1">
-                              {result.total_correct}/{result.total_testcases} testcases passed
-                            </span>
-                          )}
-                        </div>
-
-                        {/* App sync badge — only on Submit + Accepted */}
-                        {solvedStatus === 'marked' && (
-                          <div className="flex items-center gap-1.5 text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-1.5">
-                            <Star size={11} className="fill-green-400" />
-                            Marked as solved in your app — spaced repetition started
-                          </div>
-                        )}
-                        {solvedStatus === 'already' && (
-                          <div className="flex items-center gap-1.5 text-xs text-gray-400 bg-gray-700/30 border border-gray-600/20 rounded-lg px-3 py-1.5">
-                            <CheckCircle size={11} />
-                            Already solved in your app
-                          </div>
-                        )}
-                        {solvedStatus === 'not-in-library' && (
-                          <div className="flex items-center gap-1.5 text-xs text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-1.5">
-                            <AlertCircle size={11} />
-                            Not in your app&apos;s 331 question library — solved on LeetCode only
-                          </div>
-                        )}
-
-                        {/* Perf (submit only) */}
-                        {isAC && runMode === 'submit' && (
-                          <div className="grid grid-cols-2 gap-2 mt-1">
-                            {result.status_runtime && (
-                              <div className="bg-gray-800/60 rounded-lg p-2 text-center">
-                                <p className="flex items-center justify-center gap-1 text-gray-500 text-xs mb-0.5"><Clock size={10} /> Runtime</p>
-                                <p className="font-bold text-gray-100">{result.status_runtime}</p>
-                                {result.runtime_percentile && <p className="text-green-400 text-xs">Beats {result.runtime_percentile.toFixed(1)}%</p>}
-                              </div>
-                            )}
-                            {result.status_memory && (
-                              <div className="bg-gray-800/60 rounded-lg p-2 text-center">
-                                <p className="flex items-center justify-center gap-1 text-gray-500 text-xs mb-0.5"><Cpu size={10} /> Memory</p>
-                                <p className="font-bold text-gray-100">{result.status_memory}</p>
-                                {result.memory_percentile && <p className="text-green-400 text-xs">Beats {result.memory_percentile.toFixed(1)}%</p>}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Wrong answer diff */}
-                        {result.status_code === 11 && result.last_testcase && (
-                          <div className="space-y-1.5">
-                            <div><span className="text-gray-500">Input: </span><code className="text-gray-300">{result.last_testcase}</code></div>
-                            {result.code_answer?.[0] !== undefined && (
-                              <div><span className="text-gray-500">Output: </span><code className="text-red-400">{result.code_answer[0]}</code></div>
-                            )}
-                            {result.expected_code_answer?.[0] !== undefined && (
-                              <div><span className="text-gray-500">Expected: </span><code className="text-green-400">{result.expected_code_answer[0]}</code></div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Compile / Runtime error */}
-                        {(result.full_compile_error || result.full_runtime_error) && (
-                          <pre className="bg-gray-800/60 rounded-lg p-2 text-red-400 overflow-x-auto whitespace-pre-wrap text-xs">
-                            {result.full_compile_error || result.full_runtime_error}
-                          </pre>
-                        )}
-
-                        {/* Test run output per case */}
-                        {runMode === 'test' && result.code_output && result.code_output.length > 0 && (
-                          <div className="space-y-1">
-                            {result.code_output.map((out, i) => (
-                              <div key={i} className="flex items-center gap-2">
-                                <span className={result.compare_result?.[i] === '1' ? 'text-green-400' : 'text-red-400'}>
-                                  {result.compare_result?.[i] === '1' ? '✓' : '✗'}
-                                </span>
-                                <code className="text-gray-300">{out}</code>
-                                {result.expected_code_answer?.[i] !== undefined && result.compare_result?.[i] !== '1' && (
-                                  <span className="text-gray-500">→ expected <code className="text-green-400">{result.expected_code_answer[i]}</code></span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+            <LeetCodeEditor appQuestionId={matchId || 0} slug={question.titleSlug} syncToApp={matchId > 0} />
           </div>
         </div>
       )}
