@@ -345,9 +345,44 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
     setResultErr('')
   }, [lcQ, lang])
 
-  const copyCurrentCode = useCallback(async () => {
+  const copyCurrentCode = useCallback(() => {
+    const text = code ?? ''
+    // Prefer async clipboard API when available
+    if (typeof navigator !== 'undefined' && (navigator as any).clipboard?.writeText) {
+      ;(navigator as any).clipboard.writeText(text).then(
+        () => toast.success('Code copied'),
+        () => {
+          // Fallback to execCommand path if async writeText fails
+          try {
+            const ta = document.createElement('textarea')
+            ta.value = text
+            ta.style.position = 'fixed'
+            ta.style.left = '-9999px'
+            document.body.appendChild(ta)
+            ta.focus()
+            ta.select()
+            document.execCommand('copy')
+            document.body.removeChild(ta)
+            toast.success('Code copied')
+          } catch {
+            toast.error('Could not copy code')
+          }
+        },
+      )
+      return
+    }
+
+    // Legacy fallback (no navigator.clipboard)
     try {
-      await navigator.clipboard.writeText(code)
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.left = '-9999px'
+      document.body.appendChild(ta)
+      ta.focus()
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
       toast.success('Code copied')
     } catch {
       toast.error('Could not copy code')
