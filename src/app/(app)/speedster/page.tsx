@@ -51,7 +51,14 @@ export default function SpeedsterPage() {
 
   // Day card state
   const [dayIdx,  setDayIdx]  = useState(0)
-  const [speedsterStartISO, setSpeedsterStartISO] = useState<string>('')
+  const [speedsterStartISO, setSpeedsterStartISO] = useState<string>(() => {
+    try {
+      if (typeof window === 'undefined') return ''
+      return localStorage.getItem('speedster_start_iso') || todayISOChicago()
+    } catch {
+      return ''
+    }
+  })
 
   // Upcoming reviews (SR) strip state
   const [reviewWeek, setReviewWeek] = useState(0) // 0 = today→+7, 1 = +7→+14, etc.
@@ -145,11 +152,11 @@ export default function SpeedsterPage() {
     try {
       const key = 'speedster_start_iso'
       const existing = localStorage.getItem(key)
-      const base = existing || todayISOChicago()
+      const base = existing || speedsterStartISO || todayISOChicago()
       if (!existing) localStorage.setItem(key, base)
       setSpeedsterStartISO(base)
     } catch { /* ignore */ }
-  }, [])
+  }, [speedsterStartISO])
 
   const todayScheduleIdx = useMemo(() => {
     try {
@@ -388,7 +395,8 @@ export default function SpeedsterPage() {
           <p className="text-xs text-gray-400">{daySolved}/{currentDay.length} solved · {dayIdx + 1} of {totalDays} days</p>
           <button
             type="button"
-            onClick={() => {
+            onPointerDown={e => {
+              e.preventDefault()
               const idx = Math.max(0, Math.min(totalDays - 1, todayScheduleIdx))
               setDayIdx(idx)
               const panel = cardsPanelRef.current
@@ -396,6 +404,7 @@ export default function SpeedsterPage() {
               else window.scrollTo({ top: 0, behavior: 'smooth' })
             }}
             className="mt-2 inline-flex items-center justify-center rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-1 text-xs font-bold text-yellow-700 hover:border-yellow-300 hover:bg-yellow-100 transition-colors"
+            style={{ touchAction: 'manipulation' }}
           >
             Today
           </button>
