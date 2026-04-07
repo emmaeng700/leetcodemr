@@ -1,8 +1,8 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter, usePathname } from 'next/navigation'
-import { Search, Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp } from 'lucide-react'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp } from 'lucide-react'
 import { getProgress, updateProgress, getActivityLog, getDueReviews, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate } from '@/lib/db'
 import { computeDailyGoalsMetToday, computePlanStreakDisplayNumber, normalizeStudyPlanRow } from '@/lib/streakGoals'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -387,18 +387,20 @@ function buildStudyParams(
   return p.toString()
 }
 
-export default function HomePage() {
+function HomeInner() {
+  const sp = useSearchParams()
   const pathname = usePathname()
   const prevPathRef = useRef<string | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, ProgressData>>({})
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
   const [difficulty, setDifficulty] = useState('All')
   const [source, setSource] = useState('All')
   const [showStarred, setShowStarred] = useState(false)
   const [showSolved, setShowSolved] = useState<null | boolean>(null)
   const [activePattern, setActivePattern] = useState<string | null>(null)
+
+  const search = sp.get('search') || ''
 
   useEffect(() => {
     Promise.all([fetch('/questions_full.json').then(r => r.json()), getProgress()]).then(([qs, prog]) => {
@@ -429,17 +431,31 @@ export default function HomePage() {
 
   const activePatternTags = activePattern ? (QUICK_PATTERNS.find(p => p.name === activePattern)?.tags ?? []) : []
 
-  const filtered = questions.filter(q => {
+  const filtered = useMemo(() => questions.filter(q => {
     if (difficulty !== 'All' && q.difficulty !== difficulty) return false
     if (source !== 'All' && !(q.source || []).includes(source)) return false
-    if (search && !q.title.toLowerCase().includes(search.toLowerCase()) && !String(q.id).includes(search)) return false
+    if (search) {
+      const s = search.toLowerCase()
+      const byId = s.replace(/^#/, '')
+      if (!q.title.toLowerCase().includes(s) && !String(q.id).includes(byId)) return false
+    }
     if (activePatternTags.length > 0 && !(q.tags || []).some(t => activePatternTags.includes(t))) return false
     const p = progress[String(q.id)] || {}
     if (showStarred && !p.starred) return false
     if (showSolved === true && !p.solved) return false
     if (showSolved === false && p.solved) return false
     return true
-  }).sort((a, b) => (DIFF_ORDER[a.difficulty] ?? 1) - (DIFF_ORDER[b.difficulty] ?? 1))
+  }).sort((a, b) => (DIFF_ORDER[a.difficulty] ?? 1) - (DIFF_ORDER[b.difficulty] ?? 1)), [
+    questions,
+    difficulty,
+    source,
+    search,
+    activePatternTags,
+    progress,
+    showStarred,
+    showSolved,
+    DIFF_ORDER,
+  ])
 
   const solved = Object.values(progress).filter(p => p.solved).length
 
@@ -479,11 +495,6 @@ export default function HomePage() {
       {!loading && <WeakestPatternWidget questions={questions} progress={progress} />}
 
       <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6 shadow-sm">
-        <div className="relative mb-3">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search questions..."
-            className="w-full pl-9 pr-4 py-2 text-sm text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-        </div>
         <div className="flex flex-wrap gap-1">
           {DIFFICULTIES.map(d => (
             <button key={d} onClick={() => setDifficulty(d)}
@@ -535,7 +546,13 @@ export default function HomePage() {
         <div className="flex items-center justify-between mt-2">
           <span className="text-xs text-gray-400">{filtered.length} questions{activePattern ? ` · ${activePattern}` : ''}</span>
           {(activePattern || difficulty !== 'All' || source !== 'All' || showStarred || showSolved !== null || search) && (
-            <button onClick={() => { setActivePattern(null); setDifficulty('All'); setSource('All'); setShowStarred(false); setShowSolved(null); setSearch('') }}
+            <button
+              onClick={() => {
+                const p = new URLSearchParams(sp.toString())
+                p.delete('search')
+                window.history.replaceState(null, '', p.toString() ? `/?${p.toString()}` : '/')
+                setActivePattern(null); setDifficulty('All'); setSource('All'); setShowStarred(false); setShowSolved(null)
+              }}
               className="text-xs text-gray-400 hover:text-red-500 transition-colors">
               Clear all filters
             </button>
@@ -617,5 +634,13 @@ export default function HomePage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div className="text-center py-20 text-gray-400 text-sm animate-pulse">Loading…</div>}>
+      <HomeInner />
+    </Suspense>
   )
 }

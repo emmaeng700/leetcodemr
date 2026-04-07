@@ -13,7 +13,8 @@ function normalize(s: string) {
 export default function QuestionSearch({ className = '' }: { className?: string }) {
   const router = useRouter()
   const pathname = usePathname()
-  const supportsFiltering = pathname === '/flashcards' || pathname === '/sr-queue' || pathname.startsWith('/learn')
+  const supportsFiltering =
+    pathname === '/' || pathname === '/flashcards' || pathname === '/sr-queue' || pathname.startsWith('/learn')
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [questions, setQuestions] = useState<Q[] | null>(null)
@@ -106,7 +107,7 @@ export default function QuestionSearch({ className = '' }: { className?: string 
       />
 
       {open && query.trim().length > 0 && (
-        <div className="absolute mt-2 w-full rounded-xl border border-gray-100 bg-white shadow-xl overflow-hidden">
+        <div className="absolute z-40 mt-2 w-full overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl">
           {matches.length === 0 ? (
             <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
           ) : (
