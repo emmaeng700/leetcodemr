@@ -269,6 +269,20 @@ function LearnInner() {
     if (studyMode !== null) localStorage.setItem('lm_study_mode', studyMode)
   }, [studyMode])
 
+  // Learn Hub: resume "Continue session"
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (filtered.length === 0) return
+    try {
+      localStorage.setItem(
+        'lm_learn_resume',
+        JSON.stringify({ index: safeIdx, query: learnQs || '' }),
+      )
+    } catch {
+      /* ignore quota */
+    }
+  }, [safeIdx, learnQs, filtered.length])
+
   // Reset per question
   useEffect(() => {
     if (q) setNotes(progress[String(q.id)]?.notes || '')
@@ -496,6 +510,12 @@ function LearnInner() {
           title="Back to questions">
           <ChevronLeft size={15} />
         </button>
+        <a
+          href="/learn"
+          className="shrink-0 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+        >
+          Hub
+        </a>
         <span className="text-xs text-gray-300 font-medium hidden sm:inline">Learn</span>
         <span className="w-px h-4 bg-gray-200 hidden sm:inline-block" />
 
