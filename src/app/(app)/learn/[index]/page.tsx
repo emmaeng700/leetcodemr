@@ -492,14 +492,14 @@ function LearnInner() {
 
           {/* Question list dropdown */}
           {showList && (
-            <div className="absolute top-full left-1/2 z-[100] mt-1 w-[min(calc(100vw-2rem),20rem)] max-h-[min(70vh,20rem)] -translate-x-1/2 overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-white shadow-xl sm:left-0 sm:translate-x-0">
+            <div className="absolute top-full left-0 z-[100] mt-1 max-h-[min(70vh,20rem)] w-[min(calc(100vw-2rem),20rem)] overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
               {filtered.map((fq, i) => {
                 const fp = progress[String(fq.id)] || {}
                 return (
                   <button key={fq.id} onClick={() => goTo(i)}
-                    className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-indigo-50 border-b border-gray-50 transition-colors text-sm ${i === safeIdx ? 'bg-indigo-50' : ''}`}>
-                    <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{fq.id}</span>
-                    <span className="flex-1 truncate text-gray-700">{fq.title}</span>
+                    className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-indigo-50 border-b border-gray-50 ${i === safeIdx ? 'bg-indigo-50' : ''}`}>
+                    <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{fq.id}</span>
+                    <span className="min-w-0 flex-1 truncate text-gray-700">{fq.title}</span>
                     <span className={`text-xs font-semibold shrink-0 ${fq.difficulty === 'Easy' ? 'text-green-600' : fq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
                       {fq.difficulty[0]}
                     </span>
