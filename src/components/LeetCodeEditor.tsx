@@ -214,6 +214,24 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
   const [solvedStatus, setSolvedStatus] = useState<'marked' | 'already' | 'not-in-library' | 'speedster' | null>(null)
   const [showSessionHint, setShowSessionHint] = useState(false)
 
+  /* ── My Solutions modal UX: ESC close + lock background scroll ── */
+  useEffect(() => {
+    if (!showSolutionsModal) return
+
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowSolutionsModal(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [showSolutionsModal])
+
   /* ── Load session ── */
   useEffect(() => {
     setSession(localStorage.getItem('lc_session') ?? '')
