@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import { ArrowLeft, ArrowRight, BookOpen, Code2, ExternalLink, Loader2, Trophy, Gauge, List } from 'lucide-react'
-import { getStudyPlan } from '@/lib/db'
+import { addMasteryRunEvent, getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
@@ -278,7 +279,19 @@ export default function SpeedsterQuestionPage() {
         {/* RIGHT — editor */}
         <div className={`${mobilePanel === 'editor' ? 'flex' : 'hidden'} md:flex flex-1 min-h-0 overflow-x-hidden`}>
           {question ? (
-            <LeetCodeEditor appQuestionId={question.id} slug={question.slug} speedster />
+            <LeetCodeEditor
+              appQuestionId={question.id}
+              slug={question.slug}
+              speedster
+              onAccepted={async () => {
+                const res = await addMasteryRunEvent(question.id, 1)
+                if (!res.ok) {
+                  toast.error(`Failed to save mastery run — ${res.error ?? 'check Supabase RLS'}`)
+                  return
+                }
+                toast.success('Mastery run saved')
+              }}
+            />
           ) : (
             <div className="flex items-center justify-center h-full text-gray-300 text-sm gap-2">
               <Loader2 size={16} className="animate-spin" /> Loading editor...

@@ -187,7 +187,7 @@ export default function StudyPaceCalculator({ total = 0, solved = 0, planStartDa
             {/* Today summary */}
             <div className={`flex items-center justify-between rounded-xl px-4 py-3 border mb-3 ${statusBg}`}>
               <div>
-                <p className="text-xs font-semibold text-gray-500">Day {daysElapsed} · Week {weeksElapsed + 1}</p>
+                <p className="text-xs font-semibold text-gray-500">Day {daysElapsed + 1} · Week {weeksElapsed + 1}</p>
                 <p className="text-xs text-gray-400 mt-0.5">Expected <span className="font-bold text-gray-600">{expectedNow}</span> · Actual <span className="font-bold text-gray-800">{actualNow}</span></p>
               </div>
               <span className={`text-sm font-black ${statusColor}`}>{statusLabel}</span>
