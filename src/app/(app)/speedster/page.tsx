@@ -761,13 +761,6 @@ export default function SpeedsterPage() {
           <div className="text-center">
             <p className="text-base font-black text-gray-800">Day {dayIdx + 1}</p>
             <p className="text-xs text-gray-400">{daySolved}/{currentDay.length} solved · {dayIdx + 1} of {totalDays} days</p>
-            <button
-              type="button"
-              onClick={() => todayCardsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-              className="mt-2 inline-flex items-center justify-center rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-1 text-xs font-bold text-yellow-700 hover:border-yellow-300 hover:bg-yellow-100 transition-colors"
-            >
-              Today questions
-            </button>
           </div>
           <button onClick={() => setDayIdx(i => Math.min(totalDays - 1, i + 1))} disabled={dayIdx === totalDays - 1}
             className="flex items-center gap-1 px-4 py-2 rounded-xl bg-yellow-500 text-white text-sm font-semibold hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
@@ -803,6 +796,20 @@ export default function SpeedsterPage() {
             )
           })}
         </div>
+
+        <button
+          type="button"
+          onPointerDown={e => {
+            e.preventDefault()
+            const idx = Math.max(0, Math.min(totalDays - 1, todayScheduleIdx))
+            setDayIdx(idx)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-800 text-sm font-bold hover:bg-yellow-100 transition-colors"
+          style={{ touchAction: 'manipulation' }}
+        >
+          View today questions
+        </button>
 
         {/* Day dots */}
         {totalDays <= 20 && (
