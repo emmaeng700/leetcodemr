@@ -438,9 +438,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
   return (
     <div className="relative flex flex-col overflow-x-hidden rounded-none sm:rounded-xl border-0 sm:border border-gray-700/50 bg-[#1a1a2e] flex-1 min-h-0 w-full">
       <style>{`
-        .cm-editor { font-size: 11px; }
-        @media (min-width: 640px)  { .cm-editor { font-size: 12px; } }
-        @media (min-width: 1024px) { .cm-editor { font-size: 13px; } }
+        /* Responsive CodeMirror font sizing (phone → desktop) */
+        .cm-editor { font-size: clamp(11px, 2.2vw, 15px); line-height: 1.45; }
         .cm-scroller { overflow-x: auto !important; overflow-y: auto !important; overscroll-behavior: contain; touch-action: pan-x pan-y; }
         .cm-content, .cm-line { word-break: normal; white-space: pre; }
         .cm-editor { touch-action: none; }
