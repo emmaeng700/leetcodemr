@@ -450,7 +450,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
         .cm-editor { touch-action: none; }
         .cm-editor, .cm-content { max-width: 100%; }
         @media (max-width: 639px) {
-          .cm-editor { font-size: 9px; }
+          .cm-editor { font-size: 10px; }
           .cm-scroller { overflow-x: hidden !important; }
           .cm-content, .cm-line { white-space: pre-wrap; word-break: break-all; }
         }
