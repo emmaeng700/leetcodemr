@@ -61,7 +61,7 @@ export default function StudyPaceCalculator({ total = 0, solved = 0, planStartDa
   if (remaining === 0) return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
       <h2 className="font-bold text-gray-700 text-sm mb-2 flex items-center gap-2"><Calculator size={15} /> Study Pace Calculator</h2>
-      <p className="text-sm text-green-600 font-semibold">🎉 You've solved all questions!</p>
+      <p className="text-sm text-green-600 font-semibold">🎉 You&apos;ve solved all questions!</p>
     </div>
   )
 
@@ -175,7 +175,6 @@ export default function StudyPaceCalculator({ total = 0, solved = 0, planStartDa
         const expectedNow = Math.min(daysElapsed * planPD, planRemaining)
         const actualNow = solved
         const diff = actualNow - expectedNow
-        const ahead = diff >= 0
         const statusColor = diff >= 0 ? 'text-green-600' : diff >= -10 ? 'text-amber-500' : 'text-red-500'
         const statusBg = diff >= 0 ? 'bg-green-50 border-green-200' : diff >= -10 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'
         const statusLabel = diff >= 0 ? `${diff} ahead 🔥` : `${Math.abs(diff)} behind`
