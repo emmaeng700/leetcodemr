@@ -508,8 +508,8 @@ function LearnInner() {
         </div>
       )}
 
-      {/* ── Top bar (z above editor Run/Submit toolbar + LC bottom sheet z-50) ── */}
-      <div className="relative z-[100] flex flex-wrap items-center gap-2 overflow-visible border-b border-gray-100 bg-white px-3 py-2 shrink-0">
+      {/* ── Top bar (above editor toolbar, below navbar mobile menu) ── */}
+      <div className="relative z-30 flex flex-wrap items-center gap-2 overflow-visible border-b border-gray-100 bg-white px-3 py-2 shrink-0">
 
         {/* Back to home */}
         <button onClick={() => router.push('/')}
