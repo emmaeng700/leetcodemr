@@ -118,19 +118,6 @@ function MobileKeybar({ editorViewRef, cursorPosRef }: {
       cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
     }
 
-    // Paired brackets — insert pair and place cursor inside
-    const pairedMap: Record<string, { ins: string; cursor: number }> = {
-      '()': { ins: '()', cursor: 1 },
-      '[]': { ins: '[]', cursor: 1 },
-      '{}': { ins: '{}', cursor: 1 },
-    }
-    if (pairedMap[action]) {
-      const { ins, cursor } = pairedMap[action]
-      const pos = from + cursor
-      view.dispatch({ changes: { from, to, insert: ins }, selection: { anchor: pos } })
-      cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
-    }
-
     // Plain insert — cursor goes right after the inserted text
     const pos = from + action.length
     view.dispatch({ changes: { from, to, insert: action }, selection: { anchor: pos } })
@@ -140,7 +127,7 @@ function MobileKeybar({ editorViewRef, cursorPosRef }: {
   const btnCls = 'flex items-center justify-center rounded-md bg-[#2c313a] active:bg-[#3e4451] text-gray-200 font-mono font-semibold select-none'
 
   // Row 1: symbols  |  Row 2: arrows + backspace
-  const row1 = ['()', '[]', '{}', '=', '+', '-', '*', '<', '>', '#', '%', '^', '~']
+  const row1 = ['(', ')', '[', ']', '{', '}', '=', '+', '-', '*', '<', '>', '#', '%', '^', '~']
   const row2 = [
     { label: '←', action: 'ArrowLeft' },
     { label: '↑', action: 'ArrowUp' },
