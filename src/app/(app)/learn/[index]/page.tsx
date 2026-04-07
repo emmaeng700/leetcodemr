@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, Suspense, useMemo, useCallback } from 'react'
+import { useClickOutside } from '@/hooks/useClickOutside'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
@@ -126,7 +127,15 @@ function LearnInner() {
   )
   const [showFilters, setShowFilters]       = useState(false)
   const [mobilePanel, setMobilePanel]       = useState<'description' | 'editor'>('description')
-  const listRef = useRef<HTMLDivElement>(null)
+  const listWrapRef = useRef<HTMLDivElement>(null)
+
+  const [lcContent, setLcContent]   = useState<string | null>(null)
+  const [lcLoading, setLcLoading]   = useState(false)
+  const [isPremium, setIsPremium]   = useState(false)
+  const [editorial, setEditorial]       = useState<string | null>(null)
+  const [editorialLoad, setEditorialLoad] = useState(false)
+  const [lcSession, setLcSession]       = useState('')
+  const [lcCsrf, setLcCsrf]            = useState('')
 
   const rawParamIndex = params.index
   const indexSegment = Array.isArray(rawParamIndex) ? rawParamIndex[0] : rawParamIndex
@@ -162,6 +171,22 @@ function LearnInner() {
 
   const learnQs = useMemo(() => buildLearnQuery(), [buildLearnQuery])
 
+  useClickOutside(listWrapRef, () => setShowList(false), showList)
+
+  useEffect(() => {
+    if (!showFilters) return
+    function onDown(e: MouseEvent | TouchEvent) {
+      if ((e.target as HTMLElement).closest('[data-learn-filter]')) return
+      setShowFilters(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('touchstart', onDown, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('touchstart', onDown)
+    }
+  }, [showFilters])
+
   useEffect(() => {
     setFilterDiff(searchParams.get('diff') || 'All')
     setFilterSource(searchParams.get('source') || 'All')
@@ -173,17 +198,6 @@ function LearnInner() {
         : null,
     )
   }, [searchParams])
-
-  // Live LeetCode description
-  const [lcContent, setLcContent]   = useState<string | null>(null)
-  const [lcLoading, setLcLoading]   = useState(false)
-  const [isPremium, setIsPremium]   = useState(false)
-
-  // Editorial
-  const [editorial, setEditorial]       = useState<string | null>(null)
-  const [editorialLoad, setEditorialLoad] = useState(false)
-  const [lcSession, setLcSession]       = useState('')
-  const [lcCsrf, setLcCsrf]            = useState('')
 
   useEffect(() => {
     fetch('/api/lc-session').then(r => r.json()).then(d => {
@@ -447,7 +461,7 @@ function LearnInner() {
       )}
 
       {/* ── Top bar ── */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-white shrink-0 flex-wrap">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-white shrink-0 flex-wrap overflow-visible">
 
         {/* Back to home */}
         <button onClick={() => router.push('/')}
@@ -464,8 +478,9 @@ function LearnInner() {
           <ChevronLeft size={15} />
         </button>
 
-        <div className="relative">
+        <div ref={listWrapRef} className="relative z-10">
           <button
+            type="button"
             onClick={() => setShowList(v => !v)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-indigo-300 transition-colors"
           >
@@ -477,7 +492,7 @@ function LearnInner() {
 
           {/* Question list dropdown */}
           {showList && (
-            <div ref={listRef} className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[90vw] max-w-xs sm:max-w-sm md:w-80 max-h-80 overflow-y-auto">
+            <div className="absolute top-full left-1/2 z-[100] mt-1 w-[min(calc(100vw-2rem),20rem)] max-h-[min(70vh,20rem)] -translate-x-1/2 overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-white shadow-xl sm:left-0 sm:translate-x-0">
               {filtered.map((fq, i) => {
                 const fp = progress[String(fq.id)] || {}
                 return (
@@ -509,7 +524,7 @@ function LearnInner() {
         </div>
 
         {/* Filters toggle */}
-        <button onClick={() => setShowFilters(v => !v)}
+        <button type="button" data-learn-filter onClick={() => setShowFilters(v => !v)}
           className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${showFilters ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-500 hover:border-indigo-300'}`}>
           Filter {filterDiff !== 'All' || filterSource !== 'All' || filterPattern ? '•' : ''}
         </button>
@@ -541,7 +556,7 @@ function LearnInner() {
 
       {/* Filter pills row */}
       {showFilters && (
-        <div className="border-b border-gray-100 bg-gray-50 shrink-0 space-y-1 px-3 py-2">
+        <div data-learn-filter className="border-b border-gray-100 bg-gray-50 shrink-0 space-y-1 px-3 py-2">
           {/* Difficulty + Source */}
           <div className="flex items-center flex-wrap gap-2">
             {['All', 'Easy', 'Medium', 'Hard'].map(d => (

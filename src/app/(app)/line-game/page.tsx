@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { useClickOutside } from '@/hooks/useClickOutside'
 import { getStudyPlan } from '@/lib/db'
 import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import { CODE_HIGHLIGHT_TOKEN_CSS } from '@/lib/codeHighlightTheme'
@@ -386,6 +387,9 @@ export default function LineGamePage() {
   const [sessionSolved, setSessionSolved] = useState(0)
   const [sessionRevealed, setSessionRevealed] = useState(0)
 
+  const listWrapRef = useRef<HTMLDivElement>(null)
+  useClickOutside(listWrapRef, () => setShowList(false), showList)
+
   useEffect(() => {
     async function load() {
       const [qs, plan] = await Promise.all([
@@ -598,7 +602,7 @@ export default function LineGamePage() {
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 mb-4">
+      <div className="mb-4 flex justify-end gap-2 overflow-visible">
         <button
           type="button"
           onClick={() => go(-1)}
@@ -609,7 +613,7 @@ export default function LineGamePage() {
         </button>
 
         {/* Question list */}
-        <div className="relative">
+        <div ref={listWrapRef} className="relative z-10">
           <button
             type="button"
             onClick={() => setShowList(v => !v)}
@@ -619,7 +623,7 @@ export default function LineGamePage() {
             <span className="font-mono text-xs">{idx + 1}/{playable.length}</span>
           </button>
           {showList && (
-            <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[90vw] max-w-xs sm:w-80 max-h-80 overflow-y-auto">
+            <div className="absolute top-full right-0 z-[100] mt-1 max-h-[min(70vh,20rem)] w-[min(calc(100vw-2rem),20rem)] overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-white shadow-xl sm:w-80">
               {playable.map((pq, i) => {
                 const m = mastery[pq.id]
                 return (

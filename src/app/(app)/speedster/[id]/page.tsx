@@ -1,5 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { ArrowLeft, ArrowRight, BookOpen, Code2, ExternalLink, Loader2, Trophy, Gauge, List } from 'lucide-react'
@@ -55,6 +56,9 @@ export default function SpeedsterQuestionPage() {
   const [isPremium, setIsPremium] = useState(false)
 
   const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.slug, leftTab === 'accepted')
+
+  const listWrapRef = useRef<HTMLDivElement>(null)
+  useClickOutside(listWrapRef, () => setShowList(false), showList)
 
   useEffect(() => {
     async function load() {
@@ -114,6 +118,8 @@ export default function SpeedsterQuestionPage() {
     router.push(`/speedster/${qid}`)
   }
 
+  const qMap = Object.fromEntries(allQuestions.map(q => [q.id, q]))
+
   return (
     <div className="flex flex-col h-[calc(100vh-56px)]">
 
@@ -144,38 +150,35 @@ export default function SpeedsterQuestionPage() {
 
         {/* Prev / List / Next */}
         {planOrder.length > 0 && (
-          <div className="flex items-center gap-1 shrink-0">
-            <button onClick={() => prevId && goTo(prevId)} disabled={!prevId}
+          <div className="flex items-center gap-1 shrink-0 overflow-visible">
+            <button type="button" onClick={() => prevId && goTo(prevId)} disabled={!prevId}
               className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-yellow-300 hover:text-yellow-600 disabled:opacity-30 transition-colors">
               <ArrowLeft size={15} />
             </button>
-            <div className="relative">
-              <button onClick={() => setShowList(v => !v)}
+            <div ref={listWrapRef} className="relative z-10">
+              <button type="button" onClick={() => setShowList(v => !v)}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-yellow-300 transition-colors">
                 <List size={12} />
                 <span className="font-mono">{currentIdx >= 0 ? `${currentIdx + 1}/${planOrder.length}` : '—'}</span>
               </button>
-              {showList && (() => {
-                const qMap = Object.fromEntries(allQuestions.map(q => [q.id, q]))
-                return (
-                  <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[90vw] max-w-xs sm:w-80 max-h-80 overflow-y-auto">
-                    {planOrder.map((qid) => {
-                      const lq = qMap[qid]
-                      if (!lq) return null
-                      return (
-                        <button key={qid} onClick={() => { goTo(qid); setShowList(false) }}
-                          className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-yellow-50 border-b border-gray-50 transition-colors text-sm ${qid === id ? 'bg-yellow-50' : ''}`}>
-                          <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{lq.id}</span>
-                          <span className="flex-1 truncate text-gray-700">{lq.title}</span>
-                          <span className={`text-xs font-semibold shrink-0 ${lq.difficulty === 'Easy' ? 'text-green-600' : lq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
-                            {lq.difficulty[0]}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )
-              })()}
+              {showList && (
+                <div className="absolute top-full right-0 z-[100] mt-1 max-h-[min(70vh,20rem)] w-[min(calc(100vw-2rem),20rem)] overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-white shadow-xl sm:w-80">
+                  {planOrder.map((qid) => {
+                    const lq = qMap[qid]
+                    if (!lq) return null
+                    return (
+                      <button key={qid} type="button" onClick={() => { goTo(qid); setShowList(false) }}
+                        className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-yellow-50 border-b border-gray-50 transition-colors text-sm ${qid === id ? 'bg-yellow-50' : ''}`}>
+                        <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{lq.id}</span>
+                        <span className="flex-1 truncate text-gray-700">{lq.title}</span>
+                        <span className={`text-xs font-semibold shrink-0 ${lq.difficulty === 'Easy' ? 'text-green-600' : lq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
+                          {lq.difficulty[0]}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
             <button onClick={() => nextId && goTo(nextId)} disabled={!nextId}
               className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-yellow-300 hover:text-yellow-600 disabled:opacity-30 transition-colors">

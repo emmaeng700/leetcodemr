@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Clock, Code2, BookOpen, ExternalLink, Loader2, Trophy, List } from 'lucide-react'
 import { getProgress, updateProgress, addTimeSpent, completeReview, getStudyPlan } from '@/lib/db'
@@ -64,6 +65,8 @@ export default function PracticePage() {
   const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.slug, leftTab === 'accepted')
   const [mobilePanel, setMobilePanel] = useState<'description' | 'editor'>('description')
   const [timer, setTimer] = useState(0)
+  const listWrapRef = useRef<HTMLDivElement>(null)
+  useClickOutside(listWrapRef, () => setShowList(false), showList)
 
   // LeetCode live description state
   const [lcContent, setLcContent] = useState<string | null>(null)
@@ -209,7 +212,7 @@ export default function PracticePage() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 overflow-visible">
           {/* Question list */}
           {planOrder.length > 0 && (() => {
             const qMap = Object.fromEntries(allQuestions.map(q => [q.id, q]))
@@ -222,14 +225,14 @@ export default function PracticePage() {
                   className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 transition-colors">
                   <ArrowLeft size={13} />
                 </button>
-                <div className="relative">
-                  <button onClick={() => setShowList(v => !v)}
+                <div ref={listWrapRef} className="relative z-10">
+                  <button type="button" onClick={() => setShowList(v => !v)}
                     className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-indigo-300 transition-colors">
                     <List size={12} />
                     <span className="font-mono">{currentIdx + 1}/{planOrder.length}</span>
                   </button>
                   {showList && (
-                    <div className="absolute top-full right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[90vw] max-w-xs sm:w-80 max-h-80 overflow-y-auto">
+                    <div className="absolute top-full right-0 z-[100] mt-1 max-h-[min(70vh,20rem)] w-[min(calc(100vw-2rem),20rem)] overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-white shadow-xl sm:w-80">
                       {planOrder.map((qid, i) => {
                         const lq = qMap[qid]
                         if (!lq) return null

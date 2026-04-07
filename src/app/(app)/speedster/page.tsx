@@ -48,6 +48,8 @@ export default function SpeedsterPage() {
 
   // Ref to the mobile scrollable panel so we can lock scroll position on flip
   const cardsPanelRef = useRef<HTMLDivElement>(null)
+  const cardListWrapMobileRef = useRef<HTMLDivElement>(null)
+  const cardListWrapDesktopRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     async function load() {
@@ -115,16 +117,20 @@ export default function SpeedsterPage() {
   // Reset to first card when filters change
   useEffect(() => { setCardIdx(0); setFlipped(false) }, [filterDiff, filterSolved, filterSource, filterPattern])
 
-  // Close card list on outside click — use class check so it works regardless
-  // of whether mobile or desktop DOM node is active (both render simultaneously)
+  // Close card list on outside tap (mobile + desktop wrappers both mounted)
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (!(e.target as HTMLElement).closest?.('.speedster-card-list-wrapper')) {
-        setShowCardList(false)
-      }
+    if (!showCardList) return
+    function onDown(e: MouseEvent | TouchEvent) {
+      const t = e.target as Node
+      if (cardListWrapMobileRef.current?.contains(t) || cardListWrapDesktopRef.current?.contains(t)) return
+      setShowCardList(false)
     }
-    if (showCardList) document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('touchstart', onDown, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('touchstart', onDown)
+    }
   }, [showCardList])
 
   const fadeSwap = useCallback((fn: () => void) => {
@@ -346,8 +352,8 @@ export default function SpeedsterPage() {
             <ChevronLeft size={15} />
           </button>
 
-          <div className="relative speedster-card-list-wrapper">
-            <button onClick={() => setShowCardList(v => !v)}
+          <div ref={cardListWrapMobileRef} className="relative z-10 speedster-card-list-wrapper">
+            <button type="button" onClick={() => setShowCardList(v => !v)}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-yellow-400 transition-colors">
               <List size={12} />
               <span className="font-mono">{cardIdx + 1}/{total}</span>
@@ -356,7 +362,7 @@ export default function SpeedsterPage() {
             </button>
 
             {showCardList && (
-              <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[min(288px,calc(100vw-1rem))] max-h-80 overflow-y-auto">
+              <div className="absolute top-full left-1/2 z-[100] mt-1 max-h-[min(70vh,20rem)] w-[min(calc(100vw-2rem),20rem)] -translate-x-1/2 overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-white shadow-xl sm:left-0 sm:translate-x-0">
                 {filteredOrder.map((qid, i) => {
                   const q = qMap[qid]
                   if (!q) return null
@@ -637,8 +643,8 @@ export default function SpeedsterPage() {
               <ChevronLeft size={15} />
             </button>
 
-            <div className="relative speedster-card-list-wrapper">
-              <button onClick={() => setShowCardList(v => !v)}
+            <div ref={cardListWrapDesktopRef} className="relative z-10 speedster-card-list-wrapper">
+              <button type="button" onClick={() => setShowCardList(v => !v)}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-yellow-400 transition-colors">
                 <List size={12} />
                 <span className="font-mono">{cardIdx + 1}/{total}</span>
@@ -647,7 +653,7 @@ export default function SpeedsterPage() {
               </button>
 
               {showCardList && (
-                <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-[min(288px,calc(100vw-1rem))] max-h-80 overflow-y-auto">
+                <div className="absolute top-full left-1/2 z-[100] mt-1 max-h-[min(70vh,20rem)] w-[min(calc(100vw-2rem),20rem)] -translate-x-1/2 overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-white shadow-xl sm:left-0 sm:translate-x-0">
                   {filteredOrder.map((qid, i) => {
                     const q = qMap[qid]
                     if (!q) return null

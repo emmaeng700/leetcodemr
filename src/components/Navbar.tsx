@@ -115,9 +115,16 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile menu — absolute overlay so it never pushes content down */}
+      {/* Mobile menu + dim backdrop (tap outside closes) */}
       {open && (
-        <div className="md:hidden absolute top-full left-0 right-0 z-50 border-t border-gray-100 bg-white shadow-xl px-4 py-3 space-y-1 max-h-[80vh] overflow-y-auto">
+        <>
+          <button
+            type="button"
+            aria-label="Close menu"
+            className="md:hidden fixed inset-0 z-40 bg-black/25"
+            onClick={() => setOpen(false)}
+          />
+          <div className="md:hidden absolute top-full left-0 right-0 z-50 border-t border-gray-100 bg-white shadow-xl px-4 py-3 space-y-1 max-h-[min(85dvh,32rem)] overflow-y-auto overscroll-contain pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {[
             { label: 'Study',      group: STUDY_LINKS },
             { label: 'Drill',      group: DRILL_LINKS },
@@ -157,6 +164,7 @@ export default function Navbar() {
             Logout
           </button>
         </div>
+        </>
       )}
     </nav>
   )

@@ -41,12 +41,16 @@ export default function QuestionSearch({ className = '' }: { className?: string 
   }, [])
 
   useEffect(() => {
-    function onDocDown(e: MouseEvent) {
+    function onDocDown(e: MouseEvent | TouchEvent) {
       if (!containerRef.current) return
       if (!containerRef.current.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', onDocDown)
-    return () => document.removeEventListener('mousedown', onDocDown)
+    document.addEventListener('touchstart', onDocDown, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', onDocDown)
+      document.removeEventListener('touchstart', onDocDown)
+    }
   }, [])
 
   const matches = useMemo(() => {
