@@ -440,6 +440,11 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
       <style>{`
         /* Responsive CodeMirror font sizing (phone → desktop) */
         .cm-editor { font-size: clamp(11px, 2.2vw, 15px); line-height: 1.45; }
+        /* Indentation markers: slightly higher contrast on dark theme */
+        .cm-editor {
+          --indent-marker-bg-color: rgba(120, 140, 190, 0.35);
+          --indent-marker-active-bg-color: rgba(150, 175, 255, 0.55);
+        }
         .cm-scroller { overflow-x: auto !important; overflow-y: auto !important; overscroll-behavior: contain; touch-action: pan-x pan-y; }
         .cm-content, .cm-line { word-break: normal; white-space: pre; }
         .cm-editor { touch-action: none; }
