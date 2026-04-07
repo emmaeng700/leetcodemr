@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
-import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List } from 'lucide-react'
-import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress } from '@/lib/db'
+import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List, Brain } from 'lucide-react'
+import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews } from '@/lib/db'
 import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
@@ -114,6 +114,8 @@ export default function DailyPage() {
   const online = useOnlineStatus()
   const [allQuestions, setAllQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, ProgressData>>({})
+  const [dueReviews, setDueReviews] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
+  const [dueOpen, setDueOpen] = useState(true)
   const [plan, setPlan] = useState<StudyPlan | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -147,16 +149,27 @@ export default function DailyPage() {
     }
   }, [])
 
+  const refreshDue = useCallback(async () => {
+    try {
+      const due = await getDueReviews()
+      setDueReviews(due)
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
   useEffect(() => {
     async function load() {
-      const [qs, prog, p] = await Promise.all([
+      const [qs, prog, p, due] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getProgress(),
         getStudyPlan(),
+        getDueReviews(),
       ])
       setAllQuestions(qs)
       setProgress(prog)
       setPlan(p)
+      setDueReviews(due)
       setLoading(false)
     }
     load()
@@ -169,19 +182,20 @@ export default function DailyPage() {
       prevPathRef.current = pathname
       if (prev !== null && prev !== '/daily') {
         void refreshProgress()
+        void refreshDue()
       }
     } else {
       prevPathRef.current = pathname
     }
-  }, [pathname, loading, refreshProgress])
+  }, [pathname, loading, refreshProgress, refreshDue])
 
   useEffect(() => {
     if (loading || pathname !== '/daily') return
     const onVis = () => {
-      if (document.visibilityState === 'visible') void refreshProgress()
+      if (document.visibilityState === 'visible') { void refreshProgress(); void refreshDue() }
     }
     const onPageShow = (e: Event) => {
-      if ((e as PageTransitionEvent).persisted) void refreshProgress()
+      if ((e as PageTransitionEvent).persisted) { void refreshProgress(); void refreshDue() }
     }
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener('pageshow', onPageShow)
@@ -189,7 +203,7 @@ export default function DailyPage() {
       document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener('pageshow', onPageShow)
     }
-  }, [loading, pathname, refreshProgress])
+  }, [loading, pathname, refreshProgress, refreshDue])
 
   const { days: previewDays, date: previewFinish } = calcFinish(startDate, perDay, allQuestions.length)
 
@@ -232,6 +246,14 @@ export default function DailyPage() {
 
   function isSolved(id: number) {
     return !!progress[String(id)]?.solved
+  }
+
+  function daysOverdue(nr: string) {
+    const [y, m, d] = nr.split('-').map(Number)
+    const diff = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(y, m - 1, d).getTime()) / 86400000)
+    if (diff === 0) return 'due today'
+    if (diff === 1) return '1 day overdue'
+    return diff + ' days overdue'
   }
 
   if (loading) return <div className="text-center py-32 text-gray-400 animate-pulse text-sm">Loading...</div>
@@ -640,6 +662,45 @@ export default function DailyPage() {
           >
             Start New Plan
           </button>
+        </div>
+      )}
+
+      {/* REVIEWS DUE */}
+      {dueReviews.length > 0 && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl mb-4 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setDueOpen(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-100 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Brain size={16} className="text-indigo-600" />
+              <span className="text-sm font-bold text-indigo-700">
+                Reviews due — {dueReviews.length} question{dueReviews.length > 1 ? 's' : ''}
+              </span>
+            </div>
+            {dueOpen ? <ChevronUp size={15} className="text-indigo-400" /> : <ChevronDown size={15} className="text-indigo-400" />}
+          </button>
+          {dueOpen && (
+            <div className="px-4 pb-3 flex flex-wrap gap-2">
+              <Link
+                href="/review"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-semibold text-indigo-700 hover:border-indigo-400 hover:shadow-sm transition-all"
+              >
+                Open reviews <ArrowRight size={12} />
+              </Link>
+              {dueReviews.map(q => (
+                <Link
+                  key={q.id}
+                  href={`/practice/${q.id}`}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs hover:border-indigo-400 hover:shadow-sm transition-all text-left"
+                >
+                  <span className="text-gray-400 font-mono">#{q.id}</span>
+                  <span className="text-indigo-400 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
