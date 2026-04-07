@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Loader2, Send } from 'lucide-react'
 
 const PAGE_SIZE = 10
@@ -13,7 +12,7 @@ interface Q {
 }
 
 /** Second section on Learn: AC counts from LeetCode submission history (session), mapped to library ids. */
-export default function LearnAcSubmitTable() {
+export default function LearnAcSubmitTable({ onSolve }: { onSolve?: (questionId: number) => void }) {
   const [questions, setQuestions] = useState<Q[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
@@ -70,7 +69,7 @@ export default function LearnAcSubmitTable() {
       count: counts[q.slug] ?? 0,
     }))
     out.sort((a, b) => {
-      if (b.count !== a.count) return b.count - a.count
+      if (a.count !== b.count) return a.count - b.count
       return a.id - b.id
     })
     return out
@@ -140,11 +139,12 @@ export default function LearnAcSubmitTable() {
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white">
-        <table className="w-full min-w-[320px] text-left text-sm">
+        <table className="w-full min-w-[380px] text-left text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50 text-[10px] font-bold uppercase tracking-wide text-gray-500">
               <th className="px-3 py-2">ID</th>
               <th className="px-3 py-2">Title</th>
+              <th className="whitespace-nowrap px-2 py-2 text-right">Solve</th>
               <th className="px-3 py-2 text-right">AC</th>
             </tr>
           </thead>
@@ -152,10 +152,19 @@ export default function LearnAcSubmitTable() {
             {slice.map(row => (
               <tr key={row.id} className="border-b border-gray-50 last:border-0 hover:bg-indigo-50/50">
                 <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-gray-400">#{row.id}</td>
-                <td className="max-w-[14rem] px-3 py-2 text-xs font-semibold sm:max-w-none">
-                  <Link href={`/practice/${row.id}`} className="text-gray-800 hover:text-indigo-600 hover:underline">
-                    <span className="line-clamp-2 sm:line-clamp-none">{row.title}</span>
-                  </Link>
+                <td className="max-w-[12rem] px-3 py-2 text-xs font-semibold text-gray-800 sm:max-w-none">
+                  <span className="line-clamp-2 sm:line-clamp-none">{row.title}</span>
+                </td>
+                <td className="whitespace-nowrap px-2 py-2">
+                  {onSolve ? (
+                    <button
+                      type="button"
+                      onClick={() => onSolve(row.id)}
+                      className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100"
+                    >
+                      Solve
+                    </button>
+                  ) : null}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-right font-mono text-sm font-bold tabular-nums text-gray-900">
                   {row.count}

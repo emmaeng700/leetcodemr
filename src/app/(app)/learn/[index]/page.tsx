@@ -400,6 +400,25 @@ function LearnInner() {
     setShowList(false)
   }
 
+  /** Open a question in this Learn view (editor). Resets URL filters if the question is hidden by current filters. */
+  const openQuestionInLearn = useCallback(
+    (questionId: number) => {
+      const idxFiltered = filtered.findIndex(q => q.id === questionId)
+      if (idxFiltered >= 0) {
+        router.push(`/learn/${idxFiltered}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
+        setMobilePanel('editor')
+        requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+        return
+      }
+      const idxOrdered = ordered.findIndex(q => q.id === questionId)
+      if (idxOrdered < 0) return
+      router.push(`/learn/${idxOrdered}`, { scroll: false })
+      setMobilePanel('editor')
+      requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+    },
+    [filtered, ordered, learnQs, router],
+  )
+
   const save = async (patch: any = {}) => {
     if (!q) return
     setSaving(true)
@@ -924,7 +943,7 @@ function LearnInner() {
 
     <section className="border-t border-gray-100 bg-gray-50/90">
       <div className="mx-auto max-w-6xl px-3 py-6 pb-10">
-        <LearnAcSubmitTable />
+        <LearnAcSubmitTable onSolve={openQuestionInLearn} />
       </div>
     </section>
     </>
