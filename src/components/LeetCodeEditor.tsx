@@ -66,9 +66,16 @@ interface Props {
 }
 
 /* ── Mobile keyboard toolbar ───────────────────────────── */
-function MobileKeybar({ editorViewRef, cursorPosRef }: {
+function MobileKeybar({
+  editorViewRef,
+  cursorPosRef,
+  onResetCode,
+  onCopyCode,
+}: {
   editorViewRef: React.RefObject<any>
   cursorPosRef:  React.RefObject<{ from: number; to: number }>
+  onResetCode: () => void
+  onCopyCode: () => void
 }) {
   const press = (action: string | (() => void)) => {
     const view = editorViewRef.current
@@ -126,14 +133,16 @@ function MobileKeybar({ editorViewRef, cursorPosRef }: {
 
   const btnCls = 'flex items-center justify-center rounded-md bg-[#2c313a] active:bg-[#3e4451] text-gray-200 font-mono font-semibold select-none'
 
-  // Row 1: symbols  |  Row 2: arrows + backspace
+  // Row 1: symbols  |  Row 2: arrows + backspace + actions
   const row1 = ['(', ')', '[', ']', '{', '}', '=', '+', '-', '*', '<', '>', '#', '%', '^', '~']
   const row2 = [
     { label: '←', action: 'ArrowLeft' },
+    { label: '→', action: 'ArrowRight' },
     { label: '↑', action: 'ArrowUp' },
     { label: '↓', action: 'ArrowDown' },
-    { label: '→', action: 'ArrowRight' },
     { label: '⌫', action: '⌫' },
+    { label: 'RST', action: () => onResetCode() },
+    { label: 'CPY', action: () => onCopyCode() },
   ]
 
   return (
@@ -327,6 +336,23 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
   // which causes visual indentation mismatches in CodeMirror.
   const normalizeCode = (raw: string) =>
     raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\t/g, '    ')
+
+  const resetToStarter = useCallback(() => {
+    if (!lcQ) return
+    const raw = lcQ.codeSnippets?.find(s => s.langSlug === lang)?.code ?? ''
+    setCode(normalizeCode(raw))
+    setResult(null)
+    setResultErr('')
+  }, [lcQ, lang])
+
+  const copyCurrentCode = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(code)
+      toast.success('Code copied')
+    } catch {
+      toast.error('Could not copy code')
+    }
+  }, [code])
 
   const switchLang = (l: 'python3' | 'cpp') => {
     setLang(l)
@@ -599,7 +625,12 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
 
       {/* ── Mobile keyboard toolbar — sm:hidden ── */}
       {!lcLoad && !lcErr && (
-        <MobileKeybar editorViewRef={editorViewRef} cursorPosRef={cursorPosRef} />
+        <MobileKeybar
+          editorViewRef={editorViewRef}
+          cursorPosRef={cursorPosRef}
+          onResetCode={resetToStarter}
+          onCopyCode={copyCurrentCode}
+        />
       )}
 
       {/* ── Bottom panel ── */}
