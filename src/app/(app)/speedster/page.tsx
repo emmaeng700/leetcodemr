@@ -424,7 +424,7 @@ export default function SpeedsterPage() {
           if (panel) panel.scrollTo({ top: 0, behavior: 'smooth' })
           else window.scrollTo({ top: 0, behavior: 'smooth' })
         }}
-        className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-800 text-sm font-bold hover:bg-yellow-100 transition-colors"
+        className="w-full mt-3 mb-6 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-800 text-sm font-bold hover:bg-yellow-100 transition-colors"
         style={{ touchAction: 'manipulation' }}
       >
         View today questions
@@ -805,7 +805,7 @@ export default function SpeedsterPage() {
             setDayIdx(idx)
             window.scrollTo({ top: 0, behavior: 'smooth' })
           }}
-          className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-800 text-sm font-bold hover:bg-yellow-100 transition-colors"
+          className="w-full mt-3 mb-6 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-800 text-sm font-bold hover:bg-yellow-100 transition-colors"
           style={{ touchAction: 'manipulation' }}
         >
           View today questions
