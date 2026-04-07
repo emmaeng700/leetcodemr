@@ -200,8 +200,9 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
   const cursorPosRef   = useRef<{ from: number; to: number }>({ from: 0, to: 0 })
 
   /* Bottom panel */
-  const [bottomTab,  setBottomTab]  = useState<'testcase' | 'result' | 'solutions'>('testcase')
-  const acSols = useAcceptedSolutions(slug, bottomTab === 'solutions')
+  const [bottomTab,        setBottomTab]        = useState<'testcase' | 'result'>('testcase')
+  const [showSolutionsModal, setShowSolutionsModal] = useState(false)
+  const acSols = useAcceptedSolutions(slug, showSolutionsModal)
   const [cases,      setCases]      = useState<TestCase[]>([])
   const [activeCase, setActiveCase] = useState(0)
   const [testInput,  setTestInput]  = useState('')
@@ -600,12 +601,31 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
       <div className="h-44 sm:h-52 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
         {/* Tabs */}
         <div className="flex items-center border-b border-gray-700/50 shrink-0 overflow-x-auto scrollbar-none">
-          {(['testcase', 'result', 'solutions'] as const).map(tab => (
-            <button key={tab} onClick={() => setBottomTab(tab)}
-              className={`px-3 sm:px-4 py-2 text-xs font-semibold whitespace-nowrap shrink-0 transition ${bottomTab === tab ? (tab === 'solutions' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-indigo-400 border-b-2 border-indigo-400') : 'text-gray-500 hover:text-gray-300'}`}>
-              {tab === 'testcase' ? 'Testcase' : tab === 'result' ? 'Test Result' : '🏆 My Solutions'}
-            </button>
-          ))}
+          {(['testcase', 'result', 'solutions'] as const).map(tab => {
+            const isActive =
+              (tab === 'solutions' && showSolutionsModal) ||
+              (tab !== 'solutions' && bottomTab === tab)
+            const baseCls = isActive
+              ? (tab === 'solutions'
+                  ? 'text-emerald-400 border-b-2 border-emerald-400'
+                  : 'text-indigo-400 border-b-2 border-indigo-400')
+              : 'text-gray-500 hover:text-gray-300'
+            return (
+              <button
+                key={tab}
+                onClick={() => {
+                  if (tab === 'solutions') {
+                    setShowSolutionsModal(true)
+                  } else {
+                    setBottomTab(tab)
+                  }
+                }}
+                className={`px-3 sm:px-4 py-2 text-xs font-semibold whitespace-nowrap shrink-0 transition ${baseCls}`}
+              >
+                {tab === 'testcase' ? 'Testcase' : tab === 'result' ? 'Test Result' : '🏆 My Solutions'}
+              </button>
+            )
+          })}
           {pollMsg && (
             <span className="ml-3 flex items-center gap-1.5 text-xs text-gray-400">
               <Loader2 size={11} className="animate-spin text-indigo-400" /> {pollMsg}
@@ -737,33 +757,44 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
         </div>
       </div>
 
-      {/* ── My Solutions fixed bottom-sheet — completely outside flex flow ── */}
-      {bottomTab === 'solutions' && (
-        <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col bg-[#16213e] border-t-2 border-emerald-600/50 shadow-2xl" style={{ height: '68vh' }}>
-          {/* Sheet header: all 3 tabs + close */}
-          <div className="flex items-center border-b border-gray-700/50 shrink-0 overflow-x-auto scrollbar-none">
-            {(['testcase', 'result', 'solutions'] as const).map(tab => (
-              <button key={tab} onClick={() => setBottomTab(tab)}
-                className={`px-3 sm:px-4 py-2.5 text-xs font-semibold whitespace-nowrap shrink-0 transition ${tab === 'solutions' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-gray-500 hover:text-gray-300'}`}>
-                {tab === 'testcase' ? 'Testcase' : tab === 'result' ? 'Test Result' : '🏆 My Solutions'}
+      {/* ── My Solutions modal ── */}
+      {showSolutionsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-3 sm:px-4">
+          {/* Backdrop */}
+          <button
+            type="button"
+            aria-label="Close My Solutions"
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowSolutionsModal(false)}
+          />
+          {/* Dialog */}
+          <div className="relative z-10 w-full max-w-3xl max-h-[80vh] rounded-2xl border border-emerald-500/40 bg-[#0b1020] shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/80 shrink-0">
+              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-200">
+                <Trophy size={14} className="text-emerald-400" />
+                Last 3 Accepted — My Solutions
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSolutionsModal(false)}
+                className="text-xs text-gray-400 hover:text-gray-100"
+              >
+                ✕ Close
               </button>
-            ))}
-            <button onClick={() => setBottomTab('testcase')}
-              className="ml-auto mr-3 text-xs text-gray-500 hover:text-gray-200 shrink-0">✕</button>
-          </div>
-          {/* Solutions content */}
-          <div className="flex-1 overflow-y-auto p-3 min-h-0">
-            <AcceptedSolutions
-              surface="dark"
-              submissions={acSols.submissions}
-              loading={acSols.subsLoading}
-              selectedSub={acSols.selectedSub}
-              subCodeLoading={acSols.subCodeLoading}
-              copied={acSols.copiedSub}
-              onSelect={acSols.loadSubCode}
-              onCopy={acSols.copyCode}
-              onBack={acSols.clearSub}
-            />
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
+              <AcceptedSolutions
+                surface="dark"
+                submissions={acSols.submissions}
+                loading={acSols.subsLoading}
+                selectedSub={acSols.selectedSub}
+                subCodeLoading={acSols.subCodeLoading}
+                copied={acSols.copiedSub}
+                onSelect={acSols.loadSubCode}
+                onCopy={acSols.copyCode}
+                onBack={acSols.clearSub}
+              />
+            </div>
           </div>
         </div>
       )}
