@@ -19,6 +19,7 @@ import { useClickOutside } from '@/hooks/useClickOutside'
 import { getStudyPlan } from '@/lib/db'
 import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import { CODE_HIGHLIGHT_TOKEN_CSS } from '@/lib/codeHighlightTheme'
+import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { highlightPythonLine } from '@/lib/line-game/highlightPythonLine'
 import {
   buildBlankPicks,
@@ -514,6 +515,29 @@ export default function LineGamePage() {
 
   const progressPct = Math.round(((idx + 1) / playable.length) * 100)
 
+  const lineGameListItems = playable.map((pq, i) => {
+    const m = mastery[pq.id]
+    return (
+      <button
+        key={pq.id}
+        type="button"
+        onClick={() => { setIdx(i); setShowList(false) }}
+        className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-indigo-50 border-b border-gray-50 ${i === idx ? 'bg-indigo-50' : ''}`}
+      >
+        <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{pq.id}</span>
+        <span className="min-w-0 flex-1 truncate text-gray-700">{pq.title}</span>
+        <span
+          className={`text-xs font-semibold shrink-0 ${pq.difficulty === 'Easy' ? 'text-green-600' : pq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}
+        >
+          {pq.difficulty[0]}
+        </span>
+        {m === 'mastered' && <span title="Mastered">🔥</span>}
+        {m === 'solved' && <span title="Solved">✓</span>}
+        {m === 'revealed' && <span title="Needs work">👀</span>}
+      </button>
+    )
+  })
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 pb-24">
       {!online && <OfflineBanner feature="Daily plan order (Supabase)" />}
@@ -623,24 +647,10 @@ export default function LineGamePage() {
             <span className="font-mono text-xs">{idx + 1}/{playable.length}</span>
           </button>
           {showList && (
-            <div className="absolute top-full right-0 z-[100] mt-1 max-h-[min(70vh,20rem)] w-[min(calc(100vw-2rem),20rem)] overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-white shadow-xl sm:w-80">
-              {playable.map((pq, i) => {
-                const m = mastery[pq.id]
-                return (
-                  <button key={pq.id} onClick={() => { setIdx(i); setShowList(false) }}
-                    className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-indigo-50 border-b border-gray-50 transition-colors text-sm ${i === idx ? 'bg-indigo-50' : ''}`}>
-                    <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{pq.id}</span>
-                    <span className="flex-1 truncate text-gray-700">{pq.title}</span>
-                    <span className={`text-xs font-semibold shrink-0 ${pq.difficulty === 'Easy' ? 'text-green-600' : pq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
-                      {pq.difficulty[0]}
-                    </span>
-                    {m === 'mastered' && <span title="Mastered">🔥</span>}
-                    {m === 'solved' && <span title="Solved">✓</span>}
-                    {m === 'revealed' && <span title="Needs work">👀</span>}
-                  </button>
-                )
-              })}
-            </div>
+            <>
+              <div className={listDropdownMobileBackdrop} aria-hidden onClick={() => setShowList(false)} />
+              <div className={listDropdownMobilePanelClasses('right')}>{lineGameListItems}</div>
+            </>
           )}
         </div>
 

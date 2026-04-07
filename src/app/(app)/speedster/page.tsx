@@ -9,6 +9,7 @@ import LeetCodeEditor from '@/components/LeetCodeEditor'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
 import toast from 'react-hot-toast'
+import { listDropdownMobileBackdropDense, listDropdownMobilePanelViewportOnly } from '@/lib/listDropdownUi'
 
 interface Question {
   id: number
@@ -262,6 +263,30 @@ export default function SpeedsterPage() {
     </div>
   )
 
+  const cardListDropdownRows = filteredOrder.map((qid, i) => {
+    const q = qMap[qid]
+    if (!q) return null
+    const done = !!progress[String(qid)]?.solved
+    return (
+      <button
+        key={qid}
+        type="button"
+        onClick={() => { setCardIdx(i); setFlipped(false); setShowCardList(false) }}
+        className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm hover:bg-yellow-50 border-b border-gray-50 last:border-0 transition-colors ${i === cardIdx ? 'bg-yellow-50' : ''}`}
+      >
+        <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{q.id}</span>
+        <span className="min-w-0 flex-1 truncate text-gray-700">{q.title}</span>
+        <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
+          {runs[String(q.id)] ?? 0}/4
+        </span>
+        <span className={`text-xs font-semibold shrink-0 ${q.difficulty === 'Easy' ? 'text-green-600' : q.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
+          {q.difficulty[0]}
+        </span>
+        {done && <CheckCircle size={11} className="text-green-500 shrink-0" />}
+      </button>
+    )
+  })
+
   // ─── Cards + Flashcards content (shared between mobile panel and desktop) ───
   const cardsContent = (
     <div className="w-full max-w-4xl mx-auto px-4 py-6">
@@ -362,27 +387,14 @@ export default function SpeedsterPage() {
             </button>
 
             {showCardList && (
-              <div className="absolute top-full left-1/2 z-[100] mt-1 max-h-[min(70vh,20rem)] w-[min(calc(100vw-2rem),20rem)] -translate-x-1/2 overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-white shadow-xl sm:left-0 sm:translate-x-0">
-                {filteredOrder.map((qid, i) => {
-                  const q = qMap[qid]
-                  if (!q) return null
-                  const done = !!progress[String(qid)]?.solved
-                  return (
-                    <button key={qid} onClick={() => { setCardIdx(i); setFlipped(false); setShowCardList(false) }}
-                      className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-yellow-50 border-b border-gray-50 last:border-0 transition-colors text-sm ${i === cardIdx ? 'bg-yellow-50' : ''}`}>
-                      <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{q.id}</span>
-                      <span className="flex-1 truncate text-gray-700">{q.title}</span>
-                      <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
-                        {runs[String(q.id)] ?? 0}/4
-                      </span>
-                      <span className={`text-xs font-semibold shrink-0 ${q.difficulty === 'Easy' ? 'text-green-600' : q.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
-                        {q.difficulty[0]}
-                      </span>
-                      {done && <CheckCircle size={11} className="text-green-500 shrink-0" />}
-                    </button>
-                  )
-                })}
-              </div>
+              <>
+                <div
+                  className={listDropdownMobileBackdropDense}
+                  aria-hidden
+                  onClick={() => setShowCardList(false)}
+                />
+                <div className={listDropdownMobilePanelViewportOnly}>{cardListDropdownRows}</div>
+              </>
             )}
           </div>
 
@@ -653,23 +665,8 @@ export default function SpeedsterPage() {
               </button>
 
               {showCardList && (
-                <div className="absolute top-full left-1/2 z-[100] mt-1 max-h-[min(70vh,20rem)] w-[min(calc(100vw-2rem),20rem)] -translate-x-1/2 overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-white shadow-xl sm:left-0 sm:translate-x-0">
-                  {filteredOrder.map((qid, i) => {
-                    const q = qMap[qid]
-                    if (!q) return null
-                    const done = !!progress[String(qid)]?.solved
-                    return (
-                      <button key={qid} onClick={() => { setCardIdx(i); setFlipped(false); setShowCardList(false) }}
-                        className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-yellow-50 border-b border-gray-50 last:border-0 transition-colors text-sm ${i === cardIdx ? 'bg-yellow-50' : ''}`}>
-                        <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{q.id}</span>
-                        <span className="flex-1 truncate text-gray-700">{q.title}</span>
-                        <span className={`text-xs font-semibold shrink-0 ${q.difficulty === 'Easy' ? 'text-green-600' : q.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
-                          {q.difficulty[0]}
-                        </span>
-                        {done && <CheckCircle size={11} className="text-green-500 shrink-0" />}
-                      </button>
-                    )
-                  })}
+                <div className="absolute top-full left-0 z-[100] mt-1 max-h-[min(70vh,20rem)] w-[min(calc(100vw-2rem),20rem)] overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl sm:w-80">
+                  {cardListDropdownRows}
                 </div>
               )}
             </div>

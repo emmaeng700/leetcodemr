@@ -10,6 +10,7 @@ import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress } from '@/lib/
 import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
+import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 
 interface Question {
   id: number
@@ -333,6 +334,24 @@ export default function DailyPage() {
   const progressPct = todayInfo.dayNumber ? Math.round((todayInfo.dayNumber / totalDays) * 100) : 0
   const todayQs = todayInfo.questions || []
   const todayDone = (todayInfo.questionIds || []).filter(id => isSolved(id)).length
+
+  const dailyListItems = todayQs.map(q => (
+    <a
+      key={q.id}
+      href={`/practice/${q.id}`}
+      onClick={() => setShowList(false)}
+      className="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm hover:bg-indigo-50 border-b border-gray-50 transition-colors"
+    >
+      <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{q.id}</span>
+      <span className="min-w-0 flex-1 truncate text-gray-700">{q.title}</span>
+      <span
+        className={`text-xs font-semibold shrink-0 ${q.difficulty === 'Easy' ? 'text-green-600' : q.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}
+      >
+        {q.difficulty[0]}
+      </span>
+      {isSolved(q.id) && <CheckCircle2 size={11} className="text-green-500 shrink-0" />}
+    </a>
+  ))
   const pastDayCount = todayInfo.dayNumber ? todayInfo.dayNumber - 1 : totalDays
   const PAST_DAYS_INITIAL = 7
   const displayPast = pastDaysShowAll ? pastDayCount : Math.min(PAST_DAYS_INITIAL, pastDayCount)
@@ -370,19 +389,10 @@ export default function DailyPage() {
                 Today's Qs
               </button>
               {showList && (
-                <div className="absolute top-full right-0 z-[100] mt-1 max-h-[min(70vh,20rem)] w-[min(calc(100vw-2rem),20rem)] overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
-                  {todayQs.map(q => (
-                    <a key={q.id} href={`/practice/${q.id}`} onClick={() => setShowList(false)}
-                      className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-indigo-50 border-b border-gray-50 transition-colors text-sm">
-                      <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{q.id}</span>
-                      <span className="flex-1 truncate text-gray-700">{q.title}</span>
-                      <span className={`text-xs font-semibold shrink-0 ${q.difficulty === 'Easy' ? 'text-green-600' : q.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
-                        {q.difficulty[0]}
-                      </span>
-                      {isSolved(q.id) && <CheckCircle2 size={11} className="text-green-500 shrink-0" />}
-                    </a>
-                  ))}
-                </div>
+                <>
+                  <div className={listDropdownMobileBackdrop} aria-hidden onClick={() => setShowList(false)} />
+                  <div className={listDropdownMobilePanelClasses('right')}>{dailyListItems}</div>
+                </>
               )}
             </div>
           )}

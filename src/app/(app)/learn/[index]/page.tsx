@@ -14,6 +14,7 @@ import {
   Copy, Check,
 } from 'lucide-react'
 import { getProgress, updateProgress, completeReview, getStudyPlan } from '@/lib/db'
+import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { QUICK_PATTERNS } from '@/lib/constants'
 import { isDue, formatLocalDate, nextIntervalDays } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -520,13 +521,11 @@ function LearnInner() {
           {showList && (
             <>
               <div
-                className="fixed inset-0 top-14 z-[99] bg-black/25 sm:hidden"
+                className={listDropdownMobileBackdrop}
                 aria-hidden
                 onClick={() => setShowList(false)}
               />
-              <div className="fixed left-1/2 top-[calc(56px+3.25rem)] z-[100] max-h-[min(70vh,22rem)] w-[min(calc(100vw-2rem),20rem)] -translate-x-1/2 overflow-y-auto overscroll-contain rounded-xl border border-gray-200 bg-white shadow-xl sm:absolute sm:left-0 sm:top-full sm:mt-1 sm:max-h-[min(70vh,20rem)] sm:translate-x-0 sm:w-[min(calc(100vw-2rem),20rem)]">
-                {questionListItems}
-              </div>
+              <div className={listDropdownMobilePanelClasses('left')}>{questionListItems}</div>
             </>
           )}
         </div>

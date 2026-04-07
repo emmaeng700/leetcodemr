@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { ArrowLeft, ArrowRight, BookOpen, Code2, ExternalLink, Loader2, Trophy, Gauge, List } from 'lucide-react'
 import { addMasteryRunEvent, getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -120,6 +121,27 @@ export default function SpeedsterQuestionPage() {
 
   const qMap = Object.fromEntries(allQuestions.map(q => [q.id, q]))
 
+  const speedsterQuestionListItems = planOrder.map((qid) => {
+    const lq = qMap[qid]
+    if (!lq) return null
+    return (
+      <button
+        key={qid}
+        type="button"
+        onClick={() => { goTo(qid); setShowList(false) }}
+        className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-yellow-50 border-b border-gray-50 ${qid === id ? 'bg-yellow-50' : ''}`}
+      >
+        <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{lq.id}</span>
+        <span className="min-w-0 flex-1 truncate text-gray-700">{lq.title}</span>
+        <span
+          className={`text-xs font-semibold shrink-0 ${lq.difficulty === 'Easy' ? 'text-green-600' : lq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}
+        >
+          {lq.difficulty[0]}
+        </span>
+      </button>
+    )
+  })
+
   return (
     <div className="flex flex-col h-[calc(100vh-56px)]">
 
@@ -162,22 +184,10 @@ export default function SpeedsterQuestionPage() {
                 <span className="font-mono">{currentIdx >= 0 ? `${currentIdx + 1}/${planOrder.length}` : '—'}</span>
               </button>
               {showList && (
-                <div className="absolute top-full right-0 z-[100] mt-1 max-h-[min(70vh,20rem)] w-[min(calc(100vw-2rem),20rem)] overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-white shadow-xl sm:w-80">
-                  {planOrder.map((qid) => {
-                    const lq = qMap[qid]
-                    if (!lq) return null
-                    return (
-                      <button key={qid} type="button" onClick={() => { goTo(qid); setShowList(false) }}
-                        className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-yellow-50 border-b border-gray-50 transition-colors text-sm ${qid === id ? 'bg-yellow-50' : ''}`}>
-                        <span className="text-xs text-gray-400 font-mono w-7 shrink-0">#{lq.id}</span>
-                        <span className="flex-1 truncate text-gray-700">{lq.title}</span>
-                        <span className={`text-xs font-semibold shrink-0 ${lq.difficulty === 'Easy' ? 'text-green-600' : lq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
-                          {lq.difficulty[0]}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
+                <>
+                  <div className={listDropdownMobileBackdrop} aria-hidden onClick={() => setShowList(false)} />
+                  <div className={listDropdownMobilePanelClasses('right')}>{speedsterQuestionListItems}</div>
+                </>
               )}
             </div>
             <button onClick={() => nextId && goTo(nextId)} disabled={!nextId}
