@@ -175,8 +175,9 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
   useEffect(() => { onAcceptedRef.current = onAccepted }, [onAccepted])
 
   /* Session */
-  const [session,   setSession]   = useState('')
-  const [csrf,      setCsrf]      = useState('')
+  const [session,      setSession]      = useState('')
+  const [csrf,         setCsrf]         = useState('')
+  const [sessionReady, setSessionReady] = useState(false)
   const sessionOK = !!(session && csrf)
 
   /* LeetCode question data */
@@ -226,10 +227,26 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
     }
   }, [showSolutionsModal])
 
-  /* ── Load session ── */
+  /* ── Load session — localStorage first, Supabase fallback ── */
   useEffect(() => {
-    setSession(localStorage.getItem('lc_session') ?? '')
-    setCsrf(localStorage.getItem('lc_csrf') ?? '')
+    const ls = localStorage.getItem('lc_session') ?? ''
+    const lc = localStorage.getItem('lc_csrf')    ?? ''
+    if (ls && lc) {
+      setSession(ls); setCsrf(lc); setSessionReady(true)
+    } else {
+      // localStorage empty — fetch from Supabase and sync back
+      fetch('/api/lc-session')
+        .then(r => r.json())
+        .then(d => {
+          if (d.lc_session && d.lc_csrf) {
+            setSession(d.lc_session); setCsrf(d.lc_csrf)
+            localStorage.setItem('lc_session', d.lc_session)
+            localStorage.setItem('lc_csrf',    d.lc_csrf)
+          }
+        })
+        .catch(() => {})
+        .finally(() => setSessionReady(true))
+    }
   }, [])
 
   /* ── Load CodeMirror extensions ── */
@@ -286,17 +303,13 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
 
   /* ── Fetch LeetCode question data ── */
   useEffect(() => {
-    if (!slug) return
+    if (!slug || !sessionReady) return
     setLcLoad(true); setLcErr('')
-
-    // Read session from localStorage at fetch time (may have loaded after mount)
-    const lc_session  = localStorage.getItem('lc_session')  ?? ''
-    const lc_csrf     = localStorage.getItem('lc_csrf')     ?? ''
 
     fetch('/api/leetcode', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        session: lc_session, csrfToken: lc_csrf,
+        session, csrfToken: csrf,
         query: `query($s:String!){question(titleSlug:$s){questionId questionFrontendId titleSlug isPaidOnly codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`,
         variables: { s: slug },
       }),
@@ -311,8 +324,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
         }
         // Premium question — differentiate between "no session" and "session expired"
         if (q.isPaidOnly && !q.codeSnippets?.length) {
-          const hasSession = !!(localStorage.getItem('lc_session') && localStorage.getItem('lc_csrf'))
-          setLcErr(hasSession ? 'premium-expired' : 'premium-no-session')
+          setLcErr(sessionOK ? 'premium-expired' : 'premium-no-session')
           return
         }
         setLcQ(q)
@@ -325,7 +337,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
       .catch(e => setLcErr(String(e)))
       .finally(() => setLcLoad(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, retryKey])
+  }, [slug, retryKey, sessionReady, session, csrf])
 
   const handleCodeChange = (val: string) => setCode(val)
 
