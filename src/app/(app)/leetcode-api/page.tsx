@@ -729,8 +729,10 @@ export default function LeetCodePage() {
                           // Only allow embeds from known-safe hosts
                           const ok =
                             url.startsWith('https://leetcode.com/') ||
+                            url.startsWith('https://assets.leetcode.com/') ||
                             url.startsWith('https://www.youtube.com/') ||
                             url.startsWith('https://youtube.com/') ||
+                            url.startsWith('https://youtu.be/') ||
                             url.startsWith('https://player.vimeo.com/') ||
                             url.startsWith('https://player.bilibili.com/') ||
                             url.startsWith('https://www.bilibili.com/')
@@ -814,6 +816,13 @@ export default function LeetCodePage() {
                       {editorial
                         .replace(/\[TOC\]/g, '')
                         .replace(/\$\$([^$]+)\$\$/g, '`$1`')
+                        // Fix protocol-relative URLs (//host/path → https://host/path)
+                        .replace(/(src|href|poster)="\/\//g, '$1="https://')
+                        // Fix absolute-path URLs (/path → https://leetcode.com/path)
+                        .replace(/(src|href|poster)="\//g, '$1="https://leetcode.com/')
+                        // Fix markdown image links with protocol-relative URLs
+                        .replace(/!\[([^\]]*)\]\(\/\//g, '![$1](https://')
+                        .replace(/!\[([^\]]*)\]\(\//g, '![$1](https://leetcode.com/')
                         .trim()}
                     </ReactMarkdown>
                   </div>
