@@ -185,7 +185,9 @@ export async function GET(req: NextRequest) {
       blocks = extractGeneric(html)
     }
 
-    return NextResponse.json({ blocks, url })
+    // Prefer Python + C++ only; fall back to all blocks if neither found
+    const preferred = blocks.filter(b => b.lang === 'python' || b.lang === 'cpp')
+    return NextResponse.json({ blocks: preferred.length ? preferred : blocks, url })
   } catch (err) {
     return NextResponse.json({ error: String(err), blocks: [], url })
   }
