@@ -75,7 +75,7 @@ const DAILY_Q = `query { activeDailyCodingChallengeQuestion { date link question
 const USER_Q  = `query($u:String!){matchedUser(username:$u){username profile{realName ranking userAvatar}submitStatsGlobal{acSubmissionNum{difficulty count}}}}`
 const QUEST_Q = `query($s:String!){question(titleSlug:$s){questionId questionFrontendId title titleSlug difficulty content topicTags{name} codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`
 const SEARCH_Q    = `query($q:String!){problemsetQuestionListV2(categorySlug:"",limit:1,skip:0,searchKeyword:$q,filters:{filterCombineType:ALL}){questions{titleSlug title}}}`
-
+const SEARCH_MANY_Q = `query($q:String!,$limit:Int!,$skip:Int!){problemsetQuestionListV2(categorySlug:"",limit:$limit,skip:$skip,searchKeyword:$q,filters:{filterCombineType:ALL}){totalLength questions{titleSlug title questionFrontendId}}}`
 const EDITORIAL_Q = `query($s:String!){question(titleSlug:$s){solution{content paidOnly}}}`
 const PLAYGROUND_Q = `query($u:String!){allPlaygroundCodes(uuid:$u){code langSlug}}`
 
@@ -133,6 +133,8 @@ const DIFF_CLS: Record<string, string> = {
 /* ══════════════════════════════════════════════════════════ */
 export default function LeetCodePage() {
   const online = useOnlineStatus()
+  const searchWrapRef = useRef<HTMLDivElement | null>(null)
+  const lcSearchReqId = useRef(0)
   /* Session */
   const [session,    setSession]    = useState('')
   const [csrfToken,  setCsrfToken]  = useState('')
@@ -150,6 +152,11 @@ export default function LeetCodePage() {
 
   /* App question list — loaded once to match solved-sync + local typeahead */
   const [appQuestions, setAppQuestions] = useState<Array<{ id: number; slug: string; title?: string }>>([])
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [lcMatches, setLcMatches] = useState<Array<{ slug: string; title: string; frontendId?: string }>>([])
+  const [lcSearching, setLcSearching] = useState(false)
+  const [lcHasMore, setLcHasMore] = useState(false)
+  const [lcNextSkip, setLcNextSkip] = useState(0)
   useEffect(() => {
     fetch('/questions_full.json')
       .then(r => r.json())
@@ -157,6 +164,81 @@ export default function LeetCodePage() {
       .catch(() => {})
   }, [])
 
+  const matches = useMemo(() => {
+    const q = slugInput.trim().toLowerCase()
+    if (!q) return []
+    const byId = q.replace(/^#/, '')
+    return appQuestions
+      .filter(x => {
+        if (byId && String(x.id).includes(byId)) return true
+        if ((x.slug ?? '').toLowerCase().includes(q)) return true
+        if ((x.title ?? '').toLowerCase().includes(q)) return true
+        return false
+      })
+      .slice(0, 8)
+  }, [slugInput, appQuestions])
+
+  const fetchLcSuggestions = useCallback(async (q: string, skip: number, append: boolean) => {
+    const id = ++lcSearchReqId.current
+    setLcSearching(true)
+    try {
+      const data = await gql(SEARCH_MANY_Q, { q, limit: 50, skip }, { session, csrfToken })
+      if (lcSearchReqId.current !== id) return
+      const qs: Array<{ titleSlug: string; title: string; questionFrontendId?: string }> =
+        data?.problemsetQuestionListV2?.questions ?? []
+      const total: number = data?.problemsetQuestionListV2?.totalLength ?? qs.length
+
+      setLcMatches(prev => {
+        const incoming = qs.map(x => ({ slug: x.titleSlug, title: x.title, frontendId: x.questionFrontendId }))
+        const next = append ? [...prev, ...incoming] : incoming
+        const seen = new Set<string>()
+        return next.filter(x => {
+          if (seen.has(x.slug)) return false
+          seen.add(x.slug)
+          return true
+        })
+      })
+
+      const nextSkip = skip + qs.length
+      setLcNextSkip(nextSkip)
+      setLcHasMore(nextSkip < total && qs.length > 0)
+    } catch {
+      if (lcSearchReqId.current !== id) return
+      if (!append) setLcMatches([])
+      setLcHasMore(false)
+      setLcNextSkip(0)
+    } finally {
+      if (lcSearchReqId.current !== id) return
+      setLcSearching(false)
+    }
+  }, [session, csrfToken])
+
+  useEffect(() => {
+    const q = slugInput.trim()
+    if (!searchOpen || q.length < 2) { setLcMatches([]); setLcSearching(false); setLcHasMore(false); setLcNextSkip(0); return }
+    if (!(session && csrfToken)) { setLcMatches([]); setLcSearching(false); setLcHasMore(false); setLcNextSkip(0); return }
+    const t = window.setTimeout(async () => {
+      await fetchLcSuggestions(q, 0, false)
+    }, 200)
+    return () => {
+      window.clearTimeout(t)
+    }
+  }, [slugInput, searchOpen, session, csrfToken, fetchLcSuggestions])
+
+
+  useEffect(() => {
+    function onDown(e: MouseEvent | TouchEvent) {
+      const t = e.target as Node
+      if (searchWrapRef.current?.contains(t)) return
+      setSearchOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('touchstart', onDown, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('touchstart', onDown)
+    }
+  }, [])
 
   /* Left panel tab */
   const [leftTab, setLeftTab]       = useState<'description' | 'editorial' | 'accepted' | 'profile'>('description')
@@ -381,12 +463,13 @@ export default function LeetCodePage() {
 
         {/* Row 2: Search + Load (full width on mobile) + Session badge (desktop only) */}
         <div className="flex items-center gap-2">
-          <div className="relative flex flex-1 gap-1.5 items-center bg-gray-800/60 rounded-lg px-3 py-1.5 border border-gray-700/50">
+          <div ref={searchWrapRef} className="relative flex flex-1 gap-1.5 items-center bg-gray-800/60 rounded-lg px-3 py-1.5 border border-gray-700/50">
             <Search size={12} className="text-gray-500 shrink-0" />
             <input
               type="text"
               value={slugInput}
-              onChange={e => setSlugInput(e.target.value)}
+              onChange={e => { setSlugInput(e.target.value); setSearchOpen(true) }}
+              onFocus={() => setSearchOpen(true)}
               onKeyDown={e => e.key === 'Enter' && loadQuestion()}
               placeholder="Paste LeetCode URL or slug…"
               className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-500 outline-none min-w-0"
@@ -397,6 +480,77 @@ export default function LeetCodePage() {
               Load
             </button>
 
+            {/* Typeahead suggestions (LeetCode + local library) */}
+            {searchOpen && slugInput.trim().length > 0 && (lcSearching || lcMatches.length > 0 || matches.length > 0) && (
+              <div
+                className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto overscroll-contain rounded-xl border border-gray-700 bg-[#0b1020] shadow-2xl"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
+                {lcSearching && (
+                  <div className="px-3 py-2 text-xs text-gray-400 flex items-center gap-2">
+                    <Loader2 size={12} className="animate-spin text-indigo-400" />
+                    Searching LeetCode…
+                  </div>
+                )}
+
+                {lcMatches.length > 0 && (
+                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-500 border-t border-gray-800">
+                    LeetCode
+                  </div>
+                )}
+                {lcMatches.map((m, idx) => (
+                  <button
+                    key={`lc:${m.slug}:${idx}`}
+                    type="button"
+                    onClick={() => {
+                      setSlugInput(m.slug)
+                      setSearchOpen(false)
+                      loadQuestion(m.slug)
+                    }}
+                    className="w-full px-3 py-2 text-left hover:bg-white/5 transition-colors border-b border-gray-800 last:border-b-0"
+                  >
+                    <div className="text-xs font-semibold text-gray-100">
+                      {m.frontendId ? `#${m.frontendId} ` : ''}{m.title}
+                    </div>
+                    <div className="text-[11px] text-gray-500">{m.slug}</div>
+                  </button>
+                ))}
+
+                {lcHasMore && (
+                  <button
+                    type="button"
+                    disabled={lcSearching}
+                    onClick={() => fetchLcSuggestions(slugInput.trim(), lcNextSkip, true)}
+                    className="w-full px-3 py-2 text-left text-xs font-semibold text-indigo-300 hover:bg-white/5 transition-colors border-t border-gray-800 disabled:opacity-50"
+                  >
+                    {lcSearching ? 'Loading more…' : 'More results'}
+                  </button>
+                )}
+
+                {matches.length > 0 && (
+                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-500 border-t border-gray-800">
+                    Library
+                  </div>
+                )}
+                {matches.map(m => (
+                  <button
+                    key={`lib:${m.id}`}
+                    type="button"
+                    onClick={() => {
+                      setSlugInput(m.slug)
+                      setSearchOpen(false)
+                      loadQuestion(m.slug)
+                    }}
+                    className="w-full px-3 py-2 text-left hover:bg-white/5 transition-colors border-b border-gray-800 last:border-b-0"
+                  >
+                    <div className="text-xs font-semibold text-gray-100">
+                      #{m.id} {m.title ?? m.slug}
+                    </div>
+                    <div className="text-[11px] text-gray-500">{m.slug}</div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Session badge — desktop only (shown on sm+) */}
