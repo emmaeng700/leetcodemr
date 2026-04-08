@@ -131,12 +131,17 @@ function extractGeneric(html: string): Array<{ code: string; lang: string }> {
 async function findLeetCodeCaUrl(id: string): Promise<string> {
   const fallback = `https://leetcode.ca/`
   try {
-    const res = await fetch('https://leetcode.ca/', { headers: UA, signal: AbortSignal.timeout(6000) })
+    // Sitemap has all post URLs — pattern: /YYYY-MM-DD-{id}-Title/
+    const res = await fetch('https://leetcode.ca/sitemap.xml', {
+      headers: UA,
+      signal: AbortSignal.timeout(10000),
+    })
     if (!res.ok) return fallback
-    const html = await res.text()
-    const re = new RegExp(`href="(/[^"]*[-/]${id}[-/][^"]*)"`, 'i')
-    const match = html.match(re)
-    if (match) return `https://leetcode.ca${match[1]}`
+    const xml = await res.text()
+    // Match a <loc> containing -{id}- surrounded by date prefix and title suffix
+    const re = new RegExp(`<loc>(https://leetcode\\.ca/\\d{4}-\\d{2}-\\d{2}-${id}-[^<]+)</loc>`, 'i')
+    const match = xml.match(re)
+    if (match) return match[1]
   } catch { /* ignore */ }
   return fallback
 }
@@ -171,7 +176,8 @@ export async function GET(req: NextRequest) {
     if (site === 'walkccc' || site === 'doocs') {
       blocks = extractHighlightTableBlocks(html)
       if (!blocks.length) blocks = extractGeneric(html)
-    } else if (site === 'simplyleet') {
+    } else if (site === 'simplyleet' || site === 'leetcodeca') {
+      // Both use <code class="language-X"> pattern
       blocks = extractSimplyLeet(html)
       if (!blocks.length) blocks = extractGeneric(html)
     } else {
