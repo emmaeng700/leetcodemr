@@ -18,60 +18,122 @@ function buildUrl(site: string, slug: string, id: string): string {
 
 function normalizeLang(raw: string): string {
   const map: Record<string, string> = {
-    py: 'python', python3: 'python', python2: 'python',
-    js: 'javascript', ts: 'typescript',
-    'c++': 'cpp', cpp: 'cpp', cplusplus: 'cpp',
-    golang: 'go',
+    'python': 'python', 'python3': 'python', 'python2': 'python', 'py': 'python',
+    'c++': 'cpp', 'cpp': 'cpp', 'c plus plus': 'cpp',
+    'java': 'java',
+    'javascript': 'javascript', 'js': 'javascript',
+    'typescript': 'typescript', 'ts': 'typescript',
+    'go': 'go', 'golang': 'go',
+    'rust': 'rust',
+    'ruby': 'ruby',
+    'swift': 'swift',
+    'kotlin': 'kotlin',
+    'scala': 'scala',
   }
-  return map[raw.toLowerCase()] ?? raw.toLowerCase()
+  return map[raw.toLowerCase().trim()] ?? raw.toLowerCase().trim()
 }
 
-function extractCodeBlocks(html: string): Array<{ code: string; lang: string }> {
-  const blocks: Array<{ code: string; lang: string }> = []
-  const preRe = /<pre[^>]*>([\s\S]*?)<\/pre>/gi
-  let m: RegExpExecArray | null
+function detectLangFromCode(code: string): string {
+  if (/\bvector\b|\bstd::\b|\bint main\b/.test(code)) return 'cpp'
+  if (/^\s*class Solution\s*\{/.test(code)) return 'cpp'
+  if (/^\s*class Solution\s*:/.test(code) || /\bdef\s+\w+\(self/.test(code)) return 'python'
+  if (/\bpublic\s+class\s+Solution\b/.test(code)) return 'java'
+  if (/\bfunc\s+\w+\(/.test(code) && /\[?\]/.test(code)) return 'go'
+  if (/\bconst\s+\w+\s*=\s*function\b|\blet\s+\w+\b/.test(code)) return 'javascript'
+  return 'text'
+}
 
-  while ((m = preRe.exec(html)) !== null) {
-    const preTag = m[0]
-    const inner  = m[1]
+function cleanCode(raw: string): string {
+  return raw
+    .replace(/<span[^>]*>/gi, '').replace(/<\/span>/gi, '')
+    .replace(/<code[^>]*>/gi, '').replace(/<\/code>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&').replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+    .replace(/&#x27;/g, "'").replace(/&#x2F;/g, '/')
+    .trim()
+}
 
-    // Detect language from class attributes on <pre> or <code>
-    const langM =
-      preTag.match(/class="[^"]*(?:language-|lang-)([a-zA-Z0-9+#]+)/i) ??
-      inner.match(/class="[^"]*(?:language-|lang-)([a-zA-Z0-9+#]+)/i) ??
-      preTag.match(/data-lang(?:uage)?="([a-zA-Z0-9+#]+)"/i) ??
-      inner.match(/data-lang(?:uage)?="([a-zA-Z0-9+#]+)"/i)
-
-    const code = inner
-      .replace(/<span[^>]*>/gi, '').replace(/<\/span>/gi, '')
-      .replace(/<code[^>]*>/gi, '').replace(/<\/code>/gi, '')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&').replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
-      .replace(/&#x27;/g, "'").replace(/&#x2F;/g, '/')
-      .trim()
-
-    if (code.length > 15) {
-      blocks.push({ code, lang: normalizeLang(langM?.[1] ?? 'text') })
+/**
+ * WalkCC + LeetDoocs both use MkDocs Material theme with:
+ *   <label>C++</label> ... <label>Python</label>
+ *   <td class="code"><div><pre><code>...actual code...</code></pre></div></td>
+ *   <td class="linenos"><pre>1\n2\n3...</pre></td>  ← we SKIP this
+ *
+ * Strategy: extract all language labels in order, extract all td.code blocks
+ * in order, then zip them together.
+ */
+function extractHighlightTableBlocks(html: string): Array<{ code: string; lang: string }> {
+  // 1. Collect language labels in page order
+  const labels: Array<{ idx: number; text: string }> = []
+  const labelRe = /<label[^>]*>([^<]+)<\/label>/gi
+  let lm: RegExpExecArray | null
+  while ((lm = labelRe.exec(html)) !== null) {
+    const text = lm[1].trim()
+    if (/python|c\+\+|java|go|rust|javascript|typescript|ruby|swift|kotlin|scala/i.test(text)) {
+      labels.push({ idx: lm.index, text })
     }
   }
 
+  // 2. Collect code from <td class="code"> only (skips linenos td)
+  const codeBlocks: Array<{ idx: number; code: string }> = []
+  const tdRe = /<td[^>]+class="[^"]*\bcode\b[^"]*"[^>]*>/gi
+  let tm: RegExpExecArray | null
+  while ((tm = tdRe.exec(html)) !== null) {
+    const slice = html.slice(tm.index, tm.index + 8000)
+    const codeM = slice.match(/<code[^>]*>([\s\S]*?)<\/code>/)
+    if (!codeM) continue
+    const code = cleanCode(codeM[1])
+    if (code.length > 15) codeBlocks.push({ idx: tm.index, code })
+  }
+
+  // 3. Match each code block with its nearest preceding label
+  return codeBlocks.map(block => {
+    const preceding = labels.filter(l => l.idx < block.idx)
+    const label = preceding.length ? preceding[preceding.length - 1].text : ''
+    const lang = label ? normalizeLang(label) : detectLangFromCode(block.code)
+    return { code: block.code, lang }
+  })
+}
+
+/**
+ * SimplyLeet uses: <pre ...><code class="language-python">...spans with inline styles...</code></pre>
+ */
+function extractSimplyLeet(html: string): Array<{ code: string; lang: string }> {
+  const blocks: Array<{ code: string; lang: string }> = []
+  // Match <code class="language-X" ...>...</code>
+  const codeRe = /<code[^>]+class="[^"]*language-([a-zA-Z0-9+#]+)[^"]*"[^>]*>([\s\S]*?)<\/code>/gi
+  let m: RegExpExecArray | null
+  while ((m = codeRe.exec(html)) !== null) {
+    const code = cleanCode(m[2])
+    if (code.length > 15) blocks.push({ code, lang: normalizeLang(m[1]) })
+  }
   return blocks
 }
 
-/** For LeetCode.ca, discover the actual problem URL from their site */
+/** Generic fallback: all <pre> blocks (avoids linenos by checking content) */
+function extractGeneric(html: string): Array<{ code: string; lang: string }> {
+  const blocks: Array<{ code: string; lang: string }> = []
+  const preRe = /<pre[^>]*>([\s\S]*?)<\/pre>/gi
+  let m: RegExpExecArray | null
+  while ((m = preRe.exec(html)) !== null) {
+    const langM = m[0].match(/(?:language-|lang-)([a-zA-Z0-9+#]+)/i)
+      ?? m[1].match(/(?:language-|lang-)([a-zA-Z0-9+#]+)/i)
+    const code = cleanCode(m[1])
+    // Skip if it looks like just line numbers (digits and newlines only)
+    if (/^\d[\d\s]*$/.test(code)) continue
+    if (code.length > 15) blocks.push({ code, lang: normalizeLang(langM?.[1] ?? detectLangFromCode(code)) })
+  }
+  return blocks
+}
+
 async function findLeetCodeCaUrl(id: string): Promise<string> {
   const fallback = `https://leetcode.ca/`
   try {
-    // Their all-posts page lists everything
-    const res = await fetch('https://leetcode.ca/all/', {
-      headers: UA,
-      signal: AbortSignal.timeout(8000),
-    })
+    const res = await fetch('https://leetcode.ca/', { headers: UA, signal: AbortSignal.timeout(6000) })
     if (!res.ok) return fallback
     const html = await res.text()
-    // Links look like href="/2016-05-01-1-Two-Sum/"
     const re = new RegExp(`href="(/[^"]*[-/]${id}[-/][^"]*)"`, 'i')
     const match = html.match(re)
     if (match) return `https://leetcode.ca${match[1]}`
@@ -92,23 +154,29 @@ export async function GET(req: NextRequest) {
   let url = buildUrl(site, slug, id)
   if (!url) return NextResponse.json({ error: 'Unknown site' }, { status: 400 })
 
-  // LeetCode.ca requires date-based URL discovery
   if (site === 'leetcodeca') {
     url = await findLeetCodeCaUrl(id)
   }
 
   try {
-    const res = await fetch(url, {
-      headers: UA,
-      signal: AbortSignal.timeout(12000),
-    })
-
+    const res = await fetch(url, { headers: UA, signal: AbortSignal.timeout(12000) })
     if (!res.ok) {
       return NextResponse.json({ error: `Site returned ${res.status}`, blocks: [], url })
     }
 
     const html = await res.text()
-    const blocks = extractCodeBlocks(html)
+
+    let blocks: Array<{ code: string; lang: string }> = []
+
+    if (site === 'walkccc' || site === 'doocs') {
+      blocks = extractHighlightTableBlocks(html)
+      if (!blocks.length) blocks = extractGeneric(html)
+    } else if (site === 'simplyleet') {
+      blocks = extractSimplyLeet(html)
+      if (!blocks.length) blocks = extractGeneric(html)
+    } else {
+      blocks = extractGeneric(html)
+    }
 
     return NextResponse.json({ blocks, url })
   } catch (err) {

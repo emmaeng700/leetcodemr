@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { ExternalLink, Loader2, Search, AlertCircle } from 'lucide-react'
 
 type QuestionRow = { id: number; slug: string; title?: string }
@@ -20,29 +20,81 @@ const SITES = [
 
 type SiteKey = typeof SITES[number]['key']
 
-const IDLE: SiteState = { status: 'idle', blocks: [], url: '' }
-
 const LANG_LABEL: Record<string, string> = {
   python: 'Python', cpp: 'C++', java: 'Java',
   javascript: 'JavaScript', typescript: 'TypeScript',
-  go: 'Go', rust: 'Rust', ruby: 'Ruby', text: 'Code',
+  go: 'Go', rust: 'Rust', ruby: 'Ruby', swift: 'Swift',
+  kotlin: 'Kotlin', scala: 'Scala', text: 'Code',
 }
 
-const initStates = (): Record<SiteKey, SiteState> => ({
-  walkccc: { ...IDLE }, doocs: { ...IDLE },
-  simplyleet: { ...IDLE }, leetcodeca: { ...IDLE },
+const INIT = (): Record<SiteKey, SiteState> => ({
+  walkccc:    { status: 'idle', blocks: [], url: '' },
+  doocs:      { status: 'idle', blocks: [], url: '' },
+  simplyleet: { status: 'idle', blocks: [], url: '' },
+  leetcodeca: { status: 'idle', blocks: [], url: '' },
 })
 
+/* ── Syntax highlighting with highlight.js ── */
+function HighlightedCode({ code, lang }: { code: string; lang: string }) {
+  const ref = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (!ref.current) return
+    ref.current.textContent = code
+    import('highlight.js/lib/core').then(async ({ default: hljs }) => {
+      const [py, cpp, java, js, ts, go, rust] = await Promise.all([
+        import('highlight.js/lib/languages/python'),
+        import('highlight.js/lib/languages/cpp'),
+        import('highlight.js/lib/languages/java'),
+        import('highlight.js/lib/languages/javascript'),
+        import('highlight.js/lib/languages/typescript'),
+        import('highlight.js/lib/languages/go'),
+        import('highlight.js/lib/languages/rust'),
+      ])
+      if (!hljs.getLanguage('python'))     hljs.registerLanguage('python',     py.default)
+      if (!hljs.getLanguage('cpp'))        hljs.registerLanguage('cpp',        cpp.default)
+      if (!hljs.getLanguage('java'))       hljs.registerLanguage('java',       java.default)
+      if (!hljs.getLanguage('javascript')) hljs.registerLanguage('javascript', js.default)
+      if (!hljs.getLanguage('typescript')) hljs.registerLanguage('typescript', ts.default)
+      if (!hljs.getLanguage('go'))         hljs.registerLanguage('go',         go.default)
+      if (!hljs.getLanguage('rust'))       hljs.registerLanguage('rust',       rust.default)
+
+      if (!ref.current) return
+      const validLang = hljs.getLanguage(lang) ? lang : 'text'
+      if (validLang === 'text') {
+        ref.current.textContent = code
+      } else {
+        ref.current.innerHTML = hljs.highlight(code, { language: validLang }).value
+      }
+    })
+  }, [code, lang])
+
+  return (
+    <pre className="text-[11px] leading-relaxed bg-[#080e1c] rounded-lg p-3 overflow-x-auto border border-gray-800/60 whitespace-pre">
+      <code ref={ref} />
+    </pre>
+  )
+}
+
 export default function AnswersPage() {
-  const [questions, setQuestions]   = useState<QuestionRow[]>([])
-  const [query,     setQuery]       = useState('')
-  const [showDrop,  setShowDrop]    = useState(false)
-  const [selected,  setSelected]    = useState<QuestionRow | null>(null)
-  const [states,    setStates]      = useState<Record<SiteKey, SiteState>>(initStates)
+  const [questions, setQuestions] = useState<QuestionRow[]>([])
+  const [query,     setQuery]     = useState('')
+  const [showDrop,  setShowDrop]  = useState(false)
+  const [selected,  setSelected]  = useState<QuestionRow | null>(null)
+  const [states,    setStates]    = useState<Record<SiteKey, SiteState>>(INIT)
   const wrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetch('/questions_full.json').then(r => r.json()).then(setQuestions).catch(() => {})
+
+    // Inject atom-one-dark theme for hljs
+    if (!document.getElementById('hljs-theme')) {
+      const link = document.createElement('link')
+      link.id   = 'hljs-theme'
+      link.rel  = 'stylesheet'
+      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css'
+      document.head.appendChild(link)
+    }
   }, [])
 
   useEffect(() => {
@@ -65,7 +117,7 @@ export default function AnswersPage() {
     }).slice(0, 8)
   }, [query, questions, selected])
 
-  const fetchSite = (site: SiteKey, q: QuestionRow) => {
+  const fetchSite = useCallback((site: SiteKey, q: QuestionRow) => {
     setStates(prev => ({ ...prev, [site]: { status: 'loading', blocks: [], url: '' } }))
     fetch(`/api/answers?site=${site}&slug=${encodeURIComponent(q.slug)}&id=${q.id}`)
       .then(r => r.json())
@@ -83,23 +135,22 @@ export default function AnswersPage() {
       .catch(err => {
         setStates(prev => ({ ...prev, [site]: { status: 'error', blocks: [], url: '', error: String(err) } }))
       })
-  }
+  }, [])
 
   const selectQuestion = (q: QuestionRow) => {
     setSelected(q)
     setQuery(`#${q.id} ${q.title ?? q.slug}`)
     setShowDrop(false)
-    setStates(initStates())
+    setStates(INIT())
     SITES.forEach(s => fetchSite(s.key, q))
   }
 
-  const clear = () => { setSelected(null); setQuery(''); setStates(initStates()) }
+  const clear = () => { setSelected(null); setQuery(''); setStates(INIT()) }
 
   return (
     <div className="min-h-screen bg-[#0b1020] text-gray-100 pb-20">
       <div className="max-w-6xl mx-auto px-4 py-6">
 
-        {/* Header */}
         <div className="mb-5">
           <h1 className="text-xl font-bold text-gray-100">Answers</h1>
           <p className="text-xs text-gray-500 mt-0.5">Compare solutions across 4 sites instantly</p>
@@ -137,7 +188,6 @@ export default function AnswersPage() {
           )}
         </div>
 
-        {/* Selected question label */}
         {selected && (
           <p className="text-xs text-gray-500 mb-4">
             Showing answers for <span className="text-gray-300 font-semibold">#{selected.id} {selected.title ?? selected.slug}</span>
@@ -151,7 +201,6 @@ export default function AnswersPage() {
               const s = states[site.key]
               return (
                 <div key={site.key} className={`rounded-xl border ${site.border} ${site.bg} flex flex-col overflow-hidden`}>
-                  {/* Site header */}
                   <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-800/50 shrink-0">
                     <span className={`text-sm font-bold ${site.color}`}>{site.label}</span>
                     {s.url && (
@@ -162,19 +211,16 @@ export default function AnswersPage() {
                     )}
                   </div>
 
-                  {/* Content */}
                   <div className="flex-1 overflow-y-auto p-3 max-h-[22rem]">
                     {s.status === 'idle' && (
                       <div className="py-10 text-center text-xs text-gray-600">Waiting…</div>
                     )}
-
                     {s.status === 'loading' && (
                       <div className="flex items-center justify-center gap-2 py-10 text-gray-500">
                         <Loader2 size={13} className="animate-spin" />
                         <span className="text-xs">Fetching…</span>
                       </div>
                     )}
-
                     {s.status === 'error' && (
                       <div className="flex flex-col items-center gap-2 py-10 text-center">
                         <AlertCircle size={16} className="text-gray-600" />
@@ -185,27 +231,23 @@ export default function AnswersPage() {
                         )}
                       </div>
                     )}
-
                     {s.status === 'done' && s.blocks.length === 0 && (
                       <div className="flex flex-col items-center gap-2 py-10 text-center">
-                        <p className="text-xs text-gray-500">No code blocks found</p>
+                        <p className="text-xs text-gray-500">No solutions found</p>
                         {s.url && (
                           <a href={s.url} target="_blank" rel="noopener noreferrer"
                             className="text-xs text-indigo-400 hover:underline">Open on site →</a>
                         )}
                       </div>
                     )}
-
                     {s.status === 'done' && s.blocks.map((b, i) => (
-                      <div key={i} className="mb-3 last:mb-0">
-                        <div className="mb-1">
+                      <div key={i} className="mb-4 last:mb-0">
+                        <div className="mb-1.5">
                           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-700/80 text-gray-400">
                             {LANG_LABEL[b.lang] ?? b.lang}
                           </span>
                         </div>
-                        <pre className="text-[11px] leading-relaxed bg-[#080e1c] rounded-lg p-3 overflow-x-auto border border-gray-800/60 text-gray-300 whitespace-pre">
-                          <code>{b.code}</code>
-                        </pre>
+                        <HighlightedCode code={b.code} lang={b.lang} />
                       </div>
                     ))}
                   </div>
@@ -219,7 +261,6 @@ export default function AnswersPage() {
             <p className="text-gray-600 text-sm">Search a question to compare answers across all sites</p>
           </div>
         )}
-
       </div>
     </div>
   )
