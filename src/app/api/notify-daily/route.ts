@@ -88,13 +88,8 @@ function buildSrBlockHtml(
 }
 
 function getNotificationRecipients(): string[] {
-  return Array.from(
-    new Set(
-      [process.env.NOTIFICATION_EMAIL, process.env.NOTIFICATION_EMAIL_SECONDARY].filter(
-        (v): v is string => typeof v === 'string' && v.trim().length > 0,
-      ),
-    ),
-  )
+  const email = process.env.NOTIFICATION_EMAIL
+  return email ? [email] : []
 }
 
 export async function GET(req: NextRequest) {
