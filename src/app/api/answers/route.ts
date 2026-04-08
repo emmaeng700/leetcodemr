@@ -85,7 +85,7 @@ function extractHighlightTableBlocks(html: string): Array<{ code: string; lang: 
     const codeM = slice.match(/<code[^>]*>([\s\S]*?)<\/code>/)
     if (!codeM) continue
     const code = cleanCode(codeM[1])
-    if (code.length > 15) codeBlocks.push({ idx: tm.index, code })
+    if (code.length > 80) codeBlocks.push({ idx: tm.index, code })
   }
 
   // 3. Match each code block with its nearest preceding label
@@ -107,7 +107,8 @@ function extractSimplyLeet(html: string): Array<{ code: string; lang: string }> 
   let m: RegExpExecArray | null
   while ((m = codeRe.exec(html)) !== null) {
     const code = cleanCode(m[2])
-    if (code.length > 15) blocks.push({ code, lang: normalizeLang(m[1]) })
+    // Must be long enough to be a real solution (not an inline expression)
+    if (code.length > 80) blocks.push({ code, lang: normalizeLang(m[1]) })
   }
   return blocks
 }
@@ -123,7 +124,7 @@ function extractGeneric(html: string): Array<{ code: string; lang: string }> {
     const code = cleanCode(m[1])
     // Skip if it looks like just line numbers (digits and newlines only)
     if (/^\d[\d\s]*$/.test(code)) continue
-    if (code.length > 15) blocks.push({ code, lang: normalizeLang(langM?.[1] ?? detectLangFromCode(code)) })
+    if (code.length > 80) blocks.push({ code, lang: normalizeLang(langM?.[1] ?? detectLangFromCode(code)) })
   }
   return blocks
 }
