@@ -99,11 +99,7 @@ function FlashcardsInner() {
   }, [])
 
   const handleFlip = useCallback(() => {
-    if (!q) return
-    const savedScroll = window.scrollY
-    const restore = () => window.scrollTo(0, savedScroll)
     fadeSwap(() => setFlipped(f => !f))
-    setTimeout(() => { restore(); requestAnimationFrame(restore) }, 190)
   }, [fadeSwap])
 
   const go = useCallback((dir: number) => {
