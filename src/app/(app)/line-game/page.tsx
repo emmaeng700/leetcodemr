@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { stripScripts } from '@/lib/utils'
 import Link from 'next/link'
 import {
   ChevronLeft,
@@ -54,7 +55,7 @@ function HlLine({ html, className = '' }: { html: string; className?: string }) 
   return (
     <code
       className={`hljs language-python whitespace-pre-wrap break-all ${className}`}
-      dangerouslySetInnerHTML={{ __html: html }}
+      dangerouslySetInnerHTML={{ __html: stripScripts(html) }}
     />
   )
 }

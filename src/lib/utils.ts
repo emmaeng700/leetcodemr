@@ -47,3 +47,8 @@ export function srInterval(n: number): number {
 export function nextIntervalDays(reviewCount: number): number {
   return srInterval(reviewCount)
 }
+
+/** Strip <script> tags from HTML strings before dangerouslySetInnerHTML */
+export function stripScripts(html: string): string {
+  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+}

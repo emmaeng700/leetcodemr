@@ -2,7 +2,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useTheme } from 'next-themes'
+import { useTheme } from '@/components/ThemeProvider'
 import {
   BookOpen, Menu, X, LogOut, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
@@ -45,8 +45,8 @@ export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const { resolvedTheme, setTheme } = useTheme()
-  const isDark = resolvedTheme === 'dark'
+  const { theme, toggle } = useTheme()
+  const isDark = theme === 'dark'
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -66,7 +66,7 @@ export default function Navbar() {
           <div className="flex items-center gap-1 shrink-0">
             {/* Theme toggle */}
             <button
-              onClick={() => setTheme(isDark ? 'light' : 'dark')}
+              onClick={toggle}
               className="p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-muted)] transition-colors"
               title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
             >

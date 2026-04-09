@@ -6,7 +6,7 @@ import {
   Lock, Unlock, BookOpen, Code2, Loader2, ExternalLink,
 } from 'lucide-react'
 import { getProgress, updateProgress, getMockSessions, saveMockSession, type MockSessionRecord } from '@/lib/db'
-import { formatTime } from '@/lib/utils'
+import { formatTime, stripScripts} from '@/lib/utils'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
@@ -370,7 +370,7 @@ export default function MockInterviewPage() {
 
                 {/* Live LeetCode description */}
                 {lcContent ? (
-                  <div className="lc-description text-sm text-gray-800" dangerouslySetInnerHTML={{ __html: lcContent }} />
+                  <div className="lc-description text-sm text-gray-800" dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
                 ) : isPremium ? (
                   <PremiumBlock slug={question.slug} />
                 ) : lcLoading ? (

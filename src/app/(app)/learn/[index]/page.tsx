@@ -16,7 +16,7 @@ import {
 import { getProgress, updateProgress, completeReview, getStudyPlan } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { QUICK_PATTERNS } from '@/lib/constants'
-import { isDue, formatLocalDate, nextIntervalDays } from '@/lib/utils'
+import { isDue, formatLocalDate, nextIntervalDays, stripScripts} from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import StatusRadio from '@/components/StatusRadio'
@@ -736,7 +736,7 @@ function LearnInner() {
 
                   {/* Live LeetCode description */}
                   {lcContent ? (
-                    <div className="lc-description text-sm text-gray-800" dangerouslySetInnerHTML={{ __html: lcContent }} />
+                    <div className="lc-description text-sm text-gray-800" dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
                   ) : isPremium ? (
                     <PremiumBlock slug={q.slug} />
                   ) : lcLoading ? (

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { stripScripts } from '@/lib/utils'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import ReactMarkdown from 'react-markdown'
@@ -699,7 +700,7 @@ export default function LeetCodePage() {
                     [&_table]:block [&_table]:overflow-x-auto [&_table]:max-w-full
                     [&_img]:max-w-full [&_p]:break-words [&_li]:break-words
                     overflow-x-hidden"
-                  dangerouslySetInnerHTML={{ __html: question.content }}
+                  dangerouslySetInnerHTML={{ __html: stripScripts(question.content) }}
                 />
               </div>
             )}

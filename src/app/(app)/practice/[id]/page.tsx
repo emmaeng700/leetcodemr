@@ -4,7 +4,7 @@ import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Clock, Code2, BookOpen, ExternalLink, Loader2, Trophy, List } from 'lucide-react'
 import { getProgress, updateProgress, addTimeSpent, completeReview, getStudyPlan } from '@/lib/db'
-import { formatTime, isDue } from '@/lib/utils'
+import { formatTime, isDue, stripScripts} from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
@@ -361,7 +361,7 @@ export default function PracticePage() {
                 {/* Live LeetCode HTML content */}
                 {lcContent ? (
                   <div className="prose prose-sm max-w-none text-[var(--text)] lc-description prose-invert dark:prose-invert"
-                    dangerouslySetInnerHTML={{ __html: lcContent }} />
+                    dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
                 ) : isPremium ? (
                   <PremiumBlock slug={question?.slug} />
                 ) : lcLoading ? (

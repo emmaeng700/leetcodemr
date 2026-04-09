@@ -26,6 +26,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Inline script sets dark/light class before first paint — no flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');document.documentElement.classList.add(t==='light'?'light':'dark');}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className={inter.className}>
         <ThemeProvider>
           <SwRegister />

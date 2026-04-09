@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { stripScripts } from '@/lib/utils'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
@@ -246,7 +247,7 @@ export default function SpeedsterQuestionPage() {
                   </div>
                 )}
                 {lcContent ? (
-                  <div className="prose prose-sm max-w-none text-gray-800 lc-description" dangerouslySetInnerHTML={{ __html: lcContent }} />
+                  <div className="prose prose-sm max-w-none text-gray-800 lc-description" dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
                 ) : isPremium ? (
                   <PremiumBlock slug={question?.slug} />
                 ) : lcLoading ? (
