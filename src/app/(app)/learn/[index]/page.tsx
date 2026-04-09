@@ -117,11 +117,8 @@ function LearnInner() {
   const [showList, setShowList]     = useState(false)
   const [reviewDone, setReviewDone] = useState(false)
   const [leftTab, setLeftTab]       = useState<'description' | 'notes' | 'solution' | 'accepted'>('description')
-  const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(() => {
-    if (typeof window === 'undefined') return null
-    const saved = localStorage.getItem('lm_study_mode')
-    return (saved === 'show' || saved === 'hide') ? saved : null
-  })
+  // IMPORTANT: don't read localStorage during render (causes hydration mismatch).
+  const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(null)
   const [filterDiff, setFilterDiff]         = useState(initDiff)
   const [filterSource, setFilterSource]     = useState(initSource)
   const [filterPattern, setFilterPattern]   = useState<string | null>(
@@ -206,6 +203,13 @@ function LearnInner() {
       setLcSession(d.lc_session ?? '')
       setLcCsrf(d.lc_csrf ?? '')
     }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('lm_study_mode')
+      setStudyMode(saved === 'show' || saved === 'hide' ? saved : null)
+    } catch { /* ignore */ }
   }, [])
 
   useEffect(() => {
