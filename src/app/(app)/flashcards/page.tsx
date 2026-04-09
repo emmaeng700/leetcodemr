@@ -7,6 +7,7 @@ import { shuffle } from '@/lib/utils'
 import { DIFFICULTY_LEVELS, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
+import QuestionImage from '@/components/QuestionImage'
 
 interface Question {
   id: number
@@ -258,13 +259,12 @@ function FlashcardsInner() {
                   </div>
                 </div>
 
-                <div className="px-5 pb-5">
-                  <img
-                    src={`/question-images/${q.id}.jpg`}
+                <div className="mx-4 mb-4" onClick={e => e.stopPropagation()}>
+                  <QuestionImage
+                    questionId={q.id}
                     alt={q.title}
-                    className="w-full max-h-52 sm:max-h-72 object-contain object-top rounded-lg"
-                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                    onClick={e => e.stopPropagation()}
+                    className="bg-slate-100 dark:bg-slate-900"
+                    imgClassName="h-56 sm:h-72"
                   />
                 </div>
               </div>

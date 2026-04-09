@@ -9,6 +9,7 @@ import { getProgress, getPatternFcVisited, addPatternFcVisited } from '@/lib/db'
 import { shuffle } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
+import QuestionImage from '@/components/QuestionImage'
 
 interface Question {
   id: number
@@ -70,10 +71,21 @@ function ImageIfExists({ id, title }: { id: number; title: string }) {
   const [loaded, setLoaded] = useState(false)
   return (
     <>
+      {loaded && (
+        <div className="mx-4 mb-4 w-[calc(100%-2rem)]">
+          <QuestionImage
+            questionId={id}
+            alt={title}
+            imgClassName="h-48"
+          />
+        </div>
+      )}
+      {/* preload check */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={`/question-images/${id}.jpg`}
-        alt={title}
-        className={`mx-4 mb-4 w-[calc(100%-2rem)] rounded-lg border border-gray-100 ${loaded ? 'block' : 'hidden'}`}
+        alt=""
+        className="hidden"
         onLoad={() => setLoaded(true)}
         onError={() => setLoaded(false)}
       />

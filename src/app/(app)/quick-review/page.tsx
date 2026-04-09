@@ -6,6 +6,7 @@ import { DIFFICULTY_LEVELS, QUESTION_SOURCES } from '@/lib/constants'
 import { getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
+import QuestionImage from '@/components/QuestionImage'
 
 interface Question {
   id: number
@@ -312,21 +313,11 @@ export default function QuickReviewPage() {
 
             <div className="p-5">
               {isQuestion ? (
-                <div className="rounded-xl overflow-hidden border border-gray-100 bg-gray-50 min-h-48">
-                  <img
-                    src={`/question-images/${q.id}.jpg`}
-                    alt={q.title}
-                    className="w-full block"
-                    onError={e => {
-                      (e.target as HTMLImageElement).style.display = 'none'
-                      const next = (e.target as HTMLElement).nextSibling as HTMLElement
-                      if (next) next.style.display = 'flex'
-                    }}
-                  />
-                  <div style={{ display: 'none' }} className="flex-col items-center justify-center py-16 w-full text-center text-gray-400">
-                    <p className="text-sm font-semibold text-gray-700 mb-3">{q.title}</p>
-                  </div>
-                </div>
+                <QuestionImage
+                  questionId={q.id}
+                  alt={q.title}
+                  imgClassName="h-64 sm:h-80"
+                />
               ) : (
                 <div onClick={e => e.stopPropagation()}>
                   <p className="text-xs font-semibold text-gray-700 mb-3">{q.title}</p>

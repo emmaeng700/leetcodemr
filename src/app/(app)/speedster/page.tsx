@@ -6,6 +6,7 @@ import { addMasteryRunEvent, getMasteryRunsByQuestion, getProgress, getStudyPlan
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
+import QuestionImage from '@/components/QuestionImage'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
 import toast from 'react-hot-toast'
@@ -635,10 +636,13 @@ export default function SpeedsterPage() {
                     </div>
                   </div>
                   <div className="px-3 sm:px-5 pb-3 sm:pb-5">
-                    <img src={`/question-images/${currentQ.id}.jpg`} alt={currentQ.title}
-                      className="w-full max-h-52 sm:max-h-72 object-contain object-top rounded-lg"
-                      onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                      onClick={e => e.stopPropagation()} />
+                    <div onClick={e => e.stopPropagation()}>
+                      <QuestionImage
+                        questionId={currentQ.id}
+                        alt={currentQ.title}
+                        imgClassName="h-52 sm:h-72"
+                      />
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -902,10 +906,13 @@ export default function SpeedsterPage() {
                     </div>
                   </div>
                   <div className="px-3 sm:px-5 pb-3 sm:pb-5">
-                    <img src={`/question-images/${currentQ.id}.jpg`} alt={currentQ.title}
-                      className="w-full max-h-52 sm:max-h-72 object-contain object-top rounded-lg"
-                      onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                      onClick={e => e.stopPropagation()} />
+                    <div onClick={e => e.stopPropagation()}>
+                      <QuestionImage
+                        questionId={currentQ.id}
+                        alt={currentQ.title}
+                        imgClassName="h-52 sm:h-72"
+                      />
+                    </div>
                   </div>
                 </div>
               ) : (

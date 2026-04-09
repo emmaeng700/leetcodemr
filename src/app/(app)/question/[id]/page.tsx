@@ -10,6 +10,7 @@ import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
+import QuestionImage from '@/components/QuestionImage'
 import toast from 'react-hot-toast'
 
 interface Question {
@@ -172,10 +173,10 @@ export default function QuestionPage() {
             <BookOpen size={14} /> Problem
           </h2>
           <div className="p-1 sm:p-2">
-            <img
-              src={`/question-images/${question.id}.jpg`}
+            <QuestionImage
+              questionId={question.id}
               alt={question.title}
-              className="w-full rounded-lg max-h-56 sm:max-h-80 md:max-h-96 object-contain object-top"
+              imgClassName="h-56 sm:h-80 md:h-96"
               onError={() => setImageError(true)}
             />
           </div>
