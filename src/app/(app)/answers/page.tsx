@@ -11,6 +11,8 @@ interface SiteState {
   error?: string
 }
 
+const SEARCH_Q = `query($q:String!){problemsetQuestionListV2(categorySlug:"",limit:15,skip:0,searchKeyword:$q,filters:{filterCombineType:ALL}){questions{titleSlug title questionFrontendId}}}`
+
 const SITES = [
   { key: 'walkccc',    label: 'WalkCC',      color: 'text-blue-400',    border: 'border-blue-500/30',    bg: 'bg-blue-500/5'    },
   { key: 'doocs',      label: 'LeetDoocs',   color: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/5' },
@@ -19,13 +21,6 @@ const SITES = [
 ] as const
 
 type SiteKey = typeof SITES[number]['key']
-
-const LANG_LABEL: Record<string, string> = {
-  python: 'Python', cpp: 'C++', java: 'Java',
-  javascript: 'JavaScript', typescript: 'TypeScript',
-  go: 'Go', rust: 'Rust', ruby: 'Ruby', swift: 'Swift',
-  kotlin: 'Kotlin', scala: 'Scala', text: 'Code',
-}
 
 const INIT = (): Record<SiteKey, SiteState> => ({
   walkccc:    { status: 'idle', blocks: [], url: '' },
@@ -42,30 +37,15 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
     if (!ref.current) return
     ref.current.textContent = code
     import('highlight.js/lib/core').then(async ({ default: hljs }) => {
-      const [py, cpp, java, js, ts, go, rust] = await Promise.all([
+      const [py, cpp] = await Promise.all([
         import('highlight.js/lib/languages/python'),
         import('highlight.js/lib/languages/cpp'),
-        import('highlight.js/lib/languages/java'),
-        import('highlight.js/lib/languages/javascript'),
-        import('highlight.js/lib/languages/typescript'),
-        import('highlight.js/lib/languages/go'),
-        import('highlight.js/lib/languages/rust'),
       ])
-      if (!hljs.getLanguage('python'))     hljs.registerLanguage('python',     py.default)
-      if (!hljs.getLanguage('cpp'))        hljs.registerLanguage('cpp',        cpp.default)
-      if (!hljs.getLanguage('java'))       hljs.registerLanguage('java',       java.default)
-      if (!hljs.getLanguage('javascript')) hljs.registerLanguage('javascript', js.default)
-      if (!hljs.getLanguage('typescript')) hljs.registerLanguage('typescript', ts.default)
-      if (!hljs.getLanguage('go'))         hljs.registerLanguage('go',         go.default)
-      if (!hljs.getLanguage('rust'))       hljs.registerLanguage('rust',       rust.default)
-
+      if (!hljs.getLanguage('python')) hljs.registerLanguage('python', py.default)
+      if (!hljs.getLanguage('cpp'))    hljs.registerLanguage('cpp',    cpp.default)
       if (!ref.current) return
-      const validLang = hljs.getLanguage(lang) ? lang : 'text'
-      if (validLang === 'text') {
-        ref.current.textContent = code
-      } else {
-        ref.current.innerHTML = hljs.highlight(code, { language: validLang }).value
-      }
+      const validLang = hljs.getLanguage(lang) ? lang : 'python'
+      ref.current.innerHTML = hljs.highlight(code, { language: validLang }).value
     })
   }, [code, lang])
 
@@ -77,26 +57,46 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
 }
 
 export default function AnswersPage() {
-  const [questions, setQuestions] = useState<QuestionRow[]>([])
-  const [query,     setQuery]     = useState('')
-  const [showDrop,  setShowDrop]  = useState(false)
-  const [selected,  setSelected]  = useState<QuestionRow | null>(null)
-  const [states,    setStates]    = useState<Record<SiteKey, SiteState>>(INIT)
-  const wrapRef = useRef<HTMLDivElement>(null)
+  const [questions,   setQuestions]   = useState<QuestionRow[]>([])
+  const [query,       setQuery]       = useState('')
+  const [showDrop,    setShowDrop]    = useState(false)
+  const [selected,    setSelected]    = useState<QuestionRow | null>(null)
+  const [states,      setStates]      = useState<Record<SiteKey, SiteState>>(INIT)
+  const [session,     setSession]     = useState('')
+  const [csrf,        setCsrf]        = useState('')
+  const [lcResults,   setLcResults]   = useState<QuestionRow[]>([])
+  const [lcSearching, setLcSearching] = useState(false)
+  const wrapRef   = useRef<HTMLDivElement>(null)
+  const searchRef = useRef(0)
 
+  /* Load local library */
   useEffect(() => {
     fetch('/questions_full.json').then(r => r.json()).then(setQuestions).catch(() => {})
+  }, [])
 
-    // Inject atom-one-dark theme for hljs
+  /* Load session for LeetCode search */
+  useEffect(() => {
+    const ls = localStorage.getItem('lc_session') ?? ''
+    const lc = localStorage.getItem('lc_csrf')    ?? ''
+    if (ls && lc) { setSession(ls); setCsrf(lc) }
+    else {
+      fetch('/api/lc-session').then(r => r.json()).then(d => {
+        if (d.lc_session && d.lc_csrf) { setSession(d.lc_session); setCsrf(d.lc_csrf) }
+      }).catch(() => {})
+    }
+  }, [])
+
+  /* Inject hljs theme */
+  useEffect(() => {
     if (!document.getElementById('hljs-theme')) {
       const link = document.createElement('link')
-      link.id   = 'hljs-theme'
-      link.rel  = 'stylesheet'
+      link.id = 'hljs-theme'; link.rel = 'stylesheet'
       link.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css'
       document.head.appendChild(link)
     }
   }, [])
 
+  /* Close dropdown on outside click */
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (!wrapRef.current?.contains(e.target as Node)) setShowDrop(false)
@@ -105,17 +105,47 @@ export default function AnswersPage() {
     return () => document.removeEventListener('mousedown', onDown)
   }, [])
 
+  /* LeetCode API search — debounced */
+  useEffect(() => {
+    const q = query.trim()
+    if (!q || q.length < 2 || selected || !session) { setLcResults([]); return }
+    const t = setTimeout(async () => {
+      const id = ++searchRef.current
+      setLcSearching(true)
+      try {
+        const res = await fetch('/api/leetcode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session, csrfToken: csrf, query: SEARCH_Q, variables: { q } }),
+        })
+        const data = await res.json()
+        if (searchRef.current !== id) return
+        const qs: Array<{ titleSlug: string; title: string; questionFrontendId: string }> =
+          data?.data?.problemsetQuestionListV2?.questions ?? []
+        setLcResults(qs.map(x => ({ id: parseInt(x.questionFrontendId), slug: x.titleSlug, title: x.title })))
+      } catch {
+        if (searchRef.current === id) setLcResults([])
+      } finally {
+        if (searchRef.current === id) setLcSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(t)
+  }, [query, selected, session, csrf])
+
+  /* Merge local + LeetCode results */
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q || selected) return []
     const byId = q.replace(/^#/, '')
-    return questions.filter(x => {
+    const local = questions.filter(x => {
       if (byId && String(x.id).startsWith(byId)) return true
       if ((x.slug ?? '').toLowerCase().includes(q)) return true
       if ((x.title ?? '').toLowerCase().includes(q)) return true
       return false
-    }).slice(0, 8)
-  }, [query, questions, selected])
+    }).slice(0, 6)
+    const localIds = new Set(local.map(x => x.id))
+    return [...local, ...lcResults.filter(x => !localIds.has(x.id))].slice(0, 12)
+  }, [query, questions, selected, lcResults])
 
   const fetchSite = useCallback((site: SiteKey, q: QuestionRow) => {
     setStates(prev => ({ ...prev, [site]: { status: 'loading', blocks: [], url: '' } }))
@@ -141,11 +171,12 @@ export default function AnswersPage() {
     setSelected(q)
     setQuery(`#${q.id} ${q.title ?? q.slug}`)
     setShowDrop(false)
+    setLcResults([])
     setStates(INIT())
     SITES.forEach(s => fetchSite(s.key, q))
   }
 
-  const clear = () => { setSelected(null); setQuery(''); setStates(INIT()) }
+  const clear = () => { setSelected(null); setQuery(''); setStates(INIT()); setLcResults([]) }
 
   return (
     <div className="min-h-screen bg-[#0b1020] text-gray-100 pb-20">
@@ -153,7 +184,7 @@ export default function AnswersPage() {
 
         <div className="mb-5">
           <h1 className="text-xl font-bold text-gray-100">Answers</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Compare solutions across 4 sites instantly</p>
+          <p className="text-xs text-gray-500 mt-0.5">Compare Python solutions across 4 sites instantly</p>
         </div>
 
         {/* Search */}
@@ -164,10 +195,11 @@ export default function AnswersPage() {
               value={query}
               onChange={e => { setQuery(e.target.value); setSelected(null); setShowDrop(true) }}
               onFocus={() => setShowDrop(true)}
-              placeholder="Search by question name or number…"
+              placeholder="Search any LeetCode question…"
               className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-500 outline-none"
             />
-            {query && (
+            {lcSearching && <Loader2 size={13} className="animate-spin text-gray-500 shrink-0" />}
+            {query && !lcSearching && (
               <button onClick={clear} className="text-xs text-gray-500 hover:text-gray-300 shrink-0">✕</button>
             )}
           </div>
@@ -233,7 +265,7 @@ export default function AnswersPage() {
                     )}
                     {s.status === 'done' && s.blocks.length === 0 && (
                       <div className="flex flex-col items-center gap-2 py-10 text-center">
-                        <p className="text-xs text-gray-500">No solutions found</p>
+                        <p className="text-xs text-gray-500">No Python solution found</p>
                         {s.url && (
                           <a href={s.url} target="_blank" rel="noopener noreferrer"
                             className="text-xs text-indigo-400 hover:underline">Open on site →</a>
@@ -242,11 +274,6 @@ export default function AnswersPage() {
                     )}
                     {s.status === 'done' && s.blocks.map((b, i) => (
                       <div key={i} className="mb-4 last:mb-0">
-                        <div className="mb-1.5">
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-700/80 text-gray-400">
-                            {LANG_LABEL[b.lang] ?? b.lang}
-                          </span>
-                        </div>
                         <HighlightedCode code={b.code} lang={b.lang} />
                       </div>
                     ))}
@@ -258,7 +285,7 @@ export default function AnswersPage() {
         ) : (
           <div className="flex flex-col items-center justify-center py-28 text-center">
             <Search size={30} className="text-gray-800 mb-3" />
-            <p className="text-gray-600 text-sm">Search a question to compare answers across all sites</p>
+            <p className="text-gray-600 text-sm">Search any LeetCode question to compare Python solutions</p>
           </div>
         )}
       </div>
