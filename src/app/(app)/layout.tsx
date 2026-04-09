@@ -9,9 +9,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-slate-900 overflow-x-hidden">
       <ScrollRestorer />
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 pt-4">
-        <QuestionSearchGate />
-      </div>
+      <QuestionSearchGate />
       <main className="overflow-x-hidden">{children}</main>
       <OfflineSetup />
       <Toaster position="bottom-right" />

@@ -83,7 +83,7 @@ export default function QuestionSearch({ className = '' }: { className?: string 
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
-      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
       <input
         value={query}
         onChange={e => {
@@ -103,28 +103,31 @@ export default function QuestionSearch({ className = '' }: { className?: string 
           if (e.key === 'Escape') setOpen(false)
         }}
         placeholder="Filter this page… (#id or title)"
-        className="w-full pl-9 pr-3 py-2 text-sm text-gray-900 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+        className="w-full pl-9 pr-4 py-2.5 text-sm text-slate-200 placeholder-slate-500 bg-slate-800 border border-white/10 rounded-xl focus:outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 transition-colors"
       />
 
       {open && query.trim().length > 0 && (
-        <div className="absolute z-40 mt-2 w-full overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl">
+        <div className="absolute z-40 mt-1.5 w-full overflow-hidden rounded-xl border border-white/10 bg-slate-800 shadow-2xl shadow-black/40">
           {matches.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
+            <div className="px-4 py-3 text-sm text-slate-500">No matches</div>
           ) : (
             matches.map(q => (
-              <div key={q.id} className="flex items-stretch border-b border-gray-50 last:border-b-0">
+              <div key={q.id} className="flex items-stretch border-b border-white/5 last:border-b-0">
                 <button
                   type="button"
                   onClick={() => (supportsFiltering ? applyToCurrentPage(`#${q.id}`) : goTo(q.id))}
-                  className="flex-1 text-left px-3 py-2 hover:bg-gray-50 transition-colors"
+                  className="flex-1 text-left px-4 py-2.5 hover:bg-white/5 transition-colors"
                   title={supportsFiltering ? 'Filter current page' : 'Open question'}
                 >
-                  <div className="text-sm font-semibold text-gray-900">#{q.id} {q.title}</div>
+                  <div className="text-sm font-medium text-slate-200">
+                    <span className="text-slate-500 mr-1">#{q.id}</span>
+                    {q.title}
+                  </div>
                 </button>
                 <button
                   type="button"
                   onClick={() => goTo(q.id)}
-                  className="px-3 py-2 text-gray-400 hover:text-indigo-600 hover:bg-gray-50 transition-colors"
+                  className="px-3 py-2 text-slate-600 hover:text-indigo-400 hover:bg-white/5 transition-colors"
                   title="Open question"
                 >
                   <ExternalLink size={14} />
@@ -137,4 +140,3 @@ export default function QuestionSearch({ className = '' }: { className?: string 
     </div>
   )
 }
-
