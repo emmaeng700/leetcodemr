@@ -157,6 +157,12 @@ export default function SpeedsterPage() {
   const totalDays  = days.length
   const currentDay = days[dayIdx] ?? []
   const daySolved  = currentDay.filter(id => !!progress[String(id)]?.solved).length
+  const currentDayFiltered = currentDay.filter(id => {
+    const solved = !!progress[String(id)]?.solved
+    if (filterSolved === 'Unsolved' && solved) return false
+    if (filterSolved === 'Solved' && !solved) return false
+    return true
+  })
 
   // Flashcard helpers — respects active filters
   const filteredOrder = planOrder.filter(id => {
@@ -383,6 +389,36 @@ export default function SpeedsterPage() {
         </button>
       </div>
 
+      <div className="flex items-center justify-center gap-2 mb-4">
+        <button
+          type="button"
+          onClick={() => setFilterSolved('All')}
+          className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+            filterSolved === 'All' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+          }`}
+        >
+          All
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilterSolved('Unsolved')}
+          className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+            filterSolved === 'Unsolved' ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+          }`}
+        >
+          Unsolved
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilterSolved('Solved')}
+          className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+            filterSolved === 'Solved' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-200 hover:border-green-300'
+          }`}
+        >
+          Solved
+        </button>
+      </div>
+
       {/* Progress bar */}
       <div className="h-1 bg-gray-100 rounded-full mb-5 overflow-hidden">
         <div className="h-full bg-yellow-400 rounded-full transition-all duration-300"
@@ -391,7 +427,12 @@ export default function SpeedsterPage() {
 
       {/* Day card */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-3">
-        {currentDay.map((qid, i) => {
+        {currentDayFiltered.length === 0 && (
+          <div className="px-5 py-8 text-center text-sm text-gray-400">
+            No questions in this day match your filter.
+          </div>
+        )}
+        {currentDayFiltered.map((qid, i) => {
           const q = qMap[qid]
           if (!q) return null
           const solved = !!progress[String(qid)]?.solved
@@ -769,6 +810,36 @@ export default function SpeedsterPage() {
           </button>
         </div>
 
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => setFilterSolved('All')}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+              filterSolved === 'All' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+            }`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterSolved('Unsolved')}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+              filterSolved === 'Unsolved' ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+            }`}
+          >
+            Unsolved
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterSolved('Solved')}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+              filterSolved === 'Solved' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-200 hover:border-green-300'
+            }`}
+          >
+            Solved
+          </button>
+        </div>
+
         {/* Progress bar */}
         <div className="h-1 bg-gray-100 rounded-full mb-5 overflow-hidden">
           <div className="h-full bg-yellow-400 rounded-full transition-all duration-300"
@@ -777,7 +848,12 @@ export default function SpeedsterPage() {
 
         {/* Day card */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-3">
-          {currentDay.map((qid, i) => {
+          {currentDayFiltered.length === 0 && (
+            <div className="px-5 py-8 text-center text-sm text-gray-400">
+              No questions in this day match your filter.
+            </div>
+          )}
+          {currentDayFiltered.map((qid, i) => {
             const q = qMap[qid]
             if (!q) return null
             const solved = !!progress[String(qid)]?.solved

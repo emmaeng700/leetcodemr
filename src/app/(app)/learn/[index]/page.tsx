@@ -148,11 +148,13 @@ function LearnInner() {
       diff?: typeof filterDiff
       source?: typeof filterSource
       pattern?: typeof filterPattern | null
+      solved?: null | boolean
     }) => {
       const sp = new URLSearchParams(searchParams.toString())
       const diff = overrides?.diff !== undefined ? overrides.diff : filterDiff
       const source = overrides?.source !== undefined ? overrides.source : filterSource
       const pattern = overrides?.pattern !== undefined ? overrides.pattern : filterPattern
+      const solved = overrides?.solved !== undefined ? overrides.solved : initSolved
       if (diff !== 'All') sp.set('diff', diff)
       else sp.delete('diff')
       if (source !== 'All') sp.set('source', source)
@@ -163,9 +165,12 @@ function LearnInner() {
       } else {
         sp.delete('tags')
       }
+      if (solved === true) sp.set('solved', 'true')
+      else if (solved === false) sp.set('solved', 'false')
+      else sp.delete('solved')
       return sp.toString()
     },
-    [searchParams, filterDiff, filterSource, filterPattern],
+    [searchParams, filterDiff, filterSource, filterPattern, initSolved],
   )
 
   const learnQs = useMemo(() => buildLearnQuery(), [buildLearnQuery])
@@ -570,6 +575,36 @@ function LearnInner() {
         <button type="button" data-learn-filter onClick={() => setShowFilters(v => !v)}
           className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${showFilters ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-500 hover:border-indigo-300'}`}>
           Filter {filterDiff !== 'All' || filterSource !== 'All' || filterPattern ? '•' : ''}
+        </button>
+
+        {/* Solved / Unsolved quick filter */}
+        <button
+          type="button"
+          data-learn-filter
+          onClick={() => {
+            const next = initSolved === true ? null : true
+            const q = buildLearnQuery({ solved: next })
+            router.push(`/learn/0${q ? `?${q}` : ''}`, { scroll: false })
+          }}
+          className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+            initSolved === true ? 'bg-green-50 text-green-700 border-green-200' : 'bg-white text-gray-500 border-gray-200 hover:border-green-300'
+          }`}
+        >
+          Solved
+        </button>
+        <button
+          type="button"
+          data-learn-filter
+          onClick={() => {
+            const next = initSolved === false ? null : false
+            const q = buildLearnQuery({ solved: next })
+            router.push(`/learn/0${q ? `?${q}` : ''}`, { scroll: false })
+          }}
+          className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+            initSolved === false ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300'
+          }`}
+        >
+          Unsolved
         </button>
 
         {q && (
