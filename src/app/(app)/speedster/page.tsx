@@ -636,12 +636,10 @@ export default function SpeedsterPage() {
                     </div>
                   </div>
                   <div className="px-3 sm:px-5 pb-3 sm:pb-5">
-                    <div onClick={e => e.stopPropagation()}>
-                      <QuestionImage
-                        questionId={currentQ.id}
-                        alt={currentQ.title}
-                      />
-                    </div>
+                    <QuestionImage
+                      questionId={currentQ.id}
+                      alt={currentQ.title}
+                    />
                   </div>
                 </div>
               ) : (
@@ -905,12 +903,10 @@ export default function SpeedsterPage() {
                     </div>
                   </div>
                   <div className="px-3 sm:px-5 pb-3 sm:pb-5">
-                    <div onClick={e => e.stopPropagation()}>
-                      <QuestionImage
-                        questionId={currentQ.id}
-                        alt={currentQ.title}
-                      />
-                    </div>
+                    <QuestionImage
+                      questionId={currentQ.id}
+                      alt={currentQ.title}
+                    />
                   </div>
                 </div>
               ) : (
