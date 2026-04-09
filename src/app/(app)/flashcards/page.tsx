@@ -143,10 +143,10 @@ function FlashcardsInner() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[var(--text-muted)]">
-          <span className="bg-indigo-900/40 text-indigo-400 border border-indigo-500/30 px-3 py-1.5 rounded-full">
+          <span className="bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 px-3 py-1.5 rounded-full">
             {deck.length === 0 ? '0 / 0' : `${idx + 1} / ${deck.length}`}
           </span>
-          <span className="bg-green-900/40 text-green-400 border border-green-500/30 px-3 py-1.5 rounded-full flex items-center gap-1">
+          <span className="bg-green-50 dark:bg-green-900/40 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30 px-3 py-1.5 rounded-full flex items-center gap-1">
             <CheckCircle size={11} /> {visited.size} visited
           </span>
           <button
@@ -228,7 +228,7 @@ function FlashcardsInner() {
                     <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
                     <DifficultyBadge difficulty={q.difficulty} />
                     {(q.source || []).map(s => (
-                      <span key={s} className="text-xs bg-indigo-900/40 text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-500/20">{s}</span>
+                      <span key={s} className="text-xs bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-500/20">{s}</span>
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
@@ -271,7 +271,7 @@ function FlashcardsInner() {
             ) : (
               /* BACK */
               <div className="bg-[var(--bg-card)] rounded-2xl border border-indigo-500/40 shadow-xl shadow-indigo-900/20 overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-indigo-500/20 bg-indigo-900/30">
+                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-indigo-200 dark:border-indigo-500/20 bg-indigo-50 dark:bg-indigo-900/30">
                   <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
                     <DifficultyBadge difficulty={q.difficulty} />
@@ -337,7 +337,7 @@ function FlashcardsInner() {
 
 export default function FlashcardsPage() {
   return (
-    <Suspense fallback={<div className="text-center py-32 text-slate-500 animate-pulse text-sm">Loading flashcards...</div>}>
+    <Suspense fallback={<div className="text-center py-32 text-[var(--text-subtle)] animate-pulse text-sm">Loading flashcards...</div>}>
       <FlashcardsInner />
     </Suspense>
   )

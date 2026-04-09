@@ -5,30 +5,32 @@
 
 /* ── Color tokens ────────────────────────────────── */
 :root {
-  /* Light mode */
-  --bg:          #f8fafc;   /* slate-50  */
-  --bg-card:     #ffffff;
-  --bg-input:    #f1f5f9;   /* slate-100 */
-  --bg-muted:    #e2e8f0;   /* slate-200 */
-  --border:      rgba(0,0,0,0.09);
-  --border-soft: rgba(0,0,0,0.05);
-  --text:        #0f172a;   /* slate-900 */
-  --text-muted:  #475569;   /* slate-600 */
-  --text-subtle: #94a3b8;   /* slate-400 */
-  --shadow:      0 1px 16px rgba(0,0,0,0.10);
+  /* Light mode — indigo-tinted, premium feel */
+  --bg:           #f0f2ff;   /* faint indigo wash on page bg   */
+  --bg-card:      #ffffff;   /* crisp white cards              */
+  --bg-input:     #f5f6ff;   /* very faint indigo inputs       */
+  --bg-muted:     #e8eaf6;   /* indigo-100-ish muted surfaces  */
+  --border:       rgba(99,102,241,0.18);  /* indigo-tinted borders */
+  --border-soft:  rgba(99,102,241,0.09);
+  --text:         #12132e;   /* deep navy-black                */
+  --text-muted:   #4b4f7a;   /* indigo-tinted mid-gray         */
+  --text-subtle:  #8b8fba;   /* soft indigo-gray               */
+  --shadow:       0 2px 20px rgba(99,102,241,0.10);
+  --accent-glow:  rgba(99,102,241,0.12);
 }
 
 .dark {
-  --bg:          #0f172a;   /* slate-900 */
-  --bg-card:     #1e293b;   /* slate-800 */
-  --bg-input:    #1e293b;   /* slate-800 */
-  --bg-muted:    #334155;   /* slate-700 */
-  --border:      rgba(255,255,255,0.10);
-  --border-soft: rgba(255,255,255,0.05);
-  --text:        #f1f5f9;   /* slate-200 */
-  --text-muted:  #94a3b8;   /* slate-400 */
-  --text-subtle: #64748b;   /* slate-500 */
-  --shadow:      0 1px 16px rgba(0,0,0,0.50);
+  --bg:           #0f172a;   /* slate-900                      */
+  --bg-card:      #1e293b;   /* slate-800                      */
+  --bg-input:     #1e293b;   /* slate-800                      */
+  --bg-muted:     #334155;   /* slate-700                      */
+  --border:       rgba(255,255,255,0.10);
+  --border-soft:  rgba(255,255,255,0.05);
+  --text:         #f1f5f9;   /* slate-200                      */
+  --text-muted:   #94a3b8;   /* slate-400                      */
+  --text-subtle:  #64748b;   /* slate-500                      */
+  --shadow:       0 1px 16px rgba(0,0,0,0.50);
+  --accent-glow:  rgba(99,102,241,0.20);
 }
 
 html {
@@ -43,7 +45,12 @@ body {
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.25s, color 0.25s;
+}
+
+/* Light-mode card polish: subtle lift + indigo border glow */
+:root .card-surface {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(99,102,241,0.08);
 }
 
 /* Hide scrollbar on overflow-x-auto filter rows */

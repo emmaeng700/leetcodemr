@@ -136,15 +136,15 @@ function StreakCard({
   const message = getStreakMessage(streak)
 
   return (
-    <div className="bg-gradient-to-br from-orange-950/70 to-amber-950/50 border border-orange-500/30 rounded-xl p-4 mb-3 shadow-lg shadow-orange-900/20">
+    <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/70 dark:to-amber-950/50 border border-orange-200 dark:border-orange-500/30 rounded-xl p-4 mb-3 shadow-lg shadow-orange-900/20">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <Flame size={18} className="text-orange-400" />
-            <span className="text-2xl font-black text-orange-400">{streak}</span>
-            <span className="text-sm font-bold text-orange-500">{streak === 1 ? 'day' : 'days'}</span>
+            <span className="text-2xl font-black text-orange-500 dark:text-orange-400">{streak}</span>
+            <span className="text-sm font-bold text-orange-600 dark:text-orange-500">{streak === 1 ? 'day' : 'days'}</span>
           </div>
-          <p className="text-xs text-orange-300/80 font-medium leading-snug max-w-[200px]">{message}</p>
+          <p className="text-xs text-orange-600 dark:text-orange-300/80 font-medium leading-snug max-w-[200px]">{message}</p>
         </div>
         <div className="text-right shrink-0">
           <p className="text-xs font-bold text-[var(--text-muted)] mb-0.5">This week</p>
@@ -157,8 +157,8 @@ function StreakCard({
           <div key={i} className="flex flex-col items-center gap-1 flex-1">
             <div className={`w-full aspect-square rounded-full max-w-[28px] transition-colors ${
               d.active   ? 'bg-orange-400 shadow-sm shadow-orange-500/40' :
-              d.isToday  ? 'bg-orange-900/50 border-2 border-orange-500/60' :
-              d.isFuture ? 'bg-[var(--bg-muted)]/50' :
+              d.isToday  ? 'bg-orange-100 dark:bg-orange-900/50 border-2 border-orange-400 dark:border-orange-500/60' :
+              d.isFuture ? 'bg-[var(--bg-muted)]/60' :
                            'bg-[var(--bg-muted)]'
             }`} />
             <span className={`text-[10px] font-semibold ${d.isToday ? 'text-orange-400' : 'text-[var(--text-subtle)]'}`}>{d.label}</span>
@@ -179,15 +179,15 @@ function WeakestPatternWidget({ questions, progress }: { questions: Question[]; 
   const weakest = [...patternStats].sort((a, b) => a.pct - b.pct)[0]
   if (!weakest) return null
   return (
-    <div className="bg-amber-950/40 border border-amber-500/30 rounded-xl px-4 py-3 mb-5 flex items-center justify-between gap-3 flex-wrap">
+    <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-500/30 rounded-xl px-4 py-3 mb-5 flex items-center justify-between gap-3 flex-wrap">
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-lg">🎯</span>
         <div className="min-w-0">
-          <p className="text-xs font-bold text-amber-400">Weakest Pattern</p>
-          <p className="text-sm font-semibold text-amber-200 truncate">{weakest.name} — {weakest.solved}/{weakest.total} solved ({weakest.pct}%)</p>
+          <p className="text-xs font-bold text-amber-600 dark:text-amber-400">Weakest Pattern</p>
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 truncate">{weakest.name} — {weakest.solved}/{weakest.total} solved ({weakest.pct}%)</p>
         </div>
       </div>
-      <Link href="/patterns" className="text-xs font-semibold text-amber-300 bg-amber-900/50 border border-amber-500/40 px-3 py-1.5 rounded-full hover:bg-amber-900/70 transition-colors shrink-0 whitespace-nowrap">
+      <Link href="/patterns" className="text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50 border border-amber-300 dark:border-amber-500/40 px-3 py-1.5 rounded-full hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors shrink-0 whitespace-nowrap">
         Practice now →
       </Link>
     </div>
@@ -284,7 +284,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
         {editing ? (
           <div className="flex gap-2 items-center flex-wrap">
             <input type="date" defaultValue={date} min={todayISO()}
-              className="text-sm text-slate-100 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-indigo-500"
               onKeyDown={e => { if (e.key === 'Enter') handleDateSave((e.target as HTMLInputElement).value) }}
               onBlur={e => { if (e.target.value) handleDateSave(e.target.value); else setEditing(false) }}
               autoFocus />
@@ -306,13 +306,13 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
         ) : (
           <div>
             <p className="text-xs text-[var(--text-subtle)] mb-2">Set your interview date to track countdown</p>
-            <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs font-semibold text-indigo-400 bg-indigo-900/40 border border-indigo-500/30 px-3 py-1.5 rounded-full hover:bg-indigo-900/60 transition-colors">
+            <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-500/30 px-3 py-1.5 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors">
               <Calendar size={12} /> Set date
             </button>
           </div>
         )}
       </div>
-      <div className="bg-slate-800 rounded-xl border border-white/10 shadow-lg p-4">
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg p-4">
         <div className="text-xs font-bold text-[var(--text-muted)] mb-3 flex items-center gap-1">⭐ Today's Question</div>
         {dailyQ ? (
           <div>
@@ -345,11 +345,11 @@ function DueReviewBanner() {
     return diff + ' days overdue'
   }
   return (
-    <div className="bg-indigo-950/50 border border-indigo-500/30 rounded-xl mb-5 overflow-hidden">
+    <div className="bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-500/30 rounded-xl mb-5 overflow-hidden">
       <button onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-900/30 transition-colors">
         <div className="flex items-center gap-2">
           <Brain size={16} className="text-indigo-400" />
-          <span className="text-sm font-bold text-indigo-300">🧠 Spaced Repetition — {due.length} question{due.length > 1 ? 's' : ''} due for review</span>
+          <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">🧠 Spaced Repetition — {due.length} question{due.length > 1 ? 's' : ''} due for review</span>
         </div>
         {open ? <ChevronUp size={15} className="text-indigo-400" /> : <ChevronDown size={15} className="text-indigo-400" />}
       </button>
@@ -357,9 +357,9 @@ function DueReviewBanner() {
         <div className="px-4 pb-3 flex flex-wrap gap-2">
           {due.map(q => (
             <button key={q.id} onClick={() => router.push('/practice/' + q.id)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-card)] border border-indigo-500/30 rounded-lg text-xs hover:border-indigo-400/60 hover:shadow-sm transition-all text-left">
+              className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[var(--bg-card)] border border-indigo-200 dark:border-indigo-500/30 rounded-lg text-xs hover:border-indigo-400 dark:hover:border-indigo-400/60 hover:shadow-sm transition-all text-left">
               <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
-              <span className="text-indigo-400 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
+              <span className="text-indigo-600 dark:text-indigo-400 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
             </button>
           ))}
         </div>
@@ -507,7 +507,7 @@ function HomeInner() {
           ))}
           <span className="w-px bg-white/10 mx-0.5 shrink-0" />
           <button onClick={() => setShowStarred(v => !v)}
-            className={'flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (showStarred ? 'bg-yellow-500 text-white shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-slate-700/70 text-slate-300 hover:bg-slate-600/80 border border-white/8')}>
+            className={'flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (showStarred ? 'bg-yellow-500 text-white shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 border border-[var(--border-soft)]')}>
             <Star size={12} /> Starred
           </button>
           <button onClick={() => setShowSolved(v => v === null ? false : v === false ? true : null)}
@@ -561,10 +561,10 @@ function HomeInner() {
 
         <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[var(--border)]">
           <span className="text-xs text-[var(--text-subtle)] self-center">Study {filtered.length} as:</span>
-          <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePatternTags)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-900/40 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-900/60 transition-colors">
+          <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePatternTags)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors">
             <Layers size={12} /> Flashcards
           </Link>
-          <Link href={`/learn/0?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePatternTags)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-900/40 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-900/60 transition-colors">
+          <Link href={`/learn/0?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePatternTags)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors">
             <BookOpen size={12} /> Learn mode
           </Link>
         </div>
@@ -609,8 +609,8 @@ function HomeInner() {
                   {(q.tags || []).slice(0, 3).map(tag => (
                     <span key={tag} className="text-xs bg-[var(--bg-muted)] text-[var(--text-subtle)] px-2 py-0.5 rounded-full">{tag}</span>
                   ))}
-                  {q.python_solution && <span className="text-xs bg-blue-900/40 text-blue-400 px-2 py-0.5 rounded-full">Py ✓</span>}
-                  {q.cpp_solution && <span className="text-xs bg-purple-900/40 text-purple-400 px-2 py-0.5 rounded-full">C++ ✓</span>}
+                  {q.python_solution && <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">Py ✓</span>}
+                  {q.cpp_solution && <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full">C++ ✓</span>}
                 </div>
                 {p.status && (
                   <div className="flex items-center gap-2 mt-2">
@@ -623,7 +623,7 @@ function HomeInner() {
                       </span>
                     )}
                     {p.status === 'mastered' && isDue(p.next_review) && (
-                      <span className="text-xs text-indigo-400 font-semibold">🧠 Review due!</span>
+                      <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">🧠 Review due!</span>
                     )}
                   </div>
                 )}

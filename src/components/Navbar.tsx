@@ -54,7 +54,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-[var(--bg-card)]/95 backdrop-blur-md border-b border-[var(--border)] shadow-[var(--shadow)]">
+    <nav className="sticky top-0 z-50 bg-[var(--bg-card)]/95 backdrop-blur-md border-b border-[var(--border)] shadow-[0_1px_12px_var(--accent-glow)]">
       <div className="max-w-7xl mx-auto px-4">
         {/* Top row */}
         <div className="flex items-center justify-between h-14">
