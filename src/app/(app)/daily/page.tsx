@@ -256,7 +256,7 @@ export default function DailyPage() {
     return diff + ' days overdue'
   }
 
-  if (loading) return <div className="text-center py-32 text-gray-400 animate-pulse text-sm">Loading...</div>
+  if (loading) return <div className="text-center py-32 text-[var(--text-subtle)] animate-pulse text-sm">Loading...</div>
 
   // SETUP VIEW
   if (!plan) {
@@ -265,26 +265,26 @@ export default function DailyPage() {
         {!online && <OfflineBanner feature="Daily plan (Supabase)" />}
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">🚔</div>
-          <h1 className="text-2xl font-black text-gray-800 mb-1">LeetCode Police</h1>
-          <p className="text-gray-500 text-sm">Daily Study Plan — commit to a schedule and stick to it.</p>
+          <h1 className="text-2xl font-black text-[var(--text)] mb-1">LeetCode Police</h1>
+          <p className="text-[var(--text-subtle)] text-sm">Daily Study Plan — commit to a schedule and stick to it.</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
+        <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] shadow-sm p-6 mb-4">
           <div className="flex items-center justify-between mb-5">
-            <span className="text-sm font-semibold text-gray-700">Total questions</span>
+            <span className="text-sm font-semibold text-[var(--text-muted)]">Total questions</span>
             <span className="text-2xl font-black text-indigo-600">{allQuestions.length}</span>
           </div>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Questions per day</label>
+              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">Questions per day</label>
               <div className="flex gap-2 flex-wrap">
                 {[1, 2, 3, 5, 7].map(n => (
                   <button
                     key={n}
                     onClick={() => setPerDay(n)}
                     className={`w-10 h-10 rounded-xl text-sm font-bold border-2 transition-colors ${
-                      perDay === n ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600 hover:border-indigo-300'
+                      perDay === n ? 'bg-indigo-600 text-white border-indigo-600' : 'border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-400'
                     }`}
                   >
                     {n}
@@ -296,44 +296,44 @@ export default function DailyPage() {
                   max="20"
                   value={perDay}
                   onChange={e => setPerDay(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-16 px-2 py-1.5 border-2 border-gray-200 rounded-xl text-sm text-center text-gray-900 focus:outline-none focus:border-indigo-400"
+                  className="w-16 px-2 py-1.5 border-2 border-[var(--border)] rounded-xl text-sm text-center text-[var(--text)] bg-[var(--bg-input)] focus:outline-none focus:border-indigo-400"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Start date</label>
+              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">Start date</label>
               <input
                 type="date"
                 value={startDate}
                 min={todayISO()}
                 onChange={e => setStartDate(e.target.value)}
-                className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-indigo-400"
+                className="w-full px-3 py-2.5 border-2 border-[var(--border)] rounded-xl text-sm text-[var(--text)] bg-[var(--bg-input)] focus:outline-none focus:border-indigo-400"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Plan lock code</label>
+              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">Plan lock code</label>
               <input
                 type="text"
                 value={planCode}
                 onChange={e => setPlanCode(e.target.value)}
                 placeholder="e.g. grind2026"
-                className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-indigo-400"
+                className="w-full px-3 py-2.5 border-2 border-[var(--border)] rounded-xl text-sm text-[var(--text)] bg-[var(--bg-input)] focus:outline-none focus:border-indigo-400"
               />
-              <p className="text-xs text-gray-400 mt-1">You need this code to reset the plan. Do not forget it.</p>
+              <p className="text-xs text-[var(--text-subtle)] mt-1">You need this code to reset the plan. Do not forget it.</p>
             </div>
           </div>
 
           {/* Preview */}
-          <div className="mt-5 bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+          <div className="mt-5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-xl p-4">
             <div className="flex justify-between items-center mb-1">
-              <span className="text-xs text-indigo-600 font-semibold">At {perDay}/day you finish in</span>
-              <span className="text-lg font-black text-indigo-700">{previewDays} days</span>
+              <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">At {perDay}/day you finish in</span>
+              <span className="text-lg font-black text-indigo-700 dark:text-indigo-300">{previewDays} days</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-xs text-indigo-500">Estimated finish</span>
-              <span className="text-sm font-bold text-indigo-700">{fmtDate(previewFinish)}</span>
+              <span className="text-xs text-indigo-500 dark:text-indigo-400">Estimated finish</span>
+              <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">{fmtDate(previewFinish)}</span>
             </div>
           </div>
         </div>
@@ -341,7 +341,7 @@ export default function DailyPage() {
         <button
           onClick={handleGenerate}
           disabled={generating || !planCode.trim() || !online}
-          className="w-full py-4 bg-gray-900 text-white font-bold text-base rounded-2xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
+          className="w-full py-4 bg-indigo-600 text-white font-bold text-base rounded-2xl hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
         >
           <Rocket size={18} />
           {generating ? 'Generating...' : !planCode.trim() ? 'Set a lock code to continue' : 'Generate & Lock My Plan'}
@@ -362,16 +362,16 @@ export default function DailyPage() {
       key={q.id}
       href={`/practice/${q.id}`}
       onClick={() => setShowList(false)}
-      className="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm hover:bg-indigo-50 border-b border-gray-50 transition-colors"
+      className="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--bg-muted)] border-b border-[var(--border-soft)] transition-colors"
     >
-      <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{q.id}</span>
-      <span className="min-w-0 flex-1 truncate text-gray-700">{q.title}</span>
+      <span className="shrink-0 tabular-nums text-xs font-mono text-[var(--text-subtle)]">#{q.id}</span>
+      <span className="min-w-0 flex-1 truncate text-[var(--text)]">{q.title}</span>
       <span
         className={`text-xs font-semibold shrink-0 ${q.difficulty === 'Easy' ? 'text-green-600' : q.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}
       >
         {q.difficulty[0]}
       </span>
-      {isSolved(q.id) && <CheckCircle2 size={11} className="text-green-500 shrink-0" />}
+      {isSolved(q.id) && <CheckCircle2 size={11} className="text-green-400 shrink-0" />}
     </a>
   ))
   const pastDayCount = todayInfo.dayNumber ? todayInfo.dayNumber - 1 : totalDays
@@ -385,9 +385,9 @@ export default function DailyPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-black text-gray-800 flex items-center gap-2">Study Plan</h1>
+          <h1 className="text-xl font-black text-[var(--text)] flex items-center gap-2">Study Plan</h1>
           {!todayInfo.pending && !todayInfo.complete && todayInfo.dayNumber && (
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-[var(--text-subtle)] mt-0.5">
               Day {todayInfo.dayNumber} of {totalDays} · finish by {fmtDate(todayInfo.finishDate || '')}
             </p>
           )}
@@ -397,7 +397,7 @@ export default function DailyPage() {
             </p>
           )}
           {todayInfo.complete && (
-            <p className="text-xs text-green-600 font-semibold mt-0.5">Plan complete!</p>
+            <p className="text-xs text-green-500 dark:text-green-400 font-semibold mt-0.5">Plan complete!</p>
           )}
         </div>
         <div className="flex items-center gap-2 overflow-visible">
@@ -405,7 +405,7 @@ export default function DailyPage() {
             <div ref={listWrapRef} className="relative z-10">
               <button type="button"
                 onClick={() => setShowList(v => !v)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-colors font-semibold"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--text-muted)] border border-[var(--border)] rounded-lg hover:border-indigo-400 hover:text-indigo-500 transition-colors font-semibold"
               >
                 <List size={12} />
                 Today's Qs
@@ -420,7 +420,7 @@ export default function DailyPage() {
           )}
           <button
             onClick={() => setShowResetPrompt(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--text-subtle)] border border-[var(--border)] rounded-lg hover:bg-[var(--bg-muted)] transition-colors"
           >
             <RotateCcw size={12} /> Reset
           </button>
@@ -429,7 +429,7 @@ export default function DailyPage() {
 
       {/* Reset gate */}
       {showResetPrompt && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-500/30 rounded-xl p-4 mb-4">
           <p className="text-sm font-bold text-red-700 mb-1">Enter your plan lock code to reset</p>
           <p className="text-xs text-red-500 mb-3">This will wipe the entire plan. Your solved progress is safe.</p>
           <div className="flex flex-wrap gap-2 items-center">
@@ -440,14 +440,14 @@ export default function DailyPage() {
               onKeyDown={e => e.key === 'Enter' && handleResetConfirm()}
               placeholder="Your lock code"
               autoFocus
-              className={`px-3 py-2 rounded-lg border text-sm text-gray-900 focus:outline-none transition-colors ${
-                resetError ? 'border-red-500 bg-red-100' : 'border-gray-300 bg-white'
+              className={`px-3 py-2 rounded-lg border text-sm focus:outline-none transition-colors ${
+                resetError ? 'border-red-500 bg-red-100 dark:bg-red-950/40 text-[var(--text)]' : 'border-[var(--border)] bg-[var(--bg-input)] text-[var(--text)]'
               }`}
             />
             <button onClick={handleResetConfirm} className="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition-colors">
               Confirm Reset
             </button>
-            <button onClick={() => setShowResetPrompt(false)} className="px-4 py-2 bg-gray-100 text-gray-600 text-sm font-bold rounded-lg hover:bg-gray-200 transition-colors">
+            <button onClick={() => setShowResetPrompt(false)} className="px-4 py-2 bg-[var(--bg-muted)] text-[var(--text-muted)] text-sm font-bold rounded-lg hover:brightness-110 transition-colors">
               Cancel
             </button>
             {resetError && <span className="text-red-600 text-xs font-semibold">Wrong code</span>}
@@ -457,18 +457,18 @@ export default function DailyPage() {
 
       {/* Progress bar */}
       {!todayInfo.pending && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-4">
-          <div className="flex justify-between text-xs font-semibold text-gray-600 mb-2">
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-4">
+          <div className="flex justify-between text-xs font-semibold text-[var(--text-muted)] mb-2">
             <span>{todayInfo.complete ? 'Completed!' : `${todayInfo.dayNumber}/${totalDays} days`}</span>
             <span className="text-indigo-600">{progressPct}%</span>
           </div>
-          <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+          <div className="w-full h-3 bg-[var(--bg-muted)] rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-700"
               style={{ width: `${progressPct}%` }}
             />
           </div>
-          <div className="flex justify-between text-xs text-gray-400 mt-2">
+          <div className="flex justify-between text-xs text-[var(--text-subtle)] mt-2">
             <span>{fmtDate(plan.start_date)}</span>
             <span>{todayInfo.daysLeft !== undefined ? `${todayInfo.daysLeft} days left` : ''}</span>
             <span>{fmtDate(todayInfo.finishDate || '')}</span>
@@ -478,15 +478,15 @@ export default function DailyPage() {
 
       {/* TODAY'S QUESTIONS */}
       {!todayInfo.pending && !todayInfo.complete && todayInfo.dayNumber && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4">
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-5 mb-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+            <h2 className="font-bold text-[var(--text)] text-sm flex items-center gap-2">
               <CalendarCheck size={15} className="text-indigo-500" />
               Today — Day {todayInfo.dayNumber}
             </h2>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-              todayDone === todayQs.length ? 'bg-green-100 text-green-700' :
-              todayDone > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+              todayDone === todayQs.length ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' :
+              todayDone > 0 ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400' : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400'
             }`}>
               {todayDone}/{todayQs.length} done
             </span>
@@ -499,23 +499,23 @@ export default function DailyPage() {
                 <div
                   key={q.id}
                   className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                    solved ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100 hover:border-indigo-200'
+                    solved ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-500/30' : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-indigo-400/50'
                   }`}
                 >
                   <div className="shrink-0">
-                    {solved ? <CheckCircle2 size={20} className="text-green-500" /> : <Circle size={20} className="text-gray-300" />}
+                    {solved ? <CheckCircle2 size={20} className="text-green-500" /> : <Circle size={20} className="text-[var(--text-subtle)]" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-gray-400 font-mono">#{q.id}</span>
-                      <span className={`text-sm font-semibold truncate ${solved ? 'text-green-700 line-through' : 'text-gray-800'}`}>
+                      <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                      <span className={`text-sm font-semibold truncate ${solved ? 'text-green-500 dark:text-green-400 line-through' : 'text-[var(--text)]'}`}>
                         {q.title}
                       </span>
                       <a
                         href={`https://leetcode.com/problems/${q.slug}/`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="shrink-0 text-gray-300 hover:text-orange-400 transition-colors"
+                        className="shrink-0 text-[var(--text-subtle)] hover:text-orange-400 transition-colors"
                         title="Open on LeetCode"
                         onClick={e => e.stopPropagation()}
                       >
@@ -530,7 +530,7 @@ export default function DailyPage() {
                     href={`/practice/${q.id}`}
                     className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
                       solved
-                        ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
+                        ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30 hover:bg-green-100 dark:hover:bg-green-900/50'
                         : 'bg-indigo-600 text-white hover:bg-indigo-700'
                     }`}
                   >
@@ -542,7 +542,7 @@ export default function DailyPage() {
           </div>
 
           {todayDone === todayQs.length && todayQs.length > 0 && (
-            <div className="mt-4 text-center text-green-600 font-bold text-sm">
+            <div className="mt-4 text-center text-green-500 dark:text-green-400 font-bold text-sm">
               All done for today! See you tomorrow.
             </div>
           )}
@@ -558,14 +558,14 @@ export default function DailyPage() {
               <div key={nextDayIdx} className="mt-4 border-t border-dashed border-purple-100 pt-4">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-gray-600 text-sm flex items-center gap-2">
+                  <h3 className="font-bold text-[var(--text-muted)] text-sm flex items-center gap-2">
                     <span className="text-base">👀</span>
                     Day {nextDayIdx + 1}
                     <span className="text-xs font-normal text-purple-400">sneak peek</span>
                   </h3>
                   {alreadySolved > 0 && (
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                      allPreSolved ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-600'
+                      allPreSolved ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' : 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400'
                     }`}>
                       {alreadySolved}/{nextQs.length} pre-solved ✓
                     </span>
@@ -573,7 +573,7 @@ export default function DailyPage() {
                 </div>
 
                 {/* Hint */}
-                <p className="text-xs text-gray-400 mb-3 italic">
+                <p className="text-xs text-[var(--text-subtle)] mb-3 italic">
                   Start learning now — these count on their allocated day, not today.
                 </p>
 
@@ -585,7 +585,7 @@ export default function DailyPage() {
                         key={q.id}
                         className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
                           solved
-                            ? 'bg-green-50 border-green-200'
+                            ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-500/30'
                             : 'bg-purple-50/40 border-purple-100 hover:border-purple-200'
                         }`}
                       >
@@ -599,14 +599,14 @@ export default function DailyPage() {
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-gray-400 font-mono">#{q.id}</span>
-                            <span className={`text-sm font-medium truncate ${solved ? 'text-green-700 line-through' : 'text-gray-700'}`}>
+                            <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                            <span className={`text-sm font-medium truncate ${solved ? 'text-green-500 dark:text-green-400 line-through' : 'text-[var(--text)]'}`}>
                               {q.title}
                             </span>
                           </div>
                           <div className="mt-1 flex items-center gap-2">
                             <DifficultyBadge difficulty={q.difficulty} />
-                            {solved && <span className="text-xs text-green-500 font-medium">already solved ✓</span>}
+                            {solved && <span className="text-xs text-green-400 font-medium">already solved ✓</span>}
                           </div>
                         </div>
 
@@ -615,8 +615,8 @@ export default function DailyPage() {
                           href={`/practice/${q.id}`}
                           className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
                             solved
-                              ? 'border-green-200 text-green-600 bg-green-50 hover:bg-green-100'
-                              : 'border-purple-200 text-purple-600 bg-white hover:bg-purple-50'
+                              ? 'border-green-200 dark:border-green-500/30 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30 hover:bg-green-100 dark:hover:bg-green-900/50'
+                              : 'border-purple-200 dark:border-purple-500/30 text-purple-600 dark:text-purple-400 bg-white dark:bg-purple-950/30 hover:bg-purple-50 dark:hover:bg-purple-900/50'
                           }`}
                         >
                           {solved ? 'Review' : 'Preview'}
@@ -653,9 +653,9 @@ export default function DailyPage() {
 
       {/* COMPLETE */}
       {todayInfo.complete && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-5 mb-4 text-center">
+        <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-500/30 rounded-xl p-5 mb-4 text-center">
           <div className="text-4xl mb-2">🏆</div>
-          <p className="font-bold text-green-800">You finished all {plan.question_order.length} questions!</p>
+          <p className="font-bold text-green-700 dark:text-green-400">You finished all {plan.question_order.length} questions!</p>
           <button
             onClick={async () => { await clearStudyPlan(); setPlan(null) }}
             className="mt-3 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-colors"
@@ -667,7 +667,7 @@ export default function DailyPage() {
 
       {/* REVIEWS DUE */}
       {dueReviews.length > 0 && (
-        <div className="bg-indigo-50 border border-indigo-200 rounded-xl mb-4 overflow-hidden">
+        <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-xl mb-4 overflow-hidden">
           <button
             type="button"
             onClick={() => setDueOpen(v => !v)}
@@ -685,7 +685,7 @@ export default function DailyPage() {
             <div className="px-4 pb-3 flex flex-wrap gap-2">
               <Link
                 href="/review"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-semibold text-indigo-700 hover:border-indigo-400 hover:shadow-sm transition-all"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-lg text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:border-indigo-400 hover:shadow-sm transition-all"
               >
                 Open reviews <ArrowRight size={12} />
               </Link>
@@ -693,9 +693,9 @@ export default function DailyPage() {
                 <Link
                   key={q.id}
                   href={`/practice/${q.id}`}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs hover:border-indigo-400 hover:shadow-sm transition-all text-left"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-lg text-xs hover:border-indigo-400 hover:shadow-sm transition-all text-left"
                 >
-                  <span className="text-gray-400 font-mono">#{q.id}</span>
+                  <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
                   <span className="text-indigo-400 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
                 </Link>
               ))}
@@ -706,11 +706,11 @@ export default function DailyPage() {
 
       {/* PAST DAYS — most recent first; default 7 rows, expand for full history */}
       {displayPast > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-5">
           <div className="flex items-start justify-between gap-2 mb-3">
             <div>
-              <h2 className="font-bold text-gray-700 text-sm">Past Days</h2>
-              <p className="text-[11px] text-gray-400 mt-0.5">
+              <h2 className="font-bold text-[var(--text)] text-sm">Past Days</h2>
+              <p className="text-[11px] text-[var(--text-subtle)] mt-0.5">
                 {pastDaysShowAll
                   ? `All ${pastDayCount} completed day${pastDayCount !== 1 ? 's' : ''}`
                   : `Last ${Math.min(PAST_DAYS_INITIAL, pastDayCount)} of ${pastDayCount} · newest first`}
@@ -725,35 +725,35 @@ export default function DailyPage() {
               const doneCnt = questionIds.filter(id => isSolved(id)).length
               const expanded = expandedDays[dayIdx]
               return (
-                <div key={dayIdx} className="border border-gray-100 rounded-xl overflow-hidden">
+                <div key={dayIdx} className="border border-[var(--border)] rounded-xl overflow-hidden">
                   <button
                     onClick={() => setExpandedDays(p => ({ ...p, [dayIdx]: !p[dayIdx] }))}
-                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-[var(--bg-muted)] transition-colors"
                   >
-                    <span className="text-sm font-semibold text-gray-700">Day {dayIdx + 1}</span>
+                    <span className="text-sm font-semibold text-[var(--text)]">Day {dayIdx + 1}</span>
                     <div className="flex items-center gap-2">
                       <span className={`text-xs font-bold ${doneCnt === dayQs.length ? 'text-green-600' : doneCnt > 0 ? 'text-yellow-600' : 'text-red-500'}`}>
                         {doneCnt}/{dayQs.length}
                       </span>
-                      {expanded ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+                      {expanded ? <ChevronUp size={14} className="text-[var(--text-subtle)]" /> : <ChevronDown size={14} className="text-[var(--text-subtle)]" />}
                     </div>
                   </button>
                   {expanded && (
-                    <div className="px-4 pb-3 space-y-1.5 border-t border-gray-50">
+                    <div className="px-4 pb-3 space-y-1.5 border-t border-[var(--border-soft)]">
                       {dayQs.map(q => (
                         <div key={q.id} className="flex items-center gap-2 text-sm py-1">
                           {isSolved(q.id)
-                            ? <CheckCircle2 size={14} className="text-green-500 shrink-0" />
-                            : <Circle size={14} className="text-gray-300 shrink-0" />
+                            ? <CheckCircle2 size={14} className="text-green-400 shrink-0" />
+                            : <Circle size={14} className="text-[var(--text-subtle)] shrink-0" />
                           }
-                          <Link href={`/practice/${q.id}`} className="text-gray-700 hover:text-indigo-600 truncate flex-1 min-w-0">
+                          <Link href={`/practice/${q.id}`} className="text-[var(--text)] hover:text-indigo-500 truncate flex-1 min-w-0">
                             {q.title}
                           </Link>
                           <a
                             href={`https://leetcode.com/problems/${q.slug}/`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="shrink-0 text-gray-300 hover:text-orange-400 transition-colors"
+                            className="shrink-0 text-[var(--text-subtle)] hover:text-orange-400 transition-colors"
                             title="Open on LeetCode"
                           >
                             <ExternalLink size={11} />
@@ -771,7 +771,7 @@ export default function DailyPage() {
             <button
               type="button"
               onClick={() => setPastDaysShowAll(v => !v)}
-              className="mt-4 w-full py-2.5 text-sm font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-xl hover:bg-indigo-100 transition-colors"
+              className="mt-4 w-full py-2.5 text-sm font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-500/30 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
             >
               {pastDaysShowAll
                 ? 'Show less (last 7 days)'
