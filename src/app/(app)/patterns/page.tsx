@@ -248,7 +248,7 @@ function PatternFlashcards({
                 <span className="hidden sm:inline text-xs text-indigo-400">← Flip back</span>
               </div>
             </div>
-            <div className="p-3" onClick={e => e.stopPropagation()}>
+            <div className="p-3">
               <CodePanel pythonCode={card.python_solution} cppCode={card.cpp_solution} />
             </div>
           </div>

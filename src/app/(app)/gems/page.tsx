@@ -207,7 +207,7 @@ export default function GemsPage() {
                     <span className="hidden sm:inline text-xs text-indigo-400 font-medium">← Flip back</span>
                   </div>
                 </div>
-                <div className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                <div className="px-5 py-4">
                   <pre className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed font-sans break-words">
                     {card.body}
                   </pre>

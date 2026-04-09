@@ -286,7 +286,7 @@ function FlashcardsInner() {
                   </div>
                 </div>
 
-                <div className="p-4" onClick={e => e.stopPropagation()}>
+                <div className="p-4">
                   <CodePanel pythonCode={q.python_solution} cppCode={q.cpp_solution} />
                 </div>
               </div>
