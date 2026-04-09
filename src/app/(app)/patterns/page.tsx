@@ -76,7 +76,6 @@ function ImageIfExists({ id, title }: { id: number; title: string }) {
           <QuestionImage
             questionId={id}
             alt={title}
-            imgClassName="h-48"
           />
         </div>
       )}

@@ -640,7 +640,6 @@ export default function SpeedsterPage() {
                       <QuestionImage
                         questionId={currentQ.id}
                         alt={currentQ.title}
-                        imgClassName="h-52 sm:h-72"
                       />
                     </div>
                   </div>
@@ -910,7 +909,6 @@ export default function SpeedsterPage() {
                       <QuestionImage
                         questionId={currentQ.id}
                         alt={currentQ.title}
-                        imgClassName="h-52 sm:h-72"
                       />
                     </div>
                   </div>

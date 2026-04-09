@@ -176,7 +176,6 @@ export default function QuestionPage() {
             <QuestionImage
               questionId={question.id}
               alt={question.title}
-              imgClassName="h-56 sm:h-80 md:h-96"
               onError={() => setImageError(true)}
             />
           </div>

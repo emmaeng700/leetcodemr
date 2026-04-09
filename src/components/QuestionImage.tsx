@@ -20,7 +20,8 @@ export default function QuestionImage({
   return (
     <div
       className={[
-        'rounded-xl overflow-hidden border border-[var(--border)] bg-slate-100 dark:bg-slate-900',
+        // Avoid clipping screenshot edges (question text often touches borders).
+        'rounded-xl border border-[var(--border)] bg-slate-100 dark:bg-slate-900 p-2',
         className,
       ].join(' ')}
     >
@@ -29,7 +30,8 @@ export default function QuestionImage({
         alt={alt}
         loading="lazy"
         className={[
-          'w-full h-56 sm:h-72 md:h-80 object-contain object-center block',
+          // Let the image size itself naturally, but cap height so it stays neat on all devices.
+          'w-full h-auto max-h-[52vh] sm:max-h-[28rem] md:max-h-[34rem] object-contain object-center block rounded-lg',
           imgClassName,
         ].join(' ')}
         onError={() => {

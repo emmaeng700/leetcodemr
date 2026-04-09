@@ -316,7 +316,6 @@ export default function QuickReviewPage() {
                 <QuestionImage
                   questionId={q.id}
                   alt={q.title}
-                  imgClassName="h-64 sm:h-80"
                 />
               ) : (
                 <div onClick={e => e.stopPropagation()}>

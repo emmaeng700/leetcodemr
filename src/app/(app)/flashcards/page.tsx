@@ -264,7 +264,6 @@ function FlashcardsInner() {
                     questionId={q.id}
                     alt={q.title}
                     className="bg-slate-100 dark:bg-slate-900"
-                    imgClassName="h-56 sm:h-72"
                   />
                 </div>
               </div>
