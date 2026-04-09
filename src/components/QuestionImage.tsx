@@ -39,7 +39,8 @@ export default function QuestionImage({
       <div
         className={[
           // Avoid clipping screenshot edges (question text often touches borders).
-          'rounded-xl border border-[var(--border)] bg-slate-100 dark:bg-slate-900 p-2',
+          // Use a scrollable frame so tall screenshots can still fill width.
+          'rounded-xl border border-[var(--border)] bg-slate-100 dark:bg-slate-900 p-2 max-h-[70vh] sm:max-h-[32rem] md:max-h-[36rem] overflow-y-auto',
           className,
         ].join(' ')}
       >
@@ -48,13 +49,12 @@ export default function QuestionImage({
           alt={alt}
           loading="lazy"
           className={[
-            // Let the image size itself naturally, but cap height so it stays neat on all devices.
-            // Bigger cap on phones so tall screenshots remain readable.
-            'w-full h-auto max-h-[68vh] sm:max-h-[28rem] md:max-h-[34rem] object-contain object-center block rounded-lg',
+            // Fill available width; let height grow naturally inside scroll frame.
+            'w-full h-auto block rounded-lg',
             zoomable ? 'cursor-zoom-in' : '',
             imgClassName,
           ].join(' ')}
-          onClick={zoomable ? () => setOpen(true) : undefined}
+          onPointerDown={zoomable ? (e) => { e.preventDefault(); e.stopPropagation(); setOpen(true) } : undefined}
           onError={() => {
             setHidden(true)
             onError?.()
