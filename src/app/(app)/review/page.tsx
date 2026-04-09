@@ -6,7 +6,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { getMasteryRunsByQuestion, getProgress, getDueReviews, completeReview } from '@/lib/db'
 import { isDue, formatLocalDate } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
-import { Brain, CheckCircle, Clock, CalendarCheck, Flame, Trophy, TrendingUp } from 'lucide-react'
+import { Brain, CheckCircle, Clock, CalendarCheck, Flame, Trophy, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface Question {
   id: number
@@ -21,17 +21,121 @@ function daysUntil(nextReview: string) {
   const today = new Date(); today.setHours(0, 0, 0, 0)
   return Math.round((rev.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 }
+
 const STATUS_STYLE: Record<string, string> = {
-  mastered: 'bg-green-100 text-green-700 border-green-300',
-  revised:  'bg-orange-100 text-orange-700 border-orange-300',
-  reviewed: 'bg-yellow-100 text-yellow-700 border-yellow-300',
-  learnt:   'bg-blue-100 text-blue-700 border-blue-300',
+  mastered: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400 border-green-300 dark:border-green-500/40',
+  revised:  'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-500/40',
+  reviewed: 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-500/40',
+  learnt:   'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-500/40',
 }
-const STATUS_COUNTS_COLORS: Record<string, { bg: string; text: string; label: string }> = {
-  learnt:   { bg: 'bg-blue-50 border-blue-200',    text: 'text-blue-600',   label: 'Hard for me' },
-  reviewed: { bg: 'bg-yellow-50 border-yellow-200', text: 'text-yellow-600', label: 'Getting there' },
-  revised:  { bg: 'bg-orange-50 border-orange-200', text: 'text-orange-600', label: 'Easy for me' },
-  mastered: { bg: 'bg-green-50 border-green-200',   text: 'text-green-600',  label: 'Mastered' },
+
+const STATUS_META: Record<string, { bg: string; text: string; label: string; emoji: string }> = {
+  learnt:   { bg: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-500/30',    text: 'text-blue-600 dark:text-blue-400',   label: 'Hard for me', emoji: '📘' },
+  reviewed: { bg: 'bg-yellow-50 dark:bg-yellow-950/40 border-yellow-200 dark:border-yellow-500/30', text: 'text-yellow-600 dark:text-yellow-400', label: 'Getting there', emoji: '📙' },
+  revised:  { bg: 'bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-500/30', text: 'text-orange-600 dark:text-orange-400', label: 'Easy for me', emoji: '📒' },
+  mastered: { bg: 'bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-500/30',   text: 'text-green-600 dark:text-green-400',  label: 'Mastered', emoji: '📗' },
+}
+
+const PAGE_SIZE = 5
+
+// Paginated card list for a status bucket
+function StatusBucket({
+  status,
+  questions,
+  runs,
+  onNavigate,
+}: {
+  status: string
+  questions: any[]
+  runs: Record<string, number>
+  onNavigate: (id: number) => void
+}) {
+  const [page, setPage] = useState(0)
+  const meta = STATUS_META[status]
+  const totalPages = Math.ceil(questions.length / PAGE_SIZE)
+  const slice = questions.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+
+  if (!questions.length) return null
+
+  return (
+    <div className="mb-6">
+      {/* Bucket header */}
+      <div className="flex items-center justify-between mb-3">
+        <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[var(--text-subtle)]">
+          <span>{meta.emoji}</span>
+          <span>{meta.label}</span>
+          <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${meta.bg} ${meta.text}`}>
+            {questions.length}
+          </span>
+        </p>
+        {totalPages > 1 && (
+          <span className="text-xs text-[var(--text-subtle)]">
+            {page + 1} / {totalPages}
+          </span>
+        )}
+      </div>
+
+      {/* Cards */}
+      <div className="space-y-2">
+        {slice.map(q => (
+          <div
+            key={q.id}
+            onClick={() => onNavigate(q.id)}
+            className="flex items-center justify-between gap-2 flex-wrap bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-4 py-3 cursor-pointer hover:border-indigo-400/60 hover:shadow-md hover:shadow-[var(--accent-glow)] transition-all group"
+          >
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
+              <span className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-500 transition-colors">{q.title}</span>
+              <DifficultyBadge difficulty={q.difficulty} />
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${STATUS_STYLE[status]}`}>
+                {meta.label}
+              </span>
+              <span className="text-xs text-[var(--text-subtle)] hidden sm:inline">
+                Runs {runs[String(q.id)] ?? 0}/4
+              </span>
+              {q.p.solved && q.p.next_review && (
+                <span className="text-xs text-[var(--text-subtle)] hidden sm:inline">
+                  {isDue(q.p.next_review) ? '🔴 Due' : `📅 ${formatLocalDate(q.p.next_review)}`}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Prev / Next */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-3">
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--bg-muted)] border border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-400/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft size={13} /> Prev
+          </button>
+          {/* dot indicators */}
+          <div className="flex gap-1">
+            {Array.from({ length: totalPages }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setPage(i)}
+                className={`rounded-full transition-all ${i === page ? 'w-4 h-2 bg-indigo-500' : 'w-2 h-2 bg-[var(--bg-muted)] hover:bg-[var(--text-subtle)]'}`}
+              />
+            ))}
+          </div>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={page === totalPages - 1}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--bg-muted)] border border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-400/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            Next <ChevronRight size={13} />
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function ReviewPage() {
@@ -74,7 +178,9 @@ export default function ReviewPage() {
     setCompleting(null)
   }
 
-  if (loading) return <div className="text-center py-32 text-gray-400 animate-pulse text-sm">Loading...</div>
+  if (loading) return (
+    <div className="text-center py-32 text-[var(--text-subtle)] animate-pulse text-sm">Loading…</div>
+  )
 
   const withProgress = allQ.map(q => ({ ...q, p: progress[String(q.id)] || {} }))
   const inSR = withProgress.filter(q => q.p.solved && q.p.next_review)
@@ -85,14 +191,11 @@ export default function ReviewPage() {
   const masteryBucket = (n: number) =>
     n >= 4 ? 'mastered' : n >= 3 ? 'revised' : n >= 2 ? 'reviewed' : 'learnt'
 
-  const statusCounts = Object.keys(STATUS_COUNTS_COLORS).reduce((acc: Record<string, number>, k) => {
-    acc[k] = 0
-    return acc
+  const statusCounts = Object.keys(STATUS_META).reduce((acc: Record<string, number>, k) => {
+    acc[k] = 0; return acc
   }, {})
-
   for (const q of withProgress) {
-    const n = runs[String(q.id)] ?? 0
-    const b = masteryBucket(n)
+    const b = masteryBucket(runs[String(q.id)] ?? 0)
     statusCounts[b] = (statusCounts[b] || 0) + 1
   }
 
@@ -100,8 +203,8 @@ export default function ReviewPage() {
   upcoming.forEach(q => {
     const days = daysUntil(q.p.next_review)
     const label =
-      days === 1 ? 'Tomorrow'
-      : days <= 7 ? `In ${days} days`
+      days <= 1  ? 'Tomorrow'
+      : days <= 7  ? `In ${days} days`
       : days <= 14 ? 'Next week'
       : days <= 30 ? 'This month'
       : 'Later'
@@ -110,64 +213,65 @@ export default function ReviewPage() {
   })
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-3xl mx-auto px-4 py-8">
       {!online && <OfflineBanner feature="Reviews (Supabase)" />}
-      <h1 className="text-2xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+
+      <h1 className="text-2xl font-bold text-[var(--text)] mb-1 flex items-center gap-2">
         <Brain className="text-indigo-500" /> Spaced Repetition
       </h1>
-      <p className="text-sm text-gray-400 mb-7">
-        Track your review schedule. SR starts automatically when you mark a question <strong>Solved</strong>.
+      <p className="text-sm text-[var(--text-subtle)] mb-7">
+        SR starts automatically when you mark a question <strong className="text-[var(--text-muted)]">Solved</strong>.
       </p>
 
       {/* Status counts */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-        {Object.entries(STATUS_COUNTS_COLORS).map(([key, style]) => (
-          <div key={key} className={`rounded-xl border p-4 text-center ${style.bg}`}>
-            <div className={`text-3xl font-black ${style.text}`}>{statusCounts[key] || 0}</div>
-            <div className="text-xs text-gray-500 mt-1 font-medium">{style.label}</div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        {Object.entries(STATUS_META).map(([key, meta]) => (
+          <div key={key} className={`rounded-xl border p-4 text-center ${meta.bg}`}>
+            <div className={`text-3xl font-black ${meta.text}`}>{statusCounts[key] || 0}</div>
+            <div className="text-xs text-[var(--text-subtle)] mt-1 font-medium">{meta.label}</div>
           </div>
         ))}
       </div>
 
       {/* SR stats */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-8">
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-7">
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 text-center">
           <Flame size={20} className="text-orange-400 mx-auto mb-1" />
           <div className="text-2xl font-black text-orange-500">{due.length}</div>
-          <div className="text-xs text-gray-500 mt-0.5 font-medium">Due Today</div>
+          <div className="text-xs text-[var(--text-subtle)] mt-0.5 font-medium">Due Today</div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 text-center">
           <Clock size={20} className="text-indigo-400 mx-auto mb-1" />
           <div className="text-2xl font-black text-indigo-500">{upcoming.length}</div>
-          <div className="text-xs text-gray-500 mt-0.5 font-medium">Scheduled</div>
+          <div className="text-xs text-[var(--text-subtle)] mt-0.5 font-medium">Scheduled</div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 text-center">
           <Trophy size={20} className="text-green-400 mx-auto mb-1" />
           <div className="text-2xl font-black text-green-500">{inSR.length}</div>
-          <div className="text-xs text-gray-500 mt-0.5 font-medium">In SR (Solved)</div>
+          <div className="text-xs text-[var(--text-subtle)] mt-0.5 font-medium">In SR</div>
         </div>
       </div>
 
       {/* Due now */}
       {due.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-            <Flame size={15} className="text-orange-500" /> Due for Review Now
-            <span className="ml-1 px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full text-xs">{due.length}</span>
+        <section className="mb-7">
+          <h2 className="text-sm font-bold text-[var(--text)] mb-3 flex items-center gap-2">
+            <Flame size={15} className="text-orange-500" /> Due for Review
+            <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-full text-xs border border-orange-200 dark:border-orange-500/30">{due.length}</span>
           </h2>
           <div className="space-y-2">
             {due.map(q => (
               <div
                 key={q.id}
                 onClick={() => router.push(`/practice/${q.id}`)}
-                className="flex items-center justify-between gap-2 flex-wrap bg-indigo-50 border border-indigo-200 rounded-xl px-3 sm:px-4 py-3 cursor-pointer hover:border-indigo-400 hover:shadow-sm transition-all group"
+                className="flex items-center justify-between gap-2 flex-wrap bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-xl px-4 py-3 cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all group"
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
-                  <span className="font-semibold text-gray-800 text-sm truncate group-hover:text-indigo-700">{q.title}</span>
+                  <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
+                  <span className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{q.title}</span>
                   <DifficultyBadge difficulty={q.difficulty} />
                   {q.p.status && (
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border hidden sm:inline ${STATUS_STYLE[q.p.status]}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border hidden sm:inline ${STATUS_STYLE[q.p.status] || ''}`}>
                       {q.p.status.charAt(0).toUpperCase() + q.p.status.slice(1)}
                     </span>
                   )}
@@ -177,7 +281,7 @@ export default function ReviewPage() {
                   <button
                     onClick={e => handleCompleteReview(q.id, e)}
                     disabled={completing === q.id}
-                    className="flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                   >
                     <CalendarCheck size={12} />
                     {completing === q.id ? 'Saving…' : 'Done'}
@@ -190,42 +294,42 @@ export default function ReviewPage() {
       )}
 
       {due.length === 0 && inSR.length > 0 && (
-        <div className="mb-8 bg-green-50 border border-green-200 rounded-xl px-5 py-4 flex items-center gap-3">
+        <div className="mb-7 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-500/30 rounded-xl px-5 py-4 flex items-center gap-3">
           <CheckCircle size={18} className="text-green-500 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-green-700">All caught up! 🎉</p>
-            <p className="text-xs text-green-600">No reviews due. Check back for your next scheduled review.</p>
+            <p className="text-sm font-semibold text-green-700 dark:text-green-400">All caught up! 🎉</p>
+            <p className="text-xs text-green-600 dark:text-green-500">No reviews due. Check back for your next scheduled review.</p>
           </div>
         </div>
       )}
 
       {/* Upcoming */}
       {Object.keys(upcomingBuckets).length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+        <section className="mb-7">
+          <h2 className="text-sm font-bold text-[var(--text)] mb-3 flex items-center gap-2">
             <Clock size={15} className="text-indigo-500" /> Upcoming Reviews
           </h2>
           <div className="space-y-4">
             {Object.entries(upcomingBuckets).map(([bucket, questions]) => (
               <div key={bucket}>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{bucket}</p>
+                <p className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-widest mb-2">{bucket}</p>
                 <div className="space-y-1.5">
                   {questions.map(q => (
                     <div
                       key={q.id}
                       onClick={() => router.push(`/practice/${q.id}`)}
-                      className="flex items-center justify-between gap-2 flex-wrap bg-white border border-gray-100 rounded-xl px-3 sm:px-4 py-2.5 cursor-pointer hover:border-indigo-300 hover:shadow-sm transition-all group"
+                      className="flex items-center justify-between gap-2 flex-wrap bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-4 py-2.5 cursor-pointer hover:border-indigo-400/60 hover:shadow-sm transition-all group"
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
-                        <span className="font-semibold text-gray-700 text-sm truncate group-hover:text-indigo-600">{q.title}</span>
+                        <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
+                        <span className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-500">{q.title}</span>
                         <DifficultyBadge difficulty={q.difficulty} />
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs text-gray-400 hidden sm:inline">
+                        <span className="text-xs text-[var(--text-subtle)] hidden sm:inline">
                           📅 {formatLocalDate(q.p.next_review)}
                         </span>
-                        <span className="text-xs text-indigo-400 hidden sm:inline">
+                        <span className="text-xs text-indigo-500 hidden sm:inline">
                           Review #{(q.p.review_count || 0) + 1}
                         </span>
                       </div>
@@ -238,49 +342,21 @@ export default function ReviewPage() {
         </section>
       )}
 
-      {/* All by status */}
+      {/* All by status — paginated */}
       <section>
-        <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-          <TrendingUp size={15} className="text-gray-500" /> All Questions by Status
+        <h2 className="text-sm font-bold text-[var(--text)] mb-4 flex items-center gap-2">
+          <TrendingUp size={15} className="text-[var(--text-muted)]" /> All Questions by Status
         </h2>
-        {['mastered', 'revised', 'reviewed', 'learnt'].map(st => {
+        {(['mastered', 'revised', 'reviewed', 'learnt'] as const).map(st => {
           const qs = withProgress.filter(q => masteryBucket(runs[String(q.id)] ?? 0) === st)
-          if (!qs.length) return null
-          const style = STATUS_COUNTS_COLORS[st]
           return (
-            <div key={st} className="mb-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
-                {style.label} — {qs.length} question{qs.length > 1 ? 's' : ''}
-              </p>
-              <div className="space-y-1.5">
-                {qs.map(q => (
-                  <div
-                    key={q.id}
-                    onClick={() => router.push(`/practice/${q.id}`)}
-                    className="flex items-center justify-between gap-2 flex-wrap bg-white border border-gray-100 rounded-xl px-3 sm:px-4 py-2.5 cursor-pointer hover:border-indigo-300 hover:shadow-sm transition-all group"
-                  >
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
-                      <span className="font-semibold text-gray-700 text-sm truncate group-hover:text-indigo-600">{q.title}</span>
-                      <DifficultyBadge difficulty={q.difficulty} />
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${STATUS_STYLE[st]}`}>
-                        {style.label}
-                      </span>
-                      <span className="text-xs text-gray-400 hidden sm:inline">
-                        Runs {runs[String(q.id)] ?? 0}/4
-                      </span>
-                      {q.p.solved && q.p.next_review && (
-                        <span className="text-xs text-gray-400 hidden sm:inline">
-                          {isDue(q.p.next_review) ? '🔴 Due now' : `📅 ${formatLocalDate(q.p.next_review)}`}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <StatusBucket
+              key={st}
+              status={st}
+              questions={qs}
+              runs={runs}
+              onNavigate={id => router.push(`/practice/${id}`)}
+            />
           )
         })}
       </section>
