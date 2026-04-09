@@ -34,12 +34,28 @@ function normalizeLang(raw: string): string {
 }
 
 function detectLangFromCode(code: string): string {
-  if (/\bvector\b|\bstd::\b|\bint main\b/.test(code)) return 'cpp'
-  if (/^\s*class Solution\s*\{/.test(code)) return 'cpp'
-  if (/^\s*class Solution\s*:/.test(code) || /\bdef\s+\w+\(self/.test(code)) return 'python'
+  // Java — check FIRST: shares "class Solution {" syntax with C++
+  if (/\bimport\s+java\./.test(code)) return 'java'
+  if (/\b(?:ArrayList|HashMap|HashSet|LinkedList|TreeMap|ArrayDeque|PriorityQueue)\b/.test(code)) return 'java'
+  if (/\bpublic\s+(?:int|long|boolean|void|String|List|Map|char|double|float|Integer|Long)\b/.test(code)) return 'java'
   if (/\bpublic\s+class\s+Solution\b/.test(code)) return 'java'
-  if (/\bfunc\s+\w+\(/.test(code) && /\[?\]/.test(code)) return 'go'
-  if (/\bconst\s+\w+\s*=\s*function\b|\blet\s+\w+\b/.test(code)) return 'javascript'
+
+  // C++
+  if (/#include\s*[<"]/.test(code)) return 'cpp'
+  if (/\bvector\s*<|\bunordered_map\s*<|\bunordered_set\s*<|\bstd::/.test(code)) return 'cpp'
+  if (/\bint\s+main\s*\(/.test(code)) return 'cpp'
+
+  // Python
+  if (/class\s+Solution\s*:/.test(code)) return 'python'
+  if (/\bdef\s+\w+\s*\([^)]*self/.test(code)) return 'python'
+  if (/^\s*from\s+\w+\s+import\b/m.test(code)) return 'python'
+
+  // Go
+  if (/^package\s+\w+/m.test(code) || /\bfunc\s+\w+\(/.test(code)) return 'go'
+
+  // C++ fallback: class Solution { without public keyword
+  if (/class\s+Solution\s*\{/.test(code) && !/\bpublic\b/.test(code)) return 'cpp'
+
   return 'text'
 }
 
@@ -56,28 +72,12 @@ function cleanCode(raw: string): string {
 }
 
 /**
- * WalkCC + LeetDoocs both use MkDocs Material theme with:
- *   <label>C++</label> ... <label>Python</label>
- *   <td class="code"><div><pre><code>...actual code...</code></pre></div></td>
- *   <td class="linenos"><pre>1\n2\n3...</pre></td>  ← we SKIP this
- *
- * Strategy: extract all language labels in order, extract all td.code blocks
- * in order, then zip them together.
+ * WalkCC + LeetDoocs: extract from <td class="code"> only (skips <td class="linenos">).
+ * Language detection is content-based — label matching is unreliable because all tab
+ * labels appear before all code blocks in the HTML (MkDocs Material theme structure).
  */
 function extractHighlightTableBlocks(html: string): Array<{ code: string; lang: string }> {
-  // 1. Collect language labels in page order
-  const labels: Array<{ idx: number; text: string }> = []
-  const labelRe = /<label[^>]*>([^<]+)<\/label>/gi
-  let lm: RegExpExecArray | null
-  while ((lm = labelRe.exec(html)) !== null) {
-    const text = lm[1].trim()
-    if (/python|c\+\+|java|go|rust|javascript|typescript|ruby|swift|kotlin|scala/i.test(text)) {
-      labels.push({ idx: lm.index, text })
-    }
-  }
-
-  // 2. Collect code from <td class="code"> only (skips linenos td)
-  const codeBlocks: Array<{ idx: number; code: string }> = []
+  const blocks: Array<{ code: string; lang: string }> = []
   const tdRe = /<td[^>]+class="[^"]*\bcode\b[^"]*"[^>]*>/gi
   let tm: RegExpExecArray | null
   while ((tm = tdRe.exec(html)) !== null) {
@@ -85,16 +85,9 @@ function extractHighlightTableBlocks(html: string): Array<{ code: string; lang: 
     const codeM = slice.match(/<code[^>]*>([\s\S]*?)<\/code>/)
     if (!codeM) continue
     const code = cleanCode(codeM[1])
-    if (code.length > 80) codeBlocks.push({ idx: tm.index, code })
+    if (code.length > 80) blocks.push({ code, lang: detectLangFromCode(code) })
   }
-
-  // 3. Match each code block with its nearest preceding label
-  return codeBlocks.map(block => {
-    const preceding = labels.filter(l => l.idx < block.idx)
-    const label = preceding.length ? preceding[preceding.length - 1].text : ''
-    const lang = label ? normalizeLang(label) : detectLangFromCode(block.code)
-    return { code: block.code, lang }
-  })
+  return blocks
 }
 
 /**
