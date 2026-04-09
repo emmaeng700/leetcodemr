@@ -126,7 +126,7 @@ function FlashcardsInner() {
     return () => window.removeEventListener('keydown', handler)
   }, [go, handleFlip])
 
-  if (loading) return <div className="text-center py-32 text-gray-400 animate-pulse text-sm">Loading flashcards...</div>
+  if (loading) return <div className="text-center py-32 text-slate-500 animate-pulse text-sm">Loading flashcards...</div>
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -134,32 +134,32 @@ function FlashcardsInner() {
       <div className="mb-6">
         <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
               <Layers className="text-indigo-500" /> Flashcards
             </h1>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               Tap card to flip · ← → to navigate · Space to flip
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-500">
-          <span className="bg-indigo-50 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-full">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-400">
+          <span className="bg-indigo-900/40 text-indigo-400 border border-indigo-500/30 px-3 py-1.5 rounded-full">
             {deck.length === 0 ? '0 / 0' : `${idx + 1} / ${deck.length}`}
           </span>
-          <span className="bg-green-50 text-green-600 border border-green-200 px-3 py-1.5 rounded-full flex items-center gap-1">
+          <span className="bg-green-900/40 text-green-400 border border-green-500/30 px-3 py-1.5 rounded-full flex items-center gap-1">
             <CheckCircle size={11} /> {visited.size} visited
           </span>
           <button
             onClick={() => setIsShuffled(s => !s)}
             className={`flex items-center gap-1 px-3 py-1.5 rounded-full border transition-colors ${
-              isShuffled ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'
+              isShuffled ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-700/70 text-slate-300 border-white/10 hover:border-indigo-400'
             }`}
           >
             <Shuffle size={12} /> Shuffle
           </button>
           <button
             onClick={reset}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full border bg-white text-gray-500 border-gray-200 hover:border-gray-400 transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full border bg-slate-700/70 text-slate-300 border-white/10 hover:border-white/30 transition-colors"
           >
             <RotateCcw size={12} /> Reset
           </button>
@@ -173,16 +173,16 @@ function FlashcardsInner() {
           {DIFFICULTY_LEVELS.map(d => (
             <button key={d} onClick={() => setFilterDiff(d)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
-                filterDiff === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'
+                filterDiff === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-700/70 text-slate-300 border-white/10 hover:border-indigo-400'
               }`}>
               {d}
             </button>
           ))}
-          <span className="w-px bg-gray-200 shrink-0" />
+          <span className="w-px bg-white/10 shrink-0" />
           {QUESTION_SOURCES.map(s => (
             <button key={s.value} onClick={() => setFilterSource(s.value)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
-                filterSource === s.value ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'
+                filterSource === s.value ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-700/70 text-slate-300 border-white/10 hover:border-indigo-400'
               }`}>
               {s.label}
             </button>
@@ -193,14 +193,14 @@ function FlashcardsInner() {
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setFilterPattern(null)}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
-              !filterPattern ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'
+              !filterPattern ? 'bg-cyan-700 text-white border-cyan-500' : 'bg-slate-700/60 text-slate-300 border-white/10 hover:border-cyan-500/50'
             }`}>
             All Patterns
           </button>
           {QUICK_PATTERNS.map(p => (
             <button key={p.name} onClick={() => setFilterPattern(filterPattern === p.name ? null : p.name)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
-                filterPattern === p.name ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'
+                filterPattern === p.name ? 'bg-cyan-700 text-white border-cyan-500' : 'bg-slate-700/60 text-slate-300 border-white/10 hover:border-cyan-500/50'
               }`}>
               {p.name}
             </button>
@@ -209,7 +209,7 @@ function FlashcardsInner() {
       </div>
 
       {deck.length === 0 && (
-        <div className="text-center py-20 text-gray-400 text-sm">No questions match this filter.</div>
+        <div className="text-center py-20 text-slate-500 text-sm">No questions match this filter.</div>
       )}
 
       {q && (
@@ -222,13 +222,13 @@ function FlashcardsInner() {
           >
             {!flipped ? (
               /* FRONT */
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-gray-100">
+              <div className="bg-slate-800 rounded-2xl border border-white/10 shadow-xl shadow-black/20 overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-white/10">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-gray-400 font-mono">#{q.id}</span>
+                    <span className="text-xs text-slate-500 font-mono">#{q.id}</span>
                     <DifficultyBadge difficulty={q.difficulty} />
                     {(q.source || []).map(s => (
-                      <span key={s} className="text-xs bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100">{s}</span>
+                      <span key={s} className="text-xs bg-indigo-900/40 text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-500/20">{s}</span>
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
@@ -240,20 +240,20 @@ function FlashcardsInner() {
                         setVisited(next)
                       }}
                       className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors ${
-                        visited.has(q.id) ? 'bg-green-50 text-green-600 border-green-300' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-green-300 hover:text-green-500'
+                        visited.has(q.id) ? 'bg-green-900/50 text-green-400 border-green-500/40' : 'bg-slate-700/60 text-slate-400 border-white/10 hover:border-green-500/50 hover:text-green-400'
                       }`}
                     >
                       {visited.has(q.id) ? <><CheckCircle size={11} /> Visited</> : <><Circle size={11} /> Mark visited</>}
                     </button>
-                    <span className="hidden sm:inline text-xs text-gray-300 font-medium">Tap to reveal →</span>
+                    <span className="hidden sm:inline text-xs text-slate-500 font-medium">Tap to reveal →</span>
                   </div>
                 </div>
 
                 <div className="px-5 py-3">
-                  <h2 className="text-lg font-bold text-gray-800">{q.title}</h2>
+                  <h2 className="text-lg font-bold text-slate-100">{q.title}</h2>
                   <div className="flex flex-wrap gap-1 mt-1.5">
                     {(q.tags || []).map(tag => (
-                      <span key={tag} className="text-xs bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full">{tag}</span>
+                      <span key={tag} className="text-xs bg-slate-700/60 text-slate-400 px-2 py-0.5 rounded-full">{tag}</span>
                     ))}
                   </div>
                 </div>
@@ -270,10 +270,10 @@ function FlashcardsInner() {
               </div>
             ) : (
               /* BACK */
-              <div className="bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-indigo-100 bg-indigo-50">
+              <div className="bg-slate-800 rounded-2xl border border-indigo-500/40 shadow-xl shadow-indigo-900/20 overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-indigo-500/20 bg-indigo-900/30">
                   <div className="flex flex-wrap items-center gap-2 min-w-0">
-                    <span className="text-xs text-gray-400 font-mono">#{q.id}</span>
+                    <span className="text-xs text-slate-500 font-mono">#{q.id}</span>
                     <DifficultyBadge difficulty={q.difficulty} />
                     <span className="text-sm font-bold text-indigo-700 truncate">{q.title}</span>
                   </div>
@@ -299,7 +299,7 @@ function FlashcardsInner() {
             <button
               onClick={() => go(-1)}
               disabled={idx === 0}
-              className="flex items-center gap-1 px-3 sm:px-5 py-2.5 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1 px-3 sm:px-5 py-2.5 rounded-xl bg-slate-700/70 border border-white/10 text-sm font-semibold text-slate-300 hover:border-indigo-500/50 hover:text-indigo-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronLeft size={16} /> Prev
             </button>
@@ -312,12 +312,12 @@ function FlashcardsInner() {
                     key={i}
                     onClick={() => { setIdx(i); setFlipped(false) }}
                     className={`rounded-full transition-all ${
-                      i === idx ? 'w-4 h-4 bg-indigo-500' : 'w-3 h-3 bg-gray-200 hover:bg-gray-400'
+                      i === idx ? 'w-4 h-4 bg-indigo-500' : 'w-3 h-3 bg-slate-600 hover:bg-slate-400'
                     }`}
                   />
                 ))
               ) : (
-                <span className="text-xs text-gray-400 font-mono">{idx + 1} / {deck.length}</span>
+                <span className="text-xs text-slate-500 font-mono">{idx + 1} / {deck.length}</span>
               )}
             </div>
 
@@ -337,7 +337,7 @@ function FlashcardsInner() {
 
 export default function FlashcardsPage() {
   return (
-    <Suspense fallback={<div className="text-center py-32 text-gray-400 animate-pulse text-sm">Loading flashcards...</div>}>
+    <Suspense fallback={<div className="text-center py-32 text-slate-500 animate-pulse text-sm">Loading flashcards...</div>}>
       <FlashcardsInner />
     </Suspense>
   )

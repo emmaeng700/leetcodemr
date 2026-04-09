@@ -64,11 +64,11 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+    <nav className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-white/10 shadow-[0_1px_16px_rgba(0,0,0,0.5)]">
       <div className="max-w-7xl mx-auto px-4">
         {/* Top row: logo + logout/hamburger */}
         <div className="flex items-center justify-between h-14">
-          <Link href="/" className="flex items-center gap-2 font-black text-indigo-600 text-lg shrink-0">
+          <Link href="/" className="flex items-center gap-2 font-black text-indigo-400 text-lg shrink-0 tracking-tight">
             <BookOpen size={22} />
             <span>LeetMastery</span>
           </Link>
@@ -76,7 +76,7 @@ export default function Navbar() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleLogout}
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:text-red-400 hover:bg-red-900/30 rounded-lg transition-colors"
             >
               <LogOut size={15} />
               <span>Logout</span>
@@ -94,7 +94,7 @@ export default function Navbar() {
         <div className="hidden md:flex flex-wrap items-center gap-1 pb-2">
           {[STUDY_LINKS, DRILL_LINKS, FLASHCARD_LINKS, TOPIC_LINKS, META_LINKS].map((group, gi) => (
             <React.Fragment key={gi}>
-              {gi > 0 && <span className="w-px h-4 bg-gray-200 mx-1 shrink-0" />}
+              {gi > 0 && <span className="w-px h-4 bg-white/15 mx-1 shrink-0" />}
               {group.map(({ href, label, also }: { href: string; label: string; icon: React.ElementType; also?: string[] }) => {
                 const base = href === '/' ? '/' : '/' + href.split('/')[1]
                 const active = (href === '/' ? pathname === '/' : pathname.startsWith(base))
@@ -104,7 +104,7 @@ export default function Navbar() {
                     key={href}
                     href={href}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                      active ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                      active ? 'bg-indigo-600 text-white shadow-[0_0_0_1px_rgba(99,102,241,0.4)]' : 'text-slate-400 hover:text-slate-100 hover:bg-white/8'
                     }`}
                   >
                     {label}
@@ -125,7 +125,7 @@ export default function Navbar() {
             className="md:hidden fixed inset-0 z-40 bg-black/25"
             onClick={() => setOpen(false)}
           />
-          <div className="md:hidden absolute top-full left-0 right-0 z-50 border-t border-gray-100 bg-white shadow-xl px-4 py-3 space-y-1 max-h-[min(85dvh,32rem)] overflow-y-auto overscroll-contain pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="md:hidden absolute top-full left-0 right-0 z-50 border-t border-white/10 bg-slate-900 shadow-2xl px-4 py-3 space-y-1 max-h-[min(85dvh,32rem)] overflow-y-auto overscroll-contain pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {[
             { label: 'Study',      group: STUDY_LINKS },
             { label: 'Drill',      group: DRILL_LINKS },
@@ -135,7 +135,7 @@ export default function Navbar() {
           ].map(({ label, group }, gi) => (
             <React.Fragment key={gi}>
               {gi > 0 && <div className="h-px bg-gray-100 my-2" />}
-              <p className="px-3 pt-1 pb-0.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
+              <p className="px-3 pt-1 pb-0.5 text-xs font-semibold text-slate-500 uppercase tracking-widest">{label}</p>
               {group.map(({ href, label: lnk, icon: Icon, also }: { href: string; label: string; icon: React.ElementType; also?: string[] }) => {
                 const base = href === '/' ? '/' : '/' + href.split('/')[1]
                 const active = (href === '/' ? pathname === '/' : pathname.startsWith(base))
@@ -146,7 +146,7 @@ export default function Navbar() {
                     href={href}
                     onClick={() => setOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      active ? 'bg-indigo-100 text-indigo-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'
+                      active ? 'bg-indigo-900/60 text-indigo-300 font-semibold' : 'text-slate-300 hover:bg-white/8'
                     }`}
                   >
                     <Icon size={16} />
@@ -156,10 +156,10 @@ export default function Navbar() {
               })}
             </React.Fragment>
           ))}
-          <div className="h-px bg-gray-100 my-2" />
+          <div className="h-px bg-white/10 my-2" />
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 w-full transition-colors"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-900/30 w-full transition-colors"
           >
             <LogOut size={16} />
             Logout

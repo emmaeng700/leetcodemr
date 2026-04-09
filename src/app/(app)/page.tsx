@@ -136,19 +136,19 @@ function StreakCard({
   const message = getStreakMessage(streak)
 
   return (
-    <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-4 mb-3 shadow-sm">
+    <div className="bg-gradient-to-br from-orange-950/70 to-amber-950/50 border border-orange-500/30 rounded-xl p-4 mb-3 shadow-lg shadow-orange-900/20">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <div className="flex items-center gap-2 mb-0.5">
-            <Flame size={18} className="text-orange-500" />
-            <span className="text-2xl font-black text-orange-500">{streak}</span>
-            <span className="text-sm font-bold text-orange-400">{streak === 1 ? 'day' : 'days'}</span>
+            <Flame size={18} className="text-orange-400" />
+            <span className="text-2xl font-black text-orange-400">{streak}</span>
+            <span className="text-sm font-bold text-orange-500">{streak === 1 ? 'day' : 'days'}</span>
           </div>
-          <p className="text-xs text-orange-700 font-medium leading-snug max-w-[200px]">{message}</p>
+          <p className="text-xs text-orange-300/80 font-medium leading-snug max-w-[200px]">{message}</p>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-xs font-bold text-gray-500 mb-0.5">This week</p>
-          <p className="text-lg font-black text-gray-700">{weekActive}<span className="text-xs font-semibold text-gray-400"> / 7</span></p>
+          <p className="text-xs font-bold text-slate-400 mb-0.5">This week</p>
+          <p className="text-lg font-black text-slate-200">{weekActive}<span className="text-xs font-semibold text-slate-500"> / 7</span></p>
         </div>
       </div>
       {/* Week day dots */}
@@ -156,12 +156,12 @@ function StreakCard({
         {weekDays.map((d, i) => (
           <div key={i} className="flex flex-col items-center gap-1 flex-1">
             <div className={`w-full aspect-square rounded-full max-w-[28px] transition-colors ${
-              d.active   ? 'bg-orange-400 shadow-sm' :
-              d.isToday  ? 'bg-orange-100 border-2 border-orange-300' :
-              d.isFuture ? 'bg-gray-100' :
-                           'bg-gray-200'
+              d.active   ? 'bg-orange-400 shadow-sm shadow-orange-500/40' :
+              d.isToday  ? 'bg-orange-900/50 border-2 border-orange-500/60' :
+              d.isFuture ? 'bg-slate-700/50' :
+                           'bg-slate-700'
             }`} />
-            <span className={`text-[10px] font-semibold ${d.isToday ? 'text-orange-500' : 'text-gray-400'}`}>{d.label}</span>
+            <span className={`text-[10px] font-semibold ${d.isToday ? 'text-orange-400' : 'text-slate-600'}`}>{d.label}</span>
           </div>
         ))}
       </div>
@@ -179,15 +179,15 @@ function WeakestPatternWidget({ questions, progress }: { questions: Question[]; 
   const weakest = [...patternStats].sort((a, b) => a.pct - b.pct)[0]
   if (!weakest) return null
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5 flex items-center justify-between gap-3 flex-wrap">
+    <div className="bg-amber-950/40 border border-amber-500/30 rounded-xl px-4 py-3 mb-5 flex items-center justify-between gap-3 flex-wrap">
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-lg">🎯</span>
         <div className="min-w-0">
-          <p className="text-xs font-bold text-amber-800">Weakest Pattern</p>
-          <p className="text-sm font-semibold text-amber-900 truncate">{weakest.name} — {weakest.solved}/{weakest.total} solved ({weakest.pct}%)</p>
+          <p className="text-xs font-bold text-amber-400">Weakest Pattern</p>
+          <p className="text-sm font-semibold text-amber-200 truncate">{weakest.name} — {weakest.solved}/{weakest.total} solved ({weakest.pct}%)</p>
         </div>
       </div>
-      <Link href="/patterns" className="text-xs font-semibold text-amber-700 bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-full hover:bg-amber-200 transition-colors shrink-0 whitespace-nowrap">
+      <Link href="/patterns" className="text-xs font-semibold text-amber-300 bg-amber-900/50 border border-amber-500/40 px-3 py-1.5 rounded-full hover:bg-amber-900/70 transition-colors shrink-0 whitespace-nowrap">
         Practice now →
       </Link>
     </div>
@@ -268,63 +268,63 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   }
   const daysLeft = date ? Math.ceil((new Date(date + 'T12:00:00').getTime() - Date.now()) / 86400000) : null
   const diffColor: Record<string, string> = {
-    Easy: 'bg-green-100 text-green-700 border-green-200',
-    Medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    Hard: 'bg-red-100 text-red-700 border-red-200',
+    Easy: 'bg-green-900/60 text-green-400 border-green-500/30',
+    Medium: 'bg-yellow-900/60 text-yellow-400 border-yellow-500/30',
+    Hard: 'bg-red-900/60 text-red-400 border-red-500/30',
   }
   if (!loaded) return null
   return (
     <>
       <StreakCard streak={streakDisplay} log={activityLog} goalsMetToday={goalsMetToday} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+      <div className="bg-slate-800 rounded-xl border border-white/10 shadow-lg p-4">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-bold text-gray-500 flex items-center gap-1"><Target size={13} /> Interview Countdown</span>
+          <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><Target size={13} /> Interview Countdown</span>
         </div>
         {editing ? (
           <div className="flex gap-2 items-center flex-wrap">
             <input type="date" defaultValue={date} min={todayISO()}
-              className="text-sm text-gray-900 border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              className="text-sm text-slate-100 bg-slate-700 border border-white/20 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               onKeyDown={e => { if (e.key === 'Enter') handleDateSave((e.target as HTMLInputElement).value) }}
               onBlur={e => { if (e.target.value) handleDateSave(e.target.value); else setEditing(false) }}
               autoFocus />
-            <button onClick={() => setEditing(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
-            {date && <button onClick={handleDateClear} className="text-xs text-red-400 hover:text-red-600">Remove</button>}
+            <button onClick={() => setEditing(false)} className="text-xs text-slate-500 hover:text-slate-300">Cancel</button>
+            {date && <button onClick={handleDateClear} className="text-xs text-red-400 hover:text-red-300">Remove</button>}
           </div>
         ) : date ? (
           <div>
-            <div className={`text-3xl font-black mb-0.5 ${daysLeft !== null && daysLeft <= 7 ? 'text-red-500' : daysLeft !== null && daysLeft <= 14 ? 'text-orange-500' : 'text-indigo-600'}`}>
+            <div className={`text-3xl font-black mb-0.5 ${daysLeft !== null && daysLeft <= 7 ? 'text-red-400' : daysLeft !== null && daysLeft <= 14 ? 'text-orange-400' : 'text-indigo-400'}`}>
               {daysLeft !== null && daysLeft <= 0 ? 'Today!' : daysLeft + 'd'}
             </div>
-            <p className="text-xs text-gray-400">{daysLeft !== null && daysLeft <= 0 ? 'Interview day!' : 'until your interview'}</p>
+            <p className="text-xs text-slate-500">{daysLeft !== null && daysLeft <= 0 ? 'Interview day!' : 'until your interview'}</p>
             <div className="flex items-center gap-3 mt-1">
-              <button onClick={() => setEditing(true)} className="text-xs text-indigo-500 hover:underline">Change date</button>
-              <span className="text-gray-200">·</span>
-              <button onClick={handleDateClear} className="text-xs text-red-400 hover:text-red-600 hover:underline">Remove</button>
+              <button onClick={() => setEditing(true)} className="text-xs text-indigo-400 hover:underline">Change date</button>
+              <span className="text-slate-700">·</span>
+              <button onClick={handleDateClear} className="text-xs text-red-400 hover:text-red-300 hover:underline">Remove</button>
             </div>
           </div>
         ) : (
           <div>
-            <p className="text-xs text-gray-400 mb-2">Set your interview date to track countdown</p>
-            <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-full hover:bg-indigo-100 transition-colors">
+            <p className="text-xs text-slate-500 mb-2">Set your interview date to track countdown</p>
+            <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs font-semibold text-indigo-400 bg-indigo-900/40 border border-indigo-500/30 px-3 py-1.5 rounded-full hover:bg-indigo-900/60 transition-colors">
               <Calendar size={12} /> Set date
             </button>
           </div>
         )}
       </div>
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-        <div className="text-xs font-bold text-gray-500 mb-3 flex items-center gap-1">⭐ Today's Question</div>
+      <div className="bg-slate-800 rounded-xl border border-white/10 shadow-lg p-4">
+        <div className="text-xs font-bold text-slate-400 mb-3 flex items-center gap-1">⭐ Today's Question</div>
         {dailyQ ? (
           <div>
             <div className="flex items-start gap-2 mb-2">
-              <span className={'text-xs font-bold px-2 py-0.5 rounded-full border shrink-0 mt-0.5 ' + (diffColor[dailyQ.difficulty] || 'bg-gray-100 text-gray-600 border-gray-200')}>{dailyQ.difficulty}</span>
-              <span className="text-sm font-semibold text-gray-800 leading-snug">{dailyQ.title}</span>
+              <span className={'text-xs font-bold px-2 py-0.5 rounded-full border shrink-0 mt-0.5 ' + (diffColor[dailyQ.difficulty] || 'bg-slate-700 text-slate-400 border-white/10')}>{dailyQ.difficulty}</span>
+              <span className="text-sm font-semibold text-slate-200 leading-snug">{dailyQ.title}</span>
             </div>
-            <button onClick={() => router.push('/practice/' + dailyQ.id)} className="flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
+            <button onClick={() => router.push('/practice/' + dailyQ.id)} className="flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">
               Solve now <ChevronRight size={13} />
             </button>
           </div>
-        ) : <p className="text-xs text-gray-400">Loading…</p>}
+        ) : <p className="text-xs text-slate-500">Loading…</p>}
       </div>
     </div>
     </>
@@ -345,11 +345,11 @@ function DueReviewBanner() {
     return diff + ' days overdue'
   }
   return (
-    <div className="bg-indigo-50 border border-indigo-200 rounded-xl mb-5 overflow-hidden">
-      <button onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-100 transition-colors">
+    <div className="bg-indigo-950/50 border border-indigo-500/30 rounded-xl mb-5 overflow-hidden">
+      <button onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-900/30 transition-colors">
         <div className="flex items-center gap-2">
-          <Brain size={16} className="text-indigo-600" />
-          <span className="text-sm font-bold text-indigo-700">🧠 Spaced Repetition — {due.length} question{due.length > 1 ? 's' : ''} due for review</span>
+          <Brain size={16} className="text-indigo-400" />
+          <span className="text-sm font-bold text-indigo-300">🧠 Spaced Repetition — {due.length} question{due.length > 1 ? 's' : ''} due for review</span>
         </div>
         {open ? <ChevronUp size={15} className="text-indigo-400" /> : <ChevronDown size={15} className="text-indigo-400" />}
       </button>
@@ -357,8 +357,8 @@ function DueReviewBanner() {
         <div className="px-4 pb-3 flex flex-wrap gap-2">
           {due.map(q => (
             <button key={q.id} onClick={() => router.push('/practice/' + q.id)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs hover:border-indigo-400 hover:shadow-sm transition-all text-left">
-              <span className="text-gray-400 font-mono">#{q.id}</span>
+              className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border border-indigo-500/30 rounded-lg text-xs hover:border-indigo-400/60 hover:shadow-sm transition-all text-left">
+              <span className="text-slate-500 font-mono">#{q.id}</span>
               <span className="text-indigo-400 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
             </button>
           ))}
@@ -478,51 +478,51 @@ function HomeInner() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      <div className="flex items-center gap-4 mb-5 bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-3">
+      <div className="flex items-center gap-4 mb-5 bg-slate-800 rounded-xl border border-white/10 shadow-lg px-5 py-3">
         <div className="flex items-center gap-2">
-          <CheckCircle size={16} className="text-green-500" />
-          <span className="text-sm font-bold text-gray-700">{solved} / {questions.length} solved</span>
+          <CheckCircle size={16} className="text-green-400" />
+          <span className="text-sm font-bold text-slate-200">{solved} / {questions.length} solved</span>
         </div>
-        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
           <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
             style={{ width: (questions.length ? Math.round((solved / questions.length) * 100) : 0) + '%' }} />
         </div>
-        <span className="text-sm font-semibold text-indigo-600">{questions.length ? Math.round((solved / questions.length) * 100) : 0}%</span>
+        <span className="text-sm font-semibold text-indigo-400">{questions.length ? Math.round((solved / questions.length) * 100) : 0}%</span>
       </div>
 
       {!loading && <InterviewCountdownWidget questions={questions} progress={progress} />}
       <DueReviewBanner />
       {!loading && <WeakestPatternWidget questions={questions} progress={progress} />}
 
-      <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6 shadow-sm">
+      <div className="bg-slate-800/80 rounded-xl border border-white/10 p-4 mb-6 shadow-lg">
         <div className="flex flex-wrap gap-1">
           {DIFFICULTIES.map(d => (
             <button key={d} onClick={() => setDifficulty(d)}
-              className={'px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (difficulty === d ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200')}>{d}</button>
+              className={'px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (difficulty === d ? 'bg-indigo-600 text-white shadow-[0_0_10px_rgba(99,102,241,0.3)]' : 'bg-slate-700/70 text-slate-300 hover:bg-slate-600/80 border border-white/8')}>{d}</button>
           ))}
-          <span className="w-px bg-gray-200 mx-0.5 shrink-0" />
+          <span className="w-px bg-white/10 mx-0.5 shrink-0" />
           {SOURCES.map(s => (
             <button key={s} onClick={() => setSource(s)}
-              className={'px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (source === s ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200')}>{s}</button>
+              className={'px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (source === s ? 'bg-purple-600 text-white shadow-[0_0_10px_rgba(147,51,234,0.3)]' : 'bg-slate-700/70 text-slate-300 hover:bg-slate-600/80 border border-white/8')}>{s}</button>
           ))}
-          <span className="w-px bg-gray-200 mx-0.5 shrink-0" />
+          <span className="w-px bg-white/10 mx-0.5 shrink-0" />
           <button onClick={() => setShowStarred(v => !v)}
-            className={'flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (showStarred ? 'bg-yellow-400 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200')}>
+            className={'flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (showStarred ? 'bg-yellow-500 text-white shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-slate-700/70 text-slate-300 hover:bg-slate-600/80 border border-white/8')}>
             <Star size={12} /> Starred
           </button>
           <button onClick={() => setShowSolved(v => v === null ? false : v === false ? true : null)}
-            className={'flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (showSolved === false ? 'bg-orange-400 text-white' : showSolved === true ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200')}>
+            className={'flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (showSolved === false ? 'bg-orange-500 text-white' : showSolved === true ? 'bg-green-600 text-white' : 'bg-slate-700/70 text-slate-300 hover:bg-slate-600/80 border border-white/8')}>
             <CheckCircle2 size={12} />
             {showSolved === false ? 'Unsolved' : showSolved === true ? 'Solved' : 'All'}
           </button>
         </div>
 
         {/* Pattern / category filter row */}
-        <div className="flex flex-wrap gap-1 pt-2 border-t border-gray-50 mt-2">
-          <span className="text-xs text-gray-400 self-center shrink-0 mr-1">Pattern:</span>
+        <div className="flex flex-wrap gap-1 pt-2 border-t border-white/5 mt-2">
+          <span className="text-xs text-slate-500 self-center shrink-0 mr-1">Pattern:</span>
           {activePattern && (
             <button onClick={() => setActivePattern(null)}
-              className="px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors">
+              className="px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 bg-slate-600/80 text-slate-300 hover:bg-slate-500/80 transition-colors border border-white/10">
               ✕ Clear
             </button>
           )}
@@ -534,17 +534,17 @@ function HomeInner() {
                 onClick={() => setActivePattern(active ? null : pat.name)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 border ${
                   active
-                    ? 'bg-cyan-600 text-white border-cyan-600'
-                    : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-400 hover:text-cyan-600'
+                    ? 'bg-cyan-700 text-white border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.25)]'
+                    : 'bg-slate-700/60 text-slate-300 border-white/10 hover:border-cyan-500/50 hover:text-cyan-300'
                 }`}>
-                {pat.name} <span className="opacity-60">·{count}</span>
+                {pat.name} <span className="opacity-50">·{count}</span>
               </button>
             )
           })}
         </div>
 
         <div className="flex items-center justify-between mt-2">
-          <span className="text-xs text-gray-400">{filtered.length} questions{activePattern ? ` · ${activePattern}` : ''}</span>
+          <span className="text-xs text-slate-500">{filtered.length} questions{activePattern ? ` · ${activePattern}` : ''}</span>
           {(activePattern || difficulty !== 'All' || source !== 'All' || showStarred || showSolved !== null || search) && (
             <button
               onClick={() => {
@@ -553,25 +553,25 @@ function HomeInner() {
                 window.history.replaceState(null, '', p.toString() ? `/?${p.toString()}` : '/')
                 setActivePattern(null); setDifficulty('All'); setSource('All'); setShowStarred(false); setShowSolved(null)
               }}
-              className="text-xs text-gray-400 hover:text-red-500 transition-colors">
+              className="text-xs text-slate-500 hover:text-red-400 transition-colors">
               Clear all filters
             </button>
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
-          <span className="text-xs text-gray-400 self-center">Study {filtered.length} as:</span>
-          <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePatternTags)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 transition-colors">
+        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/10">
+          <span className="text-xs text-slate-500 self-center">Study {filtered.length} as:</span>
+          <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePatternTags)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-900/40 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-900/60 transition-colors">
             <Layers size={12} /> Flashcards
           </Link>
-          <Link href={`/learn/0?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePatternTags)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors">
+          <Link href={`/learn/0?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePatternTags)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-900/40 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-900/60 transition-colors">
             <BookOpen size={12} /> Learn mode
           </Link>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-gray-400 text-sm animate-pulse">Loading questions...</div>
+        <div className="text-center py-20 text-slate-500 text-sm animate-pulse">Loading questions...</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map(q => {
@@ -584,33 +584,33 @@ function HomeInner() {
               return rev <= today
             }
             const STATUS_STYLES: Record<string, string> = {
-              learnt: 'bg-blue-100 text-blue-600',
-              reviewed: 'bg-yellow-100 text-yellow-600',
-              revised: 'bg-orange-100 text-orange-600',
-              mastered: 'bg-green-100 text-green-600',
+              learnt: 'bg-blue-900/50 text-blue-400',
+              reviewed: 'bg-yellow-900/50 text-yellow-400',
+              revised: 'bg-orange-900/50 text-orange-400',
+              mastered: 'bg-green-900/50 text-green-400',
             }
             return (
-              <Link key={q.id} href={'/practice/' + q.id} className={'group block rounded-xl border p-4 transition-all duration-150 hover:shadow-md hover:border-indigo-300 ' + (p.solved ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100')}>
+              <Link key={q.id} href={'/practice/' + q.id} className={'group block rounded-xl border p-4 transition-all duration-150 hover:shadow-xl hover:shadow-indigo-900/20 hover:border-indigo-500/50 ' + (p.solved ? 'bg-green-950/40 border-green-500/30' : 'bg-slate-800 border-white/8')}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
-                    <h3 className="font-semibold text-gray-800 text-sm truncate group-hover:text-indigo-600 transition-colors">{q.title}</h3>
+                    <span className="text-xs text-slate-500 font-mono shrink-0">#{q.id}</span>
+                    <h3 className="font-semibold text-slate-100 text-sm truncate group-hover:text-indigo-400 transition-colors">{q.title}</h3>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {p.starred && <Star size={14} className="text-yellow-400 fill-yellow-400" />}
-                    {p.solved && <CheckCircle size={14} className="text-green-500" />}
+                    {p.solved && <CheckCircle size={14} className="text-green-400" />}
                     {p.status === 'mastered' && isDue(p.next_review) && (
-                      <Brain size={14} className="text-indigo-500" />
+                      <Brain size={14} className="text-indigo-400" />
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
                   <DifficultyBadge difficulty={q.difficulty} />
                   {(q.tags || []).slice(0, 3).map(tag => (
-                    <span key={tag} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{tag}</span>
+                    <span key={tag} className="text-xs bg-slate-700/60 text-slate-400 px-2 py-0.5 rounded-full">{tag}</span>
                   ))}
-                  {q.python_solution && <span className="text-xs bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full">Py ✓</span>}
-                  {q.cpp_solution && <span className="text-xs bg-purple-50 text-purple-500 px-2 py-0.5 rounded-full">C++ ✓</span>}
+                  {q.python_solution && <span className="text-xs bg-blue-900/40 text-blue-400 px-2 py-0.5 rounded-full">Py ✓</span>}
+                  {q.cpp_solution && <span className="text-xs bg-purple-900/40 text-purple-400 px-2 py-0.5 rounded-full">C++ ✓</span>}
                 </div>
                 {p.status && (
                   <div className="flex items-center gap-2 mt-2">
@@ -618,16 +618,16 @@ function HomeInner() {
                       {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
                     </span>
                     {p.status === 'mastered' && p.next_review && !isDue(p.next_review) && (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-slate-500">
                         📅 Review {(() => { const [y,mo,d] = (p.next_review as string).split('-').map(Number); return new Date(y,mo-1,d).toLocaleDateString(undefined,{month:'short',day:'numeric'}) })()}
                       </span>
                     )}
                     {p.status === 'mastered' && isDue(p.next_review) && (
-                      <span className="text-xs text-indigo-600 font-semibold">🧠 Review due!</span>
+                      <span className="text-xs text-indigo-400 font-semibold">🧠 Review due!</span>
                     )}
                   </div>
                 )}
-                {p.notes && <p className="text-xs text-gray-400 mt-2 italic truncate">📝 {p.notes}</p>}
+                {p.notes && <p className="text-xs text-slate-500 mt-2 italic truncate">📝 {p.notes}</p>}
               </Link>
             )
           })}
@@ -644,3 +644,4 @@ export default function HomePage() {
     </Suspense>
   )
 }
+
