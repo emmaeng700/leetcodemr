@@ -259,7 +259,7 @@ function FlashcardsInner() {
                   </div>
                 </div>
 
-                <div className="mx-4 mb-4" onClick={e => e.stopPropagation()}>
+                <div className="mx-4 mb-4">
                   <QuestionImage
                     questionId={q.id}
                     alt={q.title}
