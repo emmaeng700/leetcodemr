@@ -265,7 +265,7 @@ export default function AnswersPage() {
                     )}
                     {s.status === 'done' && s.blocks.length === 0 && (
                       <div className="flex flex-col items-center gap-2 py-10 text-center">
-                        <p className="text-xs text-gray-500">No Python solution found</p>
+                        <p className="text-xs text-gray-500">No Python / C++ solution found</p>
                         {s.url && (
                           <a href={s.url} target="_blank" rel="noopener noreferrer"
                             className="text-xs text-indigo-400 hover:underline">Open on site →</a>
