@@ -1,24 +1,49 @@
 @import "tailwindcss";
 
+/* Enable class-based dark mode for Tailwind v4 */
+@variant dark (&:where(.dark, .dark *));
+
+/* ── Color tokens ────────────────────────────────── */
 :root {
-  --background: #0f172a;
-  --foreground: #f1f5f9;
+  /* Light mode */
+  --bg:          #f8fafc;   /* slate-50  */
+  --bg-card:     #ffffff;
+  --bg-input:    #f1f5f9;   /* slate-100 */
+  --bg-muted:    #e2e8f0;   /* slate-200 */
+  --border:      rgba(0,0,0,0.09);
+  --border-soft: rgba(0,0,0,0.05);
+  --text:        #0f172a;   /* slate-900 */
+  --text-muted:  #475569;   /* slate-600 */
+  --text-subtle: #94a3b8;   /* slate-400 */
+  --shadow:      0 1px 16px rgba(0,0,0,0.10);
+}
+
+.dark {
+  --bg:          #0f172a;   /* slate-900 */
+  --bg-card:     #1e293b;   /* slate-800 */
+  --bg-input:    #1e293b;   /* slate-800 */
+  --bg-muted:    #334155;   /* slate-700 */
+  --border:      rgba(255,255,255,0.10);
+  --border-soft: rgba(255,255,255,0.05);
+  --text:        #f1f5f9;   /* slate-200 */
+  --text-muted:  #94a3b8;   /* slate-400 */
+  --text-subtle: #64748b;   /* slate-500 */
+  --shadow:      0 1px 16px rgba(0,0,0,0.50);
 }
 
 html {
-  /* Prevent iOS Safari rubber-band snap-back to top */
   overscroll-behavior: none;
-  /* Preserve scroll position across re-renders */
   scroll-behavior: auto;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg);
+  color: var(--text);
   font-family: 'Inter', system-ui, sans-serif;
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background 0.2s, color 0.2s;
 }
 
 /* Hide scrollbar on overflow-x-auto filter rows */
@@ -30,8 +55,7 @@ body {
   display: none;
 }
 
-/* Practice editor — responsive font sizes matching solution viewer.
-   maximum-scale=1 in viewport prevents auto-zoom so small fonts are safe. */
+/* Practice editor — responsive font sizes */
 .practice-cm-wrap .cm-content,
 .practice-cm-wrap .cm-line {
   font-size: 8px;
@@ -39,24 +63,18 @@ body {
 }
 @media (min-width: 640px) {
   .practice-cm-wrap .cm-content,
-  .practice-cm-wrap .cm-line {
-    font-size: 10px;
-  }
+  .practice-cm-wrap .cm-line { font-size: 10px; }
 }
 @media (min-width: 768px) {
   .practice-cm-wrap .cm-content,
-  .practice-cm-wrap .cm-line {
-    font-size: 12px;
-  }
+  .practice-cm-wrap .cm-line { font-size: 12px; }
 }
 @media (min-width: 1024px) {
   .practice-cm-wrap .cm-content,
-  .practice-cm-wrap .cm-line {
-    font-size: 13px;
-  }
+  .practice-cm-wrap .cm-line { font-size: 13px; }
 }
 
-/* Prevent iOS auto-zoom — font-size must be ≥16px */
+/* Prevent iOS auto-zoom */
 input[type="text"],
 input[type="password"],
 input[type="email"],
@@ -68,10 +86,7 @@ select {
   font-size: 16px !important;
 }
 
-/* Fix iOS Safari blurry / faint typed text.
-   Safari uses -webkit-text-fill-color (not color) for the actual glyph colour.
-   Without this, user-typed text can appear grey/washed-out even when color is set.
-   opacity:1 prevents Safari dimming disabled-looking fields. */
+/* Fix iOS Safari blurry typed text */
 input,
 textarea,
 select {

@@ -29,8 +29,8 @@ function PremiumBlock({ slug }: { slug?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
       <div className="text-4xl mb-3">🔒</div>
-      <h3 className="font-bold text-slate-100 text-base mb-1">LeetCode Premium Question</h3>
-      <p className="text-sm text-slate-400 mb-4 leading-relaxed max-w-xs">
+      <h3 className="font-bold text-[var(--text)] text-base mb-1">LeetCode Premium Question</h3>
+      <p className="text-sm text-[var(--text-muted)] mb-4 leading-relaxed max-w-xs">
         This question requires a LeetCode Premium subscription to view the description.
         Your subscription may have lapsed or you may not have one active.
       </p>
@@ -44,7 +44,7 @@ function PremiumBlock({ slug }: { slug?: string }) {
           Open on LeetCode ↗
         </a>
       )}
-      <p className="text-xs text-gray-400 mt-3">You can still use the code editor on the right to practice.</p>
+      <p className="text-xs text-[var(--text-subtle)] mt-3">You can still use the code editor on the right to practice.</p>
     </div>
   )
 }
@@ -188,28 +188,28 @@ export default function PracticePage() {
     <div className="flex flex-col h-[calc(100dvh-56px)]">
 
       {/* Top bar */}
-      <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 border-b border-white/10 bg-slate-900 shrink-0 gap-2 sm:gap-3">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 gap-2 sm:gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <button onClick={() => router.back()} className="text-slate-400 hover:text-slate-200 transition-colors shrink-0">
+          <button onClick={() => router.back()} className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors shrink-0">
             <ArrowLeft size={18} />
           </button>
           {question ? (
             <>
-              <span className="text-xs text-gray-400 font-mono shrink-0 hidden sm:inline">#{question.id}</span>
-              <h1 className="font-bold text-slate-100 text-sm leading-snug truncate">{question.title}</h1>
+              <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0 hidden sm:inline">#{question.id}</span>
+              <h1 className="font-bold text-[var(--text)] text-sm leading-snug truncate">{question.title}</h1>
               <div className="shrink-0 hidden sm:block"><DifficultyBadge difficulty={question.difficulty} /></div>
               <a
                 href={`https://leetcode.com/problems/${question.slug}/`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 text-gray-300 hover:text-orange-400 transition-colors hidden sm:inline"
+                className="shrink-0 text-[var(--text-muted)] hover:text-orange-400 transition-colors hidden sm:inline"
                 title="Open on LeetCode"
               >
                 <ExternalLink size={12} />
               </a>
             </>
           ) : (
-            <div className="h-4 w-32 sm:w-48 bg-slate-700 rounded animate-pulse" />
+            <div className="h-4 w-32 sm:w-48 bg-[var(--bg-muted)] rounded animate-pulse" />
           )}
         </div>
 
@@ -228,10 +228,10 @@ export default function PracticePage() {
                   key={qid}
                   type="button"
                   onClick={() => { router.push(`/practice/${qid}`); setShowList(false) }}
-                  className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-indigo-900/30 border-b border-white/5 ${qid === id ? 'bg-indigo-900/40' : ''}`}
+                  className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-indigo-600/10 border-b border-[var(--border-soft)] ${qid === id ? 'bg-indigo-600/15' : ''}`}
                 >
-                  <span className="shrink-0 tabular-nums text-xs font-mono text-slate-500">#{lq.id}</span>
-                  <span className="min-w-0 flex-1 truncate text-slate-300">{lq.title}</span>
+                  <span className="shrink-0 tabular-nums text-xs font-mono text-[var(--text-subtle)]">#{lq.id}</span>
+                  <span className="min-w-0 flex-1 truncate text-[var(--text)]">{lq.title}</span>
                   <span
                     className={`text-xs font-semibold shrink-0 ${lq.difficulty === 'Easy' ? 'text-green-600' : lq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}
                   >
@@ -243,12 +243,12 @@ export default function PracticePage() {
             return (
               <div className="flex items-center gap-1">
                 <button onClick={() => prevId && router.push(`/practice/${prevId}`)} disabled={!prevId}
-                  className="p-1.5 rounded-lg border border-white/10 text-slate-400 hover:border-indigo-500/50 hover:text-indigo-300 disabled:opacity-30 transition-colors bg-slate-700/60">
+                  className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-500/50 hover:text-indigo-300 disabled:opacity-30 transition-colors bg-[var(--bg-muted)]">
                   <ArrowLeft size={13} />
                 </button>
                 <div ref={listWrapRef} className="relative z-10">
                   <button type="button" onClick={() => setShowList(v => !v)}
-                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-white/10 text-xs font-semibold text-slate-300 hover:border-indigo-500/50 transition-colors bg-slate-700/60">
+                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-[var(--border)] text-xs font-semibold text-[var(--text-muted)] hover:border-indigo-500/50 transition-colors bg-[var(--bg-muted)]">
                     <List size={12} />
                     <span className="font-mono">{currentIdx + 1}/{planOrder.length}</span>
                   </button>
@@ -260,13 +260,13 @@ export default function PracticePage() {
                   )}
                 </div>
                 <button onClick={() => nextId && router.push(`/practice/${nextId}`)} disabled={!nextId}
-                  className="p-1.5 rounded-lg border border-white/10 text-slate-400 hover:border-indigo-500/50 hover:text-indigo-300 disabled:opacity-30 transition-colors bg-slate-700/60">
+                  className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-500/50 hover:text-indigo-300 disabled:opacity-30 transition-colors bg-[var(--bg-muted)]">
                   <ArrowLeft size={13} className="rotate-180" />
                 </button>
               </div>
             )
           })()}
-          <div className="hidden sm:flex items-center gap-1.5 bg-slate-700/80 border border-white/10 px-3 py-1.5 rounded-lg text-sm font-mono font-semibold text-slate-300">
+          <div className="hidden sm:flex items-center gap-1.5 bg-[var(--bg-muted)] border border-[var(--border)] px-3 py-1.5 rounded-lg text-sm font-mono font-semibold text-[var(--text-muted)]">
             <Clock size={13} />
             {formatTime(timer)}
           </div>
@@ -276,7 +276,7 @@ export default function PracticePage() {
             className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-colors border disabled:opacity-40 ${
               solved
                 ? 'bg-green-50 text-green-600 border-green-200'
-                : 'bg-slate-700/60 text-slate-400 border-white/10 hover:border-green-500/50 hover:text-green-400'
+                : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)] hover:border-green-500/50 hover:text-green-400'
             }`}
           >
             <CheckCircle size={13} className={solved ? 'fill-green-500 text-white' : ''} />
@@ -287,13 +287,13 @@ export default function PracticePage() {
       </div>
 
       {/* Mobile panel tabs */}
-      <div className="flex md:hidden border-b border-white/10 bg-slate-900 shrink-0">
+      <div className="flex md:hidden border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
         <button onClick={() => setMobilePanel('description')}
-          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400'}`}>
+          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)]'}`}>
           📖 Description
         </button>
         <button onClick={() => setMobilePanel('editor')}
-          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'editor' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400'}`}>
+          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'editor' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)]'}`}>
           💻 Editor
         </button>
       </div>
@@ -302,21 +302,21 @@ export default function PracticePage() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* LEFT — Question description */}
-        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-white/10 bg-slate-900 overflow-hidden text-slate-100`}>
+        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-[var(--border)] bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
           {/* Tab bar */}
-          <div className="flex border-b border-white/10 bg-slate-900/80 shrink-0 items-center">
+          <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)]/80 shrink-0 items-center">
             <button
               onClick={() => setLeftTab('description')}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
                 leftTab === 'description'
                   ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-300'
+                  : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
               }`}
             >
               <BookOpen size={12} /> Description
               {/* Subtle live fetch indicator */}
               {lcLoading && (
-                <Loader2 size={10} className="animate-spin text-gray-300 ml-1" />
+                <Loader2 size={10} className="animate-spin text-[var(--text-muted)] ml-1" />
               )}
             </button>
             {question && (question.python_solution || question.cpp_solution) && (
@@ -325,7 +325,7 @@ export default function PracticePage() {
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
                   leftTab === 'solution'
                     ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-300'
+                    : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
                 }`}
               >
                 <Code2 size={12} /> Solution
@@ -337,7 +337,7 @@ export default function PracticePage() {
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
                   leftTab === 'accepted'
                     ? 'border-green-500 text-green-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-300'
+                    : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
                 }`}
               >
                 <Trophy size={12} /> My Solutions
@@ -353,31 +353,31 @@ export default function PracticePage() {
                 {question && (question.tags || []).length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-4">
                     {question.tags.map(t => (
-                      <span key={t} className="text-xs bg-slate-700/60 text-slate-400 px-2 py-0.5 rounded-full">{t}</span>
+                      <span key={t} className="text-xs bg-[var(--bg-muted)] text-[var(--text-subtle)] px-2 py-0.5 rounded-full">{t}</span>
                     ))}
                   </div>
                 )}
 
                 {/* Live LeetCode HTML content */}
                 {lcContent ? (
-                  <div className="prose prose-sm max-w-none text-slate-200 lc-description prose-invert"
+                  <div className="prose prose-sm max-w-none text-[var(--text)] lc-description prose-invert dark:prose-invert"
                     dangerouslySetInnerHTML={{ __html: lcContent }} />
                 ) : isPremium ? (
                   <PremiumBlock slug={question?.slug} />
                 ) : lcLoading ? (
                   <div className="space-y-3 animate-pulse">
+                    <div className="h-3 bg-[var(--bg-muted)] rounded w-full" />
+                    <div className="h-3 bg-[var(--bg-muted)] rounded w-5/6" />
+                    <div className="h-3 bg-[var(--bg-muted)] rounded w-4/6" />
+                    <div className="h-10 bg-[var(--bg-muted)] rounded w-full mt-4" />
                     <div className="h-3 bg-slate-700 rounded w-full" />
-                    <div className="h-3 bg-slate-700 rounded w-5/6" />
-                    <div className="h-3 bg-slate-700 rounded w-4/6" />
-                    <div className="h-10 bg-slate-700 rounded w-full mt-4" />
-                    <div className="h-3 bg-slate-700 rounded w-full" />
-                    <div className="h-3 bg-slate-700 rounded w-3/4" />
+                    <div className="h-3 bg-[var(--bg-muted)] rounded w-3/4" />
                     <div className="h-3 bg-slate-700 rounded w-5/6" />
                   </div>
                 ) : (
-                  <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
+                  <div className="text-sm text-[var(--text)] leading-relaxed whitespace-pre-wrap">
                     {question?.description || (
-                      <span className="text-gray-400 italic text-xs">
+                      <span className="text-[var(--text-subtle)] italic text-xs">
                         Description unavailable.{' '}
                         <a href={`https://leetcode.com/problems/${question?.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
                       </span>
@@ -388,7 +388,7 @@ export default function PracticePage() {
                 {/* Company tags */}
                 {question && (question.source || []).length > 0 && (
                   <div className="mt-6 pt-4 border-t border-gray-100">
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Asked by</p>
+                    <p className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide mb-2">Asked by</p>
                     <div className="flex flex-wrap gap-1.5">
                       {question.source.map(s => (
                         <span key={s} className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">{s}</span>
@@ -423,7 +423,7 @@ export default function PracticePage() {
           {question ? (
             <LeetCodeEditor appQuestionId={question.id} slug={question.slug} onAccepted={due && !reviewDone ? handleCompleteReview : undefined} />
           ) : (
-            <div className="flex items-center justify-center h-full text-gray-300 text-sm gap-2">
+            <div className="flex items-center justify-center h-full text-[var(--text-muted)] text-sm gap-2">
               <Loader2 size={16} className="animate-spin" /> Loading editor...
             </div>
           )}

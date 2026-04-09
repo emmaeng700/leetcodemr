@@ -8,7 +8,7 @@ export default function QuestionSearchGate() {
   const show = pathname === '/' || pathname === '/flashcards' || pathname === '/sr-queue' || pathname.startsWith('/learn')
   if (!show) return null
   return (
-    <div className="border-b border-white/8 bg-slate-900/80 backdrop-blur-sm">
+    <div className="border-b border-[var(--border)] bg-[var(--bg-card)]/80 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4 py-2.5">
         <QuestionSearch />
       </div>

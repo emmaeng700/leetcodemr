@@ -6,7 +6,7 @@ import QuestionSearchGate from '@/components/QuestionSearchGate'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-900 overflow-x-hidden">
+    <div className="min-h-screen bg-[var(--bg)] overflow-x-hidden">
       <ScrollRestorer />
       <Navbar />
       <QuestionSearchGate />

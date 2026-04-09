@@ -147,8 +147,8 @@ function StreakCard({
           <p className="text-xs text-orange-300/80 font-medium leading-snug max-w-[200px]">{message}</p>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-xs font-bold text-slate-400 mb-0.5">This week</p>
-          <p className="text-lg font-black text-slate-200">{weekActive}<span className="text-xs font-semibold text-slate-500"> / 7</span></p>
+          <p className="text-xs font-bold text-[var(--text-muted)] mb-0.5">This week</p>
+          <p className="text-lg font-black text-[var(--text)]">{weekActive}<span className="text-xs font-semibold text-[var(--text-subtle)]"> / 7</span></p>
         </div>
       </div>
       {/* Week day dots */}
@@ -158,10 +158,10 @@ function StreakCard({
             <div className={`w-full aspect-square rounded-full max-w-[28px] transition-colors ${
               d.active   ? 'bg-orange-400 shadow-sm shadow-orange-500/40' :
               d.isToday  ? 'bg-orange-900/50 border-2 border-orange-500/60' :
-              d.isFuture ? 'bg-slate-700/50' :
-                           'bg-slate-700'
+              d.isFuture ? 'bg-[var(--bg-muted)]/50' :
+                           'bg-[var(--bg-muted)]'
             }`} />
-            <span className={`text-[10px] font-semibold ${d.isToday ? 'text-orange-400' : 'text-slate-600'}`}>{d.label}</span>
+            <span className={`text-[10px] font-semibold ${d.isToday ? 'text-orange-400' : 'text-[var(--text-subtle)]'}`}>{d.label}</span>
           </div>
         ))}
       </div>
@@ -268,27 +268,27 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   }
   const daysLeft = date ? Math.ceil((new Date(date + 'T12:00:00').getTime() - Date.now()) / 86400000) : null
   const diffColor: Record<string, string> = {
-    Easy: 'bg-green-900/60 text-green-400 border-green-500/30',
-    Medium: 'bg-yellow-900/60 text-yellow-400 border-yellow-500/30',
-    Hard: 'bg-red-900/60 text-red-400 border-red-500/30',
+    Easy: 'bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-400 border-green-300 dark:border-green-500/30',
+    Medium: 'bg-yellow-100 dark:bg-yellow-900/60 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-500/30',
+    Hard: 'bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-400 border-red-300 dark:border-red-500/30',
   }
   if (!loaded) return null
   return (
     <>
       <StreakCard streak={streakDisplay} log={activityLog} goalsMetToday={goalsMetToday} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-      <div className="bg-slate-800 rounded-xl border border-white/10 shadow-lg p-4">
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg p-4">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><Target size={13} /> Interview Countdown</span>
+          <span className="text-xs font-bold text-[var(--text-muted)] flex items-center gap-1"><Target size={13} /> Interview Countdown</span>
         </div>
         {editing ? (
           <div className="flex gap-2 items-center flex-wrap">
             <input type="date" defaultValue={date} min={todayISO()}
-              className="text-sm text-slate-100 bg-slate-700 border border-white/20 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="text-sm text-slate-100 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-indigo-500"
               onKeyDown={e => { if (e.key === 'Enter') handleDateSave((e.target as HTMLInputElement).value) }}
               onBlur={e => { if (e.target.value) handleDateSave(e.target.value); else setEditing(false) }}
               autoFocus />
-            <button onClick={() => setEditing(false)} className="text-xs text-slate-500 hover:text-slate-300">Cancel</button>
+            <button onClick={() => setEditing(false)} className="text-xs text-[var(--text-subtle)] hover:text-[var(--text)]">Cancel</button>
             {date && <button onClick={handleDateClear} className="text-xs text-red-400 hover:text-red-300">Remove</button>}
           </div>
         ) : date ? (
@@ -296,16 +296,16 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
             <div className={`text-3xl font-black mb-0.5 ${daysLeft !== null && daysLeft <= 7 ? 'text-red-400' : daysLeft !== null && daysLeft <= 14 ? 'text-orange-400' : 'text-indigo-400'}`}>
               {daysLeft !== null && daysLeft <= 0 ? 'Today!' : daysLeft + 'd'}
             </div>
-            <p className="text-xs text-slate-500">{daysLeft !== null && daysLeft <= 0 ? 'Interview day!' : 'until your interview'}</p>
+            <p className="text-xs text-[var(--text-subtle)]">{daysLeft !== null && daysLeft <= 0 ? 'Interview day!' : 'until your interview'}</p>
             <div className="flex items-center gap-3 mt-1">
               <button onClick={() => setEditing(true)} className="text-xs text-indigo-400 hover:underline">Change date</button>
-              <span className="text-slate-700">·</span>
+              <span className="text-[var(--border)] opacity-50">·</span>
               <button onClick={handleDateClear} className="text-xs text-red-400 hover:text-red-300 hover:underline">Remove</button>
             </div>
           </div>
         ) : (
           <div>
-            <p className="text-xs text-slate-500 mb-2">Set your interview date to track countdown</p>
+            <p className="text-xs text-[var(--text-subtle)] mb-2">Set your interview date to track countdown</p>
             <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs font-semibold text-indigo-400 bg-indigo-900/40 border border-indigo-500/30 px-3 py-1.5 rounded-full hover:bg-indigo-900/60 transition-colors">
               <Calendar size={12} /> Set date
             </button>
@@ -313,18 +313,18 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
         )}
       </div>
       <div className="bg-slate-800 rounded-xl border border-white/10 shadow-lg p-4">
-        <div className="text-xs font-bold text-slate-400 mb-3 flex items-center gap-1">⭐ Today's Question</div>
+        <div className="text-xs font-bold text-[var(--text-muted)] mb-3 flex items-center gap-1">⭐ Today's Question</div>
         {dailyQ ? (
           <div>
             <div className="flex items-start gap-2 mb-2">
               <span className={'text-xs font-bold px-2 py-0.5 rounded-full border shrink-0 mt-0.5 ' + (diffColor[dailyQ.difficulty] || 'bg-slate-700 text-slate-400 border-white/10')}>{dailyQ.difficulty}</span>
-              <span className="text-sm font-semibold text-slate-200 leading-snug">{dailyQ.title}</span>
+              <span className="text-sm font-semibold text-[var(--text)] leading-snug">{dailyQ.title}</span>
             </div>
             <button onClick={() => router.push('/practice/' + dailyQ.id)} className="flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">
               Solve now <ChevronRight size={13} />
             </button>
           </div>
-        ) : <p className="text-xs text-slate-500">Loading…</p>}
+        ) : <p className="text-xs text-[var(--text-subtle)]">Loading…</p>}
       </div>
     </div>
     </>
@@ -357,8 +357,8 @@ function DueReviewBanner() {
         <div className="px-4 pb-3 flex flex-wrap gap-2">
           {due.map(q => (
             <button key={q.id} onClick={() => router.push('/practice/' + q.id)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border border-indigo-500/30 rounded-lg text-xs hover:border-indigo-400/60 hover:shadow-sm transition-all text-left">
-              <span className="text-slate-500 font-mono">#{q.id}</span>
+              className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-card)] border border-indigo-500/30 rounded-lg text-xs hover:border-indigo-400/60 hover:shadow-sm transition-all text-left">
+              <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
               <span className="text-indigo-400 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
             </button>
           ))}
@@ -478,12 +478,12 @@ function HomeInner() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      <div className="flex items-center gap-4 mb-5 bg-slate-800 rounded-xl border border-white/10 shadow-lg px-5 py-3">
+      <div className="flex items-center gap-4 mb-5 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg px-5 py-3">
         <div className="flex items-center gap-2">
           <CheckCircle size={16} className="text-green-400" />
-          <span className="text-sm font-bold text-slate-200">{solved} / {questions.length} solved</span>
+          <span className="text-sm font-bold text-[var(--text)]">{solved} / {questions.length} solved</span>
         </div>
-        <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+        <div className="flex-1 h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
           <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
             style={{ width: (questions.length ? Math.round((solved / questions.length) * 100) : 0) + '%' }} />
         </div>
@@ -494,16 +494,16 @@ function HomeInner() {
       <DueReviewBanner />
       {!loading && <WeakestPatternWidget questions={questions} progress={progress} />}
 
-      <div className="bg-slate-800/80 rounded-xl border border-white/10 p-4 mb-6 shadow-lg">
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 mb-6 shadow-lg">
         <div className="flex flex-wrap gap-1">
           {DIFFICULTIES.map(d => (
             <button key={d} onClick={() => setDifficulty(d)}
-              className={'px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (difficulty === d ? 'bg-indigo-600 text-white shadow-[0_0_10px_rgba(99,102,241,0.3)]' : 'bg-slate-700/70 text-slate-300 hover:bg-slate-600/80 border border-white/8')}>{d}</button>
+              className={'px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (difficulty === d ? 'bg-indigo-600 text-white shadow-[0_0_10px_rgba(99,102,241,0.3)]' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 border border-[var(--border-soft)]')}>{d}</button>
           ))}
-          <span className="w-px bg-white/10 mx-0.5 shrink-0" />
+          <span className="w-px bg-[var(--border)] mx-0.5 shrink-0" />
           {SOURCES.map(s => (
             <button key={s} onClick={() => setSource(s)}
-              className={'px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (source === s ? 'bg-purple-600 text-white shadow-[0_0_10px_rgba(147,51,234,0.3)]' : 'bg-slate-700/70 text-slate-300 hover:bg-slate-600/80 border border-white/8')}>{s}</button>
+              className={'px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (source === s ? 'bg-purple-600 text-white shadow-[0_0_10px_rgba(147,51,234,0.3)]' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 border border-[var(--border-soft)]')}>{s}</button>
           ))}
           <span className="w-px bg-white/10 mx-0.5 shrink-0" />
           <button onClick={() => setShowStarred(v => !v)}
@@ -511,18 +511,18 @@ function HomeInner() {
             <Star size={12} /> Starred
           </button>
           <button onClick={() => setShowSolved(v => v === null ? false : v === false ? true : null)}
-            className={'flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (showSolved === false ? 'bg-orange-500 text-white' : showSolved === true ? 'bg-green-600 text-white' : 'bg-slate-700/70 text-slate-300 hover:bg-slate-600/80 border border-white/8')}>
+            className={'flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (showSolved === false ? 'bg-orange-500 text-white' : showSolved === true ? 'bg-green-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 border border-[var(--border-soft)]')}>
             <CheckCircle2 size={12} />
             {showSolved === false ? 'Unsolved' : showSolved === true ? 'Solved' : 'All'}
           </button>
         </div>
 
         {/* Pattern / category filter row */}
-        <div className="flex flex-wrap gap-1 pt-2 border-t border-white/5 mt-2">
-          <span className="text-xs text-slate-500 self-center shrink-0 mr-1">Pattern:</span>
+        <div className="flex flex-wrap gap-1 pt-2 border-t border-[var(--border-soft)] mt-2">
+          <span className="text-xs text-[var(--text-subtle)] self-center shrink-0 mr-1">Pattern:</span>
           {activePattern && (
             <button onClick={() => setActivePattern(null)}
-              className="px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 bg-slate-600/80 text-slate-300 hover:bg-slate-500/80 transition-colors border border-white/10">
+              className="px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 transition-colors border border-[var(--border)]">
               ✕ Clear
             </button>
           )}
@@ -535,7 +535,7 @@ function HomeInner() {
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 border ${
                   active
                     ? 'bg-cyan-700 text-white border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.25)]'
-                    : 'bg-slate-700/60 text-slate-300 border-white/10 hover:border-cyan-500/50 hover:text-cyan-300'
+                    : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:border-cyan-500/50 hover:text-cyan-300'
                 }`}>
                 {pat.name} <span className="opacity-50">·{count}</span>
               </button>
@@ -544,7 +544,7 @@ function HomeInner() {
         </div>
 
         <div className="flex items-center justify-between mt-2">
-          <span className="text-xs text-slate-500">{filtered.length} questions{activePattern ? ` · ${activePattern}` : ''}</span>
+          <span className="text-xs text-[var(--text-subtle)]">{filtered.length} questions{activePattern ? ` · ${activePattern}` : ''}</span>
           {(activePattern || difficulty !== 'All' || source !== 'All' || showStarred || showSolved !== null || search) && (
             <button
               onClick={() => {
@@ -553,14 +553,14 @@ function HomeInner() {
                 window.history.replaceState(null, '', p.toString() ? `/?${p.toString()}` : '/')
                 setActivePattern(null); setDifficulty('All'); setSource('All'); setShowStarred(false); setShowSolved(null)
               }}
-              className="text-xs text-slate-500 hover:text-red-400 transition-colors">
+              className="text-xs text-[var(--text-subtle)] hover:text-red-400 transition-colors">
               Clear all filters
             </button>
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/10">
-          <span className="text-xs text-slate-500 self-center">Study {filtered.length} as:</span>
+        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[var(--border)]">
+          <span className="text-xs text-[var(--text-subtle)] self-center">Study {filtered.length} as:</span>
           <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePatternTags)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-900/40 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-900/60 transition-colors">
             <Layers size={12} /> Flashcards
           </Link>
@@ -571,7 +571,7 @@ function HomeInner() {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-slate-500 text-sm animate-pulse">Loading questions...</div>
+        <div className="text-center py-20 text-[var(--text-subtle)] text-sm animate-pulse">Loading questions...</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map(q => {
@@ -584,17 +584,17 @@ function HomeInner() {
               return rev <= today
             }
             const STATUS_STYLES: Record<string, string> = {
-              learnt: 'bg-blue-900/50 text-blue-400',
-              reviewed: 'bg-yellow-900/50 text-yellow-400',
-              revised: 'bg-orange-900/50 text-orange-400',
-              mastered: 'bg-green-900/50 text-green-400',
+              learnt: 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400',
+              reviewed: 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-600 dark:text-yellow-400',
+              revised: 'bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400',
+              mastered: 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400',
             }
             return (
-              <Link key={q.id} href={'/practice/' + q.id} className={'group block rounded-xl border p-4 transition-all duration-150 hover:shadow-xl hover:shadow-indigo-900/20 hover:border-indigo-500/50 ' + (p.solved ? 'bg-green-950/40 border-green-500/30' : 'bg-slate-800 border-white/8')}>
+              <Link key={q.id} href={'/practice/' + q.id} className={'group block rounded-xl border p-4 transition-all duration-150 hover:shadow-xl hover:shadow-indigo-900/20 hover:border-indigo-500/50 ' + (p.solved ? 'bg-green-50 dark:bg-green-950/40 border-green-300 dark:border-green-500/30' : 'bg-[var(--bg-card)] border-[var(--border-soft)]')}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xs text-slate-500 font-mono shrink-0">#{q.id}</span>
-                    <h3 className="font-semibold text-slate-100 text-sm truncate group-hover:text-indigo-400 transition-colors">{q.title}</h3>
+                    <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
+                    <h3 className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-400 transition-colors">{q.title}</h3>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {p.starred && <Star size={14} className="text-yellow-400 fill-yellow-400" />}
@@ -607,7 +607,7 @@ function HomeInner() {
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
                   <DifficultyBadge difficulty={q.difficulty} />
                   {(q.tags || []).slice(0, 3).map(tag => (
-                    <span key={tag} className="text-xs bg-slate-700/60 text-slate-400 px-2 py-0.5 rounded-full">{tag}</span>
+                    <span key={tag} className="text-xs bg-[var(--bg-muted)] text-[var(--text-subtle)] px-2 py-0.5 rounded-full">{tag}</span>
                   ))}
                   {q.python_solution && <span className="text-xs bg-blue-900/40 text-blue-400 px-2 py-0.5 rounded-full">Py ✓</span>}
                   {q.cpp_solution && <span className="text-xs bg-purple-900/40 text-purple-400 px-2 py-0.5 rounded-full">C++ ✓</span>}
@@ -627,7 +627,7 @@ function HomeInner() {
                     )}
                   </div>
                 )}
-                {p.notes && <p className="text-xs text-slate-500 mt-2 italic truncate">📝 {p.notes}</p>}
+                {p.notes && <p className="text-xs text-[var(--text-subtle)] mt-2 italic truncate">📝 {p.notes}</p>}
               </Link>
             )
           })}
@@ -639,7 +639,7 @@ function HomeInner() {
 
 export default function HomePage() {
   return (
-    <Suspense fallback={<div className="text-center py-20 text-gray-400 text-sm animate-pulse">Loading…</div>}>
+    <Suspense fallback={<div className="text-center py-20 text-[var(--text-subtle)] text-sm animate-pulse">Loading…</div>}>
       <HomeInner />
     </Suspense>
   )
