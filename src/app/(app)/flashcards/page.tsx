@@ -165,6 +165,49 @@ function FlashcardsInner() {
 
       {/* Filters */}
       <div className="mb-5 space-y-2">
+        {/* Solved status */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              const sp = new URLSearchParams(searchParams.toString())
+              sp.delete('solved')
+              window.history.replaceState(null, '', sp.toString() ? `/flashcards?${sp.toString()}` : '/flashcards')
+            }}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
+              initSolved === null ? 'bg-gray-900 text-white border-gray-900' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-gray-400'
+            }`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const sp = new URLSearchParams(searchParams.toString())
+              sp.set('solved', 'true')
+              window.history.replaceState(null, '', `/flashcards?${sp.toString()}`)
+            }}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
+              initSolved === true ? 'bg-green-600 text-white border-green-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-green-400'
+            }`}
+          >
+            Solved
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const sp = new URLSearchParams(searchParams.toString())
+              sp.set('solved', 'false')
+              window.history.replaceState(null, '', `/flashcards?${sp.toString()}`)
+            }}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
+              initSolved === false ? 'bg-orange-600 text-white border-orange-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-orange-400'
+            }`}
+          >
+            Unsolved
+          </button>
+        </div>
+
         {/* Difficulty + Source */}
         <div className="flex flex-wrap gap-2">
           {DIFFICULTY_LEVELS.map(d => (

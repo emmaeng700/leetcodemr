@@ -577,36 +577,6 @@ function LearnInner() {
           Filter {filterDiff !== 'All' || filterSource !== 'All' || filterPattern ? '•' : ''}
         </button>
 
-        {/* Solved / Unsolved quick filter */}
-        <button
-          type="button"
-          data-learn-filter
-          onClick={() => {
-            const next = initSolved === true ? null : true
-            const q = buildLearnQuery({ solved: next })
-            router.push(`/learn/0${q ? `?${q}` : ''}`, { scroll: false })
-          }}
-          className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-            initSolved === true ? 'bg-green-50 text-green-700 border-green-200' : 'bg-white text-gray-500 border-gray-200 hover:border-green-300'
-          }`}
-        >
-          Solved
-        </button>
-        <button
-          type="button"
-          data-learn-filter
-          onClick={() => {
-            const next = initSolved === false ? null : false
-            const q = buildLearnQuery({ solved: next })
-            router.push(`/learn/0${q ? `?${q}` : ''}`, { scroll: false })
-          }}
-          className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-            initSolved === false ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300'
-          }`}
-        >
-          Unsolved
-        </button>
-
         {q && (
           <>
             {/* Star */}
@@ -650,6 +620,36 @@ function LearnInner() {
                 {s}
               </button>
             ))}
+          </div>
+
+          {/* Solved filter */}
+          <div className="flex items-center flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const next = initSolved === true ? null : true
+                const q = buildLearnQuery({ solved: next })
+                router.push(`/learn/0${q ? `?${q}` : ''}`, { scroll: false })
+              }}
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
+                initSolved === true ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-green-300'
+              }`}
+            >
+              Solved
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const next = initSolved === false ? null : false
+                const q = buildLearnQuery({ solved: next })
+                router.push(`/learn/0${q ? `?${q}` : ''}`, { scroll: false })
+              }}
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
+                initSolved === false ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300'
+              }`}
+            >
+              Unsolved
+            </button>
           </div>
 
           {/* Pattern filter */}
