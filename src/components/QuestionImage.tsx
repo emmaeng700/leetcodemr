@@ -40,10 +40,22 @@ export default function QuestionImage({
         className={[
           // Avoid clipping screenshot edges (question text often touches borders).
           // Use a scrollable frame so tall screenshots can still fill width.
-          'rounded-xl border border-[var(--border)] bg-slate-100 dark:bg-slate-900 p-2 max-h-[70vh] sm:max-h-[32rem] md:max-h-[36rem] overflow-y-auto',
+          'relative rounded-xl border border-[var(--border)] bg-slate-100 dark:bg-slate-900 p-2 max-h-[70vh] sm:max-h-[32rem] md:max-h-[36rem] overflow-y-auto',
           className,
         ].join(' ')}
       >
+        {zoomable && (
+          <button
+            type="button"
+            onPointerDown={e => { e.preventDefault(); e.stopPropagation(); setOpen(true) }}
+            className="absolute right-2 top-2 z-10 rounded-lg bg-black/60 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-black/70"
+            style={{ touchAction: 'manipulation' }}
+            aria-label="Expand image"
+            title="Expand"
+          >
+            Zoom
+          </button>
+        )}
         <img
           src={`/question-images/${questionId}.jpg`}
           alt={alt}
@@ -51,10 +63,9 @@ export default function QuestionImage({
           className={[
             // Fill available width; let height grow naturally inside scroll frame.
             'w-full h-auto block rounded-lg',
-            zoomable ? 'cursor-zoom-in' : '',
+            zoomable ? 'cursor-default' : '',
             imgClassName,
           ].join(' ')}
-          onPointerDown={zoomable ? (e) => { e.preventDefault(); e.stopPropagation(); setOpen(true) } : undefined}
           onError={() => {
             setHidden(true)
             onError?.()
