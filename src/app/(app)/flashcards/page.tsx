@@ -259,7 +259,8 @@ function FlashcardsInner() {
                   </div>
                 </div>
 
-                <div className="mx-4 mb-4">
+                {/* Explicit click target so iOS scroll-container doesn't swallow the tap */}
+                <div className="mx-4 mb-4" onClick={e => { e.stopPropagation(); handleFlip() }}>
                   <QuestionImage
                     questionId={q.id}
                     alt={q.title}
@@ -278,7 +279,7 @@ function FlashcardsInner() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <button
-                      onClick={e => { e.stopPropagation() }}
+                      onClick={e => { e.stopPropagation(); handleFlip() }}
                       className="text-xs text-indigo-400 font-medium"
                     >
                       ← Flip back
@@ -286,7 +287,8 @@ function FlashcardsInner() {
                   </div>
                 </div>
 
-                <div className="p-4">
+                {/* Stop propagation so language tabs / copy don't accidentally flip the card */}
+                <div className="p-4" onClick={e => e.stopPropagation()}>
                   <CodePanel pythonCode={q.python_solution} cppCode={q.cpp_solution} />
                 </div>
               </div>
