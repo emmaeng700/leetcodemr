@@ -640,7 +640,7 @@ function LearnInner() {
       ) : (
         <>
         {/* Mobile panel tabs */}
-        <div className="flex md:hidden border-b border-gray-100 bg-white shrink-0">
+        <div className="flex md:hidden border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
           <button onClick={() => setMobilePanel('description')}
             className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400'}`}>
             📖 Description
@@ -653,10 +653,10 @@ function LearnInner() {
         <div className="relative z-0 flex min-h-0 flex-1 overflow-hidden">
 
           {/* ── LEFT panel ── */}
-          <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-gray-100 bg-white overflow-hidden text-gray-900`}>
+          <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-[var(--border)] bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
 
             {/* Tab bar */}
-            <div className="flex border-b border-gray-100 bg-white shrink-0">
+            <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
               <button onClick={() => setLeftTab('description')}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                 <BookOpen size={12} /> Description
@@ -929,15 +929,18 @@ function LearnInner() {
 
       {/* LeetCode description styles */}
       <style>{`
-        .lc-description pre { background:#f6f8fa; border-radius:6px; padding:12px; overflow-x:auto; font-size:12px; margin:8px 0; }
-        .lc-description code { background:#f0f0f0; border-radius:3px; padding:1px 4px; font-size:12px; }
-        .lc-description pre code { background:none; padding:0; }
-        .lc-description p { margin:6px 0; font-size:13px; line-height:1.6; }
-        .lc-description ul, .lc-description ol { padding-left:20px; margin:6px 0; font-size:13px; }
-        .lc-description li { margin:3px 0; }
-        .lc-description strong { font-weight:600; }
-        .lc-description img { max-width:100%; border-radius:6px; margin:8px 0; }
-        .lc-description sup { font-size:10px; }
+        /* Use theme tokens so dark mode stays readable. */
+        .lc-description pre { background: var(--bg-muted); border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 12px; margin: 8px 0; border: 1px solid var(--border); color: var(--text); }
+        .lc-description code { background: var(--bg-muted); color: var(--text); border-radius: 4px; padding: 1px 5px; font-size: 0.85em; }
+        .lc-description pre code { background: none; padding: 0; color: inherit; }
+        .lc-description p { margin: 6px 0; font-size: 13px; line-height: 1.65; color: var(--text); }
+        .lc-description ul, .lc-description ol { padding-left: 20px; margin: 6px 0; font-size: 13px; color: var(--text); }
+        .lc-description li { margin: 3px 0; }
+        .lc-description strong { font-weight: 650; color: var(--text); }
+        .lc-description a { color: #6366f1; }
+        .dark .lc-description a { color: #818cf8; }
+        .lc-description img { max-width: 100%; border-radius: 10px; margin: 10px 0; border: 1px solid var(--border); }
+        .lc-description sup { font-size: 10px; }
       `}</style>
     </div>
 
