@@ -60,13 +60,64 @@ export function stripScripts(html: string): string {
   // 1. Strip script tags
   out = out.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
 
-  // 2. Strip fixed width / height / style attrs from <img> tags so CSS max-width
-  //    and height:auto can fully control sizing without being overridden
+  const normalizeLcUrl = (raw: string): string => {
+    const url = raw.trim()
+    if (!url) return url
+    if (url.startsWith('data:')) return url
+    if (url.startsWith('//')) return 'https:' + url
+    if (url.startsWith('/')) return 'https://leetcode.com' + url
+    return url
+  }
+
+  const pickAttr = (attrs: string, name: string): string | null => {
+    const m = attrs.match(new RegExp(`\\s${name}=["']([^"']+)["']`, 'i'))
+    return m?.[1] ?? null
+  }
+
+  const replaceAttr = (attrs: string, name: string, value: string): string => {
+    if (new RegExp(`\\s${name}=`, 'i').test(attrs)) {
+      return attrs.replace(new RegExp(`\\s${name}=["'][^"']*["']`, 'i'), ` ${name}="${value}"`)
+    }
+    return `${attrs} ${name}="${value}"`
+  }
+
+  // 2. Normalize LeetCode image tags:
+  //    - remove hardcoded width/height/style attrs so CSS controls sizing
+  //    - fix lazy-loaded images (data-src) by copying to src
+  //    - normalize src/srcset URLs (//... or /... -> https://...)
   out = out.replace(/<img([^>]*?)>/gi, (_m, attrs: string) => {
-    const cleaned = attrs
+    let cleaned = attrs
       .replace(/\s+width=["'][^"']*["']/gi, '')
       .replace(/\s+height=["'][^"']*["']/gi, '')
       .replace(/\s+style=["'][^"']*["']/gi, '')
+
+    const src = pickAttr(cleaned, 'src')
+    const dataSrc = pickAttr(cleaned, 'data-src') ?? pickAttr(cleaned, 'dataSrc') ?? pickAttr(cleaned, 'data-original')
+    const finalSrc = normalizeLcUrl(src ?? dataSrc ?? '')
+    if (finalSrc) cleaned = replaceAttr(cleaned, 'src', finalSrc)
+
+    const srcSet = pickAttr(cleaned, 'srcset') ?? pickAttr(cleaned, 'data-srcset')
+    if (srcSet) {
+      const normalized = srcSet
+        .split(',')
+        .map(part => part.trim())
+        .filter(Boolean)
+        .map(part => {
+          const [u, descriptor] = part.split(/\s+/, 2)
+          const nu = normalizeLcUrl(u)
+          return descriptor ? `${nu} ${descriptor}` : nu
+        })
+        .join(', ')
+      cleaned = replaceAttr(cleaned, 'srcset', normalized)
+    }
+
+    // Drop common lazy-load attrs to avoid browser picking the empty one.
+    cleaned = cleaned
+      .replace(/\s+data-src=["'][^"']*["']/gi, '')
+      .replace(/\s+dataSrc=["'][^"']*["']/gi, '')
+      .replace(/\s+data-original=["'][^"']*["']/gi, '')
+      .replace(/\s+data-srcset=["'][^"']*["']/gi, '')
+
     return `<img${cleaned}>`
   })
 
