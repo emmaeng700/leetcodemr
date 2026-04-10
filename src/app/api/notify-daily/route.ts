@@ -18,6 +18,110 @@ function todayCT() {
   return new Date().toLocaleDateString('en-CA', { timeZone: TZ })
 }
 
+function isWeekendCT(dateISO: string): boolean {
+  const weekday = new Date(dateISO + 'T12:00:00').toLocaleString('en-US', { timeZone: TZ, weekday: 'short' })
+  return weekday === 'Sat' || weekday === 'Sun'
+}
+
+function reviewCapForDayCT(dateISO: string): number {
+  // Match app caps: weekdays 2/day, weekends 4/day.
+  return isWeekendCT(dateISO) ? 4 : 2
+}
+
+function addDaysCT(baseISO: string, days: number): string {
+  const [y, m, d] = baseISO.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, (m - 1), d, 12, 0, 0))
+  dt.setUTCDate(dt.getUTCDate() + days)
+  return dt.toLocaleDateString('en-CA', { timeZone: TZ })
+}
+
+async function spreadOverdueReviewsForEmail(supabase: any, todayStr: string) {
+  const horizonDays = 120
+
+  const { data: rows, error } = await supabase
+    .from('progress')
+    .select('question_id,next_review,review_count')
+    .eq('user_id', USER_ID)
+    .eq('solved', true)
+    .not('next_review', 'is', null)
+    .order('next_review', { ascending: true })
+
+  if (error) {
+    console.error('[notify-daily] spreadOverdueReviews:', error.message)
+    return
+  }
+
+  const progressRows = (rows ?? []) as Array<{ question_id: number; next_review: string; review_count: number | null }>
+  if (!progressRows.length) return
+
+  // Mastery signal: fewer accepted submissions => higher priority to stay earlier.
+  const { data: acRows } = await supabase
+    .from('ac_submit_counts')
+    .select('question_id,count')
+    .eq('user_id', USER_ID)
+    .in('question_id', progressRows.map(r => r.question_id))
+
+  const acCountById: Record<string, number> = {}
+  for (const r of acRows ?? []) {
+    acCountById[String((r as any).question_id)] = Number((r as any).count ?? 0) || 0
+  }
+
+  const counts: Record<string, number> = {}
+  for (const r of progressRows) {
+    const day = r.next_review
+    if (!day) continue
+    counts[day] = (counts[day] ?? 0) + 1
+  }
+
+  const capToday = reviewCapForDayCT(todayStr)
+  const overdue = progressRows
+    .filter(r => r.next_review <= todayStr)
+    .sort((a, b) => {
+      const acA = acCountById[String(a.question_id)] ?? 0
+      const acB = acCountById[String(b.question_id)] ?? 0
+      if (acA !== acB) return acA - acB
+      const rcA = a.review_count ?? 0
+      const rcB = b.review_count ?? 0
+      if (rcA !== rcB) return rcA - rcB
+      if (a.next_review !== b.next_review) return a.next_review.localeCompare(b.next_review)
+      return a.question_id - b.question_id
+    })
+
+  if (overdue.length <= capToday) return
+
+  const toPush = overdue.slice(capToday)
+  const updates: Array<{ question_id: number; next_review: string }> = []
+
+  for (const r of toPush) {
+    counts[r.next_review] = Math.max(0, (counts[r.next_review] ?? 1) - 1)
+
+    let placed = false
+    for (let offset = 1; offset <= horizonDays; offset++) {
+      const day = addDaysCT(todayStr, offset)
+      const cap = reviewCapForDayCT(day)
+      if ((counts[day] ?? 0) < cap) {
+        counts[day] = (counts[day] ?? 0) + 1
+        updates.push({ question_id: r.question_id, next_review: day })
+        placed = true
+        break
+      }
+    }
+
+    if (!placed) {
+      const day = addDaysCT(todayStr, horizonDays + 1)
+      counts[day] = (counts[day] ?? 0) + 1
+      updates.push({ question_id: r.question_id, next_review: day })
+    }
+  }
+
+  for (const u of updates) {
+    await (supabase.from('progress') as any)
+      .update({ next_review: u.next_review })
+      .eq('user_id', USER_ID)
+      .eq('question_id', u.question_id)
+  }
+}
+
 function nowHourCT(): number {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: TZ,
@@ -75,7 +179,7 @@ function buildSrBlockHtml(
         <div style="display:flex;align-items:center;margin-bottom:16px;">
           <span style="font-size:18px;margin-right:8px;">🧠</span>
           <span style="font-size:15px;font-weight:700;color:#111827;">Spaced Repetition</span>
-          <span style="margin-left:auto;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;">${dueReviews.length} due today</span>
+          <span style="margin-left:auto;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;">${dueReviews.length} scheduled</span>
         </div>
         <table style="width:100%;border-collapse:collapse;">${rows}</table>
         <div style="margin-top:16px;text-align:center;">
@@ -135,6 +239,9 @@ export async function GET(req: NextRequest) {
 
   const qMap = loadQuestionMap()
 
+  // Make email consistent with app: spread SR forward under the same daily caps.
+  await spreadOverdueReviewsForEmail(supabase, todayStr)
+
   const { data: srRows } = await supabase
     .from('progress')
     .select('question_id,review_count,status')
@@ -142,8 +249,10 @@ export async function GET(req: NextRequest) {
     .eq('solved', true)
     .not('next_review', 'is', null)
     .lte('next_review', todayStr)
+    .order('next_review', { ascending: true })
 
-  const dueReviews: DueReviewRow[] = (srRows ?? []) as DueReviewRow[]
+  const cap = reviewCapForDayCT(todayStr)
+  const dueReviews: DueReviewRow[] = ((srRows ?? []) as DueReviewRow[]).slice(0, cap)
 
   const appUrl = 'https://leetcodemr.vercel.app'
   const hour = nowHourCT()
