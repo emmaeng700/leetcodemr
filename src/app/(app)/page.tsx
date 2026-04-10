@@ -2,12 +2,13 @@
 import { useState, useEffect, useRef, useMemo, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react'
+import { Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp, RotateCcw } from 'lucide-react'
 import { QUICK_PATTERNS } from '@/lib/constants'
-import { getProgress, updateProgress, getActivityLog, getDueReviews, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate } from '@/lib/db'
+import { getProgress, updateProgress, getActivityLog, getDueReviews, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getDailyReviewCapChicago } from '@/lib/db'
 import { computeDailyGoalsMetToday, computePlanStreakDisplayNumber, normalizeStudyPlanRow } from '@/lib/streakGoals'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
+import { addToRebootQueue, getRebootQueue, removeFromRebootQueue } from '@/lib/rebootQueue'
 
 interface Question {
   id: number
@@ -170,6 +171,9 @@ function PatternCoverageGrid({ questions, progress }: { questions: Question[]; p
   const overallSolved = patternStats.reduce((s, p) => s + p.solved, 0)
   const overallTotal = patternStats.reduce((s, p) => s + p.total, 0)
   const overallPct = overallTotal ? Math.round((overallSolved / overallTotal) * 100) : 0
+  const crushing = [...patternStats].filter(p => p.pct >= 70 && p.pct < 100).sort((a, b) => b.pct - a.pct)[0]
+  const untouched = patternStats.filter(p => p.solved === 0)
+  const almostDone = [...patternStats].filter(p => p.pct >= 85 && p.pct < 100).sort((a, b) => b.pct - a.pct)[0]
 
   return (
     <div className="mb-5 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg overflow-hidden">
@@ -192,23 +196,65 @@ function PatternCoverageGrid({ questions, progress }: { questions: Question[]; p
 
       {!collapsed && (
         <div className="px-4 pb-4">
-          {weakest && (
-            <div className="mb-3 flex items-center justify-between gap-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2.5">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-base shrink-0">🎯</span>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-amber-700 dark:text-amber-400">Focus next — weakest pattern</p>
-                  <p className="text-xs text-amber-800 dark:text-amber-200 font-semibold truncate">{weakest.name} — {weakest.solved}/{weakest.total} solved ({weakest.pct}%)</p>
+          {/* Motivational messages */}
+          <div className="space-y-2 mb-3">
+            {almostDone && (
+              <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-500/30 rounded-lg px-3 py-2">
+                <span className="text-base shrink-0">🏆</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-green-700 dark:text-green-400">{almostDone.name} is almost conquered!</p>
+                  <p className="text-xs text-green-600 dark:text-green-400/80">Just {almostDone.total - almostDone.solved} more question{almostDone.total - almostDone.solved !== 1 ? 's' : ''} — finish it off, these will feel like a breeze 🔥</p>
                 </div>
+                <Link href={`/learn/0?tags=${(almostDone.tags as readonly string[]).join(',')}`}
+                  className="text-xs font-semibold text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/50 border border-green-300 dark:border-green-500/40 px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
+                  Finish →
+                </Link>
               </div>
-              <Link
-                href={`/learn/0?tags=${(weakest.tags as readonly string[]).join(',')}`}
-                className="text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50 border border-amber-300 dark:border-amber-500/40 px-3 py-1.5 rounded-full hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors shrink-0 whitespace-nowrap"
-              >
-                Study now →
-              </Link>
-            </div>
-          )}
+            )}
+            {crushing && !almostDone && (
+              <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-500/30 rounded-lg px-3 py-2">
+                <span className="text-base shrink-0">🔥</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-indigo-700 dark:text-indigo-400">You&apos;re crushing {crushing.name}!</p>
+                  <p className="text-xs text-indigo-600 dark:text-indigo-400/80">{crushing.pct}% done — these questions will feel like a breeze. Try a harder one 💪</p>
+                </div>
+                <Link href={`/learn/0?tags=${(crushing.tags as readonly string[]).join(',')}`}
+                  className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-300 dark:border-indigo-500/40 px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
+                  Keep going →
+                </Link>
+              </div>
+            )}
+            {untouched.length > 0 && (
+              <div className="flex items-center gap-2 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-500/30 rounded-lg px-3 py-2">
+                <span className="text-base shrink-0">🧩</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-violet-700 dark:text-violet-400">Try a never-seen topic: {untouched[0].name}</p>
+                  <p className="text-xs text-violet-600 dark:text-violet-400/80">{untouched.length} pattern{untouched.length !== 1 ? 's' : ''} untouched — explore something new today!</p>
+                </div>
+                <Link href={`/learn/0?tags=${(untouched[0].tags as readonly string[]).join(',')}`}
+                  className="text-xs font-semibold text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/50 border border-violet-300 dark:border-violet-500/40 px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
+                  Explore →
+                </Link>
+              </div>
+            )}
+            {weakest && (
+              <div className="flex items-center justify-between gap-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base shrink-0">🎯</span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400">Focus next — weakest pattern</p>
+                    <p className="text-xs text-amber-800 dark:text-amber-200 font-semibold truncate">{weakest.name} — {weakest.solved}/{weakest.total} solved ({weakest.pct}%)</p>
+                  </div>
+                </div>
+                <Link
+                  href={`/learn/0?tags=${(weakest.tags as readonly string[]).join(',')}`}
+                  className="text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50 border border-amber-300 dark:border-amber-500/40 px-3 py-1.5 rounded-full hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors shrink-0 whitespace-nowrap"
+                >
+                  Study now →
+                </Link>
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             {patternStats.map(p => {
@@ -294,6 +340,11 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   const streakDisplay = planNorm
     ? (computePlanStreakDisplayNumber(studyPlan, progress, dueReviews.length) ?? 0)
     : computeStreak(activityLog)
+  // Only show activity log dots from the current plan's start date onwards.
+  // Old plan entries shouldn't bleed into a freshly generated plan's week view.
+  const planFilteredLog = planNorm?.start_date
+    ? Object.fromEntries(Object.entries(activityLog).filter(([date]) => date >= planNorm.start_date))
+    : activityLog
   useEffect(() => {
     if (!questions.length) return
     const todayKey = 'daily_q_' + todayISO()
@@ -326,7 +377,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   if (!loaded) return null
   return (
     <>
-      <StreakCard streak={streakDisplay} log={activityLog} goalsMetToday={goalsMetToday} />
+      <StreakCard streak={streakDisplay} log={planFilteredLog} goalsMetToday={goalsMetToday} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg p-4">
         <div className="flex items-center justify-between mb-3">
@@ -419,6 +470,121 @@ function DueReviewBanner() {
   )
 }
 
+function TodayPlanCard({ questions, progress }: { questions: Question[]; progress: Record<string, ProgressData> }) {
+  const router = useRouter()
+  const [due, setDue] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
+  const [reboot, setReboot] = useState<number[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const d = await getDueReviews()
+      if (cancelled) return
+      setDue(d)
+      setReboot(getRebootQueue())
+    })()
+    return () => { cancelled = true }
+  }, [progress])
+
+  const reviewSlots = getDailyReviewCapChicago()
+  // Default: 2/day. Weekend catch-up: +4 extra (6 total).
+  const duePick = due.slice(0, reviewSlots)
+  const duePickSet = new Set(duePick.map(d => d.id))
+  const rebootPick = reboot.filter(id => !duePickSet.has(id)).slice(0, Math.max(0, reviewSlots - duePick.length))
+
+  const reviewSlotsUsed = rebootPick.length + duePick.length
+  const newSlots = 3
+
+  const titleFor = (id: number) => questions.find(q => q.id === id)?.title ?? `#${id}`
+
+  return (
+    <div className="mb-5 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg overflow-hidden">
+      <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap border-b border-[var(--border-soft)]">
+        <div className="flex items-center gap-2">
+          <Brain size={16} className="text-indigo-400" />
+          <span className="text-sm font-bold text-[var(--text)]">Today&apos;s plan</span>
+          <span className="text-xs text-[var(--text-subtle)] font-mono">{reviewSlotsUsed}/{reviewSlots} reviews · {newSlots} new</span>
+        </div>
+        <button
+          onClick={() => setReboot(getRebootQueue())}
+          className="text-xs font-semibold text-[var(--text-subtle)] hover:text-[var(--text)]"
+          title="Refresh reboot queue"
+        >
+          Refresh
+        </button>
+      </div>
+
+      <div className="p-4 space-y-4">
+        <div>
+          <div className="text-xs font-bold text-[var(--text-muted)] mb-2 flex items-center gap-2">
+            <RotateCcw size={13} className="text-amber-500" /> Reboot (fills leftover slots)
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {rebootPick.length ? rebootPick.map(id => (
+              <div key={id} className="flex items-center gap-2">
+                <button
+                  onClick={() => router.push('/practice/' + id)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-200 hover:border-amber-300 dark:hover:border-amber-400/60"
+                >
+                  {titleFor(id)}
+                </button>
+                <button
+                  onClick={() => { removeFromRebootQueue(id); setReboot(getRebootQueue()) }}
+                  className="text-xs text-[var(--text-subtle)] hover:text-red-400"
+                >
+                  remove
+                </button>
+              </div>
+            )) : (
+              <div className="text-xs text-[var(--text-subtle)]">No reboot items yet. Add any “few days ago” question IDs below.</div>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-xs font-bold text-[var(--text-muted)] mb-2">Due reviews (up to {reviewSlots})</div>
+          <div className="flex flex-wrap gap-2">
+            {duePick.length ? duePick.map(d => (
+              <button
+                key={d.id}
+                onClick={() => router.push('/practice/' + d.id)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-500/30 text-indigo-800 dark:text-indigo-200 hover:border-indigo-300 dark:hover:border-indigo-400/60"
+              >
+                {titleFor(d.id)}
+              </button>
+            )) : (
+              <div className="text-xs text-[var(--text-subtle)]">No due reviews right now.</div>
+            )}
+          </div>
+        </div>
+
+        <div className="pt-3 border-t border-[var(--border-soft)]">
+          <div className="text-xs font-bold text-[var(--text-muted)] mb-2">Add to reboot queue</div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => {
+                const raw = prompt('Add question id to Reboot queue (example: 206 or #206)')
+                if (!raw) return
+                const id = Number(String(raw).trim().replace(/^#/, ''))
+                if (!Number.isFinite(id) || id <= 0) { toast.error('Invalid id'); return }
+                addToRebootQueue(id)
+                setReboot(getRebootQueue())
+                toast.success('Added to reboot queue')
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--bg-muted)] border border-[var(--border)] text-[var(--text)] hover:border-indigo-400/60"
+            >
+              + Add by id
+            </button>
+          </div>
+          <p className="text-[11px] text-[var(--text-subtle)] mt-2">
+            Fixed rule: weekdays 2 reviews/day. Weekends: 4 reviews/day total. 3 new/day stays constant.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function buildStudyParams(
   difficulty: string,
   source: string,
@@ -450,8 +616,11 @@ function HomeInner() {
   const [showStarred, setShowStarred] = useState(false)
   const [showSolved, setShowSolved] = useState<null | boolean>(null)
   const [activePattern, setActivePattern] = useState<string | null>(null)
+  const [qPage, setQPage] = useState(1)
 
   const search = sp.get('search') || ''
+
+  const PAGE_SIZE = 10
 
   useEffect(() => {
     Promise.all([fetch('/questions_full.json').then(r => r.json()), getProgress()]).then(([qs, prog]) => {
@@ -508,6 +677,12 @@ function HomeInner() {
     DIFF_ORDER,
   ])
 
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setQPage(1) }, [difficulty, source, search, activePattern, showStarred, showSolved])
+
+  const totalQPages = Math.ceil(filtered.length / PAGE_SIZE)
+  const paginated = filtered.slice((qPage - 1) * PAGE_SIZE, qPage * PAGE_SIZE)
+
   const solved = Object.values(progress).filter(p => p.solved).length
 
   async function toggleSolved(e: React.MouseEvent, q: Question) {
@@ -542,6 +717,7 @@ function HomeInner() {
       </div>
 
       {!loading && <InterviewCountdownWidget questions={questions} progress={progress} />}
+      {!loading && <TodayPlanCard questions={questions} progress={progress} />}
       <DueReviewBanner />
       {!loading && <PatternCoverageGrid questions={questions} progress={progress} />}
 
@@ -625,7 +801,7 @@ function HomeInner() {
         <div className="text-center py-20 text-[var(--text-subtle)] text-sm animate-pulse">Loading questions...</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filtered.map(q => {
+          {paginated.map(q => {
             const p = progress[String(q.id)] || {}
             const isDue = (nextReview: string | null | undefined) => {
               if (!nextReview) return false
@@ -682,6 +858,27 @@ function HomeInner() {
               </Link>
             )
           })}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && totalQPages > 1 && (
+        <div className="flex items-center justify-between mt-4 px-1">
+          <button
+            onClick={() => setQPage(p => Math.max(1, p - 1))}
+            disabled={qPage === 1}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] text-sm font-semibold text-[var(--text-muted)] hover:border-indigo-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+            ← Prev
+          </button>
+          <span className="text-xs text-[var(--text-subtle)] font-mono">
+            {(qPage - 1) * PAGE_SIZE + 1}–{Math.min(qPage * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </span>
+          <button
+            onClick={() => setQPage(p => Math.min(totalQPages, p + 1))}
+            disabled={qPage === totalQPages}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] text-sm font-semibold text-[var(--text-muted)] hover:border-indigo-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+            Next →
+          </button>
         </div>
       )}
     </div>

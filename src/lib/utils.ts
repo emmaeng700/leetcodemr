@@ -38,10 +38,10 @@ export function isDue(nextReview: string | null): boolean {
 
 // ── Spaced repetition ────────────────────────────────────────────────────────
 // Single source of truth — imported by db.ts too so both stay in sync.
-// Cycle of 10: 7→12→21→26→35→40→49→54→63→68→7→12→...
 export function srInterval(n: number): number {
-  const pos = n % 10
-  return Math.floor(pos / 2) * 14 + (pos % 2 === 0 ? 7 : 12)
+  const LADDER = [1, 3, 7, 14, 30, 60, 90, 180]
+  if (!Number.isFinite(n) || n <= 0) return LADDER[0]
+  return LADDER[Math.min(n, LADDER.length) - 1]
 }
 
 export function nextIntervalDays(reviewCount: number): number {

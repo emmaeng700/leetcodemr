@@ -89,6 +89,16 @@ body {
   padding: 12px;
   margin: 10px 0;
 }
+/* Layout-only rules (no colors — apply in all modes) */
+.lc-description p { margin: 6px 0; font-size: 13px; line-height: 1.6; }
+.lc-description ul, .lc-description ol { padding-left: 20px; margin: 6px 0; font-size: 13px; }
+.lc-description li { margin: 3px 0; }
+.lc-description img { max-width: 100%; border-radius: 6px; margin: 8px 0; }
+.lc-description sup { font-size: 10px; }
+.lc-description h1, .lc-description h2, .lc-description h3 { font-weight: 700; margin: 10px 0 4px; }
+.lc-description table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 13px; }
+.lc-description th, .lc-description td { border: 1px solid rgba(0,0,0,0.12); padding: 6px 10px; text-align: left; }
+.lc-description th { font-weight: 600; background: rgba(0,0,0,0.04); }
 
 /* Dark mode — override LeetCode's hardcoded light styles */
 .dark .lc-description,
@@ -133,6 +143,8 @@ body {
 .dark .lc-description a {
   color: #818cf8;
 }
+.dark .lc-description th { background: rgba(255,255,255,0.05); }
+.dark .lc-description th, .dark .lc-description td { border-color: rgba(255,255,255,0.10); }
 
 /* Hide scrollbar on overflow-x-auto filter rows */
 .scrollbar-none {

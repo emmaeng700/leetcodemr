@@ -13,7 +13,7 @@ import {
   BookOpen, List, Code2, ExternalLink, Loader2, FileText, StickyNote,
   Copy, Check,
 } from 'lucide-react'
-import { getProgress, updateProgress, completeReview, getStudyPlan } from '@/lib/db'
+import { getProgress, updateProgress, completeReview, failReview, getStudyPlan } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { QUICK_PATTERNS } from '@/lib/constants'
 import { isDue, formatLocalDate, nextIntervalDays, stripScripts} from '@/lib/utils'
@@ -447,6 +447,16 @@ function LearnInner() {
     setReviewDone(true)
   }
 
+  const handleFailReview = async () => {
+    if (!q) return
+    const result = await failReview(q.id)
+    setProgress(prev => ({
+      ...prev,
+      [String(q.id)]: { ...prev[String(q.id)], review_count: result.review_count, next_review: result.next_review },
+    }))
+    setReviewDone(true)
+  }
+
   const solvedCount = filtered.filter(fq => progress[String(fq.id)]?.solved).length
 
   // Pattern context for current question
@@ -614,18 +624,22 @@ function LearnInner() {
 
       {/* Pattern context strip */}
       {currentPattern && (
-        <div className="flex items-center gap-3 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
-          <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🧩 Pattern</span>
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
+          <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🧩</span>
           <span className="text-xs font-semibold text-[var(--text)] truncate">{currentPattern.name}</span>
+          {patternPct >= 80 && <span className="text-[10px] font-bold text-green-600 dark:text-green-400 shrink-0">🔥 Crushing it!</span>}
+          {patternPct >= 50 && patternPct < 80 && <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 shrink-0">💪 Solid progress</span>}
+          {patternPct > 0 && patternPct < 50 && <span className="text-[10px] font-semibold text-amber-500 shrink-0">📈 Building momentum</span>}
+          {patternPct === 0 && <span className="text-[10px] font-semibold text-[var(--text-subtle)] shrink-0">🧩 Fresh territory</span>}
           <div className="flex items-center gap-1.5 ml-auto shrink-0">
-            <div className="w-20 sm:w-28 h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+            <div className="w-16 sm:w-24 h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${patternPct === 100 ? 'bg-green-500' : patternPct >= 50 ? 'bg-indigo-500' : 'bg-amber-500'}`}
                 style={{ width: patternPct + '%' }}
               />
             </div>
             <span className={`text-[11px] font-bold ${patternPct === 100 ? 'text-green-500' : patternPct >= 50 ? 'text-indigo-400' : 'text-amber-500'}`}>
-              {patternSolved}/{patternQs.length} ({patternPct}%)
+              {patternSolved}/{patternQs.length}
             </span>
           </div>
         </div>
@@ -795,16 +809,34 @@ function LearnInner() {
                         <Brain size={14} className="text-indigo-600" />
                         <span className="text-xs font-semibold text-indigo-700">Review #{reviewCount + 1} due!</span>
                       </div>
-                      <button onClick={handleCompleteReview} disabled={reviewDone}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${reviewDone ? 'bg-green-100 text-green-600 border border-green-300' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
-                        {reviewDone ? `✓ Next in ${nextIntervalDays(reviewCount + 1)}d` : 'Mark Done'}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleFailReview}
+                          disabled={reviewDone}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors border ${
+                            reviewDone
+                              ? 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)]'
+                              : 'bg-white text-indigo-700 border-indigo-200 hover:border-indigo-300'
+                          }`}
+                        >
+                          Again
+                        </button>
+                        <button
+                          onClick={handleCompleteReview}
+                          disabled={reviewDone}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                            reviewDone ? 'bg-green-100 text-green-600 border border-green-300' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                          }`}
+                        >
+                          {reviewDone ? `✓ Next in ${nextIntervalDays(reviewCount + 1)}d` : 'Pass'}
+                        </button>
+                      </div>
                     </div>
                   )}
 
                   {/* Live LeetCode description */}
                   {lcContent ? (
-                    <div className="lc-description text-sm text-gray-800" dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+                    <div className="lc-description text-sm text-[var(--text)]" dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
                   ) : isPremium ? (
                     <PremiumBlock slug={q.slug} />
                   ) : lcLoading ? (

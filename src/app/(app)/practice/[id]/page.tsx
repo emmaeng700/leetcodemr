@@ -3,8 +3,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Clock, Code2, BookOpen, ExternalLink, Loader2, Trophy, List } from 'lucide-react'
-import { getProgress, updateProgress, addTimeSpent, completeReview, getStudyPlan } from '@/lib/db'
+import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan } from '@/lib/db'
 import { formatTime, isDue, stripScripts} from '@/lib/utils'
+import { getPatternForQuestion } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
@@ -175,12 +176,33 @@ export default function PracticePage() {
     toast.success(`✓ Review done! Next review: ${result.next_review}`)
   }
 
+  async function handleFailReview() {
+    if (reviewDone) return
+    setReviewDone(true)
+    const result = await failReview(id)
+    setNextReview(result.next_review)
+    toast(`Again scheduled — next review: ${result.next_review}`)
+  }
+
   async function handleMarkSolved() {
     if (!question) return
     const newSolved = !solved
     setSolved(newSolved)
     await updateProgress(id, { solved: newSolved })
-    toast.success(newSolved ? 'Marked as solved! 🎉' : 'Unmarked')
+    if (newSolved) {
+      const pattern = getPatternForQuestion(question.tags ?? [])
+      const SOLVE_MSGS = [
+        `${pattern ? `${pattern} pattern ` : ''}locked in! Keep the streak alive 🔥`,
+        `One more down${pattern ? ` in ${pattern}` : ''}! You're building real pattern recognition 🧠`,
+        `${pattern ?? 'Question'} solved — each rep makes the next one easier 💪`,
+        `Another one bites the dust${pattern ? ` (${pattern})` : ''}! Stay consistent 🚀`,
+        `Nailed it${pattern ? ` — ${pattern} is getting clearer` : ''}! That muscle memory is building 🏆`,
+      ]
+      const msg = SOLVE_MSGS[Math.floor(Math.random() * SOLVE_MSGS.length)]
+      toast.success(msg, { duration: 3500 })
+    } else {
+      toast.success('Unmarked')
+    }
   }
 
   // Show skeleton top bar immediately, fill in once question loads
@@ -285,6 +307,33 @@ export default function PracticePage() {
           </button>
         </div>
       </div>
+
+      {/* SR review actions */}
+      {due && (
+        <div className="px-3 sm:px-4 py-2 border-b border-[var(--border)] bg-indigo-50/60 dark:bg-indigo-950/30 shrink-0">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+              🧠 Spaced repetition review due
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleFailReview}
+                disabled={reviewDone}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-200 dark:border-indigo-500/30 bg-white dark:bg-[var(--bg-card)] text-indigo-700 dark:text-indigo-300 hover:border-indigo-300 dark:hover:border-indigo-400/60 disabled:opacity-50"
+              >
+                Again
+              </button>
+              <button
+                onClick={handleCompleteReview}
+                disabled={reviewDone}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                Pass
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile panel tabs */}
       <div className="flex md:hidden border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
@@ -430,19 +479,6 @@ export default function PracticePage() {
         </div>
       </div>
 
-      {/* LeetCode description styles */}
-      <style>{`
-        .lc-description pre { background: #f6f8fa; border-radius: 6px; padding: 12px; overflow-x: auto; font-size: 12px; margin: 8px 0; }
-        .lc-description code { background: #f0f0f0; border-radius: 3px; padding: 1px 4px; font-size: 12px; }
-        .lc-description pre code { background: none; padding: 0; }
-        .lc-description p { margin: 6px 0; font-size: 13px; line-height: 1.6; }
-        .lc-description ul, .lc-description ol { padding-left: 20px; margin: 6px 0; font-size: 13px; }
-        .lc-description li { margin: 3px 0; }
-        .lc-description strong { font-weight: 600; }
-        .lc-description img { max-width: 100%; border-radius: 6px; margin: 8px 0; }
-        .lc-description .example-block { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin: 10px 0; }
-        .lc-description sup { font-size: 10px; }
-      `}</style>
     </div>
   )
 }

@@ -361,7 +361,7 @@ export async function getMockSessions(limit = 20): Promise<MockSessionRecord[]> 
   if (error) console.error('[db] getMockSessions:', error.message)
   return (data ?? []).map((r: any) => ({
     id: r.id,
-    date: r.date ?? r.created_at?.split('T')[0] ?? '',
+    date: r.date || (r.created_at ? String(r.created_at).split('T')[0] : '') || '',
     question_id: r.question_id,
     question_title: r.question_title,
     difficulty: r.difficulty,
@@ -374,7 +374,6 @@ export async function getMockSessions(limit = 20): Promise<MockSessionRecord[]> 
 export async function saveMockSession(session: Omit<MockSessionRecord, 'id'>) {
   const { error } = await supabase.from('mock_sessions').insert({
     user_id: USER_ID,
-    date: session.date,
     question_id: session.question_id ?? null,
     question_title: session.question_title ?? null,
     difficulty: session.difficulty ?? null,
@@ -483,6 +482,38 @@ export async function completeReview(questionId: number) {
   return { review_count: newCount, next_review: nextReview }
 }
 
+export async function failReview(questionId: number) {
+  const { data: existing } = await supabase
+    .from('progress')
+    .select('*')
+    .eq('user_id', USER_ID)
+    .eq('question_id', questionId)
+    .single()
+
+  const newCount = 0
+  const d = new Date()
+  d.setDate(d.getDate() + srInterval(newCount))
+  const nextReview = localDateISO(d)
+
+  await supabase.from('progress').upsert({
+    ...existing,
+    user_id: USER_ID,
+    question_id: questionId,
+    review_count: newCount,
+    next_review: nextReview,
+    last_reviewed: todayISO(),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id,question_id' })
+
+  try {
+    await syncStreakActivityFromGoals()
+  } catch (e) {
+    console.error('[db] syncStreakActivityFromGoals:', e)
+  }
+
+  return { review_count: newCount, next_review: nextReview }
+}
+
 // Recalculate next_review from last_reviewed for any record where
 // next_review doesn't match last_reviewed + correct interval.
 // Runs silently — fixes drift caused by timezone bugs or manual solves.
@@ -517,6 +548,8 @@ export async function recalibrateSRDates() {
 
 export async function getDueReviews(): Promise<Array<{ id: number; review_count: number; next_review: string }>> {
   await recalibrateSRDates()
+  const cap = getDailyReviewCapChicago()
+  await spreadOverdueReviews({ maxPerDay: cap })
   const today = todayISOChicago()
   const { data } = await supabase
     .from('progress')
@@ -524,8 +557,126 @@ export async function getDueReviews(): Promise<Array<{ id: number; review_count:
     .eq('user_id', USER_ID)
     .eq('solved', true)
     .lte('next_review', today)
+    .order('next_review', { ascending: true })
 
   return (data ?? []).map((r: any) => ({ id: r.question_id, review_count: r.review_count, next_review: r.next_review }))
+}
+
+function addDaysISO(baseISO: string, days: number) {
+  const d = new Date(baseISO + 'T12:00:00')
+  d.setDate(d.getDate() + days)
+  return localDateISO(d)
+}
+
+function isWeekendChicago(dateISOChicago: string): boolean {
+  const weekday = new Date(dateISOChicago + 'T12:00:00').toLocaleString('en-US', {
+    timeZone: 'America/Chicago',
+    weekday: 'short',
+  })
+  return weekday === 'Sat' || weekday === 'Sun'
+}
+
+export function getDailyReviewCapChicago(dateISOChicago = todayISOChicago()): number {
+  // Weekdays: 2 reviews/day. Weekends: 4 reviews/day total.
+  return isWeekendChicago(dateISOChicago) ? 4 : 2
+}
+
+/**
+ * Keep SR sustainable by moving excess overdue reviews into future days.
+ * This avoids "overdue" piles and enforces a soft daily cap.
+ */
+export async function spreadOverdueReviews(opts?: { maxPerDay?: number; horizonDays?: number }) {
+  const maxPerDay = Math.max(1, Math.floor(opts?.maxPerDay ?? 5))
+  const horizonDays = Math.max(7, Math.floor(opts?.horizonDays ?? 120))
+  const today = todayISOChicago()
+
+  const { data, error } = await supabase
+    .from('progress')
+    .select('question_id,next_review,review_count')
+    .eq('user_id', USER_ID)
+    .eq('solved', true)
+    .not('next_review', 'is', null)
+    .order('next_review', { ascending: true })
+
+  if (error) {
+    console.error('[db] spreadOverdueReviews:', error.message)
+    return
+  }
+
+  const rows = (data ?? []) as Array<{ question_id: number; next_review: string; review_count: number }>
+  if (!rows.length) return
+
+  // Mastery signal: how many accepted submissions you have for this question.
+  // When we have to choose what stays "today" under a small cap, prioritize lower mastery first.
+  const { data: acRows } = await supabase
+    .from('ac_submit_counts')
+    .select('question_id,count')
+    .eq('user_id', USER_ID)
+    .in('question_id', rows.map(r => r.question_id))
+
+  const acCountById: Record<string, number> = {}
+  for (const r of acRows ?? []) {
+    const qid = String((r as any).question_id)
+    acCountById[qid] = Number((r as any).count ?? 0) || 0
+  }
+
+  // Count scheduled reviews per day across the horizon, including today's already-scheduled items.
+  const counts: Record<string, number> = {}
+  for (const r of rows) {
+    const day = r.next_review
+    if (!day) continue
+    counts[day] = (counts[day] ?? 0) + 1
+  }
+
+  const overdue = rows
+    .filter(r => r.next_review <= today)
+    .sort((a, b) => {
+      // Lower mastery first (fewer ACs), then lower SR review_count (less stable), then older due date.
+      const acA = acCountById[String(a.question_id)] ?? 0
+      const acB = acCountById[String(b.question_id)] ?? 0
+      if (acA !== acB) return acA - acB
+      const rcA = a.review_count ?? 0
+      const rcB = b.review_count ?? 0
+      if (rcA !== rcB) return rcA - rcB
+      if (a.next_review !== b.next_review) return a.next_review.localeCompare(b.next_review)
+      return a.question_id - b.question_id
+    })
+  if (overdue.length <= maxPerDay) return
+
+  const updates: Array<{ question_id: number; next_review: string }> = []
+
+  // Keep the first maxPerDay items on today; push the rest forward.
+  const toPush = overdue.slice(maxPerDay)
+  for (const r of toPush) {
+    // Remove from its current day count (since we'll move it).
+    counts[r.next_review] = Math.max(0, (counts[r.next_review] ?? 1) - 1)
+
+    let placed = false
+    for (let offset = 1; offset <= horizonDays; offset++) {
+      const day = addDaysISO(today, offset)
+      if ((counts[day] ?? 0) < maxPerDay) {
+        counts[day] = (counts[day] ?? 0) + 1
+        updates.push({ question_id: r.question_id, next_review: day })
+        placed = true
+        break
+      }
+    }
+
+    // Worst case: push to the end of the horizon.
+    if (!placed) {
+      const day = addDaysISO(today, horizonDays + 1)
+      counts[day] = (counts[day] ?? 0) + 1
+      updates.push({ question_id: r.question_id, next_review: day })
+    }
+  }
+
+  for (const u of updates) {
+    await supabase
+      .from('progress')
+      .update({ next_review: u.next_review })
+      .eq('user_id', USER_ID)
+      .eq('question_id', u.question_id)
+  }
 }
 
 /** Same rules as notify-daily email: streak day counts only when today's active daily block is fully solved AND no SR reviews are due. */

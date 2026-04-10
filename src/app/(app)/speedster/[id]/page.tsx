@@ -28,8 +28,8 @@ function PremiumBlock({ slug }: { slug?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
       <div className="text-4xl mb-3">🔒</div>
-      <h3 className="font-bold text-gray-800 text-base mb-1">LeetCode Premium Question</h3>
-      <p className="text-sm text-gray-500 mb-4 max-w-xs">Requires a LeetCode Premium subscription.</p>
+      <h3 className="font-bold text-[var(--text)] text-base mb-1">LeetCode Premium Question</h3>
+      <p className="text-sm text-[var(--text-muted)] mb-4 max-w-xs">Requires a LeetCode Premium subscription.</p>
       {slug && (
         <a href={`https://leetcode.com/problems/${slug}/`} target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition-colors">
@@ -130,10 +130,10 @@ export default function SpeedsterQuestionPage() {
         key={qid}
         type="button"
         onClick={() => { goTo(qid); setShowList(false) }}
-        className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-yellow-50 border-b border-gray-50 ${qid === id ? 'bg-yellow-50' : ''}`}
+        className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-yellow-50 dark:hover:bg-yellow-900/20 border-b border-[var(--border-soft)] ${qid === id ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}
       >
-        <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{lq.id}</span>
-        <span className="min-w-0 flex-1 truncate text-gray-700">{lq.title}</span>
+        <span className="shrink-0 tabular-nums text-xs font-mono text-[var(--text-subtle)]">#{lq.id}</span>
+        <span className="min-w-0 flex-1 truncate text-[var(--text)]">{lq.title}</span>
         <span
           className={`text-xs font-semibold shrink-0 ${lq.difficulty === 'Easy' ? 'text-green-600' : lq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}
         >
@@ -147,9 +147,9 @@ export default function SpeedsterQuestionPage() {
     <div className="flex flex-col h-[calc(100dvh-56px)]">
 
       {/* Top bar */}
-      <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 border-b border-gray-100 bg-white shrink-0 gap-2">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 gap-2">
         <div className="flex items-center gap-3 min-w-0">
-          <button onClick={() => router.push('/speedster')} className="text-gray-400 hover:text-gray-700 transition-colors shrink-0">
+          <button onClick={() => router.push('/speedster')} className="text-[var(--text-subtle)] hover:text-[var(--text)] transition-colors shrink-0">
             <ArrowLeft size={18} />
           </button>
           <div className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 px-1.5 sm:px-2 py-0.5 rounded-lg shrink-0">
@@ -158,8 +158,8 @@ export default function SpeedsterQuestionPage() {
           </div>
           {question ? (
             <>
-              <span className="text-xs text-gray-400 font-mono shrink-0 hidden sm:inline">#{question.id}</span>
-              <h1 className="font-bold text-gray-800 text-sm leading-snug truncate">{question.title}</h1>
+              <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0 hidden sm:inline">#{question.id}</span>
+              <h1 className="font-bold text-[var(--text)] text-sm leading-snug truncate">{question.title}</h1>
               <div className="shrink-0 hidden sm:block"><DifficultyBadge difficulty={question.difficulty} /></div>
               <a href={`https://leetcode.com/problems/${question.slug}/`} target="_blank" rel="noopener noreferrer"
                 className="shrink-0 text-gray-300 hover:text-orange-400 transition-colors hidden sm:inline">
@@ -175,12 +175,12 @@ export default function SpeedsterQuestionPage() {
         {planOrder.length > 0 && (
           <div className="flex items-center gap-1 shrink-0 overflow-visible">
             <button type="button" onClick={() => prevId && goTo(prevId)} disabled={!prevId}
-              className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-yellow-300 hover:text-yellow-600 disabled:opacity-30 transition-colors">
+              className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-yellow-300 hover:text-yellow-600 disabled:opacity-30 transition-colors">
               <ArrowLeft size={15} />
             </button>
             <div ref={listWrapRef} className="relative z-10">
               <button type="button" onClick={() => setShowList(v => !v)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-yellow-300 transition-colors">
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-xs font-semibold text-[var(--text-muted)] hover:border-yellow-300 transition-colors">
                 <List size={12} />
                 <span className="font-mono">{currentIdx >= 0 ? `${currentIdx + 1}/${planOrder.length}` : '—'}</span>
               </button>
@@ -192,7 +192,7 @@ export default function SpeedsterQuestionPage() {
               )}
             </div>
             <button onClick={() => nextId && goTo(nextId)} disabled={!nextId}
-              className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-yellow-300 hover:text-yellow-600 disabled:opacity-30 transition-colors">
+              className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-yellow-300 hover:text-yellow-600 disabled:opacity-30 transition-colors">
               <ArrowRight size={15} />
             </button>
           </div>
@@ -200,7 +200,7 @@ export default function SpeedsterQuestionPage() {
       </div>
 
       {/* Mobile panel tabs */}
-      <div className="flex md:hidden border-b border-gray-100 bg-white shrink-0">
+      <div className="flex md:hidden border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
         <button onClick={() => setMobilePanel('description')}
           className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'description' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-400'}`}>
           📖 Description
@@ -215,8 +215,8 @@ export default function SpeedsterQuestionPage() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* LEFT */}
-        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-gray-100 bg-white overflow-hidden text-gray-900`}>
-          <div className="flex border-b border-gray-100 bg-white shrink-0 items-center">
+        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-[var(--border)] bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
+          <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 items-center">
             <button onClick={() => setLeftTab('description')}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'description' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
               <BookOpen size={12} /> Description
@@ -247,7 +247,7 @@ export default function SpeedsterQuestionPage() {
                   </div>
                 )}
                 {lcContent ? (
-                  <div className="prose prose-sm max-w-none text-gray-800 lc-description" dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+                  <div className="lc-description prose prose-sm max-w-none text-[var(--text)]" dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
                 ) : isPremium ? (
                   <PremiumBlock slug={question?.slug} />
                 ) : lcLoading ? (
@@ -255,9 +255,9 @@ export default function SpeedsterQuestionPage() {
                     {[1,2,3,4,5].map(i => <div key={i} className="h-3 bg-gray-100 rounded" style={{ width: `${70 + i * 5}%` }} />)}
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  <div className="text-sm text-[var(--text)] leading-relaxed whitespace-pre-wrap">
                     {question?.description || (
-                      <span className="text-gray-400 italic text-xs">
+                      <span className="text-[var(--text-subtle)] italic text-xs">
                         Description unavailable.{' '}
                         <a href={`https://leetcode.com/problems/${question?.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
                       </span>
@@ -265,11 +265,11 @@ export default function SpeedsterQuestionPage() {
                   </div>
                 )}
                 {question && (question.source || []).length > 0 && (
-                  <div className="mt-6 pt-4 border-t border-gray-100">
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Asked by</p>
+                  <div className="mt-6 pt-4 border-t border-[var(--border)]">
+                    <p className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide mb-2">Asked by</p>
                     <div className="flex flex-wrap gap-1.5">
                       {question.source.map(s => (
-                        <span key={s} className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">{s}</span>
+                        <span key={s} className="text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">{s}</span>
                       ))}
                     </div>
                   </div>
@@ -307,25 +307,13 @@ export default function SpeedsterQuestionPage() {
               }}
             />
           ) : (
-            <div className="flex items-center justify-center h-full text-gray-300 text-sm gap-2">
+            <div className="flex items-center justify-center h-full text-[var(--text-subtle)] text-sm gap-2">
               <Loader2 size={16} className="animate-spin" /> Loading editor...
             </div>
           )}
         </div>
       </div>
 
-      <style>{`
-        .lc-description pre { background: #f6f8fa; border-radius: 6px; padding: 12px; overflow-x: auto; font-size: 12px; margin: 8px 0; }
-        .lc-description code { background: #f0f0f0; border-radius: 3px; padding: 1px 4px; font-size: 12px; }
-        .lc-description pre code { background: none; padding: 0; }
-        .lc-description p { margin: 6px 0; font-size: 13px; line-height: 1.6; }
-        .lc-description ul, .lc-description ol { padding-left: 20px; margin: 6px 0; font-size: 13px; }
-        .lc-description li { margin: 3px 0; }
-        .lc-description strong { font-weight: 600; }
-        .lc-description img { max-width: 100%; border-radius: 6px; margin: 8px 0; }
-        .lc-description .example-block { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin: 10px 0; }
-        .lc-description sup { font-size: 10px; }
-      `}</style>
     </div>
   )
 }

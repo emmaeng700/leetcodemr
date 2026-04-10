@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { getProgress, updateProgress, getMockSessions, saveMockSession, type MockSessionRecord } from '@/lib/db'
 import { formatTime, stripScripts} from '@/lib/utils'
+import { QUICK_PATTERNS } from '@/lib/constants'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
@@ -42,8 +43,8 @@ function PremiumBlock({ slug }: { slug?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
       <div className="text-4xl mb-3">🔒</div>
-      <h3 className="font-bold text-gray-800 text-base mb-1">LeetCode Premium Question</h3>
-      <p className="text-sm text-gray-500 mb-4 leading-relaxed max-w-xs">
+      <h3 className="font-bold text-[var(--text)] text-base mb-1">LeetCode Premium Question</h3>
+      <p className="text-sm text-[var(--text-muted)] mb-4 leading-relaxed max-w-xs">
         This question requires a LeetCode Premium subscription to view the description.
         Your subscription may have lapsed or you may not have one active.
       </p>
@@ -53,7 +54,7 @@ function PremiumBlock({ slug }: { slug?: string }) {
           Open on LeetCode ↗
         </a>
       )}
-      <p className="text-xs text-gray-400 mt-3">You can still use the code editor on the right to practice.</p>
+      <p className="text-xs text-[var(--text-subtle)] mt-3">You can still use the code editor on the right to practice.</p>
     </div>
   )
 }
@@ -64,6 +65,7 @@ export default function MockInterviewPage() {
   const [phase, setPhase] = useState<Phase>('setup')
   const [difficulty, setDifficulty] = useState('All')
   const [unseenOnly, setUnseenOnly] = useState(true)
+  const [selectedPattern, setSelectedPattern] = useState<string | null>(null)
   const [question, setQuestion] = useState<Question | null>(null)
   const [timeLeft, setTimeLeft] = useState(45 * 60)
   const [duration, setDuration] = useState(45 * 60)
@@ -148,14 +150,24 @@ export default function MockInterviewPage() {
   }, [question?.slug])
 
   const pickQuestion = useCallback((): Question | null => {
+    const patTags = selectedPattern
+      ? (QUICK_PATTERNS.find(p => p.name === selectedPattern)?.tags as readonly string[] ?? [])
+      : []
     let pool = allQuestions
     if (difficulty !== 'All') pool = pool.filter(q => q.difficulty === difficulty)
+    if (patTags.length) pool = pool.filter(q => (q.tags || []).some(t => patTags.includes(t)))
     if (unseenOnly) pool = pool.filter(q => !progress[String(q.id)]?.solved)
-    if (!pool.length) pool = allQuestions.filter(q => difficulty === 'All' || q.difficulty === difficulty)
+    // Fallback: drop unseen filter, keep diff + pattern
+    if (!pool.length) {
+      pool = allQuestions.filter(q =>
+        (difficulty === 'All' || q.difficulty === difficulty) &&
+        (!patTags.length || (q.tags || []).some(t => patTags.includes(t)))
+      )
+    }
     if (!pool.length) pool = allQuestions
     if (!pool.length) return null
     return pool[Math.floor(Math.random() * pool.length)]
-  }, [allQuestions, difficulty, unseenOnly, progress])
+  }, [allQuestions, difficulty, unseenOnly, progress, selectedPattern])
 
   const endInterview = useCallback(async (outcome: Outcome, q?: Question) => {
     if (intervalRef.current) clearInterval(intervalRef.current)
@@ -219,39 +231,57 @@ export default function MockInterviewPage() {
   if (phase === 'setup') return (
     <div className="max-w-xl mx-auto px-4 py-10">
       {!online && <OfflineBanner feature="Mock Interview (LeetCode editor + submission)" />}
-      <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2 mb-6">
+      <h1 className="text-2xl font-bold text-[var(--text)] flex items-center gap-2 mb-6">
         <Timer className="text-indigo-500" /> Mock Interview
       </h1>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-md p-6 space-y-5">
+      <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] shadow-md p-6 space-y-5">
         <div>
-          <p className="text-sm font-bold text-gray-700 mb-2">Difficulty</p>
+          <p className="text-sm font-bold text-[var(--text-muted)] mb-2">Difficulty</p>
           <div className="flex flex-wrap gap-2">
             {['All', 'Easy', 'Medium', 'Hard'].map(d => (
               <button key={d} onClick={() => setDifficulty(d)}
-                className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${difficulty === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'}`}>
+                className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${difficulty === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-300'}`}>
                 {d}
               </button>
             ))}
           </div>
         </div>
         <div>
-          <p className="text-sm font-bold text-gray-700 mb-2">Duration</p>
+          <p className="text-sm font-bold text-[var(--text-muted)] mb-2">Duration</p>
           <div className="flex flex-wrap gap-2">
             {[15, 30, 45].map(m => (
               <button key={m} onClick={() => setDuration(m * 60)}
-                className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${duration === m * 60 ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'}`}>
+                className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors ${duration === m * 60 ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-300'}`}>
                 {m} min
               </button>
             ))}
           </div>
-          <p className="text-xs text-gray-400 mt-1.5">
+          <p className="text-xs text-[var(--text-subtle)] mt-1.5">
             Solution reveals after {Math.floor(Math.floor((duration * 2) / 3) / 60)} min — attempt first.
           </p>
+        </div>
+        <div>
+          <p className="text-sm font-bold text-gray-700 mb-2">🧩 Pattern <span className="font-normal text-gray-400">(optional)</span></p>
+          <div className="flex flex-wrap gap-1.5">
+            <button onClick={() => setSelectedPattern(null)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${!selectedPattern ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'}`}>
+              Any Pattern
+            </button>
+            {QUICK_PATTERNS.map(p => (
+              <button key={p.name} onClick={() => setSelectedPattern(selectedPattern === p.name ? null : p.name)}
+                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${selectedPattern === p.name ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'}`}>
+                {p.name}
+              </button>
+            ))}
+          </div>
+          {selectedPattern && (
+            <p className="text-xs text-indigo-600 mt-2 font-medium">✓ Questions filtered to <strong>{selectedPattern}</strong> pattern</p>
+          )}
         </div>
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" checked={unseenOnly} onChange={e => setUnseenOnly(e.target.checked)}
             className="w-4 h-4 accent-indigo-600 rounded" />
-          <span className="text-sm text-gray-700 font-medium">Unseen (unsolved) questions only</span>
+          <span className="text-sm text-[var(--text)] font-medium">Unseen (unsolved) questions only</span>
         </label>
         <button onClick={startInterview}
           className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors text-sm flex items-center justify-center gap-2">
@@ -259,16 +289,16 @@ export default function MockInterviewPage() {
         </button>
         {sessions.length > 0 && (
           <div>
-            <p className="text-xs font-bold text-gray-500 mb-2">Recent Sessions</p>
+            <p className="text-xs font-bold text-[var(--text-subtle)] mb-2">Recent Sessions</p>
             <div className="space-y-1.5">
               {sessions.slice(0, 5).map((s, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-1.5 flex-wrap">
+                <div key={i} className="flex items-center gap-2 text-xs text-[var(--text-muted)] bg-[var(--bg-muted)] rounded-lg px-3 py-1.5 flex-wrap">
                   <span className={`font-bold shrink-0 ${s.outcome === 'solved' ? 'text-green-600' : s.outcome === 'timeout' ? 'text-red-500' : 'text-orange-500'}`}>
                     {s.outcome === 'solved' ? '✓' : s.outcome === 'timeout' ? '⏰' : '✗'}
                   </span>
                   <span className="truncate flex-1 min-w-0">{s.questionTitle}</span>
-                  <span className="text-gray-400 shrink-0">{formatTime(s.elapsedSeconds || 0)}</span>
-                  <span className="text-gray-300 shrink-0">{s.date}</span>
+                  <span className="text-[var(--text-subtle)] shrink-0">{formatTime(s.elapsedSeconds || 0)}</span>
+                  <span className="text-[var(--text-subtle)] opacity-60 shrink-0">{s.date}</span>
                 </div>
               ))}
             </div>
@@ -323,7 +353,7 @@ export default function MockInterviewPage() {
       </div>
 
       {/* Mobile panel tabs */}
-      <div className="flex md:hidden border-b border-gray-100 bg-white shrink-0">
+      <div className="flex md:hidden border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
         <button onClick={() => setMobilePanel('description')}
           className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400'}`}>
           📖 Description
@@ -338,8 +368,8 @@ export default function MockInterviewPage() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* LEFT — question */}
-        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-gray-100 overflow-hidden`}>
-          <div className="flex border-b border-gray-100 bg-white shrink-0">
+        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-[var(--border)] overflow-hidden bg-[var(--bg-card)]`}>
+          <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
             <button onClick={() => setLeftTab('description')}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
               <BookOpen size={12} /> Description
@@ -361,16 +391,16 @@ export default function MockInterviewPage() {
           <div className="flex-1 overflow-y-auto p-4">
             {leftTab === 'description' && (
               <div>
-                <h2 className="font-bold text-gray-800 text-base mb-2">{question.title}</h2>
+                <h2 className="font-bold text-[var(--text)] text-base mb-2">{question.title}</h2>
                 {(question.tags || []).length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-4">
-                    {question.tags.map(t => <span key={t} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{t}</span>)}
+                    {question.tags.map(t => <span key={t} className="text-xs bg-[var(--bg-muted)] text-[var(--text-subtle)] px-2 py-0.5 rounded-full">{t}</span>)}
                   </div>
                 )}
 
                 {/* Live LeetCode description */}
                 {lcContent ? (
-                  <div className="lc-description text-sm text-gray-800" dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+                  <div className="lc-description text-sm text-[var(--text)]" dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
                 ) : isPremium ? (
                   <PremiumBlock slug={question.slug} />
                 ) : lcLoading ? (
@@ -383,8 +413,8 @@ export default function MockInterviewPage() {
                     <div className="h-3 bg-gray-100 rounded w-3/4" />
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-                    {question.description || <span className="text-gray-400 italic text-xs">No local description. <a href={`https://leetcode.com/problems/${question.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a></span>}
+                  <div className="text-sm text-[var(--text)] leading-relaxed whitespace-pre-wrap">
+                    {question.description || <span className="text-[var(--text-subtle)] italic text-xs">No local description. <a href={`https://leetcode.com/problems/${question.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a></span>}
                   </div>
                 )}
               </div>
@@ -410,30 +440,19 @@ export default function MockInterviewPage() {
         </div>
       </div>
 
-      <style>{`
-        .lc-description pre { background:#f6f8fa; border-radius:6px; padding:12px; overflow-x:auto; font-size:12px; margin:8px 0; }
-        .lc-description code { background:#f0f0f0; border-radius:3px; padding:1px 4px; font-size:12px; }
-        .lc-description pre code { background:none; padding:0; }
-        .lc-description p { margin:6px 0; font-size:13px; line-height:1.6; }
-        .lc-description ul, .lc-description ol { padding-left:20px; margin:6px 0; font-size:13px; }
-        .lc-description li { margin:3px 0; }
-        .lc-description strong { font-weight:600; }
-        .lc-description img { max-width:100%; border-radius:6px; margin:8px 0; }
-        .lc-description sup { font-size:10px; }
-      `}</style>
     </div>
   )
 
   /* ── DONE ── */
   return (
     <div className="max-w-xl mx-auto px-4 py-10 space-y-4">
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-md p-6 text-center space-y-4">
+      <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] shadow-md p-6 text-center space-y-4">
         <div className="text-5xl">{result === 'solved' ? '🏆' : result === 'timeout' ? '⏰' : '💪'}</div>
         <div>
-          <h2 className="text-xl font-bold text-gray-800 mb-1">
+          <h2 className="text-xl font-bold text-[var(--text)] mb-1">
             {result === 'solved' ? 'Solved!' : result === 'timeout' ? "Time's Up" : 'Keep Practicing'}
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-[var(--text-muted)]">
             {result === 'solved'
               ? 'Marked as solved and added to spaced repetition.'
               : result === 'timeout'
@@ -442,13 +461,13 @@ export default function MockInterviewPage() {
           </p>
         </div>
         {question && (
-          <div className="bg-gray-50 rounded-xl p-3 text-left">
+          <div className="bg-[var(--bg-muted)] rounded-xl p-3 text-left">
             <div className="flex items-center gap-2 flex-wrap">
               <DifficultyBadge difficulty={question.difficulty} />
-              <span className="text-sm font-semibold text-gray-700">{question.title}</span>
+              <span className="text-sm font-semibold text-[var(--text)]">{question.title}</span>
             </div>
             {sessions[0] && (
-              <p className="text-xs text-gray-400 mt-1">Time taken: <span className="font-mono font-semibold">{formatTime(sessions[0].elapsedSeconds || 0)}</span></p>
+              <p className="text-xs text-[var(--text-subtle)] mt-1">Time taken: <span className="font-mono font-semibold">{formatTime(sessions[0].elapsedSeconds || 0)}</span></p>
             )}
           </div>
         )}
@@ -459,7 +478,7 @@ export default function MockInterviewPage() {
           </button>
           {question && (
             <button onClick={() => router.push(`/practice/${question.id}`)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl hover:border-gray-400 transition-colors">
+              className="flex items-center gap-1.5 px-4 py-2 bg-[var(--bg-muted)] border border-[var(--border)] text-[var(--text)] text-sm font-semibold rounded-xl hover:border-[var(--text-subtle)] transition-colors">
               <Trophy size={15} /> Open in Practice
             </button>
           )}
@@ -468,14 +487,14 @@ export default function MockInterviewPage() {
 
       {/* Full solution on done screen */}
       {question && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 bg-green-50">
             <span className="text-sm font-bold text-green-700 flex items-center gap-2"><Unlock size={14} /> Official Solution</span>
           </div>
           {question.explanation && (
             <div className="px-4 pt-3 pb-1">
               <p className="text-xs font-bold text-gray-500 mb-1">Approach</p>
-              <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{question.explanation}</p>
+              <p className="text-sm text-[var(--text-muted)] leading-relaxed whitespace-pre-wrap">{question.explanation}</p>
             </div>
           )}
           <div className="p-3">
