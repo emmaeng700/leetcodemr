@@ -1027,21 +1027,7 @@ function LearnInner() {
         </>
       )}
 
-      {/* LeetCode description styles */}
-      <style>{`
-        /* Use theme tokens so dark mode stays readable. */
-        .lc-description pre { background: var(--bg-muted); border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 12px; margin: 8px 0; border: 1px solid var(--border); color: var(--text); }
-        .lc-description code { background: var(--bg-muted); color: var(--text); border-radius: 4px; padding: 1px 5px; font-size: 0.85em; }
-        .lc-description pre code { background: none; padding: 0; color: inherit; }
-        .lc-description p { margin: 6px 0; font-size: 13px; line-height: 1.65; color: var(--text); }
-        .lc-description ul, .lc-description ol { padding-left: 20px; margin: 6px 0; font-size: 13px; color: var(--text); }
-        .lc-description li { margin: 3px 0; }
-        .lc-description strong { font-weight: 650; color: var(--text); }
-        .lc-description a { color: #6366f1; }
-        .dark .lc-description a { color: #818cf8; }
-        .lc-description img { max-width: 100%; border-radius: 10px; margin: 10px 0; border: 1px solid var(--border); }
-        .lc-description sup { font-size: 10px; }
-      `}</style>
+      {/* lc-description styles live in globals.css — no inline override needed */}
     </div>
 
     <section className="border-t border-gray-100 bg-gray-50/90">

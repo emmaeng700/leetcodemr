@@ -409,7 +409,7 @@ export default function PracticePage() {
 
                 {/* Live LeetCode HTML content */}
                 {lcContent ? (
-                  <div className="prose prose-sm max-w-none text-[var(--text)] lc-description prose-invert dark:prose-invert"
+                  <div className="lc-description text-sm text-[var(--text)]"
                     dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
                 ) : isPremium ? (
                   <PremiumBlock slug={question?.slug} />

@@ -48,7 +48,32 @@ export function nextIntervalDays(reviewCount: number): number {
   return srInterval(reviewCount)
 }
 
-/** Strip <script> tags from HTML strings before dangerouslySetInnerHTML */
+/**
+ * Sanitize LeetCode HTML before dangerouslySetInnerHTML:
+ * - Strip <script> tags
+ * - Remove hardcoded width/height attributes on <img> so CSS controls sizing
+ * - Wrap <table> in a scroll container div so wide tables don't break layout
+ */
 export function stripScripts(html: string): string {
-  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+  let out = html
+
+  // 1. Strip script tags
+  out = out.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+
+  // 2. Strip fixed width / height / style attrs from <img> tags so CSS max-width
+  //    and height:auto can fully control sizing without being overridden
+  out = out.replace(/<img([^>]*?)>/gi, (_m, attrs: string) => {
+    const cleaned = attrs
+      .replace(/\s+width=["'][^"']*["']/gi, '')
+      .replace(/\s+height=["'][^"']*["']/gi, '')
+      .replace(/\s+style=["'][^"']*["']/gi, '')
+    return `<img${cleaned}>`
+  })
+
+  // 3. Wrap every <table> in a scrollable div so wide tables scroll horizontally
+  //    instead of breaking out of the container
+  out = out.replace(/<table/gi, '<div class="lc-table-wrap"><table')
+  out = out.replace(/<\/table>/gi, '</table></div>')
+
+  return out
 }

@@ -247,7 +247,7 @@ export default function SpeedsterQuestionPage() {
                   </div>
                 )}
                 {lcContent ? (
-                  <div className="lc-description prose prose-sm max-w-none text-[var(--text)]" dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+                  <div className="lc-description text-sm text-[var(--text)]" dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
                 ) : isPremium ? (
                   <PremiumBlock slug={question?.slug} />
                 ) : lcLoading ? (
