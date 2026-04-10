@@ -7,7 +7,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List, Brain } from 'lucide-react'
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews } from '@/lib/db'
-import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
+import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
@@ -210,7 +210,7 @@ export default function DailyPage() {
   async function handleGenerate() {
     if (!planCode.trim()) return
     setGenerating(true)
-    const order = defaultStudyQuestionOrder(allQuestions)
+    const order = patternBasedStudyOrder(allQuestions)
     const newPlan: StudyPlan = {
       start_date: startDate,
       per_day: perDay,
@@ -325,8 +325,17 @@ export default function DailyPage() {
             </div>
           </div>
 
+          {/* Pattern order note */}
+          <div className="mt-4 flex items-start gap-2 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-500/30 rounded-xl px-3 py-2.5">
+            <span className="text-base shrink-0">🧩</span>
+            <div>
+              <p className="text-xs font-bold text-violet-700 dark:text-violet-300">Pattern-First Order</p>
+              <p className="text-xs text-violet-600 dark:text-violet-400/80 leading-snug">Questions are grouped by the 20 core patterns (Arrays → DP → Graphs…), Easy→Hard within each. Master one pattern before moving to the next.</p>
+            </div>
+          </div>
+
           {/* Preview */}
-          <div className="mt-5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-xl p-4">
+          <div className="mt-4 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-xl p-4">
             <div className="flex justify-between items-center mb-1">
               <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">At {perDay}/day you finish in</span>
               <span className="text-lg font-black text-indigo-700 dark:text-indigo-300">{previewDays} days</span>

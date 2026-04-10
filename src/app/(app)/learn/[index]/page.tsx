@@ -449,6 +449,16 @@ function LearnInner() {
 
   const solvedCount = filtered.filter(fq => progress[String(fq.id)]?.solved).length
 
+  // Pattern context for current question
+  const currentPattern = q ? QUICK_PATTERNS.find(p =>
+    (q.tags || []).some(t => (p.tags as readonly string[]).includes(t))
+  ) : null
+  const patternQs = currentPattern
+    ? questions.filter(qq => (qq.tags || []).some(t => (currentPattern.tags as readonly string[]).includes(t)))
+    : []
+  const patternSolved = patternQs.filter(qq => progress[String(qq.id)]?.solved).length
+  const patternPct = patternQs.length ? Math.round((patternSolved / patternQs.length) * 100) : 0
+
   const questionListItems = (
     <>
       {filtered.map((fq, i) => {
@@ -601,6 +611,25 @@ function LearnInner() {
           </>
         )}
       </div>
+
+      {/* Pattern context strip */}
+      {currentPattern && (
+        <div className="flex items-center gap-3 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
+          <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🧩 Pattern</span>
+          <span className="text-xs font-semibold text-[var(--text)] truncate">{currentPattern.name}</span>
+          <div className="flex items-center gap-1.5 ml-auto shrink-0">
+            <div className="w-20 sm:w-28 h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${patternPct === 100 ? 'bg-green-500' : patternPct >= 50 ? 'bg-indigo-500' : 'bg-amber-500'}`}
+                style={{ width: patternPct + '%' }}
+              />
+            </div>
+            <span className={`text-[11px] font-bold ${patternPct === 100 ? 'text-green-500' : patternPct >= 50 ? 'text-indigo-400' : 'text-amber-500'}`}>
+              {patternSolved}/{patternQs.length} ({patternPct}%)
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Filter pills row */}
       {showFilters && (

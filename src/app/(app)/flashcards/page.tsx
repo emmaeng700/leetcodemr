@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Shuffle, RotateCcw, Layers, CheckCircle, Circle } from 'lucide-react'
-import { getFcVisited, addFcVisited } from '@/lib/db'
+import { getFcVisited, addFcVisited, getProgress } from '@/lib/db'
 import { shuffle } from '@/lib/utils'
 import { DIFFICULTY_LEVELS, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -33,7 +33,7 @@ function FlashcardsInner() {
   const initSolved: null | boolean = initSolvedParam === 'true' ? true : initSolvedParam === 'false' ? false : null
 
   const [all, setAll] = useState<Question[]>([])
-  const [progress, setProgress] = useState<Record<number, { solved?: boolean; starred?: boolean }>>({})
+  const [progress, setProgress] = useState<Record<string, { solved?: boolean; starred?: boolean; status?: string | null }>>({})
   const [deck, setDeck] = useState<Question[]>([])
   const [idx, setIdx] = useState(0)
   const [flipped, setFlipped] = useState(false)
@@ -53,7 +53,7 @@ function FlashcardsInner() {
       const [qs, vis, prog] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getFcVisited(),
-        import('@/lib/db').then(m => m.getProgress()),
+        getProgress(),
       ])
       setAll(qs)
       setProgress(prog)
@@ -123,6 +123,14 @@ function FlashcardsInner() {
     return () => window.removeEventListener('keydown', handler)
   }, [go, handleFlip])
 
+  // Pattern coverage for the active pattern filter
+  const activePatternData = filterPattern ? QUICK_PATTERNS.find(p => p.name === filterPattern) : null
+  const patternAllQs = activePatternData
+    ? all.filter(q => (q.tags || []).some(t => (activePatternData.tags as readonly string[]).includes(t)))
+    : []
+  const patternSolvedCount = patternAllQs.filter(q => progress[String(q.id)]?.solved).length
+  const patternPct = patternAllQs.length ? Math.round((patternSolvedCount / patternAllQs.length) * 100) : 0
+
   if (loading) return <div className="text-center py-32 text-[var(--text-subtle)] animate-pulse text-sm">Loading flashcards...</div>
 
   return (
@@ -162,6 +170,41 @@ function FlashcardsInner() {
           </button>
         </div>
       </div>
+
+      {/* Pattern coverage banner */}
+      {filterPattern && activePatternData && (
+        <div className={`mb-4 flex items-center gap-3 rounded-xl border px-4 py-3 ${
+          patternPct === 100
+            ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-500/30'
+            : 'bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-500/30'
+        }`}>
+          <span className="text-xl shrink-0">🧩</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="text-xs font-bold text-[var(--text)]">{filterPattern}</span>
+              <span className={`text-xs font-bold ${patternPct === 100 ? 'text-green-500' : patternPct >= 50 ? 'text-indigo-400' : 'text-amber-500'}`}>
+                {patternSolvedCount}/{patternAllQs.length} solved ({patternPct}%)
+              </span>
+            </div>
+            <div className="h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${patternPct === 100 ? 'bg-green-500' : patternPct >= 50 ? 'bg-indigo-500' : 'bg-amber-500'}`}
+                style={{ width: patternPct + '%' }}
+              />
+            </div>
+            {patternPct < 100 && (
+              <p className="text-[11px] text-[var(--text-subtle)] mt-1">
+                {patternAllQs.length - patternSolvedCount} more to go — keep grinding 💪
+              </p>
+            )}
+            {patternPct === 100 && (
+              <p className="text-[11px] text-green-600 dark:text-green-400 mt-1 font-semibold">
+                ✅ Pattern complete! Move to the next one.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="mb-5 space-y-2">

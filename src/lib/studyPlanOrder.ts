@@ -10,3 +10,5 @@ export function defaultStudyQuestionOrder<T extends { id: number; difficulty: st
   const hard = questions.filter((q) => q.difficulty === 'Hard').map((q) => q.id)
   return [...easy, ...medium, ...hard]
 }
+
+export { patternBasedStudyOrder } from './patternUtils'

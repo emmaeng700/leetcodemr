@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef, useMemo, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp } from 'lucide-react'
+import { Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react'
+import { QUICK_PATTERNS } from '@/lib/constants'
 import { getProgress, updateProgress, getActivityLog, getDueReviews, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate } from '@/lib/db'
 import { computeDailyGoalsMetToday, computePlanStreakDisplayNumber, normalizeStudyPlanRow } from '@/lib/streakGoals'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -32,21 +33,6 @@ interface ProgressData {
 const DIFFICULTIES = ['All', 'Easy', 'Medium', 'Hard']
 const SOURCES = ['All', 'Grind 169', 'Denny Zhang', 'Premium 98', 'CodeSignal']
 
-const QUICK_PATTERNS = [
-  { name: 'Arrays & Hashing', tags: ['Array', 'Hash Table'] },
-  { name: 'Two Pointers',     tags: ['Two Pointers'] },
-  { name: 'Sliding Window',   tags: ['Sliding Window'] },
-  { name: 'Binary Search',    tags: ['Binary Search'] },
-  { name: 'Stack',            tags: ['Stack', 'Monotonic Stack'] },
-  { name: 'Linked List',      tags: ['Linked List'] },
-  { name: 'Trees & BST',      tags: ['Tree', 'Binary Tree', 'Binary Search Tree', 'BST'] },
-  { name: 'Dynamic Programming', tags: ['Dynamic Programming', 'Memoization'] },
-  { name: 'Graphs',           tags: ['Graph', 'Union Find', 'Topological Sort'] },
-  { name: 'Heap',             tags: ['Heap', 'Heap (Priority Queue)'] },
-  { name: 'Backtracking',     tags: ['Backtracking'] },
-  { name: 'BFS',              tags: ['BFS', 'Breadth-First Search'] },
-  { name: 'DFS',              tags: ['DFS', 'Depth-First Search'] },
-]
 
 function todayISO() {
   const d = new Date()
@@ -169,27 +155,92 @@ function StreakCard({
   )
 }
 
-function WeakestPatternWidget({ questions, progress }: { questions: Question[]; progress: Record<string, ProgressData> }) {
+function PatternCoverageGrid({ questions, progress }: { questions: Question[]; progress: Record<string, ProgressData> }) {
+  const [collapsed, setCollapsed] = useState(false)
+
   const patternStats = QUICK_PATTERNS.map(p => {
-    const qs = questions.filter(q => (q.tags || []).some(t => p.tags.includes(t)))
-    const solvedCount = qs.filter(q => progress[String(q.id)]?.solved).length
-    const pct = qs.length ? Math.round((solvedCount / qs.length) * 100) : 100
-    return { ...p, total: qs.length, solved: solvedCount, pct }
-  }).filter(p => p.total >= 3)
-  const weakest = [...patternStats].sort((a, b) => a.pct - b.pct)[0]
-  if (!weakest) return null
+    const qs = questions.filter(q => (q.tags || []).some(t => (p.tags as readonly string[]).includes(t)))
+    const solved = qs.filter(q => progress[String(q.id)]?.solved).length
+    const mastered = qs.filter(q => progress[String(q.id)]?.status === 'mastered').length
+    const pct = qs.length ? Math.round((solved / qs.length) * 100) : 0
+    return { name: p.name, tags: p.tags, total: qs.length, solved, mastered, pct }
+  }).filter(p => p.total > 0)
+
+  const weakest = [...patternStats].filter(p => p.total >= 3).sort((a, b) => a.pct - b.pct)[0]
+  const overallSolved = patternStats.reduce((s, p) => s + p.solved, 0)
+  const overallTotal = patternStats.reduce((s, p) => s + p.total, 0)
+  const overallPct = overallTotal ? Math.round((overallSolved / overallTotal) * 100) : 0
+
   return (
-    <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-500/30 rounded-xl px-4 py-3 mb-5 flex items-center justify-between gap-3 flex-wrap">
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-lg">🎯</span>
-        <div className="min-w-0">
-          <p className="text-xs font-bold text-amber-600 dark:text-amber-400">Weakest Pattern</p>
-          <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 truncate">{weakest.name} — {weakest.solved}/{weakest.total} solved ({weakest.pct}%)</p>
+    <div className="mb-5 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg overflow-hidden">
+      <button
+        onClick={() => setCollapsed(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-[var(--bg-muted)] transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <TrendingUp size={15} className="text-indigo-400" />
+          <span className="text-sm font-bold text-[var(--text)]">Pattern Coverage</span>
+          <span className="text-xs bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 px-2 py-0.5 rounded-full font-mono">{overallPct}% overall</span>
         </div>
-      </div>
-      <Link href="/patterns" className="text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50 border border-amber-300 dark:border-amber-500/40 px-3 py-1.5 rounded-full hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors shrink-0 whitespace-nowrap">
-        Practice now →
-      </Link>
+        <div className="flex items-center gap-2">
+          {weakest && collapsed && (
+            <span className="text-xs text-amber-500 font-semibold hidden sm:inline">Focus: {weakest.name} ({weakest.pct}%)</span>
+          )}
+          {collapsed ? <ChevronDown size={15} className="text-[var(--text-subtle)]" /> : <ChevronUp size={15} className="text-[var(--text-subtle)]" />}
+        </div>
+      </button>
+
+      {!collapsed && (
+        <div className="px-4 pb-4">
+          {weakest && (
+            <div className="mb-3 flex items-center justify-between gap-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base shrink-0">🎯</span>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-amber-700 dark:text-amber-400">Focus next — weakest pattern</p>
+                  <p className="text-xs text-amber-800 dark:text-amber-200 font-semibold truncate">{weakest.name} — {weakest.solved}/{weakest.total} solved ({weakest.pct}%)</p>
+                </div>
+              </div>
+              <Link
+                href={`/learn/0?tags=${(weakest.tags as readonly string[]).join(',')}`}
+                className="text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50 border border-amber-300 dark:border-amber-500/40 px-3 py-1.5 rounded-full hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors shrink-0 whitespace-nowrap"
+              >
+                Study now →
+              </Link>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            {patternStats.map(p => {
+              const barColor = p.pct === 100 ? 'bg-green-500' : p.pct >= 60 ? 'bg-indigo-500' : p.pct >= 25 ? 'bg-amber-500' : 'bg-red-400'
+              const pctColor = p.pct === 100 ? 'text-green-500' : p.pct >= 60 ? 'text-indigo-400' : p.pct >= 25 ? 'text-amber-500' : 'text-red-400'
+              const isWeakest = weakest?.name === p.name
+              return (
+                <Link
+                  key={p.name}
+                  href={`/learn/0?tags=${(p.tags as readonly string[]).join(',')}`}
+                  className={`flex flex-col gap-1 px-3 py-2 rounded-lg border transition-all hover:border-indigo-400/60 hover:bg-[var(--bg-muted)] ${
+                    isWeakest
+                      ? 'border-amber-300 dark:border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20'
+                      : 'border-[var(--border-soft)]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-[var(--text)] truncate">{p.name}</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[11px] font-mono text-[var(--text-subtle)]">{p.solved}/{p.total}</span>
+                      <span className={`text-[11px] font-bold ${pctColor}`}>{p.pct}%</span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: p.pct + '%' }} />
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -429,7 +480,7 @@ function HomeInner() {
 
   const DIFF_ORDER: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
 
-  const activePatternTags = activePattern ? (QUICK_PATTERNS.find(p => p.name === activePattern)?.tags ?? []) : []
+  const activePatternTags: readonly string[] = activePattern ? (QUICK_PATTERNS.find(p => p.name === activePattern)?.tags ?? []) : []
 
   const filtered = useMemo(() => questions.filter(q => {
     if (difficulty !== 'All' && q.difficulty !== difficulty) return false
@@ -492,7 +543,7 @@ function HomeInner() {
 
       {!loading && <InterviewCountdownWidget questions={questions} progress={progress} />}
       <DueReviewBanner />
-      {!loading && <WeakestPatternWidget questions={questions} progress={progress} />}
+      {!loading && <PatternCoverageGrid questions={questions} progress={progress} />}
 
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 mb-6 shadow-lg">
         <div className="flex flex-wrap gap-1">
@@ -527,7 +578,7 @@ function HomeInner() {
             </button>
           )}
           {QUICK_PATTERNS.map(pat => {
-            const count = questions.filter(q => (q.tags || []).some(t => pat.tags.includes(t))).length
+            const count = questions.filter(q => (q.tags || []).some(t => (pat.tags as readonly string[]).includes(t))).length
             const active = activePattern === pat.name
             return (
               <button key={pat.name}
@@ -561,10 +612,10 @@ function HomeInner() {
 
         <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[var(--border)]">
           <span className="text-xs text-[var(--text-subtle)] self-center">Study {filtered.length} as:</span>
-          <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePatternTags)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors">
+          <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved, [...activePatternTags])}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors">
             <Layers size={12} /> Flashcards
           </Link>
-          <Link href={`/learn/0?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePatternTags)}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors">
+          <Link href={`/learn/0?${buildStudyParams(difficulty, source, search, showStarred, showSolved, [...activePatternTags])}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors">
             <BookOpen size={12} /> Learn mode
           </Link>
         </div>
