@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp, RotateCcw } from 'lucide-react'
 import { QUICK_PATTERNS } from '@/lib/constants'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { getProgress, updateProgress, getActivityLog, getDueReviews, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getDailyReviewCapChicago } from '@/lib/db'
 import { computeDailyGoalsMetToday, computePlanStreakDisplayNumber, normalizeStudyPlanRow } from '@/lib/streakGoals'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -159,13 +160,14 @@ function StreakCard({
 function PatternCoverageGrid({ questions, progress }: { questions: Question[]; progress: Record<string, ProgressData> }) {
   const [collapsed, setCollapsed] = useState(false)
 
-  const patternStats = QUICK_PATTERNS.map(p => {
-    const qs = questions.filter(q => (q.tags || []).some(t => (p.tags as readonly string[]).includes(t)))
+  const exclusiveMap = useMemo(() => buildExclusivePatternMap(questions), [questions])
+  const patternStats = useMemo(() => QUICK_PATTERNS.map(p => {
+    const qs = questions.filter(q => exclusiveMap[q.id] === p.name)
     const solved = qs.filter(q => progress[String(q.id)]?.solved).length
     const mastered = qs.filter(q => progress[String(q.id)]?.status === 'mastered').length
     const pct = qs.length ? Math.round((solved / qs.length) * 100) : 0
     return { name: p.name, tags: p.tags, total: qs.length, solved, mastered, pct }
-  }).filter(p => p.total > 0)
+  }).filter(p => p.total > 0), [questions, progress, exclusiveMap])
 
   const weakest = [...patternStats].filter(p => p.total >= 3).sort((a, b) => a.pct - b.pct)[0]
   const overallSolved = patternStats.reduce((s, p) => s + p.solved, 0)

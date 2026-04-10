@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Shuffle, RotateCcw, Layers, CheckCircle, Cir
 import { getFcVisited, addFcVisited, getProgress } from '@/lib/db'
 import { shuffle } from '@/lib/utils'
 import { DIFFICULTY_LEVELS, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import QuestionImage from '@/components/QuestionImage'
@@ -73,8 +74,8 @@ function FlashcardsInner() {
       filtered = filtered.filter(q => q.title.toLowerCase().includes(s) || String(q.id).includes(byId))
     }
     if (filterPattern) {
-      const patTags = QUICK_PATTERNS.find(p => p.name === filterPattern)?.tags ?? []
-      filtered = filtered.filter(q => (q.tags || []).some(t => (patTags as readonly string[]).includes(t)))
+      const exclusiveMap = buildExclusivePatternMap(all)
+      filtered = filtered.filter(q => exclusiveMap[q.id] === filterPattern)
     }
     if (initStarred) filtered = filtered.filter(q => progress[q.id]?.starred)
     if (initSolved === true)  filtered = filtered.filter(q => progress[q.id]?.solved)
@@ -123,10 +124,10 @@ function FlashcardsInner() {
     return () => window.removeEventListener('keydown', handler)
   }, [go, handleFlip])
 
-  // Pattern coverage for the active pattern filter
-  const activePatternData = filterPattern ? QUICK_PATTERNS.find(p => p.name === filterPattern) : null
-  const patternAllQs = activePatternData
-    ? all.filter(q => (q.tags || []).some(t => (activePatternData.tags as readonly string[]).includes(t)))
+  // Pattern coverage for the active pattern filter (exclusive — each question in one pattern only)
+  const exclusiveMapAll = filterPattern ? buildExclusivePatternMap(all) : null
+  const patternAllQs = filterPattern && exclusiveMapAll
+    ? all.filter(q => exclusiveMapAll[q.id] === filterPattern)
     : []
   const patternSolvedCount = patternAllQs.filter(q => progress[String(q.id)]?.solved).length
   const patternPct = patternAllQs.length ? Math.round((patternSolvedCount / patternAllQs.length) * 100) : 0
@@ -172,7 +173,7 @@ function FlashcardsInner() {
       </div>
 
       {/* Pattern coverage banner */}
-      {filterPattern && activePatternData && (
+      {filterPattern && patternAllQs.length > 0 && (
         <div className={`mb-4 flex items-center gap-3 rounded-xl border px-4 py-3 ${
           patternPct === 100
             ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-500/30'

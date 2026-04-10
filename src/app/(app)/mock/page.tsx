@@ -8,6 +8,7 @@ import {
 import { getProgress, updateProgress, getMockSessions, saveMockSession, type MockSessionRecord } from '@/lib/db'
 import { formatTime, stripScripts} from '@/lib/utils'
 import { QUICK_PATTERNS } from '@/lib/constants'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
@@ -150,18 +151,16 @@ export default function MockInterviewPage() {
   }, [question?.slug])
 
   const pickQuestion = useCallback((): Question | null => {
-    const patTags = selectedPattern
-      ? (QUICK_PATTERNS.find(p => p.name === selectedPattern)?.tags as readonly string[] ?? [])
-      : []
+    const exclusiveMap = buildExclusivePatternMap(allQuestions)
     let pool = allQuestions
     if (difficulty !== 'All') pool = pool.filter(q => q.difficulty === difficulty)
-    if (patTags.length) pool = pool.filter(q => (q.tags || []).some(t => patTags.includes(t)))
+    if (selectedPattern) pool = pool.filter(q => exclusiveMap[q.id] === selectedPattern)
     if (unseenOnly) pool = pool.filter(q => !progress[String(q.id)]?.solved)
     // Fallback: drop unseen filter, keep diff + pattern
     if (!pool.length) {
       pool = allQuestions.filter(q =>
         (difficulty === 'All' || q.difficulty === difficulty) &&
-        (!patTags.length || (q.tags || []).some(t => patTags.includes(t)))
+        (!selectedPattern || exclusiveMap[q.id] === selectedPattern)
       )
     }
     if (!pool.length) pool = allQuestions

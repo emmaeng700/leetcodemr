@@ -10,14 +10,39 @@ export type PatternStat = {
   masteredPct: number
 }
 
+/**
+ * Assigns each question to exactly ONE pattern — the first pattern in QUICK_PATTERNS
+ * whose tags overlap the question's tags. Same logic as patternBasedStudyOrder.
+ * Returns a map of questionId → patternName (undefined = no recognized pattern).
+ */
+export function buildExclusivePatternMap(
+  questions: Array<{ id: number; tags: string[] }>,
+  patternOrder: typeof QUICK_PATTERNS = QUICK_PATTERNS,
+): Record<number, string> {
+  const map: Record<number, string> = {}
+  const used = new Set<number>()
+  for (const pattern of patternOrder) {
+    for (const q of questions) {
+      if (used.has(q.id)) continue
+      if ((q.tags || []).some(t => (pattern.tags as readonly string[]).includes(t))) {
+        map[q.id] = pattern.name
+        used.add(q.id)
+      }
+    }
+  }
+  return map
+}
+
+/**
+ * Per-pattern stats using exclusive assignment — each question counted in exactly one pattern.
+ */
 export function getPatternStats(
   questions: Array<{ id: number; tags: string[] }>,
   progress: Record<string, { solved?: boolean; status?: string | null }>
 ): PatternStat[] {
+  const exclusiveMap = buildExclusivePatternMap(questions)
   return QUICK_PATTERNS.map(pattern => {
-    const qs = questions.filter(q =>
-      (q.tags || []).some(t => (pattern.tags as readonly string[]).includes(t))
-    )
+    const qs = questions.filter(q => exclusiveMap[q.id] === pattern.name)
     const solved = qs.filter(q => progress[String(q.id)]?.solved).length
     const mastered = qs.filter(q => progress[String(q.id)]?.status === 'mastered').length
     const total = qs.length
@@ -33,6 +58,7 @@ export function getPatternStats(
   }).filter(p => p.total > 0)
 }
 
+/** Returns the pattern name that exclusively owns this question (first match). */
 export function getPatternForQuestion(tags: string[]): string | null {
   for (const pattern of QUICK_PATTERNS) {
     if ((tags || []).some(t => (pattern.tags as readonly string[]).includes(t))) return pattern.name

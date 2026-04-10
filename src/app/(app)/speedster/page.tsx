@@ -9,6 +9,7 @@ import LeetCodeEditor from '@/components/LeetCodeEditor'
 import QuestionImage from '@/components/QuestionImage'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdropDense, listDropdownMobilePanelViewportOnly } from '@/lib/listDropdownUi'
 
@@ -111,6 +112,8 @@ export default function SpeedsterPage() {
   }, [])
 
   const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
+  // Exclusive pattern map — each question belongs to exactly one pattern
+  const patternMap = useMemo(() => buildExclusivePatternMap(questions), [questions])
 
   const srItems = planOrder
     .map(id => {
@@ -174,8 +177,7 @@ export default function SpeedsterPage() {
     if (filterSolved === 'Solved'   && !solved) return false
     if (filterSource !== 'All' && !(q.source || []).includes(filterSource)) return false
     if (filterPattern) {
-      const patTags = QUICK_PATTERNS.find(p => p.name === filterPattern)?.tags ?? []
-      if (!(q.tags || []).some(t => (patTags as readonly string[]).includes(t))) return false
+      if (!patternMap || patternMap[id] !== filterPattern) return false
     }
     return true
   })
