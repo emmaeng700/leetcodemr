@@ -16,6 +16,7 @@ import {
 import { getProgress, updateProgress, completeReview, failReview, getStudyPlan } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { QUICK_PATTERNS } from '@/lib/constants'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { isDue, formatLocalDate, nextIntervalDays, stripScripts} from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
@@ -233,9 +234,9 @@ function LearnInner() {
     })
   }, [])
 
-  const activePatternTags = filterPattern
-    ? (QUICK_PATTERNS.find(p => p.name === filterPattern)?.tags ?? []) as readonly string[]
-    : (initTags.length > 0 ? initTags : []) as string[]
+  // Exclusive map — each question belongs to exactly one pattern, no repetition
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const exclusiveMap = useMemo(() => buildExclusivePatternMap(questions), [questions])
 
   const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
   const ordered = planOrder.length
@@ -248,7 +249,7 @@ function LearnInner() {
       const s = initSearch.toLowerCase()
       if (!q.title.toLowerCase().includes(s) && !String(q.id).includes(s.replace(/^#/, ''))) return false
     }
-    if (activePatternTags.length > 0 && !(q.tags || []).some(t => activePatternTags.includes(t))) return false
+    if (filterPattern && exclusiveMap[q.id] !== filterPattern) return false
     const p = progress[String(q.id)] || {}
     if (initStarred && !p.starred) return false
     if (initSolved === true  && !p.solved) return false
@@ -459,12 +460,11 @@ function LearnInner() {
 
   const solvedCount = filtered.filter(fq => progress[String(fq.id)]?.solved).length
 
-  // Pattern context for current question
-  const currentPattern = q ? QUICK_PATTERNS.find(p =>
-    (q.tags || []).some(t => (p.tags as readonly string[]).includes(t))
-  ) : null
-  const patternQs = currentPattern
-    ? questions.filter(qq => (qq.tags || []).some(t => (currentPattern.tags as readonly string[]).includes(t)))
+  // Pattern context for current question — uses exclusive map (no repetition)
+  const currentPatternName = q ? (exclusiveMap[q.id] ?? null) : null
+  const currentPattern = currentPatternName ? QUICK_PATTERNS.find(p => p.name === currentPatternName) ?? null : null
+  const patternQs = currentPatternName
+    ? questions.filter(qq => exclusiveMap[qq.id] === currentPatternName)
     : []
   const patternSolved = patternQs.filter(qq => progress[String(qq.id)]?.solved).length
   const patternPct = patternQs.length ? Math.round((patternSolved / patternQs.length) * 100) : 0
