@@ -22,28 +22,29 @@ interface Question {
   cpp_solution?: string
 }
 
-// One icon per QUICK_PATTERNS entry (same order)
+// One icon per QUICK_PATTERNS entry — order matches QUICK_PATTERNS in constants.ts
 const PATTERN_ICONS: Record<string, string> = {
-  'Arrays & Hashing':    '🗂',
-  'String':              '📝',
-  'Two Pointers':        '👇',
-  'Sliding Window':      '🪟',
-  'Binary Search':       '🔍',
-  'Stack':               '📚',
-  'Linked List':         '🔗',
-  'Trees & BST':         '🌳',
+  'Bit Manipulation':    '⚡',
   'Trie':                '🌐',
   'Heap':                '⛰️',
+  'Stack':               '📚',
+  'Sliding Window':      '🪟',
+  'Backtracking':        '↩️',
+  'Linked List':         '🔗',
+  'Trees & BST':         '🌳',
+  'DFS':                 '🤿',
+  'BFS':                 '🌊',
+  'Graphs':              '🕸️',
   'Matrix':              '⬜',
+  'Two Pointers':        '👇',
+  'Binary Search':       '🔍',
   'Dynamic Programming': '💡',
   'Greedy':              '🎯',
-  'Graphs':              '🕸️',
-  'Backtracking':        '↩️',
-  'BFS':                 '🌊',
-  'DFS':                 '🤿',
   'Sorting':             '📊',
   'Math':                '🔢',
-  'Bit Manipulation':    '⚡',
+  'String':              '📝',
+  'JavaScript':          '🟨',
+  'Arrays & Hashing':    '🗂',
 }
 
 const PALETTE: [string, string, string][] = [
