@@ -3,14 +3,10 @@ import { Suspense, useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { RefreshCw, CheckCircle, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
-import { getProgress, getStudyPlan, completeReview } from '@/lib/db'
+import { getDailyReviewCapChicago, getDueReviews, getProgress, getStudyPlan, completeReview } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-
-function srInterval(n: number): number {
-  return Math.floor(n / 2) * 14 + (n % 2 === 0 ? 7 : 12)
-}
 
 function daysUntil(dateStr: string): number {
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -30,7 +26,6 @@ function QuestionRow({ q, p, urgency, completing, onDone }: {
   completing: number | null; onDone: (id: number) => void
 }) {
   const days = p.next_review ? daysUntil(p.next_review) : null
-  const nextInterval = srInterval((p.review_count ?? 0) + 1)
 
   return (
     <div className={`flex items-center gap-3 px-4 py-3 border-b border-[var(--border-soft)] last:border-b-0 hover:bg-[var(--bg-muted)] transition-colors ${completing === q.id ? 'opacity-50' : ''}`}>
@@ -52,7 +47,6 @@ function QuestionRow({ q, p, urgency, completing, onDone }: {
               {days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? 'Due today' : `Due in ${days}d`}
             </span>
           )}
-          <span className="text-[var(--text-subtle)] hidden sm:inline">+{nextInterval}d after review</span>
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
@@ -141,6 +135,7 @@ function SRQueueInner() {
   const [questions, setQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, any>>({})
   const [planOrder, setPlanOrder] = useState<number[]>([])
+  const [dueList, setDueList] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState<number | null>(null)
 
@@ -157,6 +152,12 @@ function SRQueueInner() {
     })
   }, [])
 
+  useEffect(() => {
+    // Keep SR Queue consistent with the app caps by reading the capped due list.
+    // This also triggers the "spread forward" logic in db.getDueReviews().
+    getDueReviews().then(setDueList).catch(() => {})
+  }, [])
+
   const handleDone = useCallback(async (qId: number) => {
     if (!online) return
     setCompleting(qId)
@@ -165,6 +166,8 @@ function SRQueueInner() {
       ...prev,
       [String(qId)]: { ...prev[String(qId)], review_count: result.review_count, next_review: result.next_review },
     }))
+    // Refresh capped due list after marking done.
+    try { setDueList(await getDueReviews()) } catch { /* ignore */ }
     setCompleting(null)
   }, [online])
 
@@ -177,16 +180,13 @@ function SRQueueInner() {
     .map(id => ({ q: qMap[id], p: progress[String(id)] }))
     .filter(({ q, p }) => q && p?.solved)
 
-  const MAX_DAILY = 15
-  const allOverdue  = solved.filter(({ p }) => p.next_review && daysUntil(p.next_review) < 0)
-  const allDueToday = solved.filter(({ p }) => p.next_review && daysUntil(p.next_review) === 0)
-  const allDue = [...allOverdue, ...allDueToday]
-  const todayQueue = allDue.slice(0, MAX_DAILY)
-  const overflow   = allDue.slice(MAX_DAILY)
-  const overdue    = todayQueue.filter(({ p }) => daysUntil(p.next_review) < 0)
-  const dueToday   = todayQueue.filter(({ p }) => daysUntil(p.next_review) === 0)
+  const cap = getDailyReviewCapChicago()
+  const dueIds = new Set(dueList.map(d => d.id))
+  const todayQueue = solved.filter(({ q }) => dueIds.has(q.id))
+  const overdue    = todayQueue.filter(({ p }) => p.next_review && daysUntil(p.next_review) < 0)
+  const dueToday   = todayQueue.filter(({ p }) => p.next_review && daysUntil(p.next_review) === 0)
   const soon       = solved.filter(({ p }) => p.next_review && daysUntil(p.next_review) > 0 && daysUntil(p.next_review) <= 7)
-  const later      = [...overflow, ...solved.filter(({ p }) => p.next_review && daysUntil(p.next_review) > 7)]
+  const later      = solved.filter(({ p }) => p.next_review && daysUntil(p.next_review) > 7)
   const none       = solved.filter(({ p }) => !p.next_review)
 
   const matchesSearch = ({ q }: RowItem) => {
@@ -210,7 +210,7 @@ function SRQueueInner() {
           <RefreshCw className="text-indigo-500" size={22} /> SR Queue
         </h1>
         <p className="text-sm text-[var(--text-subtle)] mt-1">
-          {solved.length} solved · {todayQueue.length} due now (max {MAX_DAILY}/day)
+          {solved.length} solved · {todayQueue.length} due now (capped at {cap}/day)
         </p>
       </div>
 

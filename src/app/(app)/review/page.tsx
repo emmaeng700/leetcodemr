@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { getMasteryRunsByQuestion, getProgress, getDueReviews, completeReview } from '@/lib/db'
+import { getDailyReviewCapChicago, getMasteryRunsByQuestion, getProgress, getDueReviews, completeReview } from '@/lib/db'
 import { isDue, formatLocalDate } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import { Brain, CheckCircle, Clock, CalendarCheck, Flame, Trophy, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -143,6 +143,7 @@ export default function ReviewPage() {
   const [allQ, setAllQ] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, any>>({})
   const [runs, setRuns] = useState<Record<string, number>>({})
+  const [dueList, setDueList] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState<number | null>(null)
   const router = useRouter()
@@ -152,10 +153,12 @@ export default function ReviewPage() {
       fetch('/questions_full.json').then(r => r.json()),
       getProgress(),
       getMasteryRunsByQuestion(),
-    ]).then(([qs, prog, mr]) => {
+      getDueReviews(), // triggers spreading + returns capped list
+    ]).then(([qs, prog, mr, due]) => {
       setAllQ(qs)
       setProgress(prog)
       setRuns(mr)
+      setDueList(due)
       setLoading(false)
     }).catch((e) => {
       console.error('[review] load failed:', e)
@@ -184,7 +187,8 @@ export default function ReviewPage() {
 
   const withProgress = allQ.map(q => ({ ...q, p: progress[String(q.id)] || {} }))
   const inSR = withProgress.filter(q => q.p.solved && q.p.next_review)
-  const due = inSR.filter(q => isDue(q.p.next_review))
+  const dueIdSet = new Set(dueList.map(d => d.id))
+  const due = inSR.filter(q => dueIdSet.has(q.id))
   const upcoming = inSR.filter(q => !isDue(q.p.next_review))
     .sort((a, b) => a.p.next_review.localeCompare(b.p.next_review))
 
@@ -238,7 +242,7 @@ export default function ReviewPage() {
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 text-center">
           <Flame size={20} className="text-orange-400 mx-auto mb-1" />
           <div className="text-2xl font-black text-orange-500">{due.length}</div>
-          <div className="text-xs text-[var(--text-subtle)] mt-0.5 font-medium">Due Today</div>
+          <div className="text-xs text-[var(--text-subtle)] mt-0.5 font-medium">Due (capped)</div>
         </div>
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 text-center">
           <Clock size={20} className="text-indigo-400 mx-auto mb-1" />
@@ -257,7 +261,9 @@ export default function ReviewPage() {
         <section className="mb-7">
           <h2 className="text-sm font-bold text-[var(--text)] mb-3 flex items-center gap-2">
             <Flame size={15} className="text-orange-500" /> Due for Review
-            <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-full text-xs border border-orange-200 dark:border-orange-500/30">{due.length}</span>
+            <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-full text-xs border border-orange-200 dark:border-orange-500/30">
+              {due.length}/{getDailyReviewCapChicago()}
+            </span>
           </h2>
           <div className="space-y-2">
             {due.map(q => (

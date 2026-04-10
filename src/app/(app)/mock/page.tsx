@@ -224,7 +224,7 @@ export default function MockInterviewPage() {
     }, 1000)
   }
 
-  if (loading) return <div className="text-center py-32 text-gray-400 text-sm animate-pulse">Loading...</div>
+  if (loading) return <div className="text-center py-32 text-[var(--text-subtle)] text-sm animate-pulse">Loading...</div>
 
   /* ── SETUP ── */
   if (phase === 'setup') return (
@@ -260,15 +260,15 @@ export default function MockInterviewPage() {
           </p>
         </div>
         <div>
-          <p className="text-sm font-bold text-gray-700 mb-2">🧩 Pattern <span className="font-normal text-gray-400">(optional)</span></p>
+          <p className="text-sm font-bold text-[var(--text)] mb-2">🧩 Pattern <span className="font-normal text-[var(--text-subtle)]">(optional)</span></p>
           <div className="flex flex-wrap gap-1.5">
             <button onClick={() => setSelectedPattern(null)}
-              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${!selectedPattern ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'}`}>
+              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${!selectedPattern ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-300'}`}>
               Any Pattern
             </button>
             {QUICK_PATTERNS.map(p => (
               <button key={p.name} onClick={() => setSelectedPattern(selectedPattern === p.name ? null : p.name)}
-                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${selectedPattern === p.name ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'}`}>
+                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${selectedPattern === p.name ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-300'}`}>
                 {p.name}
               </button>
             ))}
@@ -314,12 +314,12 @@ export default function MockInterviewPage() {
       {/* Timer top bar */}
       <div className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 border-b shrink-0 ${urgent ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-200'}`}>
         {/* Countdown */}
-        <div className={`text-lg sm:text-2xl font-black font-mono shrink-0 tabular-nums ${urgent ? 'text-red-600 animate-pulse' : 'text-indigo-700'}`}>
+        <div className={`text-lg sm:text-2xl font-black font-mono shrink-0 tabular-nums ${urgent ? 'text-red-600 animate-pulse' : 'text-indigo-600 dark:text-indigo-400'}`}>
           {formatTime(timeLeft)}
         </div>
 
         {/* Progress bar */}
-        <div className="flex-1 bg-white bg-opacity-70 rounded-full h-2 overflow-hidden min-w-0">
+        <div className="flex-1 bg-[var(--bg-card)] bg-opacity-70 rounded-full h-2 overflow-hidden min-w-0">
           <div className={`h-full rounded-full transition-all duration-1000 ${urgent ? 'bg-red-500' : 'bg-indigo-500'}`}
             style={{ width: `${pct}%` }} />
         </div>
@@ -328,16 +328,16 @@ export default function MockInterviewPage() {
         <div className="text-xs shrink-0 hidden sm:block">
           {answerUnlocked
             ? <span className="text-green-600 font-semibold flex items-center gap-1"><Unlock size={11} /> Solution visible</span>
-            : <span className="text-gray-500 flex items-center gap-1"><Lock size={11} /> Reveals in {formatTime(timeUntilReveal)}</span>
+            : <span className="text-[var(--text-muted)] flex items-center gap-1"><Lock size={11} /> Reveals in {formatTime(timeUntilReveal)}</span>
           }
         </div>
 
         {/* Question info — hidden on mobile */}
         <div className="hidden sm:flex items-center gap-2 shrink-0">
-          <span className="text-xs text-gray-500 font-mono">#{question.id}</span>
+          <span className="text-xs text-[var(--text-muted)] font-mono">#{question.id}</span>
           <DifficultyBadge difficulty={question.difficulty} />
           <a href={`https://leetcode.com/problems/${question.slug}/`} target="_blank" rel="noopener noreferrer"
-            className="text-gray-300 hover:text-orange-400 transition-colors"><ExternalLink size={12} /></a>
+            className="text-[var(--text-subtle)] hover:text-orange-400 transition-colors"><ExternalLink size={12} /></a>
         </div>
 
         {/* Action buttons */}
@@ -346,7 +346,7 @@ export default function MockInterviewPage() {
           <CheckCircle size={13} /> <span className="hidden xs:inline sm:inline">Solved</span> ✓
         </button>
         <button onClick={() => endInterview('gave_up')}
-          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-white border-2 border-gray-200 text-gray-600 font-semibold rounded-lg hover:border-red-300 hover:text-red-500 transition-colors text-xs shrink-0">
+          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-[var(--bg-card)] border-2 border-[var(--border)] text-[var(--text-muted)] font-semibold rounded-lg hover:border-red-300 hover:text-red-500 transition-colors text-xs shrink-0">
           <XCircle size={13} /> <span className="hidden sm:inline">Give Up</span><span className="sm:hidden">Quit</span>
         </button>
       </div>
@@ -354,11 +354,11 @@ export default function MockInterviewPage() {
       {/* Mobile panel tabs */}
       <div className="flex md:hidden border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
         <button onClick={() => setMobilePanel('description')}
-          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400'}`}>
+          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)]'}`}>
           📖 Description
         </button>
         <button onClick={() => setMobilePanel('editor')}
-          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'editor' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400'}`}>
+          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'editor' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)]'}`}>
           💻 Editor
         </button>
       </div>
@@ -370,18 +370,18 @@ export default function MockInterviewPage() {
         <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-[var(--border)] overflow-hidden bg-[var(--bg-card)]`}>
           <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
             <button onClick={() => setLeftTab('description')}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
               <BookOpen size={12} /> Description
-              {lcLoading && <Loader2 size={10} className="animate-spin text-gray-300 ml-0.5" />}
+              {lcLoading && <Loader2 size={10} className="animate-spin text-[var(--text-subtle)] ml-0.5" />}
             </button>
             {answerUnlocked && (
               <button onClick={() => setLeftTab('solution')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'solution' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'solution' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
                 <Unlock size={12} /> Solution
               </button>
             )}
             {!answerUnlocked && (
-              <div className="flex items-center gap-1 px-4 py-2.5 text-xs text-gray-300">
+              <div className="flex items-center gap-1 px-4 py-2.5 text-xs text-[var(--text-subtle)]">
                 <Lock size={11} /> Solution locked
               </div>
             )}

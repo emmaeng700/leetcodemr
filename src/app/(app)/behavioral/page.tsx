@@ -124,16 +124,16 @@ export default function BehavioralPage() {
     return () => window.removeEventListener('keydown', handler)
   }, [go, handleFlip])
 
-  if (loading) return <div className="text-center py-32 text-gray-400 animate-pulse text-sm">Loading...</div>
+  if (loading) return <div className="text-center py-32 text-[var(--text-subtle)] animate-pulse text-sm">Loading...</div>
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2 mb-0.5">
+        <h1 className="text-2xl font-bold text-[var(--text)] flex items-center gap-2 mb-0.5">
           <BookOpen className="text-indigo-500" /> Behavioural
         </h1>
-        <p className="text-xs text-gray-400">Tap card to reveal STAR stories · ← → to navigate · Space to flip</p>
+        <p className="text-xs text-[var(--text-subtle)]">Tap card to reveal STAR stories · ← → to navigate · Space to flip</p>
       </div>
 
       {/* Controls */}
@@ -147,27 +147,27 @@ export default function BehavioralPage() {
         <button
           onClick={() => setIsShuffled(s => !s)}
           className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
-            isShuffled ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'
+            isShuffled ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-card)] text-[var(--text-subtle)] border-[var(--border)] hover:border-indigo-300'
           }`}
         >
           <Shuffle size={11} /> Shuffle
         </button>
         <button
           onClick={reset}
-          className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border bg-white text-gray-500 border-gray-200 hover:border-gray-400 transition-colors"
+          className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border bg-[var(--bg-card)] text-[var(--text-subtle)] border-[var(--border)] hover:border-[var(--border-soft)] transition-colors"
         >
           <RotateCcw size={11} /> Reset
         </button>
       </div>
 
       {/* Category filter */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1 mb-4">
         {CATEGORIES.map(c => (
           <button
             key={c}
             onClick={() => setCat(c)}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
-              cat === c ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+              cat === c ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-card)] text-[var(--text-subtle)] border-[var(--border)] hover:border-indigo-300'
             }`}
           >
             {c}
@@ -185,8 +185,8 @@ export default function BehavioralPage() {
           >
             {!flipped ? (
               /* FRONT */
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-3 border-b border-gray-100">
+              <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] shadow-md overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-3 border-b border-[var(--border)]">
                   <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
                     {card.category}
                   </span>
@@ -199,26 +199,26 @@ export default function BehavioralPage() {
                         setVisited(next)
                       }}
                       className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors ${
-                        visited.has(card.id) ? 'bg-green-50 text-green-600 border-green-300' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-green-300 hover:text-green-500'
+                        visited.has(card.id) ? 'bg-green-50 text-green-600 border-green-300' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)] hover:border-green-300 hover:text-green-500'
                       }`}
                     >
                       {visited.has(card.id) ? <><CheckCircle size={11} /> Visited</> : <><Circle size={11} /> Mark visited</>}
                     </button>
-                    <span className="hidden sm:inline text-xs text-gray-300 font-medium">Tap to reveal →</span>
+                    <span className="hidden sm:inline text-xs text-[var(--text-subtle)] font-medium">Tap to reveal →</span>
                   </div>
                 </div>
                 <div className="px-4 py-8 sm:py-10 flex items-center justify-center min-h-[140px]">
-                  <p className="text-lg sm:text-xl font-bold text-gray-800 text-center leading-snug">{card.question}</p>
+                  <p className="text-lg sm:text-xl font-bold text-[var(--text)] text-center leading-snug">{card.question}</p>
                 </div>
                 <div className="px-5 pb-4 flex justify-center">
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-[var(--text-subtle)]">
                     {card.stories.length} STAR {card.stories.length === 1 ? 'story' : 'stories'} prepared
                   </span>
                 </div>
               </div>
             ) : (
               /* BACK */
-              <div className="bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
+              <div className="bg-[var(--bg-card)] rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
                 <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-3 border-b border-indigo-100 bg-indigo-50">
                   <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200 shrink-0">
@@ -261,14 +261,14 @@ export default function BehavioralPage() {
           <div className="flex items-center justify-center gap-4">
             <button
               onClick={() => go(-1)}
-              className="flex items-center gap-1 px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors text-sm font-medium"
+              className="flex items-center gap-1 px-4 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:border-indigo-300 hover:text-indigo-600 transition-colors text-sm font-medium"
             >
               <ChevronLeft size={16} /> Prev
             </button>
-            <span className="text-xs text-gray-400 font-medium">{idx + 1} / {deck.length}</span>
+            <span className="text-xs text-[var(--text-subtle)] font-medium">{idx + 1} / {deck.length}</span>
             <button
               onClick={() => go(1)}
-              className="flex items-center gap-1 px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors text-sm font-medium"
+              className="flex items-center gap-1 px-4 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:border-indigo-300 hover:text-indigo-600 transition-colors text-sm font-medium"
             >
               Next <ChevronRight size={16} />
             </button>
@@ -277,7 +277,7 @@ export default function BehavioralPage() {
       )}
 
       {deck.length === 0 && (
-        <div className="text-center py-20 text-gray-400 text-sm">No questions in this category.</div>
+        <div className="text-center py-20 text-[var(--text-subtle)] text-sm">No questions in this category.</div>
       )}
     </div>
   )

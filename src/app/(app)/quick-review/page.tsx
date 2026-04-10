@@ -165,7 +165,7 @@ export default function QuickReviewPage() {
 
   useEffect(() => () => stopTimer(), [])
 
-  if (loading) return <div className="text-center py-32 text-gray-400 animate-pulse text-sm">Loading…</div>
+  if (loading) return <div className="text-center py-32 text-[var(--text-subtle)] animate-pulse text-sm">Loading…</div>
 
   const q = deck[idx] || null
   const totalPhase = phase === 'question' ? Q_SECS : SOL_SECS
@@ -182,16 +182,16 @@ export default function QuickReviewPage() {
     <div className="max-w-2xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-[var(--text)] flex items-center gap-2">
             <Zap className="text-yellow-500" /> Quick Review
           </h1>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs text-[var(--text-subtle)] mt-0.5">
             Automatic · {Q_SECS}s question → {SOL_SECS}s solution → next · {deck.length} questions
           </p>
         </div>
         <button
           onClick={() => resetSession()}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-semibold text-gray-500 hover:border-gray-400 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] text-xs font-semibold text-[var(--text-muted)] hover:border-[var(--text-subtle)] transition-colors bg-[var(--bg-card)]"
         >
           <RotateCcw size={12} /> Reset
         </button>
@@ -202,14 +202,14 @@ export default function QuickReviewPage() {
         {DIFFICULTY_LEVELS.map(d => (
           <button key={d} onClick={() => setFilterDiff(d)}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
-              filterDiff === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'
+              filterDiff === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-300'
             }`}>{d}</button>
         ))}
-        <div className="w-px bg-gray-200 mx-0.5 shrink-0" />
+        <div className="w-px bg-[var(--border)] mx-0.5 shrink-0" />
         {QUESTION_SOURCES.map(s => (
           <button key={s.value} onClick={() => setFilterSrc(s.value)}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
-              filterSrc === s.value ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'
+              filterSrc === s.value ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-300'
             }`}>{s.label}</button>
         ))}
       </div>
