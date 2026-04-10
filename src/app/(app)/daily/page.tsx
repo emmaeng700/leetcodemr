@@ -8,6 +8,7 @@ import { useClickOutside } from '@/hooks/useClickOutside'
 import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List, Brain } from 'lucide-react'
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews } from '@/lib/db'
 import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
+import { QUICK_PATTERNS } from '@/lib/constants'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
@@ -124,6 +125,7 @@ export default function DailyPage() {
   const [perDay, setPerDay] = useState(3)
   const [planCode, setPlanCode] = useState('')
   const [generating, setGenerating] = useState(false)
+  const [startFromPattern, setStartFromPattern] = useState<string | null>(null)
 
   // Reset gate
   const [showResetPrompt, setShowResetPrompt] = useState(false)
@@ -210,7 +212,7 @@ export default function DailyPage() {
   async function handleGenerate() {
     if (!planCode.trim()) return
     setGenerating(true)
-    const order = patternBasedStudyOrder(allQuestions)
+    const order = patternBasedStudyOrder(allQuestions, startFromPattern)
     const newPlan: StudyPlan = {
       start_date: startDate,
       per_day: perDay,
@@ -325,12 +327,47 @@ export default function DailyPage() {
             </div>
           </div>
 
-          {/* Pattern order note */}
-          <div className="mt-4 flex items-start gap-2 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-500/30 rounded-xl px-3 py-2.5">
-            <span className="text-base shrink-0">🧩</span>
+          {/* Pattern order + start-from picker */}
+          <div className="mt-4 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-500/30 rounded-xl px-3 py-3">
+            <div className="flex items-start gap-2 mb-3">
+              <span className="text-base shrink-0">🧩</span>
+              <div>
+                <p className="text-xs font-bold text-violet-700 dark:text-violet-300">Pattern-First Order</p>
+                <p className="text-xs text-violet-600 dark:text-violet-400/80 leading-snug">Questions are grouped by the 20 core patterns, Easy→Hard within each. Choose which pattern to start from below.</p>
+              </div>
+            </div>
             <div>
-              <p className="text-xs font-bold text-violet-700 dark:text-violet-300">Pattern-First Order</p>
-              <p className="text-xs text-violet-600 dark:text-violet-400/80 leading-snug">Questions are grouped by the 20 core patterns (Arrays → DP → Graphs…), Easy→Hard within each. Master one pattern before moving to the next.</p>
+              <p className="text-xs font-semibold text-violet-700 dark:text-violet-300 mb-2">Start from pattern:</p>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => setStartFromPattern(null)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                    startFromPattern === null
+                      ? 'bg-violet-600 text-white border-violet-600'
+                      : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-violet-400'
+                  }`}
+                >
+                  From beginning
+                </button>
+                {QUICK_PATTERNS.map((p, i) => (
+                  <button
+                    key={p.name}
+                    onClick={() => setStartFromPattern(startFromPattern === p.name ? null : p.name)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                      startFromPattern === p.name
+                        ? 'bg-violet-600 text-white border-violet-600'
+                        : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-violet-400'
+                    }`}
+                  >
+                    {i + 1}. {p.name}
+                  </button>
+                ))}
+              </div>
+              {startFromPattern && (
+                <p className="text-xs text-violet-600 dark:text-violet-400 mt-2 font-medium">
+                  ✓ Plan starts at <strong>{startFromPattern}</strong>, then continues through all remaining patterns.
+                </p>
+              )}
             </div>
           </div>
 

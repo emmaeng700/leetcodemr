@@ -40,15 +40,30 @@ export function getPatternForQuestion(tags: string[]): string | null {
   return null
 }
 
-/** Order questions pattern-by-pattern, Easy→Medium→Hard within each pattern. */
+/**
+ * Order questions pattern-by-pattern, Easy→Medium→Hard within each pattern.
+ * If startPatternName is provided, that pattern goes first; the rest follow
+ * in their original order (wrapping around), so no pattern is skipped.
+ */
 export function patternBasedStudyOrder(
-  questions: Array<{ id: number; tags: string[]; difficulty: string }>
+  questions: Array<{ id: number; tags: string[]; difficulty: string }>,
+  startPatternName?: string | null
 ): number[] {
   const diffRank: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
   const result: number[] = []
   const used = new Set<number>()
 
-  for (const pattern of QUICK_PATTERNS) {
+  // Reorder QUICK_PATTERNS so the chosen start pattern comes first
+  const patterns = [...QUICK_PATTERNS]
+  if (startPatternName) {
+    const startIdx = patterns.findIndex(p => p.name === startPatternName)
+    if (startIdx > 0) {
+      const rotated = [...patterns.slice(startIdx), ...patterns.slice(0, startIdx)]
+      patterns.splice(0, patterns.length, ...rotated)
+    }
+  }
+
+  for (const pattern of patterns) {
     const patternQs = questions
       .filter(q => !used.has(q.id) && (q.tags || []).some(t => (pattern.tags as readonly string[]).includes(t)))
       .sort((a, b) => (diffRank[a.difficulty] ?? 1) - (diffRank[b.difficulty] ?? 1))
