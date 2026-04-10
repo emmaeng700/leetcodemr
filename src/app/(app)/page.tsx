@@ -651,7 +651,8 @@ function HomeInner() {
 
   const DIFF_ORDER: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
 
-  const activePatternTags: readonly string[] = activePattern ? (QUICK_PATTERNS.find(p => p.name === activePattern)?.tags ?? []) : []
+  // Exclusive map for accurate per-pattern counts and filtering (no repetition)
+  const exclusiveMapHome = useMemo(() => buildExclusivePatternMap(questions), [questions])
 
   const filtered = useMemo(() => questions.filter(q => {
     if (difficulty !== 'All' && q.difficulty !== difficulty) return false
@@ -661,7 +662,7 @@ function HomeInner() {
       const byId = s.replace(/^#/, '')
       if (!q.title.toLowerCase().includes(s) && !String(q.id).includes(byId)) return false
     }
-    if (activePatternTags.length > 0 && !(q.tags || []).some(t => activePatternTags.includes(t))) return false
+    if (activePattern && exclusiveMapHome[q.id] !== activePattern) return false
     const p = progress[String(q.id)] || {}
     if (showStarred && !p.starred) return false
     if (showSolved === true && !p.solved) return false
@@ -672,7 +673,8 @@ function HomeInner() {
     difficulty,
     source,
     search,
-    activePatternTags,
+    activePattern,
+    exclusiveMapHome,
     progress,
     showStarred,
     showSolved,
@@ -756,7 +758,7 @@ function HomeInner() {
             </button>
           )}
           {QUICK_PATTERNS.map(pat => {
-            const count = questions.filter(q => (q.tags || []).some(t => (pat.tags as readonly string[]).includes(t))).length
+            const count = questions.filter(q => exclusiveMapHome[q.id] === pat.name).length
             const active = activePattern === pat.name
             return (
               <button key={pat.name}
@@ -790,10 +792,10 @@ function HomeInner() {
 
         <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[var(--border)]">
           <span className="text-xs text-[var(--text-subtle)] self-center">Study {filtered.length} as:</span>
-          <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved, [...activePatternTags])}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors">
+          <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePattern ? ([...(QUICK_PATTERNS.find(p => p.name === activePattern)?.tags ?? [])]) : [])}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors">
             <Layers size={12} /> Flashcards
           </Link>
-          <Link href={`/learn/0?${buildStudyParams(difficulty, source, search, showStarred, showSolved, [...activePatternTags])}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors">
+          <Link href={`/learn/0?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePattern ? ([...(QUICK_PATTERNS.find(p => p.name === activePattern)?.tags ?? [])]) : [])}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors">
             <BookOpen size={12} /> Learn mode
           </Link>
         </div>
