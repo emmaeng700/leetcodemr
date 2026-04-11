@@ -352,8 +352,9 @@ export async function GET(req: NextRequest) {
   const solvedToday = dayIds.filter(id => solvedSet.has(id)).length
   const remaining = dayIds.length - solvedToday
 
-  if (remaining === 0 && dueReviews.length === 0) {
-    return NextResponse.json({ skipped: 'All done for today!' })
+  const minSolvedToday = isWeekendCT(todayStr) ? 4 : 2
+  if (solvedToday >= minSolvedToday) {
+    return NextResponse.json({ skipped: 'Daily minimum met — no email needed!' })
   }
 
   const dayNumber = activeDayIndex + 1
