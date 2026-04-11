@@ -12,6 +12,7 @@ import { QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdropDense, listDropdownMobilePanelViewportOnly } from '@/lib/listDropdownUi'
+import { stripScripts } from '@/lib/utils'
 
 interface Question {
   id: number
@@ -72,6 +73,10 @@ export default function SpeedsterPage() {
   const [runs, setRuns] = useState<Record<string, number>>({})
   // Mobile panel: 'cards' = day cards + flashcards, 'editor' = code editor
   const [mobilePanel, setMobilePanel] = useState<'cards' | 'editor'>('cards')
+  const [lcContent, setLcContent] = useState<string | null>(null)
+  const [lcLoading, setLcLoading] = useState(false)
+  const [isPremium, setIsPremium] = useState(false)
+  const lcCacheRef = useRef<Record<string, string>>({})
   const online = useOnlineStatus()
 
   // Ref to the mobile scrollable panel so we can lock scroll position on flip
@@ -189,6 +194,41 @@ export default function SpeedsterPage() {
 
   // Reset to first card when filters change
   useEffect(() => { setCardIdx(0); setFlipped(false) }, [filterDiff, filterSolved, filterSource, filterPattern])
+
+  // Fetch live LeetCode description when card changes
+  useEffect(() => {
+    const slug = currentQ?.slug
+    if (!slug) return
+    setLcContent(lcCacheRef.current[slug] ?? null)
+    setIsPremium(false)
+    if (lcCacheRef.current[slug]) return
+    let cancelled = false
+    setLcLoading(true)
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 8000)
+    const session   = typeof window !== 'undefined' ? localStorage.getItem('lc_session')  || '' : ''
+    const csrfToken = typeof window !== 'undefined' ? localStorage.getItem('lc_csrf')     || '' : ''
+    fetch('/api/leetcode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        session, csrfToken,
+        query: `query questionContent($titleSlug: String!) { question(titleSlug: $titleSlug) { content isPaidOnly } }`,
+        variables: { titleSlug: slug },
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return
+        const qd = data?.data?.question
+        if (qd?.isPaidOnly && !qd?.content) setIsPremium(true)
+        else if (qd?.content) { lcCacheRef.current[slug] = qd.content; setLcContent(qd.content) }
+      })
+      .catch(() => {})
+      .finally(() => { clearTimeout(timer); if (!cancelled) setLcLoading(false) })
+    return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
+  }, [currentQ?.slug])
 
   // Close card list on outside tap (mobile + desktop wrappers both mounted)
   useEffect(() => {
@@ -640,17 +680,17 @@ export default function SpeedsterPage() {
 
               {!flipped ? (
                 /* FRONT */
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-gray-100">
+                <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] shadow-md overflow-hidden">
+                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-[var(--border)]">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs text-gray-400 font-mono">#{currentQ.id}</span>
+                      <span className="text-xs text-[var(--text-subtle)] font-mono">#{currentQ.id}</span>
                       <DifficultyBadge difficulty={currentQ.difficulty} />
                       {(currentQ.source || []).map(s => (
-                        <span key={s} className="text-xs bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100">{s}</span>
+                        <span key={s} className="text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 dark:text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-500/30">{s}</span>
                       ))}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-full">
+                      <span className="text-xs font-semibold text-[var(--text-subtle)] bg-[var(--bg-muted)] border border-[var(--border)] px-2 py-0.5 rounded-full">
                         Mastery runs: {currentRuns}/4
                       </span>
                       <button
@@ -662,39 +702,50 @@ export default function SpeedsterPage() {
                         }}
                         style={{ touchAction: 'manipulation' }}
                         className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors ${
-                          visited.has(currentQ.id) ? 'bg-green-50 text-green-600 border-green-300' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-green-300 hover:text-green-500'
+                          visited.has(currentQ.id) ? 'bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400 border-green-300 dark:border-green-500/40' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)] hover:border-green-300 hover:text-green-500'
                         }`}
                       >
                         {visited.has(currentQ.id) ? <><CheckCircle size={11} /> Visited</> : <><Circle size={11} /> Mark visited</>}
                       </button>
-                      <span className="hidden sm:inline text-xs text-gray-300 font-medium">Tap to reveal →</span>
+                      <span className="hidden sm:inline text-xs text-[var(--text-subtle)] font-medium">Tap to reveal →</span>
                     </div>
                   </div>
-                  <div className="px-3 sm:px-5 py-2 sm:py-3">
-                    <h3 className="text-lg font-bold text-gray-800">{currentQ.title}</h3>
+                  <div className="px-3 sm:px-5 pt-2 sm:pt-3 pb-1">
+                    <h3 className="text-base font-bold text-[var(--text)]">{currentQ.title}</h3>
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {(currentQ.tags || []).map(tag => (
-                        <span key={tag} className="text-xs bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full">{tag}</span>
+                        <span key={tag} className="text-xs bg-[var(--bg-muted)] text-[var(--text-subtle)] px-2 py-0.5 rounded-full">{tag}</span>
                       ))}
                     </div>
                   </div>
-                  <div className="px-3 sm:px-5 pb-3 sm:pb-5">
-                    <QuestionImage
-                      questionId={currentQ.id}
-                      alt={currentQ.title}
-                    />
+                  <div className="px-3 sm:px-5 pb-3 sm:pb-5 mt-2" onClick={e => e.stopPropagation()}>
+                    {lcContent ? (
+                      <div className="lc-description text-sm text-[var(--text)]"
+                        dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+                    ) : lcLoading ? (
+                      <div className="space-y-2 animate-pulse">
+                        <div className="h-3 bg-[var(--bg-muted)] rounded w-full" />
+                        <div className="h-3 bg-[var(--bg-muted)] rounded w-5/6" />
+                        <div className="h-3 bg-[var(--bg-muted)] rounded w-4/6" />
+                        <div className="h-10 bg-[var(--bg-muted)] rounded w-full mt-2" />
+                      </div>
+                    ) : isPremium ? (
+                      <p className="text-xs text-[var(--text-subtle)] italic">🔒 Premium question</p>
+                    ) : (
+                      <QuestionImage questionId={currentQ.id} alt={currentQ.title} />
+                    )}
                   </div>
                 </div>
               ) : (
                 /* BACK */
-                <div className="bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden w-full min-w-0">
-                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-indigo-100 bg-indigo-50">
+                <div className="bg-[var(--bg-card)] rounded-2xl border border-indigo-300 dark:border-indigo-500/50 shadow-md overflow-hidden w-full min-w-0">
+                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-950/40">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
-                      <span className="text-xs text-gray-400 font-mono">#{currentQ.id}</span>
+                      <span className="text-xs text-[var(--text-subtle)] font-mono">#{currentQ.id}</span>
                       <DifficultyBadge difficulty={currentQ.difficulty} />
-                      <span className="text-sm font-bold text-indigo-700 truncate">{currentQ.title}</span>
+                      <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300 truncate">{currentQ.title}</span>
                     </div>
-                    <span className="text-xs text-indigo-400 font-medium shrink-0">← Flip back</span>
+                    <span className="text-xs text-indigo-400 dark:text-indigo-300 font-medium shrink-0">← Flip back</span>
                   </div>
                   <div className="p-4 min-w-0" onClick={e => e.stopPropagation()}>
                     <CodePanel pythonCode={currentQ.python_solution} cppCode={currentQ.cpp_solution} />
@@ -904,8 +955,8 @@ export default function SpeedsterPage() {
         <div className="border-t-2 border-dashed border-yellow-200 pt-6">
 
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-bold text-gray-800">⚡ Flashcards</h2>
-            <p className="text-xs text-gray-400">Tap card to flip · ← → keys · Space</p>
+            <h2 className="text-base font-bold text-[var(--text)]">⚡ Flashcards</h2>
+            <p className="text-xs text-[var(--text-subtle)]">Tap card to flip · ← → keys · Space</p>
           </div>
 
           {filterBar}
@@ -913,33 +964,33 @@ export default function SpeedsterPage() {
           {/* Learn-style nav bar */}
           <div className="flex items-center gap-2 mb-4">
             <button onClick={() => go(-1)} disabled={cardIdx === 0}
-              className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-yellow-400 hover:text-yellow-600 disabled:opacity-30 transition-colors">
+              className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-yellow-400 hover:text-yellow-600 disabled:opacity-30 transition-colors">
               <ChevronLeft size={15} />
             </button>
 
             <div ref={cardListWrapDesktopRef} className="relative z-10 speedster-card-list-wrapper">
               <button type="button" onClick={() => setShowCardList(v => !v)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-yellow-400 transition-colors">
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-xs font-semibold text-[var(--text-muted)] hover:border-yellow-400 transition-colors">
                 <List size={12} />
                 <span className="font-mono">{cardIdx + 1}/{total}</span>
-                <span className="text-gray-300">·</span>
+                <span className="text-[var(--text-subtle)]">·</span>
                 <span className="flex items-center gap-0.5 text-green-600"><CheckCircle size={10} />{filteredVisited}/{total} visited</span>
               </button>
 
               {showCardList && (
-                <div className="absolute top-full left-0 z-[100] mt-1 max-h-[min(70vh,20rem)] w-[min(calc(100vw-2rem),20rem)] overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl sm:w-80">
+                <div className="absolute top-full left-0 z-[100] mt-1 max-h-[min(70vh,20rem)] w-[min(calc(100vw-2rem),20rem)] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg-card)] shadow-xl sm:w-80">
                   {cardListDropdownRows}
                 </div>
               )}
             </div>
 
             <button onClick={() => go(1)} disabled={cardIdx === total - 1}
-              className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-yellow-400 hover:text-yellow-600 disabled:opacity-30 transition-colors">
+              className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-yellow-400 hover:text-yellow-600 disabled:opacity-30 transition-colors">
               <ChevronRight size={15} />
             </button>
 
             {/* Progress bar */}
-            <div className="flex-1 bg-gray-100 rounded-full h-1.5 min-w-[40px]">
+            <div className="flex-1 bg-[var(--bg-muted)] rounded-full h-1.5 min-w-[40px]">
               <div className="bg-yellow-400 h-1.5 rounded-full transition-all"
                 style={{ width: total ? `${((cardIdx + 1) / total) * 100}%` : '0%' }} />
             </div>
@@ -947,13 +998,13 @@ export default function SpeedsterPage() {
             {/* Reset */}
             <button onClick={() => fadeSwap(() => { setCardIdx(0); setFlipped(false) })}
               title="Reset to start"
-              className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300 transition-colors">
+              className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-subtle)] hover:text-[var(--text-muted)] hover:border-[var(--border-soft)] transition-colors">
               <RotateCcw size={13} />
             </button>
           </div>
 
           {total === 0 && (
-            <div className="text-center py-10 text-gray-400 text-sm">No questions match this filter.</div>
+            <div className="text-center py-10 text-[var(--text-subtle)] text-sm">No questions match this filter.</div>
           )}
           {currentQ && (
             <div onClick={handleFlip} className="cursor-pointer select-none w-full min-w-0"
@@ -961,42 +1012,53 @@ export default function SpeedsterPage() {
 
               {!flipped ? (
                 /* FRONT */
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-gray-100">
+                <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] shadow-md overflow-hidden">
+                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-[var(--border)]">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs text-gray-400 font-mono">#{currentQ.id}</span>
+                      <span className="text-xs text-[var(--text-subtle)] font-mono">#{currentQ.id}</span>
                       <DifficultyBadge difficulty={currentQ.difficulty} />
                       {(currentQ.source || []).map(s => (
-                        <span key={s} className="text-xs bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100">{s}</span>
+                        <span key={s} className="text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 dark:text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-500/30">{s}</span>
                       ))}
                     </div>
-                    <span className="text-xs text-gray-300 font-medium">Tap to reveal →</span>
+                    <span className="text-xs text-[var(--text-subtle)] font-medium">Tap to reveal →</span>
                   </div>
-                  <div className="px-3 sm:px-5 py-2 sm:py-3">
-                    <h3 className="text-lg font-bold text-gray-800">{currentQ.title}</h3>
+                  <div className="px-3 sm:px-5 pt-2 sm:pt-3 pb-1">
+                    <h3 className="text-base font-bold text-[var(--text)]">{currentQ.title}</h3>
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {(currentQ.tags || []).map(tag => (
-                        <span key={tag} className="text-xs bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full">{tag}</span>
+                        <span key={tag} className="text-xs bg-[var(--bg-muted)] text-[var(--text-subtle)] px-2 py-0.5 rounded-full">{tag}</span>
                       ))}
                     </div>
                   </div>
-                  <div className="px-3 sm:px-5 pb-3 sm:pb-5">
-                    <QuestionImage
-                      questionId={currentQ.id}
-                      alt={currentQ.title}
-                    />
+                  <div className="px-3 sm:px-5 pb-3 sm:pb-5 mt-2" onClick={e => e.stopPropagation()}>
+                    {lcContent ? (
+                      <div className="lc-description text-sm text-[var(--text)]"
+                        dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+                    ) : lcLoading ? (
+                      <div className="space-y-2 animate-pulse">
+                        <div className="h-3 bg-[var(--bg-muted)] rounded w-full" />
+                        <div className="h-3 bg-[var(--bg-muted)] rounded w-5/6" />
+                        <div className="h-3 bg-[var(--bg-muted)] rounded w-4/6" />
+                        <div className="h-10 bg-[var(--bg-muted)] rounded w-full mt-2" />
+                      </div>
+                    ) : isPremium ? (
+                      <p className="text-xs text-[var(--text-subtle)] italic">🔒 Premium question</p>
+                    ) : (
+                      <QuestionImage questionId={currentQ.id} alt={currentQ.title} />
+                    )}
                   </div>
                 </div>
               ) : (
                 /* BACK */
-                <div className="bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden w-full min-w-0">
-                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-indigo-100 bg-indigo-50">
+                <div className="bg-[var(--bg-card)] rounded-2xl border border-indigo-300 dark:border-indigo-500/50 shadow-md overflow-hidden w-full min-w-0">
+                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-950/40">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
-                      <span className="text-xs text-gray-400 font-mono">#{currentQ.id}</span>
+                      <span className="text-xs text-[var(--text-subtle)] font-mono">#{currentQ.id}</span>
                       <DifficultyBadge difficulty={currentQ.difficulty} />
-                      <span className="text-sm font-bold text-indigo-700 truncate">{currentQ.title}</span>
+                      <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300 truncate">{currentQ.title}</span>
                     </div>
-                    <span className="text-xs text-indigo-400 font-medium shrink-0">← Flip back</span>
+                    <span className="text-xs text-indigo-400 dark:text-indigo-300 font-medium shrink-0">← Flip back</span>
                   </div>
                   <div className="p-4 min-w-0" onClick={e => e.stopPropagation()}>
                     <CodePanel pythonCode={currentQ.python_solution} cppCode={currentQ.cpp_solution} />
