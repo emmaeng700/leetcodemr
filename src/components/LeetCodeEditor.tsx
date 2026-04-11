@@ -451,7 +451,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
     <div className="relative flex flex-col overflow-x-hidden rounded-none sm:rounded-xl border-0 sm:border border-gray-700/50 bg-[#1a1a2e] flex-1 min-h-0 w-full">
       <style>{`
         /* Responsive CodeMirror font sizing (phone → desktop) */
-        .cm-editor { font-size: clamp(8px, 2.2vw, 15px); line-height: 1.45; }
+        .cm-editor { font-size: clamp(8px, 2.2vw, 12px); line-height: 1.45; }
         /* Indentation markers: slightly higher contrast on dark theme */
         .cm-editor {
           --indent-marker-bg-color: rgba(120, 140, 190, 0.35);

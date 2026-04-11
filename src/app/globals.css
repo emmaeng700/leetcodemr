@@ -213,7 +213,7 @@ body {
 }
 @media (min-width: 1024px) {
   .practice-cm-wrap .cm-content,
-  .practice-cm-wrap .cm-line { font-size: 13px; }
+  .practice-cm-wrap .cm-line { font-size: 12px; }
 }
 
 /* Prevent iOS auto-zoom */
