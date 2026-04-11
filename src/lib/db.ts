@@ -559,7 +559,8 @@ export async function getDueReviews(): Promise<Array<{ id: number; review_count:
     .lte('next_review', today)
     .order('next_review', { ascending: true })
 
-  return (data ?? []).map((r: any) => ({ id: r.question_id, review_count: r.review_count, next_review: r.next_review }))
+  // Hard cap: never return more than the daily limit even if spread didn't catch everything.
+  return (data ?? []).slice(0, cap).map((r: any) => ({ id: r.question_id, review_count: r.review_count, next_review: r.next_review }))
 }
 
 function addDaysISO(baseISO: string, days: number) {
@@ -654,7 +655,8 @@ export async function spreadOverdueReviews(opts?: { maxPerDay?: number; horizonD
     let placed = false
     for (let offset = 1; offset <= horizonDays; offset++) {
       const day = addDaysISO(today, offset)
-      if ((counts[day] ?? 0) < maxPerDay) {
+      const dayCapacity = getDailyReviewCapChicago(day)
+      if ((counts[day] ?? 0) < dayCapacity) {
         counts[day] = (counts[day] ?? 0) + 1
         updates.push({ question_id: r.question_id, next_review: day })
         placed = true
