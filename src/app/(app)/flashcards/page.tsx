@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Shuffle, RotateCcw, Layers, CheckCircle, Circle } from 'lucide-react'
 import { getFcVisited, addFcVisited, getProgress } from '@/lib/db'
-import { shuffle } from '@/lib/utils'
+import { shuffle, stripScripts } from '@/lib/utils'
 import { DIFFICULTY_LEVELS, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -48,6 +48,10 @@ function FlashcardsInner() {
   const [isShuffled, setIsShuffled] = useState(false)
   const [visited, setVisited] = useState<Set<number>>(new Set())
   const filterNavKeyRef = useRef<string | null>(null)
+  const [lcContent, setLcContent] = useState<string | null>(null)
+  const [lcLoading, setLcLoading] = useState(false)
+  const [isPremium, setIsPremium] = useState(false)
+  const lcCacheRef = useRef<Record<string, string>>({})
 
   useEffect(() => {
     async function load() {
@@ -123,6 +127,45 @@ function FlashcardsInner() {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [go, handleFlip])
+
+  // Reset description when card changes
+  useEffect(() => {
+    if (!q?.slug) return
+    setLcContent(lcCacheRef.current[q.slug] ?? null)
+    setIsPremium(false)
+  }, [q?.slug])
+
+  // Fetch live LeetCode description (same pattern as learn page)
+  useEffect(() => {
+    if (!q?.slug) return
+    if (lcCacheRef.current[q.slug]) { setLcContent(lcCacheRef.current[q.slug]); return }
+    let cancelled = false
+    setLcLoading(true)
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 8000)
+    const session   = typeof window !== 'undefined' ? localStorage.getItem('lc_session')  || '' : ''
+    const csrfToken = typeof window !== 'undefined' ? localStorage.getItem('lc_csrf')     || '' : ''
+    fetch('/api/leetcode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        session, csrfToken,
+        query: `query questionContent($titleSlug: String!) { question(titleSlug: $titleSlug) { content isPaidOnly } }`,
+        variables: { titleSlug: q.slug },
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return
+        const qd = data?.data?.question
+        if (qd?.isPaidOnly && !qd?.content) setIsPremium(true)
+        else if (qd?.content) { lcCacheRef.current[q.slug] = qd.content; setLcContent(qd.content) }
+      })
+      .catch(() => {})
+      .finally(() => { clearTimeout(timer); if (!cancelled) setLcLoading(false) })
+    return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
+  }, [q?.slug])
 
   // Pattern coverage for the active pattern filter (exclusive — each question in one pattern only)
   const exclusiveMapAll = filterPattern ? buildExclusivePatternMap(all) : null
@@ -333,8 +376,8 @@ function FlashcardsInner() {
                   </div>
                 </div>
 
-                <div className="px-5 py-3">
-                  <h2 className="text-lg font-bold text-[var(--text)]">{q.title}</h2>
+                <div className="px-5 pt-3 pb-1">
+                  <h2 className="text-base font-bold text-[var(--text)]">{q.title}</h2>
                   <div className="flex flex-wrap gap-1 mt-1.5">
                     {(q.tags || []).map(tag => (
                       <span key={tag} className="text-xs bg-[var(--bg-muted)] text-[var(--text-subtle)] px-2 py-0.5 rounded-full">{tag}</span>
@@ -342,13 +385,24 @@ function FlashcardsInner() {
                   </div>
                 </div>
 
-                {/* Explicit click target so iOS scroll-container doesn't swallow the tap */}
-                <div className="mx-4 mb-4" onClick={e => { e.stopPropagation(); handleFlip() }}>
-                  <QuestionImage
-                    questionId={q.id}
-                    alt={q.title}
-                    className="bg-slate-100 dark:bg-slate-900"
-                  />
+                {/* Live LeetCode description (same as learn page) */}
+                <div className="px-5 pb-4 mt-2" onClick={e => e.stopPropagation()}>
+                  {lcContent ? (
+                    <div className="lc-description text-sm text-[var(--text)]"
+                      dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+                  ) : lcLoading ? (
+                    <div className="space-y-2 animate-pulse">
+                      <div className="h-3 bg-[var(--bg-muted)] rounded w-full" />
+                      <div className="h-3 bg-[var(--bg-muted)] rounded w-5/6" />
+                      <div className="h-3 bg-[var(--bg-muted)] rounded w-4/6" />
+                      <div className="h-10 bg-[var(--bg-muted)] rounded w-full mt-2" />
+                      <div className="h-3 bg-[var(--bg-muted)] rounded w-full" />
+                    </div>
+                  ) : isPremium ? (
+                    <p className="text-xs text-[var(--text-subtle)] italic">🔒 Premium question — <a href={`https://leetcode.com/problems/${q.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">view on LeetCode ↗</a></p>
+                  ) : (
+                    <QuestionImage questionId={q.id} alt={q.title} className="bg-[var(--bg-muted)]" />
+                  )}
                 </div>
               </div>
             ) : (

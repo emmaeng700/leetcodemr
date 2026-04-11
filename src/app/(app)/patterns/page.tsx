@@ -6,7 +6,7 @@ import {
   CheckCircle, Circle, List, Layers,
 } from 'lucide-react'
 import { getProgress, getPatternFcVisited, addPatternFcVisited } from '@/lib/db'
-import { shuffle } from '@/lib/utils'
+import { shuffle, stripScripts } from '@/lib/utils'
 import { QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -16,6 +16,7 @@ import QuestionImage from '@/components/QuestionImage'
 interface Question {
   id: number
   title: string
+  slug: string
   difficulty: string
   tags: string[]
   python_solution?: string
@@ -100,6 +101,10 @@ function PatternFlashcards({
   const [flipped, setFlipped] = useState(false)
   const [fading, setFading] = useState(false)
   const [shuffled, setShuffled] = useState(false)
+  const [lcContent, setLcContent] = useState<string | null>(null)
+  const [lcLoading, setLcLoading] = useState(false)
+  const [isPremium, setIsPremium] = useState(false)
+  const lcCacheRef = useRef<Record<string, string>>({})
 
   const prevQsRef = useRef(questions)
   useEffect(() => {
@@ -140,6 +145,40 @@ function PatternFlashcards({
   const toggleVisited = useCallback((e: React.MouseEvent, id: number) => {
     e.stopPropagation(); onVisit(id)
   }, [onVisit])
+
+  // Reset + fetch live LeetCode description when card changes
+  useEffect(() => {
+    if (!card?.slug) return
+    setLcContent(lcCacheRef.current[card.slug] ?? null)
+    setIsPremium(false)
+    if (lcCacheRef.current[card.slug]) return
+    let cancelled = false
+    setLcLoading(true)
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 8000)
+    const session   = typeof window !== 'undefined' ? localStorage.getItem('lc_session')  || '' : ''
+    const csrfToken = typeof window !== 'undefined' ? localStorage.getItem('lc_csrf')     || '' : ''
+    fetch('/api/leetcode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        session, csrfToken,
+        query: `query questionContent($titleSlug: String!) { question(titleSlug: $titleSlug) { content isPaidOnly } }`,
+        variables: { titleSlug: card.slug },
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return
+        const qd = data?.data?.question
+        if (qd?.isPaidOnly && !qd?.content) setIsPremium(true)
+        else if (qd?.content) { lcCacheRef.current[card.slug] = qd.content; setLcContent(qd.content) }
+      })
+      .catch(() => {})
+      .finally(() => { clearTimeout(timer); if (!cancelled) setLcLoading(false) })
+    return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
+  }, [card?.slug])
 
   if (!card) return null
 
@@ -188,10 +227,26 @@ function PatternFlashcards({
                 <span className="hidden sm:inline text-xs text-[var(--text-subtle)]">Tap to reveal →</span>
               </div>
             </div>
-            <div className="px-4 py-5 flex items-center justify-center min-h-[100px]">
-              <h3 className="text-base font-bold text-[var(--text)] text-center leading-snug">{card.title}</h3>
+            <div className="px-4 pt-3 pb-1">
+              <h3 className="text-base font-bold text-[var(--text)] leading-snug">{card.title}</h3>
             </div>
-            <ImageIfExists id={card.id} title={card.title} />
+            <div className="px-4 pb-4 mt-1" onClick={e => e.stopPropagation()}>
+              {lcContent ? (
+                <div className="lc-description text-sm text-[var(--text)]"
+                  dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+              ) : lcLoading ? (
+                <div className="space-y-2 animate-pulse">
+                  <div className="h-3 bg-[var(--bg-muted)] rounded w-full" />
+                  <div className="h-3 bg-[var(--bg-muted)] rounded w-5/6" />
+                  <div className="h-3 bg-[var(--bg-muted)] rounded w-4/6" />
+                  <div className="h-8 bg-[var(--bg-muted)] rounded w-full mt-2" />
+                </div>
+              ) : isPremium ? (
+                <p className="text-xs text-[var(--text-subtle)] italic">🔒 Premium — <a href={`https://leetcode.com/problems/${card.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">view on LeetCode ↗</a></p>
+              ) : (
+                <ImageIfExists id={card.id} title={card.title} />
+              )}
+            </div>
           </div>
         ) : (
           <div className="bg-[var(--bg-card)] rounded-xl border border-indigo-300 dark:border-indigo-500/50 shadow-sm overflow-hidden">
