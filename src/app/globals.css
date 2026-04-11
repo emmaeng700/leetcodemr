@@ -200,7 +200,7 @@ body {
 /* Practice editor — responsive font sizes */
 .practice-cm-wrap .cm-content,
 .practice-cm-wrap .cm-line {
-  font-size: 8px;
+  font-size: 8.5px;
   touch-action: manipulation;
 }
 @media (min-width: 640px) {
