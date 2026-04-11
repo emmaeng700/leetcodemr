@@ -255,7 +255,7 @@ export default function AudiobookPage() {
   const englishVoices = voices.filter(v => v.lang.startsWith('en'))
 
   if (loading) return (
-    <div className="text-center py-32 text-gray-400 animate-pulse text-sm">Loading...</div>
+    <div className="text-center py-32 text-[var(--text-subtle)] animate-pulse text-sm">Loading...</div>
   )
 
   return (
@@ -267,13 +267,13 @@ export default function AudiobookPage() {
             <Headphones size={22} className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Audiobook</h1>
-            <p className="text-sm text-gray-500">Listen to your interview prep on the go</p>
+            <h1 className="text-xl font-bold text-[var(--text)]">Audiobook</h1>
+            <p className="text-sm text-[var(--text-muted)]">Listen to your interview prep on the go</p>
           </div>
         </div>
         <button
           onClick={() => setShowSettings(s => !s)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-500 hover:border-violet-300 hover:text-violet-600 text-xs font-medium transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:border-violet-300 hover:text-violet-600 text-xs font-medium transition-colors"
         >
           <Volume2 size={13} /> Settings
         </button>
@@ -281,36 +281,36 @@ export default function AudiobookPage() {
 
       {/* Settings panel */}
       {showSettings && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 space-y-4">
+        <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] shadow-sm p-4 space-y-4">
           {/* Voice */}
           {englishVoices.length > 0 && (
             <div>
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Voice</label>
+              <label className="text-xs font-bold text-[var(--text-subtle)] uppercase tracking-wide block mb-2">Voice</label>
               <div className="relative">
                 <select
                   value={voiceIdx}
                   onChange={e => setVoiceIdx(Number(e.target.value))}
-                  className="w-full appearance-none bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 pr-8 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                  className="w-full appearance-none bg-[var(--bg-muted)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-[var(--text)] pr-8 focus:outline-none focus:ring-2 focus:ring-violet-300"
                 >
                   {englishVoices.map((v, i) => (
                     <option key={v.name} value={voices.indexOf(v)}>{v.name} ({v.lang})</option>
                   ))}
                 </select>
-                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-subtle)] pointer-events-none" />
               </div>
             </div>
           )}
 
           {/* Mode */}
           <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Read Mode</label>
+            <label className="text-xs font-bold text-[var(--text-subtle)] uppercase tracking-wide block mb-2">Read Mode</label>
             <div className="flex gap-2">
               {(['question', 'full'] as Mode[]).map(m => (
                 <button
                   key={m}
                   onClick={() => { setMode(m); handleStop() }}
                   className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-colors ${
-                    mode === m ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-gray-500 border-gray-200 hover:border-violet-300'
+                    mode === m ? 'bg-violet-600 text-white border-violet-600' : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-violet-300'
                   }`}
                 >
                   {m === 'question' ? 'Question Only' : 'Full Q&A'}
@@ -321,11 +321,11 @@ export default function AudiobookPage() {
 
           {/* Auto-advance */}
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Auto-advance</span>
+            <span className="text-xs font-bold text-[var(--text-subtle)] uppercase tracking-wide">Auto-advance</span>
             <button
               onClick={() => setAutoAdvance(a => !a)}
               className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-colors ${
-                autoAdvance ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-gray-500 border-gray-200'
+                autoAdvance ? 'bg-violet-600 text-white border-violet-600' : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)]'
               }`}
             >
               {autoAdvance ? 'On' : 'Off'}
@@ -335,7 +335,7 @@ export default function AudiobookPage() {
       )}
 
       {/* Section tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
+      <div className="flex gap-2 border-b border-[var(--border)]">
         {([
           { id: 'all', label: 'All', icon: List },
           { id: 'behavioral', label: 'Behavioral', icon: BookOpen },
@@ -345,7 +345,7 @@ export default function AudiobookPage() {
             key={t.id}
             onClick={() => setSection(t.id)}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
-              section === t.id ? 'border-violet-500 text-violet-600' : 'border-transparent text-gray-400 hover:text-gray-600'
+              section === t.id ? 'border-violet-500 text-violet-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text-muted)]'
             }`}
           >
             <t.icon size={14} />{t.label}
@@ -356,14 +356,14 @@ export default function AudiobookPage() {
       {/* Category filters */}
       {(section === 'all' || section === 'behavioral') && (
         <div>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Behavioral Category</p>
-          <div className="flex flex-wrap gap-2">
+          <p className="text-xs font-bold text-[var(--text-subtle)] uppercase tracking-wide mb-2">Behavioral Category</p>
+          <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
             {bCategories.map(c => (
               <button
                 key={c}
                 onClick={() => { setBCat(c) }}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                  bCat === c ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                  bCat === c ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-300'
                 }`}
               >
                 {c}
@@ -375,14 +375,14 @@ export default function AudiobookPage() {
 
       {(section === 'all' || section === 'sd') && (
         <div>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">System Design Category</p>
-          <div className="flex flex-wrap gap-2">
+          <p className="text-xs font-bold text-[var(--text-subtle)] uppercase tracking-wide mb-2">System Design Category</p>
+          <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
             {sdCategoriesList.map(c => (
               <button
                 key={c}
                 onClick={() => { setSdCat(c) }}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                  sdCat === c ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-gray-500 border-gray-200 hover:border-sky-300'
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                  sdCat === c ? 'bg-sky-600 text-white border-sky-600' : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-sky-300'
                 }`}
               >
                 {c}
@@ -408,10 +408,10 @@ export default function AudiobookPage() {
             }`}>
               {currentItem.type === 'behavioral' ? currentItem.data.category : currentItem.data.category}
             </span>
-            <span className="ml-auto text-xs text-gray-400">{idx + 1} / {playlist.length}</span>
+            <span className="ml-auto text-xs text-[var(--text-subtle)]">{idx + 1} / {playlist.length}</span>
           </div>
           <div className="px-5 pb-4">
-            <p className="text-base font-bold text-gray-800 leading-snug mb-2">
+            <p className="text-base font-bold text-[var(--text)] leading-snug mb-2">
               {currentItem.type === 'behavioral' ? currentItem.data.question : currentItem.data.q}
             </p>
             {currentText && (
@@ -429,16 +429,16 @@ export default function AudiobookPage() {
       )}
 
       {/* Player controls */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+      <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] shadow-sm p-5">
         {/* Speed */}
         <div className="flex items-center justify-center gap-2 mb-4">
-          <span className="text-xs text-gray-400 font-medium">Speed:</span>
+          <span className="text-xs text-[var(--text-subtle)] font-medium">Speed:</span>
           {SPEEDS.map(s => (
             <button
               key={s}
               onClick={() => handleSpeedChange(s)}
               className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
-                speed === s ? 'bg-violet-600 text-white border-violet-600' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-violet-300'
+                speed === s ? 'bg-violet-600 text-white border-violet-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-violet-300'
               }`}
             >
               {s}x
@@ -451,7 +451,7 @@ export default function AudiobookPage() {
           <button
             onClick={handleRestart}
             title="Restart playlist"
-            className="p-2.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-400 transition-colors"
+            className="p-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-muted)] text-[var(--text-muted)] hover:border-[var(--border-soft)] transition-colors"
           >
             <RotateCcw size={16} />
           </button>
@@ -459,7 +459,7 @@ export default function AudiobookPage() {
           <button
             onClick={handlePrev}
             disabled={idx === 0}
-            className="p-3 rounded-xl border border-gray-200 bg-white text-gray-600 hover:border-violet-300 hover:text-violet-600 disabled:opacity-30 transition-colors"
+            className="p-3 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:border-violet-300 hover:text-violet-600 disabled:opacity-30 transition-colors"
           >
             <SkipBack size={20} />
           </button>
@@ -484,13 +484,13 @@ export default function AudiobookPage() {
           <button
             onClick={handleNext}
             disabled={idx === playlist.length - 1}
-            className="p-3 rounded-xl border border-gray-200 bg-white text-gray-600 hover:border-violet-300 hover:text-violet-600 disabled:opacity-30 transition-colors"
+            className="p-3 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:border-violet-300 hover:text-violet-600 disabled:opacity-30 transition-colors"
           >
             <SkipForward size={20} />
           </button>
 
           <div className={`px-3 py-2 rounded-xl border text-xs font-semibold transition-colors ${
-            autoAdvance ? 'bg-violet-50 text-violet-600 border-violet-200' : 'bg-gray-50 text-gray-400 border-gray-200'
+            autoAdvance ? 'bg-violet-50 dark:bg-violet-950/40 text-violet-600 border-violet-200 dark:border-violet-500/30' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)]'
           }`}>
             {autoAdvance ? '▶▶ Auto' : '— Manual'}
           </div>
@@ -499,13 +499,13 @@ export default function AudiobookPage() {
         {/* Progress bar (visual only) */}
         {playlist.length > 0 && (
           <div className="mt-4">
-            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
               <div
                 className="h-full bg-violet-500 rounded-full transition-all duration-300"
                 style={{ width: `${((idx + 1) / playlist.length) * 100}%` }}
               />
             </div>
-            <div className="flex justify-between text-xs text-gray-400 mt-1">
+            <div className="flex justify-between text-xs text-[var(--text-subtle)] mt-1">
               <span>{idx + 1} of {playlist.length}</span>
               <span className="font-medium">
                 {mode === 'question' ? 'Question only' : 'Full Q&A'} · {speed}x
@@ -516,12 +516,12 @@ export default function AudiobookPage() {
       </div>
 
       {playlist.length === 0 && (
-        <div className="text-center py-12 text-gray-400 text-sm">No items match this filter.</div>
+        <div className="text-center py-12 text-[var(--text-subtle)] text-sm">No items match this filter.</div>
       )}
 
       {/* Playlist preview */}
       <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">
+        <p className="text-xs font-bold text-[var(--text-subtle)] uppercase tracking-wide mb-3">
           Playlist · {playlist.length} items
         </p>
         <div className="space-y-1.5 max-h-80 overflow-y-auto">
@@ -536,12 +536,12 @@ export default function AudiobookPage() {
               }}
               className={`w-full text-left px-4 py-2.5 rounded-xl border text-sm transition-colors flex items-center gap-3 ${
                 i === idx
-                  ? 'border-violet-300 bg-violet-50 text-violet-800'
-                  : 'border-gray-100 bg-white text-gray-600 hover:border-gray-300'
+                  ? 'border-violet-300 bg-violet-50 dark:bg-violet-950/30 text-violet-800 dark:text-violet-300'
+                  : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:border-[var(--border-soft)]'
               }`}
             >
               <span className={`shrink-0 text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center ${
-                i === idx ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-400'
+                i === idx ? 'bg-violet-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)]'
               }`}>
                 {i === idx && (playing && !paused) ? '▶' : i + 1}
               </span>

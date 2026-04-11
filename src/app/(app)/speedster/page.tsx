@@ -532,8 +532,8 @@ export default function SpeedsterPage() {
               <Brain size={16} className="text-indigo-600" />
             </div>
             <div>
-              <p className="text-sm font-black text-gray-800">Reviews</p>
-              <p className="text-xs text-gray-400">
+              <p className="text-sm font-black text-[var(--text)]">Reviews</p>
+              <p className="text-xs text-[var(--text-subtle)]">
                 {reviewWeek === 0 ? 'Due + next 7 days' : `${fmtShort(srStart)} → ${fmtShort(srEnd)}`}
               </p>
             </div>
@@ -543,7 +543,7 @@ export default function SpeedsterPage() {
               type="button"
               onClick={() => { setReviewWeek(w => Math.max(0, w - 1)); setReviewFocus('due') }}
               disabled={reviewWeek === 0}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-xs font-semibold text-gray-600 hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] text-xs font-semibold text-[var(--text-muted)] hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronLeft size={14} /> Prev
             </button>
@@ -557,14 +557,14 @@ export default function SpeedsterPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] shadow-sm overflow-hidden">
           {/* Day pills */}
-          <div className="flex gap-1.5 overflow-x-auto px-3 py-2 border-b border-gray-100 scrollbar-none">
+          <div className="flex gap-1.5 overflow-x-auto px-3 py-2 border-b border-[var(--border)] scrollbar-none">
             <button
               type="button"
               onClick={() => setReviewFocus('due')}
               className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-                reviewFocus === 'due' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
+                reviewFocus === 'due' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-300'
               }`}
             >
               Due <span className="opacity-80">· {srDue.length}</span>
@@ -575,7 +575,7 @@ export default function SpeedsterPage() {
                 type="button"
                 onClick={() => setReviewFocus(d)}
                 className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-                  reviewFocus === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
+                  reviewFocus === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-300'
                 }`}
               >
                 {fmtShort(d)} <span className="opacity-80">· {srByDay[d]?.length ?? 0}</span>
@@ -586,7 +586,7 @@ export default function SpeedsterPage() {
           {/* List */}
           <div className="p-3 space-y-2">
             {(reviewFocus === 'due' ? srDue : (srByDay[reviewFocus] ?? [])).length === 0 ? (
-              <div className="text-xs text-gray-400 py-2">No reviews in this bucket.</div>
+              <div className="text-xs text-[var(--text-subtle)] py-2">No reviews in this bucket.</div>
             ) : (
               (reviewFocus === 'due' ? srDue : (srByDay[reviewFocus] ?? [])).map(it => {
                 const q = qMap[it.id]
@@ -595,15 +595,15 @@ export default function SpeedsterPage() {
                   <Link
                     key={it.id}
                     href={`/practice/${it.id}`}
-                    className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/40 transition-colors"
+                    className="flex items-center gap-3 p-3 rounded-xl border border-[var(--border)] hover:border-indigo-200 hover:bg-indigo-50/10 transition-colors"
                   >
-                    <span className="text-xs text-gray-400 font-mono shrink-0">#{it.id}</span>
-                    <span className="flex-1 min-w-0 text-sm font-semibold text-gray-800 truncate">{q.title}</span>
-                    <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full shrink-0">
+                    <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{it.id}</span>
+                    <span className="flex-1 min-w-0 text-sm font-semibold text-[var(--text)] truncate">{q.title}</span>
+                    <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 px-2 py-0.5 rounded-full shrink-0">
                       Review #{(it.review_count ?? 0) + 1}
                     </span>
                     <DifficultyBadge difficulty={q.difficulty} />
-                    <ChevronRight size={14} className="text-gray-300 shrink-0" />
+                    <ChevronRight size={14} className="text-[var(--text-subtle)] shrink-0" />
                   </Link>
                 )
               })

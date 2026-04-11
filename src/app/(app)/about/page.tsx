@@ -138,24 +138,24 @@ export default function AboutPage() {
         <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-600 rounded-2xl mb-5 shadow-lg">
           <BookOpen size={40} className="text-white" />
         </div>
-        <h1 className="text-3xl font-black text-gray-900 mb-2">LeetMastery</h1>
-        <p className="text-gray-500 text-base max-w-lg mx-auto">
+        <h1 className="text-3xl font-black text-[var(--text)] mb-2">LeetMastery</h1>
+        <p className="text-[var(--text-muted)] text-base max-w-lg mx-auto">
           A private, all-in-one interview preparation hub. Study LeetCode questions, drill lines with Game mode, run a daily plan, speed-review the deck, practise under timed conditions, track spaced repetition, and prep for behavioural and system design — including optional audio playlists — all in one place.
         </p>
       </div>
 
       {/* Features */}
       <div className="mb-10">
-        <h2 className="text-lg font-bold text-gray-800 mb-4">Features</h2>
+        <h2 className="text-lg font-bold text-[var(--text)] mb-4">Features</h2>
         <div className="space-y-3">
           {FEATURES.map(({ icon: Icon, color, label, desc }) => (
-            <div key={label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-start gap-4">
+            <div key={label} className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 flex items-start gap-4">
               <div className={`shrink-0 mt-0.5 ${color}`}>
                 <Icon size={20} />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-800 text-sm">{label}</h3>
-                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{desc}</p>
+                <h3 className="font-semibold text-[var(--text)] text-sm">{label}</h3>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5 leading-relaxed">{desc}</p>
               </div>
             </div>
           ))}
@@ -176,9 +176,9 @@ export default function AboutPage() {
       </div>
 
       {/* Data & Privacy */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-        <h2 className="font-bold text-gray-800 text-sm mb-3">Data & Privacy</h2>
-        <div className="space-y-2 text-sm text-gray-600">
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-5">
+        <h2 className="font-bold text-[var(--text)] text-sm mb-3">Data & Privacy</h2>
+        <div className="space-y-2 text-sm text-[var(--text-muted)]">
           <p>All progress — solved status, notes, spaced repetition schedules, practice code, mock sessions, and daily plan — is stored in Supabase, private to your account.</p>
           <p>Questions data is loaded from a static JSON file bundled with the app — no external API calls for question content.</p>
           <p>Some pages show an offline banner when the network is unavailable; Supabase-backed features (daily plan order, progress) need connectivity.</p>

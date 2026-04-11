@@ -239,7 +239,7 @@ export default function QuickReviewPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1 mb-4">
         {DIFFICULTY_LEVELS.map(d => (
           <button key={d} onClick={() => setFilterDiff(d)}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
