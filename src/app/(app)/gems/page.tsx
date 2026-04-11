@@ -98,10 +98,10 @@ export default function GemsPage() {
     <div className="max-w-2xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2 mb-0.5">
+        <h1 className="text-2xl font-bold text-[var(--text)] flex items-center gap-2 mb-0.5">
           <Gem className="text-indigo-500" /> Gems
         </h1>
-        <p className="text-xs text-gray-400">Recruiter playbooks, templates & interview strategies</p>
+        <p className="text-xs text-[var(--text-subtle)]">Recruiter playbooks, templates & interview strategies</p>
       </div>
 
       {/* Controls */}
@@ -115,14 +115,14 @@ export default function GemsPage() {
         <button
           onClick={toggleShuffle}
           className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
-            isShuffled ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'
+            isShuffled ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-card)] text-[var(--text-subtle)] border-[var(--border)] hover:border-indigo-300'
           }`}
         >
           <Shuffle size={11} /> Shuffle
         </button>
         <button
           onClick={reset}
-          className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border bg-white text-gray-500 border-gray-200 hover:border-gray-400 transition-colors"
+          className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border bg-[var(--bg-card)] text-[var(--text-subtle)] border-[var(--border)] hover:border-[var(--text-subtle)] transition-colors"
         >
           <RotateCcw size={11} /> Reset
         </button>
@@ -135,7 +135,7 @@ export default function GemsPage() {
             key={c}
             onClick={() => setCat(c)}
             className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
-              cat === c ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'
+              cat === c ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-card)] text-[var(--text-subtle)] border-[var(--border)] hover:border-indigo-300'
             }`}
           >
             {c}
@@ -144,7 +144,7 @@ export default function GemsPage() {
       </div>
 
       {deck.length === 0 && (
-        <div className="text-center py-20 text-gray-400 text-sm">No cards in this category.</div>
+        <div className="text-center py-20 text-[var(--text-subtle)] text-sm">No cards in this category.</div>
       )}
 
       {card && (
@@ -156,8 +156,8 @@ export default function GemsPage() {
           >
             {!flipped ? (
               /* FRONT */
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-3 border-b border-gray-100">
+              <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] shadow-md overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-3 border-b border-[var(--border)]">
                   <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${catColor}`}>
                     {card.category}
                   </span>
@@ -170,18 +170,18 @@ export default function GemsPage() {
                         setVisited(next)
                       }}
                       className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors ${
-                        visited.has(card.id) ? 'bg-green-50 text-green-600 border-green-300' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-green-300 hover:text-green-500'
+                        visited.has(card.id) ? 'bg-green-50 text-green-600 border-green-300' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)] hover:border-green-300 hover:text-green-500'
                       }`}
                     >
                       {visited.has(card.id) ? <><CheckCircle size={11} /> Visited</> : <><Circle size={11} /> Mark visited</>}
                     </button>
-                    <span className="hidden sm:inline text-xs text-gray-300 font-medium">Tap to reveal →</span>
+                    <span className="hidden sm:inline text-xs text-[var(--text-subtle)] font-medium">Tap to reveal →</span>
                   </div>
                 </div>
                 <div className="px-5 py-8 flex flex-col items-center justify-center min-h-[160px] text-center gap-2">
                   <span className="text-3xl">{card.emoji}</span>
-                  <h2 className="text-xl font-bold text-gray-800">{card.front}</h2>
-                  <p className="text-sm text-gray-500">{card.sub}</p>
+                  <h2 className="text-xl font-bold text-[var(--text)]">{card.front}</h2>
+                  <p className="text-sm text-[var(--text-muted)]">{card.sub}</p>
                   {card.note && (
                     <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-1">{card.note}</p>
                   )}
@@ -189,17 +189,17 @@ export default function GemsPage() {
               </div>
             ) : (
               /* BACK */
-              <div className="bg-white rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-3 border-b border-indigo-100 bg-indigo-50">
+              <div className="bg-[var(--bg-card)] rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-3 border-b border-indigo-100 bg-indigo-50 dark:bg-indigo-950/40">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">{card.emoji}</span>
-                    <span className="text-sm font-bold text-indigo-800">{card.front}</span>
+                    <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">{card.front}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {card.type === 'template' && (
                       <button
                         onClick={e => handleCopy(card.body, e)}
-                        className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50 transition-colors"
+                        className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-[var(--bg-card)] text-indigo-600 border-indigo-200 hover:bg-indigo-50 transition-colors"
                       >
                         {copied ? <><Check size={11} /> Copied!</> : <><Copy size={11} /> Copy</>}
                       </button>
@@ -208,11 +208,11 @@ export default function GemsPage() {
                   </div>
                 </div>
                 <div className="px-5 py-4">
-                  <pre className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed font-sans break-words">
+                  <pre className="text-sm text-[var(--text)] whitespace-pre-wrap leading-relaxed font-sans break-words">
                     {card.body}
                   </pre>
                   {card.attach && (
-                    <p className="mt-3 text-xs text-gray-400 italic">Attach: {card.attach}</p>
+                    <p className="mt-3 text-xs text-[var(--text-subtle)] italic">Attach: {card.attach}</p>
                   )}
                 </div>
               </div>
@@ -224,7 +224,7 @@ export default function GemsPage() {
             <button
               onClick={() => go(-1)}
               disabled={idx === 0}
-              className="flex items-center gap-1 px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-600 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+              className="flex items-center gap-1 px-4 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
               <ChevronLeft size={16} /> Prev
             </button>
@@ -235,18 +235,18 @@ export default function GemsPage() {
                   <button
                     key={i}
                     onClick={() => { setIdx(i); setFlipped(false) }}
-                    className={`rounded-full transition-all ${i === idx ? 'w-3 h-3 bg-indigo-500' : 'w-2 h-2 bg-gray-200 hover:bg-gray-400'}`}
+                    className={`rounded-full transition-all ${i === idx ? 'w-3 h-3 bg-indigo-500' : 'w-2 h-2 bg-[var(--bg-muted)] hover:bg-[var(--text-subtle)]'}`}
                   />
                 ))
               ) : (
-                <span className="text-xs text-gray-400 font-mono">{idx + 1} / {deck.length}</span>
+                <span className="text-xs text-[var(--text-subtle)] font-mono">{idx + 1} / {deck.length}</span>
               )}
             </div>
 
             <button
               onClick={() => go(1)}
               disabled={idx === deck.length - 1}
-              className="flex items-center gap-1 px-4 py-2 rounded-xl border border-gray-200 bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+              className="flex items-center gap-1 px-4 py-2 rounded-xl border border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
               Next <ChevronRight size={16} />
             </button>

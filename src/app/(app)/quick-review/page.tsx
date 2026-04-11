@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Pause, Play, SkipForward, RotateCcw, Zap, CheckCircle } from 'lucide-react'
-import { shuffle } from '@/lib/utils'
+import { shuffle, stripScripts } from '@/lib/utils'
 import { DIFFICULTY_LEVELS, QUESTION_SOURCES } from '@/lib/constants'
 import { getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -11,6 +11,7 @@ import QuestionImage from '@/components/QuestionImage'
 interface Question {
   id: number
   title: string
+  slug: string
   difficulty: string
   tags: string[]
   source: string[]
@@ -34,6 +35,11 @@ export default function QuickReviewPage() {
   const [timeLeft, setTimeLeft] = useState(Q_SECS)
   const [paused, setPaused] = useState(false)
   const [started, setStarted] = useState(false)
+
+  const [lcContent, setLcContent] = useState<string | null>(null)
+  const [lcLoading, setLcLoading] = useState(false)
+  const [isPremium, setIsPremium] = useState(false)
+  const lcCacheRef = useRef<Record<string, string>>({})
 
   const startedAtRef = useRef<number | null>(null)
   const phaseRef = useRef<'question' | 'solution' | 'done'>('question')
@@ -165,6 +171,41 @@ export default function QuickReviewPage() {
 
   useEffect(() => () => stopTimer(), [])
 
+  // Fetch live LeetCode description when question changes
+  useEffect(() => {
+    const slug = deck[idx]?.slug
+    if (!slug) return
+    setLcContent(lcCacheRef.current[slug] ?? null)
+    setIsPremium(false)
+    if (lcCacheRef.current[slug]) return
+    let cancelled = false
+    setLcLoading(true)
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 8000)
+    const session   = typeof window !== 'undefined' ? localStorage.getItem('lc_session')  || '' : ''
+    const csrfToken = typeof window !== 'undefined' ? localStorage.getItem('lc_csrf')     || '' : ''
+    fetch('/api/leetcode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        session, csrfToken,
+        query: `query questionContent($titleSlug: String!) { question(titleSlug: $titleSlug) { content isPaidOnly } }`,
+        variables: { titleSlug: slug },
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return
+        const qd = data?.data?.question
+        if (qd?.isPaidOnly && !qd?.content) setIsPremium(true)
+        else if (qd?.content) { lcCacheRef.current[slug] = qd.content; setLcContent(qd.content) }
+      })
+      .catch(() => {})
+      .finally(() => { clearTimeout(timer); if (!cancelled) setLcLoading(false) })
+    return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
+  }, [deck, idx])
+
   if (loading) return <div className="text-center py-32 text-[var(--text-subtle)] animate-pulse text-sm">Loading…</div>
 
   const q = deck[idx] || null
@@ -216,21 +257,21 @@ export default function QuickReviewPage() {
 
       {started && phase !== 'done' && (
         <div className="mb-3">
-          <div className="flex justify-between text-xs text-gray-400 mb-1">
+          <div className="flex justify-between text-xs text-[var(--text-subtle)] mb-1">
             <span>{idx + 1} / {deck.length} questions</span>
             <span>{Math.round(overall * 100)}% through session</span>
           </div>
-          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
             <div className="h-full bg-indigo-300 rounded-full transition-all duration-500" style={{ width: `${overall * 100}%` }} />
           </div>
         </div>
       )}
 
       {phase === 'done' ? (
-        <div className="bg-white rounded-2xl border border-green-200 shadow-md p-6 sm:p-10 text-center">
+        <div className="bg-[var(--bg-card)] rounded-2xl border border-green-200 shadow-md p-6 sm:p-10 text-center">
           <CheckCircle size={48} className="text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-black text-gray-800 mb-2">Session Complete! 🎉</h2>
-          <p className="text-sm text-gray-500 mb-8">
+          <h2 className="text-2xl font-black text-[var(--text)] mb-2">Session Complete! 🎉</h2>
+          <p className="text-sm text-[var(--text-subtle)] mb-8">
             You reviewed all <strong>{deck.length}</strong> questions.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -242,30 +283,30 @@ export default function QuickReviewPage() {
             </button>
             <button
               onClick={() => resetSession()}
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-gray-200 text-gray-600 font-bold rounded-xl hover:border-gray-400 transition-colors"
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-[var(--bg-card)] border-2 border-[var(--border)] text-[var(--text-muted)] font-bold rounded-xl hover:border-[var(--text-subtle)] transition-colors"
             >
               Stop
             </button>
           </div>
         </div>
       ) : !started ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-6 sm:p-10 text-center">
+        <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] shadow-md p-6 sm:p-10 text-center">
           <Zap size={48} className="text-yellow-400 mx-auto mb-4" />
-          <h2 className="text-xl font-black text-gray-800 mb-2">Ready to Study?</h2>
-          <p className="text-sm text-gray-400 mb-2">The session runs automatically:</p>
-          <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500 mb-8">
+          <h2 className="text-xl font-black text-[var(--text)] mb-2">Ready to Study?</h2>
+          <p className="text-sm text-[var(--text-subtle)] mb-2">The session runs automatically:</p>
+          <div className="flex flex-wrap justify-center gap-4 text-sm text-[var(--text-muted)] mb-8">
             <div className="flex flex-col items-center gap-1">
               <span className="text-2xl font-black text-indigo-600">{Q_SECS}s</span>
               <span className="text-xs">View question</span>
             </div>
-            <div className="text-gray-300 text-2xl self-center">→</div>
+            <div className="text-[var(--text-subtle)] text-2xl self-center">→</div>
             <div className="flex flex-col items-center gap-1">
               <span className="text-2xl font-black text-green-600">{SOL_SECS}s</span>
               <span className="text-xs">Study solution</span>
             </div>
-            <div className="text-gray-300 text-2xl self-center">→</div>
+            <div className="text-[var(--text-subtle)] text-2xl self-center">→</div>
             <div className="flex flex-col items-center gap-1">
-              <span className="text-2xl font-black text-gray-600">{deck.length}</span>
+              <span className="text-2xl font-black text-[var(--text-muted)]">{deck.length}</span>
               <span className="text-xs">questions</span>
             </div>
           </div>
@@ -278,22 +319,22 @@ export default function QuickReviewPage() {
         </div>
       ) : (
         q && (
-          <div className={`bg-white rounded-2xl border shadow-md overflow-hidden transition-all ${
+          <div className={`bg-[var(--bg-card)] rounded-2xl border shadow-md overflow-hidden transition-all ${
             isQuestion ? 'border-indigo-200' : 'border-green-200'
           }`}>
             <div className={`px-5 py-3 border-b flex items-center justify-between ${
               isQuestion
-                ? urgent ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-100'
-                : urgent ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-100'
+                ? urgent ? 'bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-500/30' : 'bg-indigo-50 border-indigo-100 dark:bg-indigo-950/40 dark:border-indigo-500/30'
+                : urgent ? 'bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-500/30' : 'bg-green-50 border-green-100 dark:bg-green-950/40 dark:border-green-500/30'
             }`}>
               <div className="flex items-center gap-2 min-w-0">
                 <span className={`text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                  isQuestion ? 'bg-indigo-100 text-indigo-600' : 'bg-green-100 text-green-600'
+                  isQuestion ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-300'
                 }`}>
                   {isQuestion ? '📖 Question' : '💡 Solution'}
                 </span>
                 <DifficultyBadge difficulty={q.difficulty} />
-                <span className="text-xs text-gray-500 font-mono truncate hidden sm:inline">#{q.id} {q.title}</span>
+                <span className="text-xs text-[var(--text-subtle)] font-mono truncate hidden sm:inline">#{q.id} {q.title}</span>
               </div>
               <span className={`text-2xl font-black tabular-nums shrink-0 ml-3 ${
                 urgent ? 'text-red-500' : isQuestion ? 'text-indigo-600' : 'text-green-600'
@@ -313,13 +354,28 @@ export default function QuickReviewPage() {
 
             <div className="p-5">
               {isQuestion ? (
-                <QuestionImage
-                  questionId={q.id}
-                  alt={q.title}
-                />
+                <div>
+                  <p className="text-sm font-bold text-[var(--text)] mb-3">{q.title}</p>
+                  {lcContent ? (
+                    <div className="lc-description text-sm text-[var(--text)]"
+                      dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+                  ) : lcLoading ? (
+                    <div className="space-y-2 animate-pulse">
+                      <div className="h-3 bg-[var(--bg-muted)] rounded w-full" />
+                      <div className="h-3 bg-[var(--bg-muted)] rounded w-5/6" />
+                      <div className="h-3 bg-[var(--bg-muted)] rounded w-4/6" />
+                      <div className="h-10 bg-[var(--bg-muted)] rounded w-full mt-2" />
+                      <div className="h-3 bg-[var(--bg-muted)] rounded w-full" />
+                    </div>
+                  ) : isPremium ? (
+                    <p className="text-xs text-[var(--text-subtle)] italic">🔒 Premium question</p>
+                  ) : (
+                    <QuestionImage questionId={q.id} alt={q.title} />
+                  )}
+                </div>
               ) : (
                 <div onClick={e => e.stopPropagation()}>
-                  <p className="text-xs font-semibold text-gray-700 mb-3">{q.title}</p>
+                  <p className="text-xs font-semibold text-[var(--text-muted)] mb-3">{q.title}</p>
                   <CodePanel pythonCode={q.python_solution} cppCode={q.cpp_solution} />
                 </div>
               )}
@@ -332,19 +388,19 @@ export default function QuickReviewPage() {
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-colors ${
                     paused
                       ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                      : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--text-subtle)]'
                   }`}
                 >
                   {paused ? <><Play size={13} /> Resume</> : <><Pause size={13} /> Pause</>}
                 </button>
                 <button
                   onClick={skip}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border bg-white text-gray-500 border-gray-200 hover:border-gray-400 transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border bg-[var(--bg-card)] text-[var(--text-subtle)] border-[var(--border)] hover:border-[var(--text-subtle)] transition-colors"
                 >
                   <SkipForward size={13} /> Skip
                 </button>
               </div>
-              <span className="text-xs text-gray-400 font-mono">{idx + 1} / {deck.length}</span>
+              <span className="text-xs text-[var(--text-subtle)] font-mono">{idx + 1} / {deck.length}</span>
             </div>
           </div>
         )
