@@ -296,7 +296,6 @@ export default function SpeedsterQuestionPage() {
             <LeetCodeEditor
               appQuestionId={question.id}
               slug={question.slug}
-              speedster
               onAccepted={async () => {
                 const res = await addMasteryRunEvent(question.id, 1)
                 if (!res.ok) {

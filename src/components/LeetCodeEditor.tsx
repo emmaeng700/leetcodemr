@@ -62,7 +62,6 @@ interface Props {
   appQuestionId: number
   slug: string
   onAccepted?: () => void
-  speedster?: boolean
   /** If false, runs/submits to LeetCode but won't sync progress or AC counts to the app DB. */
   syncToApp?: boolean
 }
@@ -170,7 +169,7 @@ function MobileKeybar({
 }
 
 /* ══════════════════════════════════════════════════════════ */
-export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speedster = false, syncToApp = true }: Props) {
+export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncToApp = true }: Props) {
   const onAcceptedRef = useRef(onAccepted)
   useEffect(() => { onAcceptedRef.current = onAccepted }, [onAccepted])
 
@@ -206,7 +205,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
   const [pollMsg,    setPollMsg]    = useState('')
   const [result,     setResult]     = useState<LCResult | null>(null)
   const [resultErr,  setResultErr]  = useState('')
-  const [solvedStatus, setSolvedStatus] = useState<'marked' | 'already' | 'not-in-library' | 'speedster' | null>(null)
+  const [solvedStatus, setSolvedStatus] = useState<'marked' | 'already' | 'not-in-library' | null>(null)
   const [showSessionHint, setShowSessionHint] = useState(false)
 
   /* ── My Solutions modal UX: ESC close + lock background scroll ── */
@@ -382,31 +381,26 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
             return
           }
           void incrementAcSubmitCount(appQuestionId)
-          if (speedster) {
-            setSolvedStatus('speedster')
-            onAcceptedRef.current?.()
+          const prog = await getProgress()
+          const alreadySolved = Array.isArray(prog)
+            ? prog.some((p: any) => p.question_id === appQuestionId && p.solved)
+            : (prog as any)?.[String(appQuestionId)]?.solved
+          if (alreadySolved) {
+            setSolvedStatus('already')
           } else {
-            const prog = await getProgress()
-            const alreadySolved = Array.isArray(prog)
-              ? prog.some((p: any) => p.question_id === appQuestionId && p.solved)
-              : (prog as any)?.[String(appQuestionId)]?.solved
-            if (alreadySolved) {
-              setSolvedStatus('already')
-            } else {
-              try {
-                const err = await updateProgress(appQuestionId, { solved: true })
-                if (err) {
-                  toast.error(`Couldn’t mark as solved: ${err}`)
-                } else {
-                  setSolvedStatus('marked')
-                }
-              } catch (e) {
-                console.error('[LeetCodeEditor] updateProgress:', e)
-                toast.error(`Couldn’t mark as solved: ${e instanceof Error ? e.message : String(e)}`)
+            try {
+              const err = await updateProgress(appQuestionId, { solved: true })
+              if (err) {
+                toast.error(`Couldn’t mark as solved: ${err}`)
+              } else {
+                setSolvedStatus('marked')
               }
+            } catch (e) {
+              console.error('[LeetCodeEditor] updateProgress:', e)
+              toast.error(`Couldn’t mark as solved: ${e instanceof Error ? e.message : String(e)}`)
             }
-            onAcceptedRef.current?.()
           }
+          onAcceptedRef.current?.()
         }
         return
       }
@@ -744,12 +738,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, speeds
                       <CheckCircle size={11} /> Already solved in your app
                     </div>
                   )}
-                  {solvedStatus === 'speedster' && (
-                    <div className="flex items-center gap-1.5 text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-1.5">
-                      ⚡ Speedster mode — progress not saved
-                    </div>
-                  )}
-
                   {/* Perf (submit) */}
                   {isAC && runMode === 'submit' && result.status_runtime && (
                     <div className="grid grid-cols-2 gap-2">

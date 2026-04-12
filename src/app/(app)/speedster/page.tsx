@@ -411,7 +411,7 @@ export default function SpeedsterPage() {
         </div>
         <div>
           <h1 className="font-black text-gray-900 text-lg leading-tight">Speedster</h1>
-          <p className="text-xs text-gray-400">Practice daily questions — submissions won't mark as solved</p>
+          <p className="text-xs text-gray-400">Practice daily questions — Accepted submit marks solved in your app</p>
         </div>
       </div>
 
@@ -774,7 +774,6 @@ export default function SpeedsterPage() {
         key={currentQ.slug}
         appQuestionId={currentQ.id}
         slug={currentQ.slug}
-        speedster
         onAccepted={async () => {
           const res = await addMasteryRunEvent(currentQ.id, 1)
           if (!res.ok) {
@@ -843,7 +842,7 @@ export default function SpeedsterPage() {
           </div>
           <div>
             <h1 className="font-black text-gray-900 text-lg leading-tight">Speedster</h1>
-            <p className="text-xs text-gray-400">Practice daily questions — submissions won't mark as solved</p>
+            <p className="text-xs text-gray-400">Practice daily questions — Accepted submit marks solved in your app</p>
           </div>
         </div>
 
@@ -1079,7 +1078,7 @@ export default function SpeedsterPage() {
               <div>
                 <h2 className="text-base font-bold text-gray-800">Code Editor</h2>
                 <p className="text-xs text-gray-400">
-                  #{currentQ.id} · {currentQ.title} — submissions won't mark as solved
+                  #{currentQ.id} · {currentQ.title} — Accepted submit marks solved in your app
                 </p>
               </div>
             </div>
@@ -1090,7 +1089,6 @@ export default function SpeedsterPage() {
                   key={currentQ.slug}
                   appQuestionId={currentQ.id}
                   slug={currentQ.slug}
-                  speedster
                   onAccepted={async () => {
                     const res = await addMasteryRunEvent(currentQ.id, 1)
                     if (!res.ok) {
