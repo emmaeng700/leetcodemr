@@ -12,7 +12,8 @@ import {
 
 const STUDY_LINKS = [
   { href: '/',        label: 'Questions', icon: Home,     also: ['/practice', '/question'] },
-  { href: '/daily',   label: 'Daily',     icon: Calendar },
+  { href: '/daily',       label: 'Daily',       icon: Calendar },
+  { href: '/speedylearn', label: 'SpeedyLearn', icon: Zap },
   { href: '/speedster', label: 'Speedster', icon: Gauge },
   { href: '/learn/0', label: 'Learn', icon: BookOpen },
   { href: '/leetcode-api', label: 'LeetCode',  icon: Zap },
