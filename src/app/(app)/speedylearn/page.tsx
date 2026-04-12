@@ -155,6 +155,11 @@ export default function SpeedyLearnPage() {
   const [lcCsrf,       setLcCsrf]       = useState('')
   const lcCacheRef = useRef<Record<string, string>>({})
 
+  // ── Flashcard-specific LC state (separate from description panel) ──
+  const [fcLcContent, setFcLcContent] = useState<string | null>(null)
+  const [fcLcLoading, setFcLcLoading] = useState(false)
+  const [fcIsPremium, setFcIsPremium] = useState(false)
+
   // ── Day card / reviews / flashcard state ──
   const [dayIdx,       setDayIdx]       = useState(0)
   const [reviewWeek,   setReviewWeek]   = useState(0)
@@ -537,6 +542,45 @@ export default function SpeedyLearnPage() {
   const filteredVisited = fcFilteredOrder.filter(id => visited.has(id)).length
 
   useEffect(() => { setCardIdx(0); setFlipped(false) }, [fcFilterDiff, fcFilterSolved, fcFilterSource, fcFilterPattern])
+
+  // ── Fetch LC description for current flashcard question ──
+  useEffect(() => {
+    const slug = fcCurrentQ?.slug
+    if (!slug) return
+    setFcIsPremium(false)
+    if (lcCacheRef.current[slug]) {
+      setFcLcContent(lcCacheRef.current[slug])
+      setFcLcLoading(false)
+      return
+    }
+    setFcLcContent(null)
+    let cancelled = false
+    setFcLcLoading(true)
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 8000)
+    const session   = typeof window !== 'undefined' ? localStorage.getItem('lc_session')  || '' : ''
+    const csrfToken = typeof window !== 'undefined' ? localStorage.getItem('lc_csrf')     || '' : ''
+    fetch('/api/leetcode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        session, csrfToken,
+        query: `query questionContent($titleSlug: String!) { question(titleSlug: $titleSlug) { content isPaidOnly } }`,
+        variables: { titleSlug: slug },
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return
+        const qd = data?.data?.question
+        if (qd?.isPaidOnly && !qd?.content) setFcIsPremium(true)
+        else if (qd?.content) { lcCacheRef.current[slug] = qd.content; setFcLcContent(qd.content) }
+      })
+      .catch(() => {})
+      .finally(() => { clearTimeout(timer); if (!cancelled) setFcLcLoading(false) })
+    return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
+  }, [fcCurrentQ?.slug])
 
   const fadeSwap = useCallback((fn: () => void) => {
     setFading(true)
@@ -1191,7 +1235,21 @@ export default function SpeedyLearnPage() {
                     </div>
                   </div>
                   <div className="px-3 sm:px-5 pb-3 sm:pb-5 mt-2" onClick={e => e.stopPropagation()}>
-                    <p className="text-xs text-[var(--text-subtle)] italic">Tap card to reveal solution</p>
+                    {fcLcContent ? (
+                      <div className="lc-description text-sm text-[var(--text)]"
+                        dangerouslySetInnerHTML={{ __html: stripScripts(fcLcContent) }} />
+                    ) : fcLcLoading ? (
+                      <div className="space-y-2 animate-pulse">
+                        <div className="h-3 bg-[var(--bg-muted)] rounded w-full" />
+                        <div className="h-3 bg-[var(--bg-muted)] rounded w-5/6" />
+                        <div className="h-3 bg-[var(--bg-muted)] rounded w-4/6" />
+                        <div className="h-10 bg-[var(--bg-muted)] rounded w-full mt-2" />
+                      </div>
+                    ) : fcIsPremium ? (
+                      <p className="text-xs text-[var(--text-subtle)] italic">🔒 Premium question</p>
+                    ) : (
+                      <p className="text-xs text-[var(--text-subtle)] italic">Tap card to reveal solution</p>
+                    )}
                   </div>
                 </div>
               ) : (
