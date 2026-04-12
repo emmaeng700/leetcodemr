@@ -534,7 +534,10 @@ export async function recalibrateSRDates() {
     const base = new Date(row.last_reviewed + 'T12:00:00') // noon local avoids DST edge
     base.setDate(base.getDate() + interval)
     const expected = localDateISO(base)
-    if (row.next_review !== expected) {
+    // Only fix if next_review is EARLIER than the formula date (timezone drift made it
+    // appear overdue too soon). Never pull a question back from a future date that
+    // spreadOverdueReviews intentionally placed it on.
+    if (row.next_review < expected) {
       updates.push({ question_id: row.question_id, next_review: expected })
     }
   }
