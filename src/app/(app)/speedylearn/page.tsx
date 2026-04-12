@@ -1369,13 +1369,13 @@ export default function SpeedyLearnPage() {
 
         {/* Description panel */}
         <div className={`${mobileTab === 'description' ? 'flex' : 'hidden'} flex-col flex-1 min-h-0 overflow-hidden`}>
-          {/* Top bar for mobile description */}
+          {/* Top bar */}
           <div className="relative z-30 flex flex-wrap items-center gap-2 overflow-visible border-b border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 shrink-0">
             <button onClick={goPrev} disabled={safeIdx === 0}
               className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 transition-colors">
               <ChevronLeft size={15} />
             </button>
-            <div data-sl-list ref={listWrapRef} className="relative z-0">
+            <div data-sl-list className="relative z-0">
               <button type="button" onClick={() => setShowList(v => !v)}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-xs font-semibold text-[var(--text-muted)] hover:border-indigo-300 transition-colors">
                 <List size={12} />
@@ -1397,6 +1397,11 @@ export default function SpeedyLearnPage() {
               <div className="bg-indigo-500 h-1.5 rounded-full transition-all"
                 style={{ width: orderedQuestions.length ? `${((safeIdx + 1) / orderedQuestions.length) * 100}%` : '0%' }} />
             </div>
+            {/* Filter toggle */}
+            <button type="button" data-sl-filter onClick={() => setShowFilters(v => !v)}
+              className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${showFilters ? 'bg-indigo-600 text-white border-indigo-600' : 'border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-300'}`}>
+              Filter {filterDiff !== 'All' || filterSource !== 'All' || filterPattern || filterSolved !== 'All' ? '•' : ''}
+            </button>
             {q && (
               <>
                 <button onClick={() => save({ starred: !starred })}
@@ -1415,6 +1420,66 @@ export default function SpeedyLearnPage() {
               </>
             )}
           </div>
+          {/* Filter pills (mobile) */}
+          {showFilters && (
+            <div data-sl-filter className="border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0 space-y-1 px-3 py-2">
+              <div className="flex items-center flex-wrap gap-2">
+                {['All', 'Easy', 'Medium', 'Hard'].map(d => (
+                  <button key={d} onClick={() => setFilterDiff(d)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${filterDiff === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-300'}`}>
+                    {d}
+                  </button>
+                ))}
+                <span className="w-px h-4 bg-[var(--border)] shrink-0" />
+                {['All', 'Grind 169', 'Denny Zhang', 'Premium 98', 'CodeSignal'].map(s => (
+                  <button key={s} onClick={() => setFilterSource(s)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${filterSource === s ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-300'}`}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center flex-wrap gap-2">
+                {(['All', 'Solved', 'Unsolved'] as const).map(s => (
+                  <button key={s} onClick={() => setFilterSolved(s)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${filterSolved === s ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-300'}`}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center flex-wrap gap-2">
+                <button onClick={() => setFilterPattern(null)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${!filterPattern ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-cyan-300'}`}>
+                  All Patterns
+                </button>
+                {QUICK_PATTERNS.map(pp => (
+                  <button key={pp.name} onClick={() => setFilterPattern(filterPattern === pp.name ? null : pp.name)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${filterPattern === pp.name ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-cyan-300'}`}>
+                    {pp.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Pattern context strip (mobile) */}
+          {currentPattern && (
+            <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
+              <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🧩</span>
+              <span className="text-xs font-semibold text-[var(--text)] truncate">{currentPattern.name}</span>
+              {patternPct >= 80 && <span className="text-[10px] font-bold text-green-600 shrink-0">🔥 Crushing it!</span>}
+              {patternPct >= 50 && patternPct < 80 && <span className="text-[10px] font-bold text-indigo-500 shrink-0">💪 Solid progress</span>}
+              {patternPct > 0 && patternPct < 50 && <span className="text-[10px] font-semibold text-amber-500 shrink-0">📈 Building momentum</span>}
+              {patternPct === 0 && <span className="text-[10px] font-semibold text-[var(--text-subtle)] shrink-0">🧩 Fresh territory</span>}
+              <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                <div className="w-16 h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all ${patternPct === 100 ? 'bg-green-500' : patternPct >= 50 ? 'bg-indigo-500' : 'bg-amber-500'}`}
+                    style={{ width: patternPct + '%' }} />
+                </div>
+                <span className={`text-[11px] font-bold ${patternPct === 100 ? 'text-green-500' : patternPct >= 50 ? 'text-indigo-400' : 'text-amber-500'}`}>
+                  {patternSolved}/{patternQs.length}
+                </span>
+              </div>
+            </div>
+          )}
           {leftPanel}
         </div>
 
@@ -1466,7 +1531,7 @@ export default function SpeedyLearnPage() {
           {/* Filters toggle */}
           <button type="button" data-sl-filter onClick={() => setShowFilters(v => !v)}
             className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${showFilters ? 'bg-indigo-600 text-white border-indigo-600' : 'border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-300'}`}>
-            Filter {filterDiff !== 'All' || filterSource !== 'All' || filterPattern ? '•' : ''}
+            Filter {filterDiff !== 'All' || filterSource !== 'All' || filterPattern || filterSolved !== 'All' ? '•' : ''}
           </button>
 
           {q && (
