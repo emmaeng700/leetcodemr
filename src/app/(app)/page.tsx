@@ -448,6 +448,38 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     <>
       <StreakCard streak={streakDisplay} log={planFilteredLog} goalsMetToday={goalsMetToday} />
       {todayDailyCard}
+      {dueReviews.length > 0 && (
+        <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-xl mb-5 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2">
+              <Brain size={15} className="text-indigo-600" />
+              <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
+                Reviews due — {dueReviews.length} question{dueReviews.length > 1 ? 's' : ''}
+              </span>
+            </div>
+            <Link href="/review" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
+              Open all <ChevronRight size={12} />
+            </Link>
+          </div>
+          <div className="px-4 pb-3 flex flex-wrap gap-2">
+            {dueReviews.map(q => {
+              const qObj = questions.find(x => x.id === q.id)
+              const [y, m, d] = q.next_review.split('-').map(Number)
+              const diff = Math.round((new Date().setHours(0,0,0,0) - new Date(y, m-1, d).getTime()) / 86400000)
+              const overdueTxt = diff === 0 ? 'due today' : diff === 1 ? '1 day overdue' : `${diff}d overdue`
+              return (
+                <Link key={q.id} href={`/practice/${q.id}`}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-lg text-xs hover:border-indigo-400 transition-all"
+                >
+                  <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                  {qObj && <span className="text-[var(--text)] font-semibold truncate max-w-[120px]">{qObj.title}</span>}
+                  <span className="text-indigo-400 shrink-0">· #{q.review_count + 1} · {overdueTxt}</span>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg p-4">
         <div className="flex items-center justify-between mb-3">
