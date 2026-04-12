@@ -87,10 +87,9 @@ export async function updateProgress(questionId: number, data: any) {
 
   if (data.solved === true && !existing?.solved) {
     reviewCount = 0
-    const d = new Date()
-    d.setDate(d.getDate() + srInterval(0))
-    nextReview = localDateISO(d)
-    lastReviewed = todayISO()
+    const todayCT = todayISOChicago()
+    nextReview = addDaysISO(todayCT, srInterval(0))
+    lastReviewed = todayCT
     await logSolvedToday()
   }
 
@@ -459,9 +458,8 @@ export async function completeReview(questionId: number) {
     .single()
 
   const newCount = (existing?.review_count ?? 0) + 1
-  const d = new Date()
-  d.setDate(d.getDate() + srInterval(newCount))
-  const nextReview = localDateISO(d)
+  const todayCT = todayISOChicago()
+  const nextReview = addDaysISO(todayCT, srInterval(newCount))
 
   await supabase.from('progress').upsert({
     ...existing,
@@ -469,7 +467,7 @@ export async function completeReview(questionId: number) {
     question_id: questionId,
     review_count: newCount,
     next_review: nextReview,
-    last_reviewed: todayISO(),
+    last_reviewed: todayCT,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,question_id' })
 
@@ -491,9 +489,8 @@ export async function failReview(questionId: number) {
     .single()
 
   const newCount = 0
-  const d = new Date()
-  d.setDate(d.getDate() + srInterval(newCount))
-  const nextReview = localDateISO(d)
+  const todayCT = todayISOChicago()
+  const nextReview = addDaysISO(todayCT, srInterval(newCount))
 
   await supabase.from('progress').upsert({
     ...existing,
@@ -501,7 +498,7 @@ export async function failReview(questionId: number) {
     question_id: questionId,
     review_count: newCount,
     next_review: nextReview,
-    last_reviewed: todayISO(),
+    last_reviewed: todayCT,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,question_id' })
 
