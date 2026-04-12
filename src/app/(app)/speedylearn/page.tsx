@@ -138,6 +138,7 @@ export default function SpeedyLearnPage() {
   const [qIdx,        setQIdx]        = useState(0)
   const [leftTab,     setLeftTab]     = useState<'description' | 'solution' | 'accepted'>('description')
   const [studyMode,   setStudyMode]   = useState<'show' | 'hide' | null>(null)
+  const [saving,      setSaving]      = useState(false)
   const [reviewDone,  setReviewDone]  = useState(false)
   const [showList,    setShowList]    = useState(false)
   const [showFilters, setShowFilters] = useState(false)
@@ -438,9 +439,11 @@ export default function SpeedyLearnPage() {
   // ── Save progress ──
   const save = useCallback(async (patch: any = {}) => {
     if (!q) return
+    setSaving(true)
     const updated = { solved, starred, status, ...patch, question_id: q.id }
     await updateProgress(q.id, updated)
     setProgress(prev => ({ ...prev, [String(q.id)]: { ...prev[String(q.id)], ...updated } }))
+    setSaving(false)
   }, [q, solved, starred, status])
 
   const handleCompleteReview = useCallback(async () => {
@@ -463,13 +466,12 @@ export default function SpeedyLearnPage() {
     setReviewDone(true)
   }, [q])
 
-  // ── onAccepted: mark solved + complete review if due ──
+  // ── onAccepted: editor already marks solved in DB (speedster=false).
+  //    Here we sync local state + complete SR review if due. ──
   const handleAccepted = useCallback(async () => {
     if (!q) return
-    const updated = { solved: true, question_id: q.id }
-    await updateProgress(q.id, updated)
-    setProgress(prev => ({ ...prev, [String(q.id)]: { ...prev[String(q.id)], ...updated } }))
-    toast.success(`✅ ${q.title} marked as solved!`)
+    // Sync solved=true into local progress state (DB write handled by LeetCodeEditor)
+    setProgress(prev => ({ ...prev, [String(q.id)]: { ...prev[String(q.id)], solved: true } }))
     if (due && !reviewDone) {
       const result = await completeReview(q.id)
       setProgress(prev => ({
@@ -985,6 +987,9 @@ export default function SpeedyLearnPage() {
         className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm hover:bg-yellow-50 border-b border-[var(--border)] last:border-0 transition-colors ${i === cardIdx ? 'bg-yellow-50 dark:bg-yellow-950/20' : ''}`}>
         <span className="shrink-0 tabular-nums text-xs font-mono text-[var(--text-subtle)]">#{fq.id}</span>
         <span className="min-w-0 flex-1 truncate text-[var(--text)]">{fq.title}</span>
+        <span className="text-[11px] font-semibold text-[var(--text-subtle)] bg-[var(--bg-muted)] border border-[var(--border)] px-2 py-0.5 rounded-full shrink-0">
+          {runs[String(fq.id)] ?? 0}/4
+        </span>
         <span className={`text-xs font-semibold shrink-0 ${fq.difficulty === 'Easy' ? 'text-green-600' : fq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
           {fq.difficulty[0]}
         </span>
@@ -1640,8 +1645,25 @@ export default function SpeedyLearnPage() {
         <div className="mx-auto max-w-6xl px-3 py-6 pb-10">
           <LearnAcSubmitTable
             onSolve={questionId => {
-              const idx = orderedQuestions.findIndex(oq => oq.id === questionId)
-              if (idx >= 0) setQIdx(idx)
+              // Try current filtered list first
+              const idxFiltered = orderedQuestions.findIndex(oq => oq.id === questionId)
+              if (idxFiltered >= 0) {
+                setQIdx(idxFiltered)
+                setMobileTab('editor')
+                requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+                return
+              }
+              // Question not visible due to active filters — clear them and navigate
+              const fullList = (planOrder.length ? planOrder.map(id => qMap[id]).filter(Boolean) : questions) as Question[]
+              const idxOrdered = fullList.findIndex(oq => oq.id === questionId)
+              if (idxOrdered < 0) return
+              setFilterDiff('All')
+              setFilterSource('All')
+              setFilterPattern(null)
+              setFilterSolved('All')
+              setQIdx(idxOrdered)
+              setMobileTab('editor')
+              requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
             }}
           />
         </div>
