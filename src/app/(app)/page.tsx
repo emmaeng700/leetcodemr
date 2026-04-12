@@ -376,10 +376,78 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     Medium: 'bg-yellow-100 dark:bg-yellow-900/60 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-500/30',
     Hard: 'bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-400 border-red-300 dark:border-red-500/30',
   }
+  // ── Today's daily questions ──────────────────────────────────────────────
+  const todayDailyCard = (() => {
+    if (!planNorm) return null
+    const today = todayISO()
+    const start = new Date(planNorm.start_date + 'T12:00:00')
+    const now = new Date(today + 'T12:00:00')
+    const diffDays = Math.round((now.getTime() - start.getTime()) / 86400000)
+    const totalDays = Math.ceil(planNorm.question_order.length / planNorm.per_day)
+    if (diffDays < 0 || diffDays >= totalDays) return null
+    // Find active day: first incomplete day up to today
+    let activeDayIndex = diffDays
+    for (let i = 0; i <= diffDays; i++) {
+      const ids = planNorm.question_order.slice(i * planNorm.per_day, (i + 1) * planNorm.per_day)
+      if (!ids.every((id: number) => progress[String(id)]?.solved)) { activeDayIndex = i; break }
+    }
+    const dayIds: number[] = planNorm.question_order.slice(activeDayIndex * planNorm.per_day, (activeDayIndex + 1) * planNorm.per_day)
+    const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
+    const dayQs = dayIds.map((id: number) => qMap[id]).filter(Boolean)
+    if (!dayQs.length) return null
+    const doneCnt = dayIds.filter((id: number) => progress[String(id)]?.solved).length
+    const allDone = doneCnt === dayIds.length
+    return (
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold text-[var(--text)] flex items-center gap-1.5">
+            <Calendar size={14} className="text-indigo-500" /> Today — Day {activeDayIndex + 1}
+          </h2>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+            allDone ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'
+            : doneCnt > 0 ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400'
+            : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400'
+          }`}>{doneCnt}/{dayQs.length} done</span>
+        </div>
+        <div className="space-y-2">
+          {dayQs.map(q => {
+            const solved = !!progress[String(q.id)]?.solved
+            return (
+              <div key={q.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                solved ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-500/30'
+                : 'bg-[var(--bg-muted)] border-[var(--border)] hover:border-indigo-400/50'
+              }`}>
+                <div className="shrink-0">
+                  {solved ? <CheckCircle2 size={18} className="text-green-500" /> : <CheckCircle size={18} className="text-[var(--text-subtle)]" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                    <span className={`text-sm font-semibold truncate ${solved ? 'text-green-500 dark:text-green-400 line-through' : 'text-[var(--text)]'}`}>{q.title}</span>
+                  </div>
+                  <div className="mt-0.5"><DifficultyBadge difficulty={q.difficulty} /></div>
+                </div>
+                <Link href={`/practice/${q.id}`}
+                  className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                    solved ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30'
+                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  }`}>
+                  {solved ? <><RotateCcw size={11} /> Revisit</> : <>Solve <ChevronRight size={12} /></>}
+                </Link>
+              </div>
+            )
+          })}
+        </div>
+        {allDone && <p className="mt-3 text-center text-sm font-bold text-green-500 dark:text-green-400">All done for today! 🎉</p>}
+      </div>
+    )
+  })()
+
   if (!loaded) return null
   return (
     <>
       <StreakCard streak={streakDisplay} log={planFilteredLog} goalsMetToday={goalsMetToday} />
+      {todayDailyCard}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg p-4">
         <div className="flex items-center justify-between mb-3">
