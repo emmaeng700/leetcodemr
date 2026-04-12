@@ -24,6 +24,7 @@ import CodePanel from '@/components/CodePanel'
 import StatusRadio from '@/components/StatusRadio'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
+import LearnAcSubmitTable from '@/components/learn/LearnAcSubmitTable'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import {
   listDropdownMobileBackdrop, listDropdownMobilePanelClasses,
@@ -501,6 +502,13 @@ export default function SpeedyLearnPage() {
   const totalDays  = days.length
   const currentDay = days[dayIdx] ?? []
   const daySolved  = currentDay.filter(id => !!progress[String(id)]?.solved).length
+  const [dayFilter, setDayFilter] = useState<'All' | 'Unsolved' | 'Solved'>('All')
+  const currentDayFiltered = currentDay.filter(id => {
+    const s = !!progress[String(id)]?.solved
+    if (dayFilter === 'Unsolved' && s) return false
+    if (dayFilter === 'Solved' && !s) return false
+    return true
+  })
 
   // ── Speedster: SR reviews ──
   const srItems = planOrder
@@ -1017,17 +1025,33 @@ export default function SpeedyLearnPage() {
         </button>
       </div>
 
-      <div className="h-1 bg-[var(--bg-muted)] rounded-full mb-5 overflow-hidden">
+      <div className="h-1 bg-[var(--bg-muted)] rounded-full mb-4 overflow-hidden">
         <div className="h-full bg-yellow-400 rounded-full transition-all duration-300"
           style={{ width: totalDays ? `${((dayIdx + 1) / totalDays) * 100}%` : '0%' }} />
       </div>
 
+      {/* Day filter pills */}
+      <div className="flex items-center justify-center gap-2 mb-4">
+        {(['All', 'Unsolved', 'Solved'] as const).map(f => (
+          <button key={f} type="button" onClick={() => setDayFilter(f)}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+              dayFilter === f
+                ? f === 'Unsolved' ? 'bg-orange-600 text-white border-orange-600'
+                : f === 'Solved'   ? 'bg-green-600 text-white border-green-600'
+                : 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100'
+                : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-gray-400'
+            }`}>
+            {f}
+          </button>
+        ))}
+      </div>
+
       {/* Day card — clicking a question navigates the editor to it */}
       <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] shadow-sm overflow-hidden mb-3">
-        {currentDay.length === 0 && (
-          <div className="px-5 py-8 text-center text-sm text-[var(--text-subtle)]">No questions in this day.</div>
+        {currentDayFiltered.length === 0 && (
+          <div className="px-5 py-8 text-center text-sm text-[var(--text-subtle)]">No questions match this filter.</div>
         )}
-        {currentDay.map((qid, i) => {
+        {currentDayFiltered.map((qid, i) => {
           const dq = qMap[qid]
           if (!dq) return null
           const isSolved = !!progress[String(qid)]?.solved
@@ -1040,7 +1064,7 @@ export default function SpeedyLearnPage() {
                   setMobileTab('editor')
                 }
               }}
-              className={`flex w-full items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 text-left transition-colors group ${i !== 0 ? 'border-t border-[var(--border)]' : ''} ${isSolved ? 'bg-green-50 dark:bg-green-950/20 hover:bg-green-100/60 dark:hover:bg-green-900/30' : 'hover:bg-yellow-50/40 dark:hover:bg-yellow-950/20'}`}>
+              className={`flex w-full items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 text-left transition-colors group ${i > 0 ? 'border-t border-[var(--border)]' : ''} ${isSolved ? 'bg-green-50 dark:bg-green-950/20 hover:bg-green-100/60 dark:hover:bg-green-900/30' : 'hover:bg-yellow-50/40 dark:hover:bg-yellow-950/20'}`}>
               <div className="shrink-0">
                 {isSolved
                   ? <CheckCircle size={18} className="text-green-500" />
@@ -1545,6 +1569,18 @@ export default function SpeedyLearnPage() {
           </div>
         )}
       </div>
+
+      {/* AC submissions table — same as Learn page bottom section */}
+      <section className="border-t border-[var(--border)] bg-[var(--bg-muted)]/40">
+        <div className="mx-auto max-w-6xl px-3 py-6 pb-10">
+          <LearnAcSubmitTable
+            onSolve={questionId => {
+              const idx = orderedQuestions.findIndex(oq => oq.id === questionId)
+              if (idx >= 0) setQIdx(idx)
+            }}
+          />
+        </div>
+      </section>
     </>
   )
 }
