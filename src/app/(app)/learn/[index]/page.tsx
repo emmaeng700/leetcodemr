@@ -10,7 +10,7 @@ import cppLang from 'highlight.js/lib/languages/cpp'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Brain, CheckCircle, Star,
-  BookOpen, List, Code2, ExternalLink, Loader2, FileText, StickyNote,
+  BookOpen, List, Code2, ExternalLink, Loader2, FileText,
   Copy, Check,
 } from 'lucide-react'
 import { getProgress, updateProgress, completeReview, failReview, getStudyPlan } from '@/lib/db'
@@ -117,7 +117,7 @@ function LearnInner() {
   const [saving, setSaving]         = useState(false)
   const [showList, setShowList]     = useState(false)
   const [reviewDone, setReviewDone] = useState(false)
-  const [leftTab, setLeftTab]       = useState<'description' | 'notes' | 'solution' | 'accepted'>('description')
+  const [leftTab, setLeftTab]       = useState<'description' | 'solution' | 'accepted'>('description')
   // IMPORTANT: don't read localStorage during render (causes hydration mismatch).
   const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(null)
   const [filterDiff, setFilterDiff]         = useState(initDiff)
@@ -744,10 +744,6 @@ function LearnInner() {
                 <BookOpen size={12} /> Description
                 {lcLoading && <Loader2 size={10} className="animate-spin text-gray-300 ml-0.5" />}
               </button>
-              <button onClick={() => setLeftTab('notes')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'notes' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
-                <StickyNote size={12} /> Notes
-              </button>
               {(q.python_solution || q.cpp_solution) && studyMode === 'show' && (
                 <button onClick={() => setLeftTab('solution')}
                   className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'solution' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
@@ -901,24 +897,6 @@ function LearnInner() {
                 </div>
               )}
 
-              {/* ── Notes tab ── */}
-              {leftTab === 'notes' && (
-                <div className="p-4">
-                  <p className="text-xs font-semibold text-gray-500 mb-2">📝 My Notes — {q.title}</p>
-                  <textarea
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    onBlur={() => save({ notes })}
-                    rows={12}
-                    placeholder="Write your notes, intuition, edge cases, time complexity…"
-                    className="w-full text-sm border border-gray-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
-                  />
-                  <button onClick={() => save({ notes })} disabled={saving}
-                    className="mt-2 px-4 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50">
-                    {saving ? 'Saving…' : 'Save Notes'}
-                  </button>
-                </div>
-              )}
 
               {/* ── Solution tab ── */}
               {leftTab === 'solution' && studyMode === 'show' && (
