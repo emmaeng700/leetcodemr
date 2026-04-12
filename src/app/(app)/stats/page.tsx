@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { Trophy, TrendingUp, Download, Upload, CheckCircle, AlertTriangle, Lock, Unlock } from 'lucide-react'
-import { getProgress, getSolvedLog, getTimeTracking, getDailyTarget, setDailyTarget, getStudyPlan } from '@/lib/db'
+import { getProgress, getSolvedLog, getTimeTracking, getDailyTarget, setDailyTarget, getStudyPlan, resetAllProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import StreakCalendar from '@/components/StreakCalendar'
 import StudyPaceCalculator from '@/components/StudyPaceCalculator'
@@ -26,6 +26,8 @@ export default function StatsPage() {
   const [timeData, setTimeData] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [importStatus, setImportStatus] = useState<'ok' | 'err' | null>(null)
+  const [resetConfirm, setResetConfirm] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Daily target lock state
@@ -144,6 +146,19 @@ export default function StatsPage() {
     setLockCodeInput('')
     setIsUnlocked(false)
     toast.success('Daily target removed')
+  }
+
+  async function handleResetAll() {
+    setResetting(true)
+    const { error } = await resetAllProgress()
+    setResetting(false)
+    setResetConfirm(false)
+    if (error) {
+      toast.error(`Reset failed: ${error}`)
+    } else {
+      setProgress({})
+      toast.success('All progress cleared — fresh plate 🧹')
+    }
   }
 
   if (loading) return <div className="text-center py-32 text-[var(--text-subtle)] animate-pulse text-sm">Loading...</div>
@@ -355,6 +370,41 @@ export default function StatsPage() {
 
       {/* Study Pace Calculator */}
       <StudyPaceCalculator total={totalQ} solved={solvedQ} planStartDate={planStartDate} planPerDay={planPerDay} />
+
+      {/* Danger zone */}
+      <div className="mt-8 border border-red-500/30 rounded-xl p-5 bg-red-500/5">
+        <h2 className="font-bold text-red-500 text-sm mb-1">⚠️ Danger Zone</h2>
+        <p className="text-xs text-[var(--text-subtle)] mb-4">
+          Reset all 331 questions back to unsolved and clear all spaced-repetition data. Use this to start fresh. Cannot be undone.
+        </p>
+        {!resetConfirm ? (
+          <button
+            onClick={() => setResetConfirm(true)}
+            className="px-4 py-2 rounded-lg border border-red-500/50 text-red-500 text-sm font-semibold hover:bg-red-500/10 transition-colors"
+          >
+            Reset all progress
+          </button>
+        ) : (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <p className="text-sm font-bold text-red-400">Are you sure? This clears all {Object.values(progress).filter((p: any) => p?.solved).length} solved questions.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleResetAll}
+                disabled={resetting}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {resetting ? 'Resetting…' : 'Yes, reset everything'}
+              </button>
+              <button
+                onClick={() => setResetConfirm(false)}
+                className="px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--text-muted)] text-sm font-semibold hover:border-[var(--border-soft)] transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

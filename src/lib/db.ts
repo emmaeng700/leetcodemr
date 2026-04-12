@@ -446,6 +446,24 @@ export async function clearInterviewDate() {
   await supabase.from('interview_date').delete().eq('user_id', USER_ID)
 }
 
+// ─── Reset ───────────────────────────────────────────────────────────────────
+
+export async function resetAllProgress(): Promise<{ error?: string }> {
+  const { error } = await supabase
+    .from('progress')
+    .update({
+      solved: false,
+      review_count: 0,
+      next_review: null,
+      last_reviewed: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', USER_ID)
+
+  if (error) return { error: error.message }
+  return {}
+}
+
 // ─── Spaced Repetition ───────────────────────────────────────────────────────
 // srInterval is imported from utils.ts — single source of truth.
 
