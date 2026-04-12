@@ -443,9 +443,24 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     )
   })()
 
+  const today = todayISO()
+  const overdueReviews = dueReviews.filter(q => q.next_review < today)
+
   if (!loaded) return null
   return (
     <>
+      {overdueReviews.length > 0 && (
+        <Link href="/review" className="flex items-center gap-3 mb-4 px-4 py-3 rounded-xl bg-red-500 hover:bg-red-600 transition-colors shadow-lg">
+          <span className="text-xl shrink-0">⚠️</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-black text-sm">
+              {overdueReviews.length} overdue review{overdueReviews.length > 1 ? 's' : ''} — clear {overdueReviews.length > 1 ? 'them' : 'it'} now
+            </p>
+            <p className="text-red-100 text-xs mt-0.5">These are piling up. Tap to open your review queue.</p>
+          </div>
+          <ChevronRight size={18} className="text-white shrink-0" />
+        </Link>
+      )}
       <StreakCard streak={streakDisplay} log={planFilteredLog} goalsMetToday={goalsMetToday} />
       {todayDailyCard}
       {planNorm && (
