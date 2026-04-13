@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { ExternalLink, Loader2, Search, AlertCircle } from 'lucide-react'
+import { ExternalLink, Loader2, Search, AlertCircle, Copy, Check } from 'lucide-react'
 
 type QuestionRow = { id: number; slug: string; title?: string }
 interface CodeBlock { code: string; lang: string }
@@ -32,6 +32,7 @@ const INIT = (): Record<SiteKey, SiteState> => ({
 /* ── Syntax highlighting with highlight.js ── */
 function HighlightedCode({ code, lang }: { code: string; lang: string }) {
   const ref = useRef<HTMLElement>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (!ref.current) return
@@ -49,10 +50,25 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
     })
   }, [code, lang])
 
+  const copy = () => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+
   return (
-    <pre className="text-[11px] leading-relaxed bg-[#080e1c] rounded-lg p-3 overflow-x-auto border border-gray-800/60 whitespace-pre">
-      <code ref={ref} />
-    </pre>
+    <div className="relative group">
+      <button
+        onClick={copy}
+        className="absolute top-2 right-2 z-10 flex items-center gap-1 px-2 py-1 rounded-md bg-gray-700/80 hover:bg-gray-600 text-gray-300 hover:text-white text-[10px] font-medium transition-all opacity-0 group-hover:opacity-100"
+      >
+        {copied ? <><Check size={10} className="text-green-400" /> Copied</> : <><Copy size={10} /> Copy</>}
+      </button>
+      <pre className="text-[11px] leading-relaxed bg-[#080e1c] rounded-lg p-3 overflow-x-auto border border-gray-800/60 whitespace-pre">
+        <code ref={ref} />
+      </pre>
+    </div>
   )
 }
 
