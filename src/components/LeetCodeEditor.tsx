@@ -134,11 +134,24 @@ function MobileKeybar({
 
   // Row 1: symbols  |  Row 2: arrows + backspace + actions
   const row1 = ['(', ')', '[', ']', '{', '}', '=', '+', '-', '*', '<', '>', '#', '%', '^', '~']
+  const undoAction = () => {
+    const view = editorViewRef.current
+    if (!view) return
+    import('@codemirror/commands').then(({ undo }) => { undo(view); view.focus() })
+  }
+  const redoAction = () => {
+    const view = editorViewRef.current
+    if (!view) return
+    import('@codemirror/commands').then(({ redo }) => { redo(view); view.focus() })
+  }
+
   const row2 = [
     { label: '←', action: 'ArrowLeft' },
     { label: '→', action: 'ArrowRight' },
     { label: '↑', action: 'ArrowUp' },
     { label: '↓', action: 'ArrowDown' },
+    { label: '↩', action: undoAction },
+    { label: '↪', action: redoAction },
     { label: 'RST', action: () => onResetCode() },
   ]
 
