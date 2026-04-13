@@ -618,6 +618,9 @@ function LearnInner() {
               className="p-1.5 text-gray-300 hover:text-orange-400 transition-colors" title="Open on LeetCode">
               <ExternalLink size={14} />
             </a>
+
+            {/* Question title — mobile only, own line below buttons */}
+            <p className="order-last w-full sm:hidden text-sm font-bold text-gray-800 leading-snug">{q.title}</p>
           </>
         )}
       </div>
