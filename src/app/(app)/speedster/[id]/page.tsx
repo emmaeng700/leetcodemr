@@ -147,8 +147,9 @@ export default function SpeedsterQuestionPage() {
     <div className="flex flex-col h-[calc(100dvh-56px)]">
 
       {/* Top bar */}
-      <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 gap-2">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex flex-wrap items-center px-3 sm:px-4 py-2 sm:py-2.5 border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 gap-x-2 gap-y-1">
+        {/* Back + badge */}
+        <div className="flex items-center gap-2 shrink-0">
           <button onClick={() => router.push('/speedster')} className="text-[var(--text-subtle)] hover:text-[var(--text)] transition-colors shrink-0">
             <ArrowLeft size={18} />
           </button>
@@ -156,24 +157,11 @@ export default function SpeedsterQuestionPage() {
             <Gauge size={11} className="text-yellow-600" />
             <span className="hidden sm:inline text-xs font-bold text-yellow-700">Speedster</span>
           </div>
-          {question ? (
-            <>
-              <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0 hidden sm:inline">#{question.id}</span>
-              <h1 className="font-bold text-[var(--text)] text-sm leading-snug truncate">{question.title}</h1>
-              <div className="shrink-0 hidden sm:block"><DifficultyBadge difficulty={question.difficulty} /></div>
-              <a href={`https://leetcode.com/problems/${question.slug}/`} target="_blank" rel="noopener noreferrer"
-                className="shrink-0 text-gray-300 hover:text-orange-400 transition-colors hidden sm:inline">
-                <ExternalLink size={12} />
-              </a>
-            </>
-          ) : (
-            <div className="h-4 w-32 bg-gray-100 rounded animate-pulse" />
-          )}
         </div>
 
-        {/* Prev / List / Next */}
+        {/* Prev / List / Next — stays on same line as back+badge on mobile (ml-auto), inline on sm+ */}
         {planOrder.length > 0 && (
-          <div className="flex items-center gap-1 shrink-0 overflow-visible">
+          <div className="ml-auto flex items-center gap-1 shrink-0 overflow-visible">
             <button type="button" onClick={() => prevId && goTo(prevId)} disabled={!prevId}
               className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-yellow-300 hover:text-yellow-600 disabled:opacity-30 transition-colors">
               <ArrowLeft size={15} />
@@ -196,6 +184,21 @@ export default function SpeedsterQuestionPage() {
               <ArrowRight size={15} />
             </button>
           </div>
+        )}
+
+        {/* Title — own full-width line on mobile, inline on sm+ */}
+        {question ? (
+          <div className="order-last w-full sm:order-none sm:w-auto sm:flex-1 flex items-center gap-2 min-w-0">
+            <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0 hidden sm:inline">#{question.id}</span>
+            <h1 className="font-bold text-[var(--text)] text-sm leading-snug">{question.title}</h1>
+            <div className="shrink-0 hidden sm:block"><DifficultyBadge difficulty={question.difficulty} /></div>
+            <a href={`https://leetcode.com/problems/${question.slug}/`} target="_blank" rel="noopener noreferrer"
+              className="shrink-0 text-gray-300 hover:text-orange-400 transition-colors hidden sm:inline">
+              <ExternalLink size={12} />
+            </a>
+          </div>
+        ) : (
+          <div className="order-last w-full sm:order-none h-4 w-32 bg-gray-100 rounded animate-pulse" />
         )}
       </div>
 

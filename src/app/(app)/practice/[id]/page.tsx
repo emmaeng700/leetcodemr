@@ -210,32 +210,33 @@ export default function PracticePage() {
     <div className="flex flex-col h-[calc(100dvh-56px)]">
 
       {/* Top bar */}
-      <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 gap-2 sm:gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <button onClick={() => router.back()} className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors shrink-0">
-            <ArrowLeft size={18} />
-          </button>
-          {question ? (
-            <>
-              <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0 hidden sm:inline">#{question.id}</span>
-              <h1 className="font-bold text-[var(--text)] text-sm leading-snug truncate">{question.title}</h1>
-              <div className="shrink-0 hidden sm:block"><DifficultyBadge difficulty={question.difficulty} /></div>
-              <a
-                href={`https://leetcode.com/problems/${question.slug}/`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 text-[var(--text-muted)] hover:text-orange-400 transition-colors hidden sm:inline"
-                title="Open on LeetCode"
-              >
-                <ExternalLink size={12} />
-              </a>
-            </>
-          ) : (
-            <div className="h-4 w-32 sm:w-48 bg-[var(--bg-muted)] rounded animate-pulse" />
-          )}
-        </div>
+      <div className="flex flex-wrap items-center px-3 sm:px-4 py-2 sm:py-2.5 border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 gap-x-2 gap-y-1">
+        {/* Back button */}
+        <button onClick={() => router.back()} className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors shrink-0">
+          <ArrowLeft size={18} />
+        </button>
 
-        <div className="flex items-center gap-2 shrink-0 overflow-visible">
+        {/* Title — own full-width line on mobile, inline on sm+ */}
+        {question ? (
+          <div className="order-last w-full sm:order-none sm:w-auto sm:flex-1 flex items-center gap-2 min-w-0">
+            <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0 hidden sm:inline">#{question.id}</span>
+            <h1 className="font-bold text-[var(--text)] text-sm leading-snug">{question.title}</h1>
+            <div className="shrink-0 hidden sm:block"><DifficultyBadge difficulty={question.difficulty} /></div>
+            <a
+              href={`https://leetcode.com/problems/${question.slug}/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 text-[var(--text-muted)] hover:text-orange-400 transition-colors hidden sm:inline"
+              title="Open on LeetCode"
+            >
+              <ExternalLink size={12} />
+            </a>
+          </div>
+        ) : (
+          <div className="order-last w-full sm:order-none h-4 w-32 sm:w-48 bg-[var(--bg-muted)] rounded animate-pulse" />
+        )}
+
+        <div className="ml-auto flex items-center gap-2 shrink-0 overflow-visible">
           {/* Question list */}
           {planOrder.length > 0 && (() => {
             const qMap = Object.fromEntries(allQuestions.map(q => [q.id, q]))
