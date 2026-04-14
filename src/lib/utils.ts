@@ -39,7 +39,7 @@ export function isDue(nextReview: string | null): boolean {
 // ── Spaced repetition ────────────────────────────────────────────────────────
 // Single source of truth — imported by db.ts too so both stay in sync.
 export function srInterval(n: number): number {
-  const LADDER = [1, 3, 7, 14, 30, 60, 90, 180]
+  const LADDER = [1, 3, 7, 14]
   if (!Number.isFinite(n) || n <= 0) return LADDER[0]
   return LADDER[Math.min(n, LADDER.length) - 1]
 }
