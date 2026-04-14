@@ -132,6 +132,11 @@ export default function DailyPage() {
   const [resetAttempt, setResetAttempt] = useState('')
   const [resetError, setResetError] = useState(false)
 
+  // Change pace
+  const [showChangePace, setShowChangePace] = useState(false)
+  const [newPerDay, setNewPerDay] = useState(5)
+  const [savingPace, setSavingPace] = useState(false)
+
   // Past days (accordion per day + global “show more” for long plans)
   const [expandedDays, setExpandedDays] = useState<Record<number, boolean>>({})
   const [pastDaysShowAll, setPastDaysShowAll] = useState(false)
@@ -227,6 +232,20 @@ export default function DailyPage() {
     } else {
       toast.error('Failed to save plan — check Supabase RLS policies.')
     }
+  }
+
+  async function handleChangePace() {
+    if (!plan || newPerDay < 1 || newPerDay > 50) return
+    setSavingPace(true)
+    const ok = await saveStudyPlan({ ...plan, per_day: newPerDay })
+    if (ok) {
+      setPlan({ ...plan, per_day: newPerDay })
+      setShowChangePace(false)
+      toast.success(`Pace updated to ${newPerDay}/day!`)
+    } else {
+      toast.error('Failed to update pace.')
+    }
+    setSavingPace(false)
   }
 
   async function handleResetConfirm() {
@@ -465,6 +484,12 @@ export default function DailyPage() {
             </div>
           )}
           <button
+            onClick={() => { setShowChangePace(v => !v); setNewPerDay(plan.per_day) }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--text-subtle)] border border-[var(--border)] rounded-lg hover:bg-[var(--bg-muted)] transition-colors"
+          >
+            Pace: {plan.per_day}/day
+          </button>
+          <button
             onClick={() => setShowResetPrompt(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--text-subtle)] border border-[var(--border)] rounded-lg hover:bg-[var(--bg-muted)] transition-colors"
           >
@@ -472,6 +497,34 @@ export default function DailyPage() {
           </button>
         </div>
       </div>
+
+      {/* Change pace */}
+      {showChangePace && (
+        <div className="bg-[var(--bg-muted)] border border-[var(--border)] rounded-xl p-4 mb-4">
+          <p className="text-sm font-bold text-[var(--text)] mb-1">Change daily pace</p>
+          <p className="text-xs text-[var(--text-subtle)] mb-3">Your question order and solved progress stay intact.</p>
+          <div className="flex flex-wrap gap-2 items-center">
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={newPerDay}
+              onChange={e => setNewPerDay(Math.max(1, Math.min(50, Number(e.target.value))))}
+              onKeyDown={e => e.key === 'Enter' && handleChangePace()}
+              className="w-20 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-input)] text-[var(--text)] text-sm focus:outline-none focus:border-indigo-400"
+            />
+            <span className="text-xs text-[var(--text-subtle)]">questions/day</span>
+            <button onClick={handleChangePace} disabled={savingPace}
+              className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+              {savingPace ? 'Saving…' : 'Save'}
+            </button>
+            <button onClick={() => setShowChangePace(false)}
+              className="px-4 py-2 bg-[var(--bg-card)] text-[var(--text-muted)] text-sm font-bold rounded-lg border border-[var(--border)] hover:brightness-110 transition-colors">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Reset gate */}
       {showResetPrompt && (
