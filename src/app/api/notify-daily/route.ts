@@ -254,6 +254,14 @@ export async function GET(req: NextRequest) {
   const cap = reviewCapForDayCT(todayStr)
   const dueReviews: DueReviewRow[] = ((srRows ?? []) as DueReviewRow[]).slice(0, cap)
 
+  // Count reviews already completed today — if ≥5, treat reviews as done.
+  const { count: reviewsDoneToday } = await supabase
+    .from('progress')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', USER_ID)
+    .eq('last_reviewed', todayStr)
+  const reviewsSatisfied = dueReviews.length === 0 || (reviewsDoneToday ?? 0) >= 5
+
   const appUrl = 'https://leetcodemr.vercel.app'
   const hour = nowHourCT()
   const tod = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 21 ? 'evening' : 'night'
@@ -352,7 +360,7 @@ export async function GET(req: NextRequest) {
   const solvedToday = dayIds.filter(id => solvedSet.has(id)).length
   const remaining = dayIds.length - solvedToday
 
-  if (remaining === 0 && dueReviews.length === 0) {
+  if (remaining === 0 && reviewsSatisfied) {
     return NextResponse.json({ skipped: 'All done for today!' })
   }
 

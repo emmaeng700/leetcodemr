@@ -581,6 +581,17 @@ export async function getDueReviews(): Promise<Array<{ id: number; review_count:
   return (data ?? []).slice(0, cap).map((r: any) => ({ id: r.question_id, review_count: r.review_count, next_review: r.next_review }))
 }
 
+/** Count SR reviews completed today (last_reviewed = today Chicago). */
+export async function getReviewsCompletedToday(): Promise<number> {
+  const today = todayISOChicago()
+  const { count } = await supabase
+    .from('progress')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', USER_ID)
+    .eq('last_reviewed', today)
+  return count ?? 0
+}
+
 function addDaysISO(baseISO: string, days: number) {
   const d = new Date(baseISO + 'T12:00:00')
   d.setDate(d.getDate() + days)

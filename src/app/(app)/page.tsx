@@ -5,7 +5,7 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp, RotateCcw } from 'lucide-react'
 import { QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
-import { getProgress, updateProgress, getActivityLog, getDueReviews, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getDailyReviewCapChicago } from '@/lib/db'
+import { getProgress, updateProgress, getActivityLog, getDueReviews, getReviewsCompletedToday, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getDailyReviewCapChicago } from '@/lib/db'
 import { computeDailyGoalsMetToday, computePlanStreakDisplayNumber, normalizeStudyPlanRow } from '@/lib/streakGoals'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
@@ -300,22 +300,25 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   const [activityLog, setActivityLog] = useState<Record<string, number>>({})
   const [studyPlan, setStudyPlan] = useState<Awaited<ReturnType<typeof getStudyPlan>>>(null)
   const [dueReviews, setDueReviews] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
+  const [reviewsCompletedToday, setReviewsCompletedToday] = useState(0)
   const [dailyQ, setDailyQ] = useState<Question | null>(null)
   const [loaded, setLoaded] = useState(false)
   const streakHydratedRef = useRef(false)
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const [log, interviewData, plan, due] = await Promise.all([
+      const [log, interviewData, plan, due, reviewsDone] = await Promise.all([
         getActivityLog(),
         getInterviewDate(),
         getStudyPlan(),
         getDueReviews(),
+        getReviewsCompletedToday(),
       ])
       if (cancelled) return
       setActivityLog(log)
       setStudyPlan(plan)
       setDueReviews(due)
+      setReviewsCompletedToday(reviewsDone)
       if (interviewData?.target_date) setDate(interviewData.target_date)
       setLoaded(true)
     }
@@ -330,17 +333,18 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     }
     let cancelled = false
     ;(async () => {
-      const [log, due] = await Promise.all([getActivityLog(), getDueReviews()])
+      const [log, due, reviewsDone] = await Promise.all([getActivityLog(), getDueReviews(), getReviewsCompletedToday()])
       if (cancelled) return
       setActivityLog(log)
       setDueReviews(due)
+      setReviewsCompletedToday(reviewsDone)
     })()
     return () => { cancelled = true }
   }, [progress, loaded])
-  const goalsMetToday = computeDailyGoalsMetToday(studyPlan, progress, dueReviews.length)
+  const goalsMetToday = computeDailyGoalsMetToday(studyPlan, progress, dueReviews.length, reviewsCompletedToday)
   const planNorm = normalizeStudyPlanRow(studyPlan)
   const streakDisplay = planNorm
-    ? (computePlanStreakDisplayNumber(studyPlan, progress, dueReviews.length) ?? 0)
+    ? (computePlanStreakDisplayNumber(studyPlan, progress, dueReviews.length, reviewsCompletedToday) ?? 0)
     : computeStreak(activityLog)
   // Only show activity log dots from the current plan's start date onwards.
   // Old plan entries shouldn't bleed into a freshly generated plan's week view.

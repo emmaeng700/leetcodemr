@@ -18,6 +18,7 @@ function computePlanStreakCore(
   plan: StudyPlanForStreak,
   progress: Record<string, { solved?: boolean } | undefined>,
   dueReviewCount: number,
+  reviewsCompletedToday = 0,
 ): { goalsMet: boolean; streakNumber: number } {
   const solvedSet = buildSolvedSet(progress)
 
@@ -52,7 +53,8 @@ function computePlanStreakCore(
     activeDayIndex * plan.per_day + plan.per_day,
   )
   const remaining = dayIds.filter((id: number) => !solvedSet.has(id)).length
-  const goalsMet = remaining === 0 && dueReviewCount === 0
+  const reviewsDone = dueReviewCount === 0 || reviewsCompletedToday >= 5
+  const goalsMet = remaining === 0 && reviewsDone
   const safeIdx = Number.isFinite(activeDayIndex) ? Math.max(0, activeDayIndex) : 0
   const streakNumber = goalsMet ? safeIdx + 1 : safeIdx
 
@@ -63,10 +65,11 @@ export function computeDailyGoalsMetToday(
   plan: unknown,
   progress: Record<string, { solved?: boolean } | undefined>,
   dueReviewCount: number,
+  reviewsCompletedToday = 0,
 ): boolean {
   const p = normalizeStudyPlanRow(plan)
   if (!p) return false
-  return computePlanStreakCore(p, progress, dueReviewCount).goalsMet
+  return computePlanStreakCore(p, progress, dueReviewCount, reviewsCompletedToday).goalsMet
 }
 
 /** Headline streak when a study plan exists: completed “police” days in order (not activity_log). */
@@ -74,8 +77,9 @@ export function computePlanStreakDisplayNumber(
   plan: unknown,
   progress: Record<string, { solved?: boolean } | undefined>,
   dueReviewCount: number,
+  reviewsCompletedToday = 0,
 ): number | null {
   const p = normalizeStudyPlanRow(plan)
   if (!p) return null
-  return computePlanStreakCore(p, progress, dueReviewCount).streakNumber
+  return computePlanStreakCore(p, progress, dueReviewCount, reviewsCompletedToday).streakNumber
 }
