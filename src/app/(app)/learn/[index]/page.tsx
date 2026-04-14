@@ -619,8 +619,8 @@ function LearnInner() {
               <ExternalLink size={14} />
             </a>
 
-            {/* Question title — mobile only, own line below buttons */}
-            <p className="order-last w-full sm:hidden text-sm font-bold text-gray-800 leading-snug">{q.title}</p>
+            {/* Question title — own line below buttons on all screen sizes */}
+            <p className="order-last w-full text-sm font-bold text-gray-800 leading-snug">{q.title}</p>
           </>
         )}
       </div>

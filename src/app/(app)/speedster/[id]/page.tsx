@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { stripScripts } from '@/lib/utils'
+import { getPatternForQuestion } from '@/lib/patternUtils'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
@@ -201,6 +202,14 @@ export default function SpeedsterQuestionPage() {
           <div className="order-last w-full sm:order-none h-4 w-32 bg-gray-100 rounded animate-pulse" />
         )}
       </div>
+
+      {/* Pattern context strip */}
+      {question && (() => { const p = getPatternForQuestion(question.tags ?? []); return p ? (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
+          <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🧩</span>
+          <span className="text-xs font-semibold text-[var(--text)]">{p}</span>
+        </div>
+      ) : null })()}
 
       {/* Mobile panel tabs */}
       <div className="flex md:hidden border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
