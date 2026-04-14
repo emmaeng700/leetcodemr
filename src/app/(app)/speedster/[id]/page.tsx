@@ -6,7 +6,9 @@ import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
-import { ArrowLeft, ArrowRight, BookOpen, Code2, ExternalLink, Loader2, Trophy, Gauge, List } from 'lucide-react'
+import { setOpenQuestionContext } from '@/lib/openQuestionContext'
+import { ArrowLeft, ArrowRight, BookOpen, Code2, ExternalLink, Loader2, Trophy, Gauge, List, Sparkles } from 'lucide-react'
+import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { addMasteryRunEvent, getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
@@ -50,7 +52,7 @@ export default function SpeedsterQuestionPage() {
   const [allQuestions, setAllQuestions] = useState<Question[]>([])
   const [planOrder, setPlanOrder] = useState<number[]>([])
   const [showList, setShowList] = useState(false)
-  const [leftTab, setLeftTab] = useState<'description' | 'solution' | 'accepted'>('description')
+  const [leftTab, setLeftTab] = useState<'description' | 'solution' | 'best' | 'accepted'>('description')
   const [mobilePanel, setMobilePanel] = useState<'description' | 'editor'>('description')
 
   const [lcContent, setLcContent] = useState<string | null>(null)
@@ -78,6 +80,11 @@ export default function SpeedsterQuestionPage() {
     }
     load()
   }, [id])
+
+  useEffect(() => {
+    if (!question) return
+    setOpenQuestionContext({ id: question.id, slug: question.slug, title: question.title })
+  }, [question])
 
   // Fetch live description
   useEffect(() => {
@@ -228,7 +235,7 @@ export default function SpeedsterQuestionPage() {
 
         {/* LEFT */}
         <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-[var(--border)] bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
-          <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 items-center">
+          <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 items-center">
             <button onClick={() => setLeftTab('description')}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'description' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
               <BookOpen size={12} /> Description
@@ -241,8 +248,14 @@ export default function SpeedsterQuestionPage() {
               </button>
             )}
             {question && (
+              <button onClick={() => setLeftTab('best')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                <Sparkles size={12} /> Best answers
+              </button>
+            )}
+            {question && (
               <button onClick={() => setLeftTab('accepted')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                 <Trophy size={12} /> My Solutions
               </button>
             )}
@@ -290,6 +303,9 @@ export default function SpeedsterQuestionPage() {
             )}
             {leftTab === 'solution' && question && (
               <CodePanel pythonCode={question.python_solution} cppCode={question.cpp_solution} />
+            )}
+            {leftTab === 'best' && question && (
+              <BestAnswersPanel questionId={question.id} slug={question.slug} active={leftTab === 'best'} />
             )}
             {leftTab === 'accepted' && (
               <AcceptedSolutions

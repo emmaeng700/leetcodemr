@@ -11,17 +11,19 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Brain, CheckCircle, Star,
   BookOpen, List, Code2, ExternalLink, Loader2, FileText,
-  Copy, Check,
+  Copy, Check, Sparkles,
 } from 'lucide-react'
 import { getProgress, updateProgress, completeReview, failReview, getStudyPlan } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { isDue, formatLocalDate, nextIntervalDays, stripScripts} from '@/lib/utils'
+import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import StatusRadio from '@/components/StatusRadio'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
+import BestAnswersPanel from '@/components/BestAnswersPanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import LearnAcSubmitTable from '@/components/learn/LearnAcSubmitTable'
 
@@ -117,7 +119,7 @@ function LearnInner() {
   const [saving, setSaving]         = useState(false)
   const [showList, setShowList]     = useState(false)
   const [reviewDone, setReviewDone] = useState(false)
-  const [leftTab, setLeftTab]       = useState<'description' | 'solution' | 'accepted'>('description')
+  const [leftTab, setLeftTab]       = useState<'description' | 'solution' | 'best' | 'accepted'>('description')
   // IMPORTANT: don't read localStorage during render (causes hydration mismatch).
   const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(null)
   const [filterDiff, setFilterDiff]         = useState(initDiff)
@@ -287,6 +289,11 @@ function LearnInner() {
     setLcContent(null)
     setIsPremium(false)
   }, [q?.id])
+
+  useEffect(() => {
+    if (!q) return
+    setOpenQuestionContext({ id: q.id, slug: q.slug, title: q.title })
+  }, [q?.id, q?.slug, q?.title])
 
   // Fetch live LeetCode description
   useEffect(() => {
@@ -741,24 +748,28 @@ function LearnInner() {
           <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-[var(--border)] bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
 
             {/* Tab bar */}
-            <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
+            <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
               <button onClick={() => setLeftTab('description')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                 <BookOpen size={12} /> Description
                 {lcLoading && <Loader2 size={10} className="animate-spin text-gray-300 ml-0.5" />}
               </button>
               {(q.python_solution || q.cpp_solution) && studyMode === 'show' && (
                 <button onClick={() => setLeftTab('solution')}
-                  className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'solution' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                  className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'solution' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                   <Code2 size={12} /> Solution
                 </button>
               )}
+              <button onClick={() => setLeftTab('best')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                <Sparkles size={12} /> Best answers
+              </button>
               <button onClick={() => setLeftTab('accepted')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                 🏆 My Solutions
               </button>
               <button onClick={() => setStudyMode(prev => prev === 'hide' ? 'show' : 'hide')}
-                className={`ml-auto flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${studyMode === 'hide' ? 'text-orange-500 hover:text-orange-600' : 'text-gray-400 hover:text-gray-600'}`}>
+                className={`ml-auto flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors shrink-0 ${studyMode === 'hide' ? 'text-orange-500 hover:text-orange-600' : 'text-gray-400 hover:text-gray-600'}`}>
                 🧠 {studyMode === 'hide' ? 'Challenge Mode' : 'Review Mode'}
               </button>
             </div>
@@ -986,6 +997,11 @@ function LearnInner() {
                   <p className="font-bold text-gray-700 text-sm mb-1">Answers Hidden</p>
                   <p className="text-xs text-gray-400 mb-4">You're in Challenge Mode. Try solving it yourself first!</p>
                   <button onClick={() => setStudyMode('show')} className="text-xs text-indigo-500 underline">Switch to Review Mode</button>
+                </div>
+              )}
+              {leftTab === 'best' && (
+                <div className="p-4 h-full">
+                  <BestAnswersPanel questionId={q.id} slug={q.slug} active={leftTab === 'best'} />
                 </div>
               )}
               {leftTab === 'accepted' && (

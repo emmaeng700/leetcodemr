@@ -1,8 +1,9 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTheme } from '@/components/ThemeProvider'
+import { getOpenQuestionContext } from '@/lib/openQuestionContext'
 import {
   BookOpen, Menu, X, LogOut, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
@@ -41,12 +42,24 @@ const META_LINKS = [
   { href: '/about',  label: 'About',   icon: Info },
 ]
 
+function buildAnswersNavHref(): string {
+  const ctx = getOpenQuestionContext()
+  if (!ctx) return '/answers'
+  const t = ctx.title ? `&title=${encodeURIComponent(ctx.title)}` : ''
+  return `/answers?id=${ctx.id}&slug=${encodeURIComponent(ctx.slug)}${t}`
+}
+
 export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [answersNavHref, setAnswersNavHref] = useState('/answers')
   const { theme, toggle } = useTheme()
   const isDark = theme === 'dark'
+
+  useEffect(() => {
+    setAnswersNavHref(buildAnswersNavHref())
+  }, [pathname])
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -101,7 +114,7 @@ export default function Navbar() {
                 return (
                   <Link
                     key={href}
-                    href={href}
+                    href={href === '/answers' ? answersNavHref : href}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                       active
                         ? 'bg-indigo-600 text-white shadow-[0_0_0_1px_rgba(99,102,241,0.4)]'
@@ -144,7 +157,7 @@ export default function Navbar() {
                   return (
                     <Link
                       key={href}
-                      href={href}
+                      href={href === '/answers' ? answersNavHref : href}
                       onClick={() => setOpen(false)}
                       className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         active

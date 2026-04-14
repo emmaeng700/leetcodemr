@@ -12,6 +12,7 @@ import DescriptionRenderer from '@/components/DescriptionRenderer'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import QuestionImage from '@/components/QuestionImage'
 import toast from 'react-hot-toast'
+import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 
 interface Question {
   id: number
@@ -65,6 +66,11 @@ export default function QuestionPage() {
     }
     load()
   }, [id])
+
+  useEffect(() => {
+    if (!question) return
+    setOpenQuestionContext({ id: question.id, slug: question.slug, title: question.title })
+  }, [question])
 
   async function save(patch: Partial<ProgressData> = {}) {
     setSaving(true)

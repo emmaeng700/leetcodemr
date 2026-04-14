@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle, Clock, Code2, BookOpen, ExternalLink, Loader2, Trophy, List } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Clock, Code2, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles } from 'lucide-react'
+import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan } from '@/lib/db'
 import { formatTime, isDue, stripScripts} from '@/lib/utils'
 import { getPatternForQuestion } from '@/lib/patternUtils'
@@ -12,6 +13,7 @@ import LeetCodeEditor from '@/components/LeetCodeEditor'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
+import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 
 interface Question {
   id: number
@@ -62,7 +64,7 @@ export default function PracticePage() {
   const [solved, setSolved] = useState(false)
   const [nextReview, setNextReview] = useState<string | null>(null)
   const [reviewDone, setReviewDone] = useState(false)
-  const [leftTab, setLeftTab] = useState<'description' | 'solution' | 'accepted'>('description')
+  const [leftTab, setLeftTab] = useState<'description' | 'solution' | 'best' | 'accepted'>('description')
 
   const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.slug, leftTab === 'accepted')
   const [mobilePanel, setMobilePanel] = useState<'description' | 'editor'>('description')
@@ -98,6 +100,11 @@ export default function PracticePage() {
     }
     load()
   }, [id])
+
+  useEffect(() => {
+    if (!question) return
+    setOpenQuestionContext({ id: question.id, slug: question.slug, title: question.title })
+  }, [question])
 
   // Fetch real LeetCode description in the background once we have the slug
   useEffect(() => {
@@ -362,7 +369,7 @@ export default function PracticePage() {
         {/* LEFT — Question description */}
         <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-[var(--border)] bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
           {/* Tab bar */}
-          <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)]/80 shrink-0 items-center">
+          <div className="flex overflow-x-auto border-b border-[var(--border)] bg-[var(--bg-card)]/80 shrink-0 items-center scrollbar-none">
             <button
               onClick={() => setLeftTab('description')}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
@@ -391,8 +398,20 @@ export default function PracticePage() {
             )}
             {question && (
               <button
+                onClick={() => setLeftTab('best')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${
+                  leftTab === 'best'
+                    ? 'border-amber-500 text-amber-600 dark:text-amber-400'
+                    : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
+                }`}
+              >
+                <Sparkles size={12} /> Best answers
+              </button>
+            )}
+            {question && (
+              <button
                 onClick={() => setLeftTab('accepted')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${
                   leftTab === 'accepted'
                     ? 'border-green-500 text-green-600'
                     : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
@@ -459,6 +478,10 @@ export default function PracticePage() {
 
             {leftTab === 'solution' && question && (
               <CodePanel pythonCode={question.python_solution} cppCode={question.cpp_solution} />
+            )}
+
+            {leftTab === 'best' && question && (
+              <BestAnswersPanel questionId={question.id} slug={question.slug} active={leftTab === 'best'} />
             )}
 
             {leftTab === 'accepted' && (
