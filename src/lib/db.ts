@@ -596,8 +596,8 @@ function isWeekendChicago(dateISOChicago: string): boolean {
 }
 
 export function getDailyReviewCapChicago(dateISOChicago = todayISOChicago()): number {
-  // Weekdays: 2 reviews/day. Weekends: 4 reviews/day total.
-  return isWeekendChicago(dateISOChicago) ? 4 : 2
+  // Weekdays: 35 reviews/day. Weekends: 60 reviews/day.
+  return isWeekendChicago(dateISOChicago) ? 60 : 35
 }
 
 /**
