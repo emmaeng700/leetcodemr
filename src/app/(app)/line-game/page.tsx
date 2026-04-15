@@ -13,11 +13,12 @@ import {
   Copy,
   Check,
   List,
+  Star,
 } from 'lucide-react'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
-import { getStudyPlan } from '@/lib/db'
+import { getStudyPlan, getProgress } from '@/lib/db'
 import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import { CODE_HIGHLIGHT_TOKEN_CSS } from '@/lib/codeHighlightTheme'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
@@ -381,6 +382,8 @@ export default function LineGamePage() {
   const [all, setAll] = useState<Question[]>([])
   const [loading, setLoading] = useState(true)
   const [planOrder, setPlanOrder] = useState<number[] | null>(null)
+  const [starredIds, setStarredIds] = useState<Set<number>>(new Set())
+  const [starredOnly, setStarredOnly] = useState(false)
   const [idx, setIdx] = useState(0)
   const [sessionScore, setSessionScore] = useState(0)
   const [showList, setShowList] = useState(false)
@@ -394,12 +397,19 @@ export default function LineGamePage() {
 
   useEffect(() => {
     async function load() {
-      const [qs, plan] = await Promise.all([
+      const [qs, plan, prog] = await Promise.all([
         fetch('/questions_full.json').then((r) => r.json()),
         getStudyPlan(),
+        getProgress(),
       ])
       setAll(qs)
       setPlanOrder(plan?.question_order ?? null)
+      const starred = new Set<number>(
+        Object.entries(prog)
+          .filter(([, v]) => v.starred)
+          .map(([k]) => parseInt(k, 10))
+      )
+      setStarredIds(starred)
       setLoading(false)
     }
     load()
@@ -461,9 +471,14 @@ export default function LineGamePage() {
     return ordered.filter((q) => {
       const py = q.python_solution
       if (!py || !py.trim()) return false
-      return buildBlankPicks(py) !== null
+      if (buildBlankPicks(py) === null) return false
+      if (starredOnly && !starredIds.has(q.id)) return false
+      return true
     })
-  }, [ordered])
+  }, [ordered, starredOnly, starredIds])
+
+  // Reset to first card when switching modes
+  useEffect(() => { setIdx(0) }, [starredOnly])
 
   const current = playable[idx] ?? null
   const picks = useMemo(
@@ -527,6 +542,7 @@ export default function LineGamePage() {
       >
         <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{pq.id}</span>
         <span className="min-w-0 flex-1 truncate text-gray-700">{pq.title}</span>
+        {starredIds.has(pq.id) && <Star size={11} className="shrink-0 fill-yellow-400 text-yellow-400" />}
         <span
           className={`text-xs font-semibold shrink-0 ${pq.difficulty === 'Easy' ? 'text-green-600' : pq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}
         >
@@ -627,7 +643,22 @@ export default function LineGamePage() {
         </div>
       </div>
 
-      <div className="mb-4 flex justify-end gap-2 overflow-visible">
+      <div className="mb-4 flex justify-between gap-2 overflow-visible flex-wrap">
+        {starredIds.size > 0 && (
+          <button
+            type="button"
+            onClick={() => setStarredOnly(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition-colors ${
+              starredOnly
+                ? 'bg-yellow-400 border-yellow-400 text-white'
+                : 'bg-white border-gray-200 text-gray-600 hover:border-yellow-300 hover:text-yellow-600'
+            }`}
+          >
+            <Star size={14} className={starredOnly ? 'fill-white text-white' : 'fill-yellow-400 text-yellow-400'} />
+            Starred{starredOnly ? ` (${playable.length})` : ` · ${starredIds.size}`}
+          </button>
+        )}
+        <div className="flex gap-2 ml-auto">
         <button
           type="button"
           onClick={() => go(-1)}
@@ -663,6 +694,7 @@ export default function LineGamePage() {
         >
           Next <ChevronRight size={18} />
         </button>
+        </div>
       </div>
 
       {current && picks && (
