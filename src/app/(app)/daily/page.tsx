@@ -597,9 +597,10 @@ export default function DailyPage() {
           <div className="space-y-3">
             {todayQs.map((q, idx) => {
               const solved = isSolved(q.id)
-              const topic = topicMap[q.id]
-              const prevTopic = idx > 0 ? topicMap[todayQs[idx - 1]?.id] : undefined
-              const showTopic = !!topic && (idx === 0 || topic !== prevTopic)
+              const topic = topicMap[q.id] ?? 'Other'
+              const prev = idx > 0 ? todayQs[idx - 1] : null
+              const prevTopic = prev ? (topicMap[prev.id] ?? 'Other') : null
+              const showTopic = idx === 0 || topic !== prevTopic
               return (
                 <div key={q.id}>
                   {showTopic && (
