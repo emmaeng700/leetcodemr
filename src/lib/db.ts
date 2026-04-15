@@ -581,6 +581,24 @@ export async function getDueReviews(): Promise<Array<{ id: number; review_count:
   return (data ?? []).slice(0, cap).map((r: any) => ({ id: r.question_id, review_count: r.review_count, next_review: r.next_review }))
 }
 
+/**
+ * SR schedule window (due + upcoming) without applying daily caps/spreading.
+ * Useful for "do extra reviews" views (Pileup).
+ */
+export async function getSrScheduleWindow(daysAhead = 30): Promise<Array<{ id: number; review_count: number; next_review: string }>> {
+  const today = todayISOChicago()
+  const horizon = addDaysISO(today, Math.max(0, Math.floor(daysAhead)))
+  const { data } = await supabase
+    .from('progress')
+    .select('question_id,next_review,review_count')
+    .eq('user_id', USER_ID)
+    .eq('solved', true)
+    .not('next_review', 'is', null)
+    .lte('next_review', horizon)
+    .order('next_review', { ascending: true })
+  return (data ?? []).map((r: any) => ({ id: r.question_id, review_count: r.review_count, next_review: r.next_review }))
+}
+
 /** Count SR reviews completed today (last_reviewed = today Chicago). */
 export async function getReviewsCompletedToday(): Promise<number> {
   const today = todayISOChicago()

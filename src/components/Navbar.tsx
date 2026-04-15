@@ -38,6 +38,7 @@ const TOPIC_LINKS = [
 const META_LINKS = [
   { href: '/sr-queue', label: 'SR Queue', icon: RefreshCw },
   { href: '/review',  label: 'Reviews',  icon: Brain },
+  { href: '/pileup', label: 'Pileup', icon: Layers },
   { href: '/stats',  label: 'Stats',   icon: BarChart2 },
   { href: '/about',  label: 'About',   icon: Info },
 ]
