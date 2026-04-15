@@ -75,8 +75,9 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
           </>
         )}
       </button>
-      <pre className="text-[11px] leading-relaxed bg-[#080e1c] rounded-lg p-3 overflow-x-auto border border-gray-800/60 whitespace-pre">
-        <code ref={ref} />
+      <pre className="text-[11px] leading-relaxed bg-[#080e1c] text-gray-100 rounded-lg p-3 overflow-x-auto border border-gray-800/60 whitespace-pre">
+        {/* `hljs` class gives theme CSS a reliable hook; text-gray-100 is fallback if CSS fails to load. */}
+        <code ref={ref} className="hljs text-gray-100" />
       </pre>
     </div>
   )
