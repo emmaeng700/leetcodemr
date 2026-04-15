@@ -393,6 +393,7 @@ export default function LineGamePage() {
   const [sessionRevealed, setSessionRevealed] = useState(0)
 
   const listWrapRef = useRef<HTMLDivElement>(null)
+  const gamePanelRef = useRef<HTMLDivElement>(null)
   useClickOutside(listWrapRef, () => setShowList(false), showList)
 
   useEffect(() => {
@@ -673,7 +674,10 @@ export default function LineGamePage() {
                 <button
                   key={q.id}
                   type="button"
-                  onClick={() => setIdx(playable.findIndex(p => p.id === q.id))}
+                  onClick={() => {
+                    setIdx(playable.findIndex(p => p.id === q.id))
+                    setTimeout(() => gamePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+                  }}
                   className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-colors ${
                     isActive
                       ? 'border-yellow-400 bg-yellow-400/20 ring-1 ring-yellow-400/40'
@@ -751,6 +755,7 @@ export default function LineGamePage() {
       </div>
 
 
+      <div ref={gamePanelRef} />
       {current && picks && (
         <LineGameQuestionPanel
           key={current.id}
