@@ -6,7 +6,7 @@ import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List, Brain } from 'lucide-react'
-import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews } from '@/lib/db'
+import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews } from '@/lib/db'
 import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
 import { QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
@@ -170,6 +170,14 @@ export default function DailyPage() {
 
   useEffect(() => {
     async function load() {
+      // One-time rebalance: if reviews were spread with old small cap (2/4),
+      // pull them forward using the current 35/60 cap. Runs once per device.
+      const REBALANCE_KEY = 'lm_rebalanced_v1'
+      if (!localStorage.getItem(REBALANCE_KEY)) {
+        await rebalanceReviews()
+        localStorage.setItem(REBALANCE_KEY, '1')
+      }
+
       const [qs, prog, p, due] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getProgress(),

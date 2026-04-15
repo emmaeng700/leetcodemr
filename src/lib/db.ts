@@ -710,6 +710,76 @@ export async function spreadOverdueReviews(opts?: { maxPerDay?: number; horizonD
   }
 }
 
+/**
+ * Re-place all upcoming reviews (today + next horizonDays) using the current cap.
+ * Fixes the case where reviews were spread with an old, smaller cap and are now
+ * sitting far in the future even though today has spare capacity.
+ */
+export async function rebalanceReviews(horizonDays = 60): Promise<void> {
+  const today = todayISOChicago()
+  const horizonDate = addDaysISO(today, horizonDays)
+
+  // All reviews up to and including the horizon (overdue + future-within-window)
+  const { data } = await supabase
+    .from('progress')
+    .select('question_id,next_review,review_count')
+    .eq('user_id', USER_ID)
+    .eq('solved', true)
+    .not('next_review', 'is', null)
+    .lte('next_review', horizonDate)
+    .order('next_review', { ascending: true })
+
+  const rows = (data ?? []) as Array<{ question_id: number; next_review: string; review_count: number }>
+  if (!rows.length) return
+
+  // Seed counts with reviews already beyond the horizon (they hold their slot)
+  const { data: beyond } = await supabase
+    .from('progress')
+    .select('question_id,next_review')
+    .eq('user_id', USER_ID)
+    .eq('solved', true)
+    .not('next_review', 'is', null)
+    .gt('next_review', horizonDate)
+
+  const counts: Record<string, number> = {}
+  for (const r of beyond ?? []) {
+    const day = (r as any).next_review as string
+    if (day) counts[day] = (counts[day] ?? 0) + 1
+  }
+
+  const updates: Array<{ question_id: number; next_review: string }> = []
+
+  for (const row of rows) {
+    let placed = false
+    // Search from today forward for the earliest day with capacity
+    for (let offset = 0; offset <= horizonDays + 60; offset++) {
+      const day = addDaysISO(today, offset)
+      const cap = getDailyReviewCapChicago(day)
+      if ((counts[day] ?? 0) < cap) {
+        counts[day] = (counts[day] ?? 0) + 1
+        if (row.next_review !== day) {
+          updates.push({ question_id: row.question_id, next_review: day })
+        }
+        placed = true
+        break
+      }
+    }
+    if (!placed) {
+      const day = addDaysISO(today, horizonDays + 61)
+      counts[day] = (counts[day] ?? 0) + 1
+      updates.push({ question_id: row.question_id, next_review: day })
+    }
+  }
+
+  for (const u of updates) {
+    await supabase
+      .from('progress')
+      .update({ next_review: u.next_review })
+      .eq('user_id', USER_ID)
+      .eq('question_id', u.question_id)
+  }
+}
+
 /** Same rules as notify-daily email: streak day counts only when today's active daily block is fully solved AND no SR reviews are due. */
 export async function syncStreakActivityFromGoals(): Promise<void> {
   const today = todayISOChicago()
