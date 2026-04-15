@@ -56,6 +56,7 @@ export default function Navbar() {
   const [answersNavHref, setAnswersNavHref] = useState('/answers')
   const { theme, toggle } = useTheme()
   const isDark = theme === 'dark'
+  const build = process.env.NEXT_PUBLIC_COMMIT_SHA
 
   useEffect(() => {
     setAnswersNavHref(buildAnswersNavHref())
@@ -77,6 +78,12 @@ export default function Navbar() {
           </Link>
 
           <div className="flex items-center gap-1 shrink-0">
+            {/* Build stamp (helps debug stale deploys) */}
+            {build && (
+              <span className="hidden sm:inline text-[10px] font-mono text-[var(--text-subtle)] mr-2 select-none">
+                build {build}
+              </span>
+            )}
             {/* Theme toggle */}
             <button
               onClick={toggle}
