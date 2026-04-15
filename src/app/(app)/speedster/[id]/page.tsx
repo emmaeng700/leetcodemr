@@ -312,7 +312,7 @@ export default function SpeedsterQuestionPage() {
               <CodePanel pythonCode={question.python_solution} cppCode={question.cpp_solution} />
             )}
             {leftTab === 'notes' && question && (
-              <WhiteboardNotes storageKey={`lm_whiteboard:${question.id}:${question.slug}`} />
+              <WhiteboardNotes questionId={question.id} />
             )}
             {leftTab === 'best' && question && (
               <BestAnswersPanel questionId={question.id} slug={question.slug} active={leftTab === 'best'} />
