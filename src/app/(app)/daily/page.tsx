@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
-import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List, Brain } from 'lucide-react'
-import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews } from '@/lib/db'
+import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List, Brain, Star } from 'lucide-react'
+import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress } from '@/lib/db'
 import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
 import { QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
@@ -278,6 +278,19 @@ export default function DailyPage() {
 
   function isSolved(id: number) {
     return !!progress[String(id)]?.solved
+  }
+
+  function isStarred(id: number) {
+    return !!progress[String(id)]?.starred
+  }
+
+  function toggleStar(id: number) {
+    const n = !isStarred(id)
+    setProgress(prev => ({
+      ...prev,
+      [String(id)]: { ...prev[String(id)], starred: n },
+    }))
+    updateProgress(id, { starred: n })
   }
 
   function daysOverdue(nr: string) {
@@ -729,6 +742,16 @@ export default function DailyPage() {
                             {solved && <span className="text-xs text-green-400 font-medium">already solved ✓</span>}
                           </div>
                         </div>
+
+                        {/* Star */}
+                        <button
+                          type="button"
+                          onClick={() => toggleStar(q.id)}
+                          className={`shrink-0 p-1.5 rounded-lg border transition-colors ${isStarred(q.id) ? 'bg-yellow-50 border-yellow-200' : 'border-[var(--border)] hover:border-yellow-300'}`}
+                          aria-label={isStarred(q.id) ? 'Unstar' : 'Star'}
+                        >
+                          <Star size={13} className={isStarred(q.id) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'} />
+                        </button>
 
                         {/* Preview link — read-only intent, not solve pressure */}
                         <Link

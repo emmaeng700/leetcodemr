@@ -7,10 +7,10 @@ import { useParams, useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
-import { ArrowLeft, ArrowRight, BookOpen, Code2, ExternalLink, Loader2, Trophy, Gauge, List, Sparkles, StickyNote } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, Code2, ExternalLink, Loader2, Trophy, Gauge, List, Sparkles, StickyNote, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import WhiteboardNotes from '@/components/WhiteboardNotes'
-import { addMasteryRunEvent, getStudyPlan } from '@/lib/db'
+import { addMasteryRunEvent, getStudyPlan, getProgress, updateProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
@@ -53,6 +53,7 @@ export default function SpeedsterQuestionPage() {
   const [allQuestions, setAllQuestions] = useState<Question[]>([])
   const [planOrder, setPlanOrder] = useState<number[]>([])
   const [showList, setShowList] = useState(false)
+  const [starred, setStarred] = useState(false)
   const [leftTab, setLeftTab] = useState<'description' | 'solution' | 'notes' | 'best' | 'accepted'>('description')
   const [mobilePanel, setMobilePanel] = useState<'description' | 'editor'>('description')
 
@@ -68,9 +69,10 @@ export default function SpeedsterQuestionPage() {
 
   useEffect(() => {
     async function load() {
-      const [qs, plan] = await Promise.all([
+      const [qs, plan, prog] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getStudyPlan(),
+        getProgress(),
       ])
       const q = (qs as Question[]).find((q: Question) => q.id === id)
       if (!q) return
@@ -78,6 +80,7 @@ export default function SpeedsterQuestionPage() {
       setAllQuestions(qs as Question[])
       if (plan?.question_order?.length) setPlanOrder(plan.question_order)
       else setPlanOrder((qs as Question[]).map((q: Question) => q.id))
+      setStarred(!!prog[String(id)]?.starred)
     }
     load()
   }, [id])
@@ -193,6 +196,17 @@ export default function SpeedsterQuestionPage() {
               <ArrowRight size={15} />
             </button>
           </div>
+        )}
+
+        {/* Star */}
+        {question && (
+          <button
+            onClick={() => { const n = !starred; setStarred(n); updateProgress(id, { starred: n }) }}
+            className={`p-1.5 rounded-lg border transition-colors shrink-0 ${starred ? 'bg-yellow-50 border-yellow-200' : 'border-[var(--border)] hover:border-yellow-300'}`}
+            aria-label={starred ? 'Unstar' : 'Star'}
+          >
+            <Star size={13} className={starred ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'} />
+          </button>
         )}
 
         {/* Title — own full-width line on mobile, inline on sm+ */}

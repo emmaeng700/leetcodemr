@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle, Clock, Code2, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, StickyNote } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Clock, Code2, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, StickyNote, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import WhiteboardNotes from '@/components/WhiteboardNotes'
 import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan } from '@/lib/db'
@@ -63,6 +63,7 @@ export default function PracticePage() {
   const [planOrder, setPlanOrder] = useState<number[]>([])
   const [showList, setShowList] = useState(false)
   const [solved, setSolved] = useState(false)
+  const [starred, setStarred] = useState(false)
   const [nextReview, setNextReview] = useState<string | null>(null)
   const [reviewDone, setReviewDone] = useState(false)
   const [leftTab, setLeftTab] = useState<'description' | 'solution' | 'notes' | 'best' | 'accepted'>('description')
@@ -97,6 +98,7 @@ export default function PracticePage() {
       if (plan?.question_order?.length) setPlanOrder(plan.question_order)
       else setPlanOrder((qs as Question[]).map((q: Question) => q.id))
       setSolved(!!prog[String(id)]?.solved)
+      setStarred(!!prog[String(id)]?.starred)
       setNextReview(prog[String(id)]?.next_review ?? null)
     }
     load()
@@ -301,6 +303,14 @@ export default function PracticePage() {
             <Clock size={13} />
             {formatTime(timer)}
           </div>
+          <button
+            onClick={() => { const n = !starred; setStarred(n); updateProgress(id, { starred: n }) }}
+            disabled={!question}
+            className={`p-1.5 rounded-lg border transition-colors disabled:opacity-40 ${starred ? 'bg-yellow-50 border-yellow-200' : 'bg-[var(--bg-muted)] border-[var(--border)] hover:border-yellow-300'}`}
+            aria-label={starred ? 'Unstar' : 'Star'}
+          >
+            <Star size={13} className={starred ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'} />
+          </button>
           <button
             onClick={handleMarkSolved}
             disabled={!question}
