@@ -718,7 +718,7 @@ export default function LeetCodePage() {
 
             {leftTab === 'notes' && (
               <div className="flex-1 overflow-y-auto p-4">
-                <WhiteboardNotes questionId={bestAnswersId || matchId || 0} />
+                <WhiteboardNotes storageKey={`lm_whiteboard:${bestAnswersId || matchId || 0}:${question.titleSlug}`} />
               </div>
             )}
 

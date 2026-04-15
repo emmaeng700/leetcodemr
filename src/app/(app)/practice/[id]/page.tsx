@@ -494,7 +494,7 @@ export default function PracticePage() {
             )}
 
             {leftTab === 'notes' && question && (
-              <WhiteboardNotes questionId={question.id} />
+              <WhiteboardNotes storageKey={`lm_whiteboard:${question.id}:${question.slug}`} />
             )}
 
             {leftTab === 'best' && question && (

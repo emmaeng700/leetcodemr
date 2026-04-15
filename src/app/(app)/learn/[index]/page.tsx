@@ -1011,7 +1011,7 @@ function LearnInner() {
               )}
               {leftTab === 'notes' && (
                 <div className="p-4 h-full">
-                  <WhiteboardNotes questionId={q.id} />
+                  <WhiteboardNotes storageKey={`lm_whiteboard:${q.id}:${q.slug}`} />
                 </div>
               )}
               {leftTab === 'accepted' && (
