@@ -8,6 +8,8 @@ type Tool = 'pen' | 'eraser'
 type WhiteboardNotesProps = {
   storageKey: string
   className?: string
+  /** Minimum drawing area height in viewport-heights. Default: 200 (≈ 2 pages). */
+  minVh?: number
 }
 
 function safeLoad(key: string): string | null {
@@ -26,7 +28,7 @@ function safeSave(key: string, value: string) {
   }
 }
 
-export default function WhiteboardNotes({ storageKey, className = '' }: WhiteboardNotesProps) {
+export default function WhiteboardNotes({ storageKey, className = '', minVh = 200 }: WhiteboardNotesProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null)
@@ -182,8 +184,9 @@ export default function WhiteboardNotes({ storageKey, className = '' }: Whiteboa
   }
 
   return (
-    <div className={`h-full min-h-[320px] flex flex-col gap-3 ${className}`}>
-      <div className="flex items-center justify-between gap-2 flex-wrap">
+    <div className={`w-full flex flex-col gap-3 ${className}`}>
+      <div className="sticky top-0 z-10 -mx-4 px-4 pt-2 pb-3 bg-white/95 backdrop-blur border-b border-gray-200">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -204,7 +207,6 @@ export default function WhiteboardNotes({ storageKey, className = '' }: Whiteboa
             <Eraser size={14} /> Eraser
           </button>
         </div>
-
         <div className="flex items-center gap-2">
           <label className="text-xs font-semibold text-gray-500">Size</label>
           <input
@@ -231,17 +233,17 @@ export default function WhiteboardNotes({ storageKey, className = '' }: Whiteboa
             <Save size={14} /> Save
           </button>
         </div>
-      </div>
-
-      <div className="text-[11px] text-gray-400 flex items-center gap-2">
-        <span>Tip: use your stylus — pressure changes stroke width.</span>
-        {savedAt && <span className="ml-auto">Saved</span>}
+        </div>
+        <div className="text-[11px] text-gray-400 flex items-center gap-2 mt-2">
+          <span>Tip: use your stylus — pressure changes stroke width.</span>
+          {savedAt && <span className="ml-auto">Saved</span>}
+        </div>
       </div>
 
       <div
         ref={wrapRef}
-        className="flex-1 rounded-xl border border-gray-200 bg-white overflow-hidden"
-        style={{ touchAction: 'none' }}
+        className="rounded-xl border border-gray-200 bg-white overflow-hidden"
+        style={{ touchAction: 'none', minHeight: `${Math.max(120, minVh)}vh` }}
       >
         <canvas
           ref={canvasRef}
