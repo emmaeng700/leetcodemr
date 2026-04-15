@@ -109,12 +109,12 @@ export default function QuestionPage() {
               <span className="text-xs text-gray-400 font-mono">#{question.id}</span>
               <DifficultyBadge difficulty={question.difficulty} />
               {(() => {
-                const topic = getPatternForQuestion(question.tags || [])
-                return topic ? (
-                  <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                const topic = getPatternForQuestion(question.tags || []) ?? 'Other'
+                return (
+                  <span className="text-xs bg-gray-50 text-gray-600 px-2 py-0.5 rounded-full border border-gray-200">
                     🧩 {topic}
                   </span>
-                ) : null
+                )
               })()}
               {(question.source || []).map(s => (
                 <span key={s} className="text-xs bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100">

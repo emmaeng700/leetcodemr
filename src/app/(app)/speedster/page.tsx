@@ -478,15 +478,17 @@ export default function SpeedsterPage() {
           const q = qMap[qid]
           if (!q) return null
           const solved = !!progress[String(qid)]?.solved
-          const topic = patternMap?.[qid] ?? null
+          const topic = patternMap?.[qid] ?? 'Other'
           const prevId = i > 0 ? currentDayFiltered[i - 1] : null
-          const prevTopic = prevId != null ? (patternMap?.[prevId] ?? null) : null
-          const showTopic = !!topic && (i === 0 || topic !== prevTopic)
+          const prevTopic = prevId != null ? (patternMap?.[prevId] ?? 'Other') : null
+          const showTopic = i === 0 || topic !== prevTopic
           return (
             <div key={qid}>
               {showTopic && (
-                <div className={`px-3 sm:px-5 py-2 text-[11px] font-bold text-gray-500 bg-gray-50 ${i !== 0 ? 'border-t border-gray-100' : ''}`}>
-                  🧩 Topic: <span className="text-gray-700">{topic}</span>
+                <div className={`px-3 sm:px-5 py-2 ${i !== 0 ? 'border-t border-gray-100' : ''}`}>
+                  <div className="px-3 py-2 text-[11px] font-bold text-gray-500 bg-gray-50 rounded-xl border border-gray-200">
+                    🧩 Topic: <span className="text-gray-800">{topic}</span>
+                  </div>
                 </div>
               )}
               <Link href={`/speedster/${qid}`}
