@@ -363,7 +363,7 @@ export default function PracticePage() {
       ) : null })()}
 
       {/* Mobile panel tabs */}
-      <div className="flex md:hidden border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
+      <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
         <button onClick={() => setMobilePanel('description')}
           className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)]'}`}>
           📖 Description
@@ -375,10 +375,10 @@ export default function PracticePage() {
       </div>
 
       {/* Split layout */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 overflow-hidden">
 
         {/* LEFT — Question description */}
-        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] lg:w-[36%] xl:w-[32%] md:shrink-0 border-r border-[var(--border)] bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
+        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} flex-col w-full flex-1 bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
           {/* Tab bar */}
           <div className="flex overflow-x-auto border-b border-[var(--border)] bg-[var(--bg-card)]/80 shrink-0 items-center scrollbar-none">
             <button
@@ -527,7 +527,7 @@ export default function PracticePage() {
         </div>
 
         {/* RIGHT — LeetCode editor + tests */}
-        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-1 min-h-0 overflow-x-hidden`}>
+        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} w-full flex-1 min-h-0 overflow-x-hidden`}>
           {question ? (
             <LeetCodeEditor appQuestionId={question.id} slug={question.slug} onAccepted={due && !reviewDone ? handleCompleteReview : undefined} />
           ) : (

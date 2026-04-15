@@ -733,7 +733,7 @@ function LearnInner() {
       ) : (
         <>
         {/* Mobile panel tabs */}
-        <div className="flex md:hidden border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
+        <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
           <button onClick={() => setMobilePanel('description')}
             className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400'}`}>
             📖 Description
@@ -743,10 +743,10 @@ function LearnInner() {
             💻 Editor
           </button>
         </div>
-        <div className="relative z-0 flex min-h-0 flex-1 overflow-hidden">
+        <div className="relative z-0 flex flex-col min-h-0 flex-1 overflow-hidden">
 
           {/* ── LEFT panel ── */}
-          <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] lg:w-[36%] xl:w-[32%] md:shrink-0 border-r border-[var(--border)] bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
+          <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} flex-col w-full flex-1 bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
 
             {/* Tab bar */}
             <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
@@ -1027,7 +1027,7 @@ function LearnInner() {
           </div>
 
           {/* ── RIGHT panel — editor ── */}
-          <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-1 min-h-0 overflow-x-hidden`}>
+          <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} w-full flex-1 min-h-0 overflow-x-hidden`}>
             <LeetCodeEditor appQuestionId={q.id} slug={q.slug} onAccepted={due && !reviewDone ? handleCompleteReview : undefined} />
           </div>
         </div>
