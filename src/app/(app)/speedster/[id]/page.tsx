@@ -7,12 +7,11 @@ import { useParams, useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
-import { ArrowLeft, ArrowRight, BookOpen, Code2, ExternalLink, Loader2, Trophy, Gauge, List, Sparkles, StickyNote, Star } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, ExternalLink, Loader2, Trophy, Gauge, List, Sparkles, StickyNote, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import WhiteboardNotes from '@/components/WhiteboardNotes'
 import { addMasteryRunEvent, getStudyPlan, getProgress, updateProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
-import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 
@@ -54,7 +53,7 @@ export default function SpeedsterQuestionPage() {
   const [planOrder, setPlanOrder] = useState<number[]>([])
   const [showList, setShowList] = useState(false)
   const [starred, setStarred] = useState(false)
-  const [leftTab, setLeftTab] = useState<'description' | 'solution' | 'notes' | 'best' | 'accepted'>('description')
+  const [leftTab, setLeftTab] = useState<'description' | 'notes' | 'best' | 'accepted'>('description')
   const [mobilePanel, setMobilePanel] = useState<'description' | 'editor'>('description')
 
   const [lcContent, setLcContent] = useState<string | null>(null)
@@ -256,12 +255,6 @@ export default function SpeedsterQuestionPage() {
               <BookOpen size={12} /> Description
               {lcLoading && <Loader2 size={10} className="animate-spin text-gray-300 ml-1" />}
             </button>
-            {question && (question.python_solution || question.cpp_solution) && (
-              <button onClick={() => setLeftTab('solution')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'solution' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
-                <Code2 size={12} /> Solution
-              </button>
-            )}
             {question && (
               <button onClick={() => setLeftTab('best')}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
@@ -321,9 +314,6 @@ export default function SpeedsterQuestionPage() {
                   </div>
                 )}
               </>
-            )}
-            {leftTab === 'solution' && question && (
-              <CodePanel pythonCode={question.python_solution} cppCode={question.cpp_solution} />
             )}
             {leftTab === 'notes' && question && (
               <WhiteboardNotes storageKey={`lm_whiteboard:${question.id}:${question.slug}`} />

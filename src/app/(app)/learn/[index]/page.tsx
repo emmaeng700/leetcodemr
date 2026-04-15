@@ -10,7 +10,7 @@ import cppLang from 'highlight.js/lib/languages/cpp'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Brain, CheckCircle, Star,
-  BookOpen, List, Code2, ExternalLink, Loader2, FileText,
+  BookOpen, List, ExternalLink, Loader2, FileText,
   Copy, Check, Sparkles, StickyNote,
 } from 'lucide-react'
 import { getProgress, updateProgress, completeReview, failReview, getStudyPlan } from '@/lib/db'
@@ -20,7 +20,6 @@ import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { isDue, formatLocalDate, nextIntervalDays, stripScripts} from '@/lib/utils'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import DifficultyBadge from '@/components/DifficultyBadge'
-import CodePanel from '@/components/CodePanel'
 import StatusRadio from '@/components/StatusRadio'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
@@ -120,7 +119,7 @@ function LearnInner() {
   const [saving, setSaving]         = useState(false)
   const [showList, setShowList]     = useState(false)
   const [reviewDone, setReviewDone] = useState(false)
-  const [leftTab, setLeftTab]       = useState<'description' | 'solution' | 'notes' | 'best' | 'accepted'>('description')
+  const [leftTab, setLeftTab]       = useState<'description' | 'editorial' | 'notes' | 'best' | 'accepted'>('description')
   // IMPORTANT: don't read localStorage during render (causes hydration mismatch).
   const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(null)
   const [filterDiff, setFilterDiff]         = useState(initDiff)
@@ -332,9 +331,9 @@ function LearnInner() {
     return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
   }, [q?.slug])
 
-  // Fetch editorial when solution tab opens (requires LeetCode session for premium)
+  // Fetch editorial when Editorial tab opens (requires LeetCode session for premium)
   useEffect(() => {
-    if (leftTab !== 'solution' || !q?.slug) return
+    if (leftTab !== 'editorial' || !q?.slug) return
     setEditorial(null)
     setEditorialLoad(true)
     const creds = lcSession && lcCsrf ? { session: lcSession, csrfToken: lcCsrf } : {}
@@ -755,12 +754,10 @@ function LearnInner() {
                 <BookOpen size={12} /> Description
                 {lcLoading && <Loader2 size={10} className="animate-spin text-gray-300 ml-0.5" />}
               </button>
-              {(q.python_solution || q.cpp_solution) && studyMode === 'show' && (
-                <button onClick={() => setLeftTab('solution')}
-                  className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'solution' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
-                  <Code2 size={12} /> Solution
-                </button>
-              )}
+              <button onClick={() => setLeftTab('editorial')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'editorial' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                <FileText size={12} /> Editorial
+              </button>
               <button onClick={() => setLeftTab('best')}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                 <Sparkles size={12} /> Best answers
@@ -916,17 +913,17 @@ function LearnInner() {
                 </div>
               )}
 
-
-              {/* ── Solution tab ── */}
-              {leftTab === 'solution' && studyMode === 'show' && (
+              {leftTab === 'best' && (
+                <div className="p-4 h-full">
+                  <BestAnswersPanel questionId={q.id} slug={q.slug} active={leftTab === 'best'} />
+                </div>
+              )}
+              {leftTab === 'editorial' && (
                 <div className="p-4 space-y-4">
-                  <CodePanel pythonCode={q.python_solution} cppCode={q.cpp_solution} />
-
-                  {/* ── LeetCode Editorial ── */}
                   <div className="rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                     <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-indigo-50 to-white border-b border-gray-200">
                       <BookOpen size={14} className="text-indigo-500 shrink-0" />
-                      <span className="text-sm font-bold text-gray-800">Official Editorial</span>
+                      <span className="text-sm font-bold text-gray-800">Editorial</span>
                       <span className="ml-auto text-xs text-indigo-400 font-medium">LeetCode</span>
                     </div>
                     {editorialLoad ? (
@@ -940,41 +937,31 @@ function LearnInner() {
                           remarkPlugins={[remarkGfm]}
                           rehypePlugins={[rehypeRaw]}
                           components={{
-                            // Strip TOC, iframes, video divs
                             iframe: () => null,
-                            // Headings
                             h2: ({ children }) => <h2 className="text-base font-bold text-gray-900 mt-6 mb-2 pb-1 border-b border-gray-100">{children}</h2>,
                             h3: ({ children }) => <h3 className="text-sm font-bold text-indigo-700 mt-5 mb-2 flex items-center gap-1.5"><span className="w-1 h-4 bg-indigo-400 rounded-full inline-block shrink-0"/>{children}</h3>,
                             h4: ({ children }) => <h4 className="text-sm font-semibold text-gray-700 mt-3 mb-1.5">{children}</h4>,
-                            // Paragraphs
                             p: ({ children }) => {
                               const text = String(children)
                               if (text.startsWith('[TOC]') || text === '&nbsp;') return null
                               return <p className="text-sm text-gray-700 leading-relaxed my-2.5">{children}</p>
                             },
-                            // Lists
                             ul: ({ children }) => <ul className="my-2 space-y-1 pl-5 list-none">{children}</ul>,
                             ol: ({ children }) => <ol className="my-2 space-y-1 pl-5 list-decimal text-sm text-gray-700">{children}</ol>,
                             li: ({ children }) => <li className="text-sm text-gray-700 leading-relaxed flex gap-2"><span className="text-indigo-400 shrink-0 mt-0.5">•</span><span>{children}</span></li>,
-                            // Inline code
                             code: ({ children, className }) =>
                               className
                                 ? <code className="text-[12px] font-mono">{children}</code>
                                 : <code className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.5 rounded text-xs font-mono">{children}</code>,
-                            // Fenced code blocks — syntax highlighted, same style as CodePanel
                             pre: ({ children }) => {
                               const child = children as React.ReactElement<{ className?: string; children?: string }>
                               const lang = (child?.props?.className ?? '').replace('language-', '') || 'text'
                               const code = child?.props?.children ?? ''
                               return <EditorialCodeBlock code={String(code).trimEnd()} lang={lang} />
                             },
-                            // Horizontal rules as section dividers
                             hr: () => <hr className="my-4 border-gray-100" />,
-                            // Bold
                             strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
-                            // Block quotes
                             blockquote: ({ children }) => <blockquote className="border-l-4 border-indigo-300 pl-4 my-3 text-sm text-gray-600 italic">{children}</blockquote>,
-                            // Tables
                             table: ({ children }) => <div className="overflow-x-auto my-3"><table className="text-xs border-collapse w-full">{children}</table></div>,
                             th: ({ children }) => <th className="bg-gray-100 border border-gray-200 px-3 py-1.5 text-left font-semibold text-gray-700">{children}</th>,
                             td: ({ children }) => <td className="border border-gray-200 px-3 py-1.5 text-gray-700">{children}</td>,
@@ -994,19 +981,6 @@ function LearnInner() {
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-              {leftTab === 'solution' && studyMode === 'hide' && (
-                <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-                  <div className="text-4xl mb-3">🔒</div>
-                  <p className="font-bold text-gray-700 text-sm mb-1">Answers Hidden</p>
-                  <p className="text-xs text-gray-400 mb-4">You're in Challenge Mode. Try solving it yourself first!</p>
-                  <button onClick={() => setStudyMode('show')} className="text-xs text-indigo-500 underline">Switch to Review Mode</button>
-                </div>
-              )}
-              {leftTab === 'best' && (
-                <div className="p-4 h-full">
-                  <BestAnswersPanel questionId={q.id} slug={q.slug} active={leftTab === 'best'} />
                 </div>
               )}
               {leftTab === 'notes' && (

@@ -2,14 +2,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle, Clock, Code2, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, StickyNote, Star } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, StickyNote, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import WhiteboardNotes from '@/components/WhiteboardNotes'
 import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan } from '@/lib/db'
 import { formatTime, isDue, stripScripts} from '@/lib/utils'
 import { getPatternForQuestion } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
-import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import toast from 'react-hot-toast'
@@ -66,7 +65,7 @@ export default function PracticePage() {
   const [starred, setStarred] = useState(false)
   const [nextReview, setNextReview] = useState<string | null>(null)
   const [reviewDone, setReviewDone] = useState(false)
-  const [leftTab, setLeftTab] = useState<'description' | 'solution' | 'notes' | 'best' | 'accepted'>('description')
+  const [leftTab, setLeftTab] = useState<'description' | 'notes' | 'best' | 'accepted'>('description')
 
   const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.slug, leftTab === 'accepted')
   const [mobilePanel, setMobilePanel] = useState<'description' | 'editor'>('description')
@@ -395,18 +394,6 @@ export default function PracticePage() {
                 <Loader2 size={10} className="animate-spin text-[var(--text-muted)] ml-1" />
               )}
             </button>
-            {question && (question.python_solution || question.cpp_solution) && (
-              <button
-                onClick={() => setLeftTab('solution')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
-                  leftTab === 'solution'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
-                }`}
-              >
-                <Code2 size={12} /> Solution
-              </button>
-            )}
             {question && (
               <button
                 onClick={() => setLeftTab('best')}
@@ -497,10 +484,6 @@ export default function PracticePage() {
                   </div>
                 )}
               </>
-            )}
-
-            {leftTab === 'solution' && question && (
-              <CodePanel pythonCode={question.python_solution} cppCode={question.cpp_solution} />
             )}
 
             {leftTab === 'notes' && question && (
