@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
@@ -9,6 +9,7 @@ import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, Che
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews } from '@/lib/db'
 import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
 import { QUICK_PATTERNS } from '@/lib/constants'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
@@ -146,6 +147,8 @@ export default function DailyPage() {
 
   // Extra days
   const [extraDays, setExtraDays] = useState(0)
+
+  const topicMap = useMemo(() => buildExclusivePatternMap(allQuestions), [allQuestions])
 
   const refreshProgress = useCallback(async () => {
     try {
@@ -592,49 +595,58 @@ export default function DailyPage() {
           </div>
 
           <div className="space-y-3">
-            {todayQs.map(q => {
+            {todayQs.map((q, idx) => {
               const solved = isSolved(q.id)
+              const topic = topicMap[q.id]
+              const prevTopic = idx > 0 ? topicMap[todayQs[idx - 1]?.id] : undefined
+              const showTopic = !!topic && (idx === 0 || topic !== prevTopic)
               return (
-                <div
-                  key={q.id}
-                  className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                    solved ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-500/30' : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-indigo-400/50'
-                  }`}
-                >
-                  <div className="shrink-0">
-                    {solved ? <CheckCircle2 size={20} className="text-green-500" /> : <Circle size={20} className="text-[var(--text-subtle)]" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
-                      <span className={`text-sm font-semibold truncate ${solved ? 'text-green-500 dark:text-green-400 line-through' : 'text-[var(--text)]'}`}>
-                        {q.title}
-                      </span>
-                      <a
-                        href={`https://leetcode.com/problems/${q.slug}/`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0 text-[var(--text-subtle)] hover:text-orange-400 transition-colors"
-                        title="Open on LeetCode"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <ExternalLink size={11} />
-                      </a>
+                <div key={q.id}>
+                  {showTopic && (
+                    <div className="px-3 py-2 text-[11px] font-bold text-[var(--text-subtle)] bg-[var(--bg-muted)] rounded-xl border border-[var(--border)]">
+                      🧩 Topic: <span className="text-[var(--text)]">{topic}</span>
                     </div>
-                    <div className="mt-1">
-                      <DifficultyBadge difficulty={q.difficulty} />
-                    </div>
-                  </div>
-                  <Link
-                    href={`/practice/${q.id}`}
-                    className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
-                      solved
-                        ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30 hover:bg-green-100 dark:hover:bg-green-900/50'
-                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  )}
+                  <div
+                    className={`flex items-center gap-3 p-3 rounded-xl border transition-colors mt-2 ${
+                      solved ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-500/30' : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-indigo-400/50'
                     }`}
                   >
-                    {solved ? <><RotateCcw size={11} /> Revisit</> : <>Solve <ArrowRight size={12} /></>}
-                  </Link>
+                    <div className="shrink-0">
+                      {solved ? <CheckCircle2 size={20} className="text-green-500" /> : <Circle size={20} className="text-[var(--text-subtle)]" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                        <span className={`text-sm font-semibold truncate ${solved ? 'text-green-500 dark:text-green-400 line-through' : 'text-[var(--text)]'}`}>
+                          {q.title}
+                        </span>
+                        <a
+                          href={`https://leetcode.com/problems/${q.slug}/`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 text-[var(--text-subtle)] hover:text-orange-400 transition-colors"
+                          title="Open on LeetCode"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <ExternalLink size={11} />
+                        </a>
+                      </div>
+                      <div className="mt-1">
+                        <DifficultyBadge difficulty={q.difficulty} />
+                      </div>
+                    </div>
+                    <Link
+                      href={`/practice/${q.id}`}
+                      className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                        solved
+                          ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30 hover:bg-green-100 dark:hover:bg-green-900/50'
+                          : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                      }`}
+                    >
+                      {solved ? <><RotateCcw size={11} /> Revisit</> : <>Solve <ArrowRight size={12} /></>}
+                    </Link>
+                  </div>
                 </div>
               )
             })}

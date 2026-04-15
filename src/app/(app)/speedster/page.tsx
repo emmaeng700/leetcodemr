@@ -478,22 +478,33 @@ export default function SpeedsterPage() {
           const q = qMap[qid]
           if (!q) return null
           const solved = !!progress[String(qid)]?.solved
+          const topic = patternMap?.[qid] ?? null
+          const prevId = i > 0 ? currentDayFiltered[i - 1] : null
+          const prevTopic = prevId != null ? (patternMap?.[prevId] ?? null) : null
+          const showTopic = !!topic && (i === 0 || topic !== prevTopic)
           return (
-            <Link key={qid} href={`/speedster/${qid}`}
-              className={`flex items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 transition-colors group ${i !== 0 ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
-              <div className="shrink-0">
-                {solved
-                  ? <CheckCircle size={18} className="text-green-500" />
-                  : <Circle size={18} className="text-gray-200 group-hover:text-yellow-300 transition-colors" />}
-              </div>
-              <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
-              <span className={`flex-1 text-sm font-semibold truncate ${solved ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
-              <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
-                Runs {runs[String(q.id)] ?? 0}/4
-              </span>
-              <DifficultyBadge difficulty={q.difficulty} />
-              <ChevronRight size={14} className="text-gray-300 group-hover:text-yellow-400 shrink-0 transition-colors" />
-            </Link>
+            <div key={qid}>
+              {showTopic && (
+                <div className={`px-3 sm:px-5 py-2 text-[11px] font-bold text-gray-500 bg-gray-50 ${i !== 0 ? 'border-t border-gray-100' : ''}`}>
+                  🧩 Topic: <span className="text-gray-700">{topic}</span>
+                </div>
+              )}
+              <Link href={`/speedster/${qid}`}
+                className={`flex items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 transition-colors group ${i !== 0 || showTopic ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
+                <div className="shrink-0">
+                  {solved
+                    ? <CheckCircle size={18} className="text-green-500" />
+                    : <Circle size={18} className="text-gray-200 group-hover:text-yellow-300 transition-colors" />}
+                </div>
+                <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
+                <span className={`flex-1 text-sm font-semibold truncate ${solved ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
+                <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
+                  Runs {runs[String(q.id)] ?? 0}/4
+                </span>
+                <DifficultyBadge difficulty={q.difficulty} />
+                <ChevronRight size={14} className="text-gray-300 group-hover:text-yellow-400 shrink-0 transition-colors" />
+              </Link>
+            </div>
           )
         })}
       </div>

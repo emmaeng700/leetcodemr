@@ -13,6 +13,7 @@ import LeetCodeEditor from '@/components/LeetCodeEditor'
 import QuestionImage from '@/components/QuestionImage'
 import toast from 'react-hot-toast'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
+import { getPatternForQuestion } from '@/lib/patternUtils'
 
 interface Question {
   id: number
@@ -107,6 +108,14 @@ export default function QuestionPage() {
             <div className="flex flex-wrap items-center gap-1.5 mb-1">
               <span className="text-xs text-gray-400 font-mono">#{question.id}</span>
               <DifficultyBadge difficulty={question.difficulty} />
+              {(() => {
+                const topic = getPatternForQuestion(question.tags || [])
+                return topic ? (
+                  <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                    🧩 {topic}
+                  </span>
+                ) : null
+              })()}
               {(question.source || []).map(s => (
                 <span key={s} className="text-xs bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100">
                   {s}
