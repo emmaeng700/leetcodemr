@@ -383,7 +383,7 @@ export default function LineGamePage() {
   const [loading, setLoading] = useState(true)
   const [planOrder, setPlanOrder] = useState<number[] | null>(null)
   const [starredIds, setStarredIds] = useState<Set<number>>(new Set())
-  const [starredOnly, setStarredOnly] = useState(false)
+  const [starredPage, setStarredPage] = useState(0)
   const [idx, setIdx] = useState(0)
   const [sessionScore, setSessionScore] = useState(0)
   const [showList, setShowList] = useState(false)
@@ -471,14 +471,21 @@ export default function LineGamePage() {
     return ordered.filter((q) => {
       const py = q.python_solution
       if (!py || !py.trim()) return false
-      if (buildBlankPicks(py) === null) return false
-      if (starredOnly && !starredIds.has(q.id)) return false
-      return true
+      return buildBlankPicks(py) !== null
     })
-  }, [ordered, starredOnly, starredIds])
+  }, [ordered])
 
-  // Reset to first card when switching modes
-  useEffect(() => { setIdx(0) }, [starredOnly])
+  const starredPlayable = useMemo(
+    () => playable.filter(q => starredIds.has(q.id)),
+    [playable, starredIds]
+  )
+
+  const STARRED_PAGE_SIZE = 7
+  const starredPageCount = Math.ceil(starredPlayable.length / STARRED_PAGE_SIZE)
+  const starredPageItems = starredPlayable.slice(
+    starredPage * STARRED_PAGE_SIZE,
+    (starredPage + 1) * STARRED_PAGE_SIZE
+  )
 
   const current = playable[idx] ?? null
   const picks = useMemo(
@@ -628,6 +635,66 @@ export default function LineGamePage() {
         </div>
       </header>
 
+      {starredPlayable.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-yellow-200 bg-yellow-50/60 px-4 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Star size={14} className="fill-yellow-400 text-yellow-400 shrink-0" />
+              <span className="text-sm font-bold text-yellow-800">Starred</span>
+              <span className="text-xs text-yellow-600 font-medium">· {starredPlayable.length} question{starredPlayable.length !== 1 ? 's' : ''}</span>
+            </div>
+            {starredPageCount > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setStarredPage(p => Math.max(0, p - 1))}
+                  disabled={starredPage === 0}
+                  className="p-1 rounded-lg border border-yellow-200 bg-white text-yellow-700 hover:border-yellow-300 disabled:opacity-30 transition-colors"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <span className="text-xs text-yellow-600 font-mono px-1">{starredPage + 1}/{starredPageCount}</span>
+                <button
+                  type="button"
+                  onClick={() => setStarredPage(p => Math.min(starredPageCount - 1, p + 1))}
+                  disabled={starredPage === starredPageCount - 1}
+                  className="p-1 rounded-lg border border-yellow-200 bg-white text-yellow-700 hover:border-yellow-300 disabled:opacity-30 transition-colors"
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {starredPageItems.map(q => {
+              const m = mastery[q.id]
+              const isActive = playable[idx]?.id === q.id
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => setIdx(playable.findIndex(p => p.id === q.id))}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-colors ${
+                    isActive
+                      ? 'border-yellow-400 bg-yellow-400/20 ring-1 ring-yellow-400/40'
+                      : 'border-yellow-200 bg-white hover:border-yellow-300 hover:bg-yellow-50'
+                  }`}
+                >
+                  <span className="text-xs font-mono text-yellow-600 shrink-0">#{q.id}</span>
+                  <span className="text-xs font-semibold text-gray-700 flex-1 truncate">{q.title}</span>
+                  <span className={`text-[10px] font-bold shrink-0 ${q.difficulty === 'Easy' ? 'text-green-600' : q.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
+                    {q.difficulty[0]}
+                  </span>
+                  {m === 'mastered' && <span title="Mastered" className="shrink-0">🔥</span>}
+                  {m === 'solved' && <span title="Solved" className="text-green-600 shrink-0 text-xs">✓</span>}
+                  {m === 'revealed' && <span title="Needs work" className="shrink-0">👀</span>}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="mb-6">
         <div className="flex justify-between text-xs text-gray-500 mb-1">
           <span>
@@ -643,22 +710,8 @@ export default function LineGamePage() {
         </div>
       </div>
 
-      <div className="mb-4 flex justify-between gap-2 overflow-visible flex-wrap">
-        {starredIds.size > 0 && (
-          <button
-            type="button"
-            onClick={() => setStarredOnly(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition-colors ${
-              starredOnly
-                ? 'bg-yellow-400 border-yellow-400 text-white'
-                : 'bg-white border-gray-200 text-gray-600 hover:border-yellow-300 hover:text-yellow-600'
-            }`}
-          >
-            <Star size={14} className={starredOnly ? 'fill-white text-white' : 'fill-yellow-400 text-yellow-400'} />
-            Starred{starredOnly ? ` (${playable.length})` : ` · ${starredIds.size}`}
-          </button>
-        )}
-        <div className="flex gap-2 ml-auto">
+      <div className="mb-4 flex justify-end gap-2 overflow-visible">
+        <div className="flex gap-2">
         <button
           type="button"
           onClick={() => go(-1)}
@@ -696,6 +749,7 @@ export default function LineGamePage() {
         </button>
         </div>
       </div>
+
 
       {current && picks && (
         <LineGameQuestionPanel
