@@ -36,12 +36,52 @@ export default function WhiteboardNotes({ storageKey, className = '', minVh = 20
   const lastPtRef = useRef<{ x: number; y: number } | null>(null)
   const activePtrIdRef = useRef<number | null>(null)
   const savingTimerRef = useRef<number | null>(null)
+  const undoStackRef = useRef<string[]>([])
+  const redoStackRef = useRef<string[]>([])
+  const MAX_HISTORY = 40
 
   const [tool, setTool] = useState<Tool>('pen')
   const [baseSize, setBaseSize] = useState(4)
   const [savedAt, setSavedAt] = useState<number | null>(null)
 
   const color = useMemo(() => (tool === 'pen' ? '#111827' : '#000000'), [tool])
+
+  const pushHistory = useCallback(() => {
+    const c = canvasRef.current
+    if (!c) return
+    if (undoStackRef.current.length >= MAX_HISTORY) undoStackRef.current.shift()
+    undoStackRef.current.push(c.toDataURL('image/png'))
+    redoStackRef.current = []
+  }, [])
+
+  const restoreSnapshot = useCallback((dataUrl: string) => {
+    const canvas = canvasRef.current
+    const ctx = ctxRef.current
+    if (!canvas || !ctx) return
+    const cssW = parseFloat(canvas.style.width)
+    const cssH = parseFloat(canvas.style.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, cssW, cssH)
+    const img = new Image()
+    img.onload = () => { try { ctx.drawImage(img, 0, 0, cssW, cssH) } catch { /* ignore */ } }
+    img.src = dataUrl
+  }, [])
+
+  const undo = useCallback(() => {
+    if (!undoStackRef.current.length) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    redoStackRef.current.push(canvas.toDataURL('image/png'))
+    restoreSnapshot(undoStackRef.current.pop()!)
+  }, [restoreSnapshot])
+
+  const redo = useCallback(() => {
+    if (!redoStackRef.current.length) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    undoStackRef.current.push(canvas.toDataURL('image/png'))
+    restoreSnapshot(redoStackRef.current.pop()!)
+  }, [restoreSnapshot])
 
   const scheduleSave = useCallback(() => {
     if (savingTimerRef.current) window.clearTimeout(savingTimerRef.current)
@@ -121,10 +161,21 @@ export default function WhiteboardNotes({ storageKey, className = '', minVh = 20
     }
   }, [])
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return
+      if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo() }
+      if (e.key === 'z' && e.shiftKey)  { e.preventDefault(); redo() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [undo, redo])
+
   const clearBoard = () => {
     const wrap = wrapRef.current
     const ctx = ctxRef.current
     if (!wrap || !ctx) return
+    pushHistory()
     const rect = wrap.getBoundingClientRect()
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, rect.width, rect.height)
@@ -147,6 +198,7 @@ export default function WhiteboardNotes({ storageKey, className = '', minVh = 20
     if (activePtrIdRef.current != null) return
     const canvas = canvasRef.current
     if (!canvas) return
+    pushHistory()
     activePtrIdRef.current = e.pointerId
     canvas.setPointerCapture(e.pointerId)
     const rect = canvas.getBoundingClientRect()
