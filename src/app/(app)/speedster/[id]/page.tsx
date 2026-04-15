@@ -7,8 +7,9 @@ import { useParams, useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
-import { ArrowLeft, ArrowRight, BookOpen, Code2, ExternalLink, Loader2, Trophy, Gauge, List, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, Code2, ExternalLink, Loader2, Trophy, Gauge, List, Sparkles, StickyNote } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
+import WhiteboardNotes from '@/components/WhiteboardNotes'
 import { addMasteryRunEvent, getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
@@ -52,7 +53,7 @@ export default function SpeedsterQuestionPage() {
   const [allQuestions, setAllQuestions] = useState<Question[]>([])
   const [planOrder, setPlanOrder] = useState<number[]>([])
   const [showList, setShowList] = useState(false)
-  const [leftTab, setLeftTab] = useState<'description' | 'solution' | 'best' | 'accepted'>('description')
+  const [leftTab, setLeftTab] = useState<'description' | 'solution' | 'notes' | 'best' | 'accepted'>('description')
   const [mobilePanel, setMobilePanel] = useState<'description' | 'editor'>('description')
 
   const [lcContent, setLcContent] = useState<string | null>(null)
@@ -254,6 +255,12 @@ export default function SpeedsterQuestionPage() {
               </button>
             )}
             {question && (
+              <button onClick={() => setLeftTab('notes')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'notes' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                <StickyNote size={12} /> Notes
+              </button>
+            )}
+            {question && (
               <button onClick={() => setLeftTab('accepted')}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                 <Trophy size={12} /> My Solutions
@@ -303,6 +310,9 @@ export default function SpeedsterQuestionPage() {
             )}
             {leftTab === 'solution' && question && (
               <CodePanel pythonCode={question.python_solution} cppCode={question.cpp_solution} />
+            )}
+            {leftTab === 'notes' && question && (
+              <WhiteboardNotes storageKey={`lm_whiteboard:${question.id}:${question.slug}`} />
             )}
             {leftTab === 'best' && question && (
               <BestAnswersPanel questionId={question.id} slug={question.slug} active={leftTab === 'best'} />

@@ -11,7 +11,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Brain, CheckCircle, Star,
   BookOpen, List, Code2, ExternalLink, Loader2, FileText,
-  Copy, Check, Sparkles,
+  Copy, Check, Sparkles, StickyNote,
 } from 'lucide-react'
 import { getProgress, updateProgress, completeReview, failReview, getStudyPlan } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
@@ -24,6 +24,7 @@ import CodePanel from '@/components/CodePanel'
 import StatusRadio from '@/components/StatusRadio'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
+import WhiteboardNotes from '@/components/WhiteboardNotes'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import LearnAcSubmitTable from '@/components/learn/LearnAcSubmitTable'
 
@@ -119,7 +120,7 @@ function LearnInner() {
   const [saving, setSaving]         = useState(false)
   const [showList, setShowList]     = useState(false)
   const [reviewDone, setReviewDone] = useState(false)
-  const [leftTab, setLeftTab]       = useState<'description' | 'solution' | 'best' | 'accepted'>('description')
+  const [leftTab, setLeftTab]       = useState<'description' | 'solution' | 'notes' | 'best' | 'accepted'>('description')
   // IMPORTANT: don't read localStorage during render (causes hydration mismatch).
   const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(null)
   const [filterDiff, setFilterDiff]         = useState(initDiff)
@@ -764,6 +765,10 @@ function LearnInner() {
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                 <Sparkles size={12} /> Best answers
               </button>
+              <button onClick={() => setLeftTab('notes')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'notes' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                <StickyNote size={12} /> Notes
+              </button>
               <button onClick={() => setLeftTab('accepted')}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                 🏆 My Solutions
@@ -1002,6 +1007,11 @@ function LearnInner() {
               {leftTab === 'best' && (
                 <div className="p-4 h-full">
                   <BestAnswersPanel questionId={q.id} slug={q.slug} active={leftTab === 'best'} />
+                </div>
+              )}
+              {leftTab === 'notes' && (
+                <div className="p-4 h-full">
+                  <WhiteboardNotes storageKey={`lm_whiteboard:${q.id}:${q.slug}`} />
                 </div>
               )}
               {leftTab === 'accepted' && (

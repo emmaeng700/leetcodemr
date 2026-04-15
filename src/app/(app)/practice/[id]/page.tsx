@@ -2,8 +2,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle, Clock, Code2, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Clock, Code2, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, StickyNote } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
+import WhiteboardNotes from '@/components/WhiteboardNotes'
 import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan } from '@/lib/db'
 import { formatTime, isDue, stripScripts} from '@/lib/utils'
 import { getPatternForQuestion } from '@/lib/patternUtils'
@@ -64,7 +65,7 @@ export default function PracticePage() {
   const [solved, setSolved] = useState(false)
   const [nextReview, setNextReview] = useState<string | null>(null)
   const [reviewDone, setReviewDone] = useState(false)
-  const [leftTab, setLeftTab] = useState<'description' | 'solution' | 'best' | 'accepted'>('description')
+  const [leftTab, setLeftTab] = useState<'description' | 'solution' | 'notes' | 'best' | 'accepted'>('description')
 
   const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.slug, leftTab === 'accepted')
   const [mobilePanel, setMobilePanel] = useState<'description' | 'editor'>('description')
@@ -410,6 +411,18 @@ export default function PracticePage() {
             )}
             {question && (
               <button
+                onClick={() => setLeftTab('notes')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${
+                  leftTab === 'notes'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
+                }`}
+              >
+                <StickyNote size={12} /> Notes
+              </button>
+            )}
+            {question && (
+              <button
                 onClick={() => setLeftTab('accepted')}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${
                   leftTab === 'accepted'
@@ -478,6 +491,10 @@ export default function PracticePage() {
 
             {leftTab === 'solution' && question && (
               <CodePanel pythonCode={question.python_solution} cppCode={question.cpp_solution} />
+            )}
+
+            {leftTab === 'notes' && question && (
+              <WhiteboardNotes storageKey={`lm_whiteboard:${question.id}:${question.slug}`} />
             )}
 
             {leftTab === 'best' && question && (
