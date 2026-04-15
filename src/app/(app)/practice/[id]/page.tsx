@@ -378,7 +378,7 @@ export default function PracticePage() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* LEFT — Question description */}
-        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-[var(--border)] bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
+        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] lg:w-[36%] xl:w-[32%] md:shrink-0 border-r border-[var(--border)] bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
           {/* Tab bar */}
           <div className="flex overflow-x-auto border-b border-[var(--border)] bg-[var(--bg-card)]/80 shrink-0 items-center scrollbar-none">
             <button

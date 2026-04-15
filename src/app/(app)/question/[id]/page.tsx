@@ -92,7 +92,7 @@ export default function QuestionPage() {
   if (!question) return <div className="text-center py-32 text-red-400 text-sm">Question not found.</div>
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
+    <div className="w-full px-4 py-6">
       {/* Back */}
       <button
         onClick={() => router.back()}
