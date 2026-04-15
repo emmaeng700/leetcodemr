@@ -410,11 +410,16 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
           <h2 className="text-sm font-bold text-[var(--text)] flex items-center gap-1.5">
             <Calendar size={14} className="text-indigo-500" /> Today — Day {activeDayIndex + 1}
           </h2>
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-[var(--text-subtle)] hidden sm:inline">
+              build {process.env.NEXT_PUBLIC_COMMIT_SHA}
+            </span>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
             allDone ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'
             : doneCnt > 0 ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400'
             : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400'
           }`}>{doneCnt}/{dayQs.length} done</span>
+          </div>
         </div>
         <div className="space-y-2">
           {dayQs.map((q, idx) => {
