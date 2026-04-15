@@ -261,6 +261,7 @@ export async function GET(req: NextRequest) {
     .eq('user_id', USER_ID)
     .eq('last_reviewed', todayStr)
   const reviewsSatisfied = dueReviews.length === 0 || (reviewsDoneToday ?? 0) >= 5
+  const dueReviewsForEmail = reviewsSatisfied ? [] : dueReviews
 
   const appUrl = 'https://leetcodemr.vercel.app'
   const hour = nowHourCT()
@@ -275,11 +276,12 @@ export async function GET(req: NextRequest) {
 
   // ── Plan calendar ended: SR-only reminders (lighter email) ─────────────────
   if (diffDays >= totalDays) {
-    if (dueReviews.length === 0) {
+    // If SR is satisfied (no due, or ≥5 completed), stop emailing for the day.
+    if (reviewsSatisfied) {
       return NextResponse.json({ skipped: 'Plan calendar ended; no SR due' })
     }
 
-    const n = dueReviews.length
+    const n = dueReviewsForEmail.length
     const srSubjects: Record<string, string> = {
       morning: `🧠 ${n} spaced-rep review${n !== 1 ? 's' : ''} due (plan done)`,
       afternoon: `🧠 Reviews due today — ${n} question${n !== 1 ? 's' : ''}`,
@@ -303,7 +305,7 @@ export async function GET(req: NextRequest) {
       <p style="color:#4b5563;margin:0 0 20px;font-size:14px;line-height:1.5;">
         Your study-plan days are complete, but <strong>${n}</strong> spaced-repetition review${n !== 1 ? 's are' : ' is'} due today. Knock them out to stay sharp.
       </p>
-      ${buildSrBlockHtml(dueReviews, qMap, appUrl)}
+      ${buildSrBlockHtml(dueReviewsForEmail, qMap, appUrl)}
     </div>
 
     <div style="padding:16px 32px;background:#f9fafb;text-align:center;border-top:1px solid #f3f4f6;">
@@ -407,8 +409,8 @@ export async function GET(req: NextRequest) {
   }).join('')
 
   const srSectionWhenMixed =
-    dueReviews.length > 0
-      ? buildSrBlockHtml(dueReviews, qMap, appUrl, { sectionMarginTop: '28px' })
+    dueReviewsForEmail.length > 0
+      ? buildSrBlockHtml(dueReviewsForEmail, qMap, appUrl, { sectionMarginTop: '28px' })
       : `
       <div style="margin-top:28px;border-top:2px solid #f3f4f6;padding-top:24px;">
         <div style="display:flex;align-items:center;">
