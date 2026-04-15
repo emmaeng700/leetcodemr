@@ -380,6 +380,9 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     Medium: 'bg-yellow-100 dark:bg-yellow-900/60 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-500/30',
     Hard: 'bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-400 border-red-300 dark:border-red-500/30',
   }
+
+  const todayTopicMap = useMemo(() => buildExclusivePatternMap(questions), [questions])
+
   // ── Today's daily questions ──────────────────────────────────────────────
   const todayDailyCard = (() => {
     if (!planNorm) return null
@@ -414,30 +417,41 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
           }`}>{doneCnt}/{dayQs.length} done</span>
         </div>
         <div className="space-y-2">
-          {dayQs.map(q => {
+          {dayQs.map((q, idx) => {
             const solved = !!progress[String(q.id)]?.solved
+            const topic = todayTopicMap[q.id] ?? 'Other'
+            const prev = idx > 0 ? dayQs[idx - 1] : null
+            const prevTopic = prev ? (todayTopicMap[prev.id] ?? 'Other') : null
+            const showTopic = idx === 0 || topic !== prevTopic
             return (
-              <div key={q.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                solved ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-500/30'
-                : 'bg-[var(--bg-muted)] border-[var(--border)] hover:border-indigo-400/50'
-              }`}>
-                <div className="shrink-0">
-                  {solved ? <CheckCircle2 size={18} className="text-green-500" /> : <CheckCircle size={18} className="text-[var(--text-subtle)]" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
-                    <span className={`text-sm font-semibold truncate ${solved ? 'text-green-500 dark:text-green-400 line-through' : 'text-[var(--text)]'}`}>{q.title}</span>
+              <div key={q.id}>
+                {showTopic && (
+                  <div className="px-3 py-2 text-[11px] font-bold text-[var(--text-subtle)] bg-[var(--bg-muted)] rounded-xl border border-[var(--border)]">
+                    🧩 Topic: <span className="text-[var(--text)]">{topic}</span>
                   </div>
-                  <div className="mt-0.5"><DifficultyBadge difficulty={q.difficulty} /></div>
+                )}
+                <div className={`flex items-center gap-3 p-3 rounded-xl border transition-colors mt-2 ${
+                  solved ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-500/30'
+                  : 'bg-[var(--bg-muted)] border-[var(--border)] hover:border-indigo-400/50'
+                }`}>
+                  <div className="shrink-0">
+                    {solved ? <CheckCircle2 size={18} className="text-green-500" /> : <CheckCircle size={18} className="text-[var(--text-subtle)]" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                      <span className={`text-sm font-semibold truncate ${solved ? 'text-green-500 dark:text-green-400 line-through' : 'text-[var(--text)]'}`}>{q.title}</span>
+                    </div>
+                    <div className="mt-0.5"><DifficultyBadge difficulty={q.difficulty} /></div>
+                  </div>
+                  <Link href={`/practice/${q.id}`}
+                    className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                      solved ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    }`}>
+                    {solved ? <><RotateCcw size={11} /> Revisit</> : <>Solve <ChevronRight size={12} /></>}
+                  </Link>
                 </div>
-                <Link href={`/practice/${q.id}`}
-                  className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
-                    solved ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30'
-                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                  }`}>
-                  {solved ? <><RotateCcw size={11} /> Revisit</> : <>Solve <ChevronRight size={12} /></>}
-                </Link>
               </div>
             )
           })}
