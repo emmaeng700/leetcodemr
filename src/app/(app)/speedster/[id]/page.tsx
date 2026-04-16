@@ -53,15 +53,14 @@ export default function SpeedsterQuestionPage() {
   const [planOrder, setPlanOrder] = useState<number[]>([])
   const [showList, setShowList] = useState(false)
   const [starred, setStarred] = useState(false)
-  const [leftTab, setLeftTab] = useState<'description' | 'notes' | 'best' | 'accepted'>('description')
-  const [mobilePanel, setMobilePanel] = useState<'description' | 'editor'>('description')
+  const [activeTab, setActiveTab] = useState<'description' | 'best' | 'notes' | 'accepted' | 'editor'>('description')
 
   const [lcContent, setLcContent] = useState<string | null>(null)
   const [lcLoading, setLcLoading] = useState(false)
   const [lcFailed, setLcFailed] = useState(false)
   const [isPremium, setIsPremium] = useState(false)
 
-  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.slug, leftTab === 'accepted')
+  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.slug, activeTab === 'accepted')
 
   const listWrapRef = useRef<HTMLDivElement>(null)
   useClickOutside(listWrapRef, () => setShowList(false), showList)
@@ -232,51 +231,44 @@ export default function SpeedsterQuestionPage() {
         </div>
       ) : null })()}
 
-      {/* Mobile panel tabs */}
-      <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
-        <button onClick={() => setMobilePanel('description')}
-          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'description' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-400'}`}>
-          📖 Description
+      {/* Unified tab bar */}
+      <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
+        <button onClick={() => setActiveTab('description')}
+          className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'description' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+          <BookOpen size={12} /> Description
+          {lcLoading && <Loader2 size={10} className="animate-spin text-[var(--text-muted)]" />}
         </button>
-        <button onClick={() => setMobilePanel('editor')}
-          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'editor' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-400'}`}>
+        {question && (
+          <button onClick={() => setActiveTab('best')}
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+            <Sparkles size={12} /> Best answers
+          </button>
+        )}
+        {question && (
+          <button onClick={() => setActiveTab('notes')}
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'notes' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+            <StickyNote size={12} /> Notes
+          </button>
+        )}
+        {question && (
+          <button onClick={() => setActiveTab('accepted')}
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+            <Trophy size={12} /> My Solutions
+          </button>
+        )}
+        <button onClick={() => setActiveTab('editor')}
+          className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'editor' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
           💻 Editor
         </button>
       </div>
 
-      {/* Split layout */}
+      {/* Content */}
       <div className="flex flex-col flex-1 overflow-hidden">
 
-        {/* LEFT */}
-        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} flex-col w-full flex-1 bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
-          <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 items-center">
-            <button onClick={() => setLeftTab('description')}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'description' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
-              <BookOpen size={12} /> Description
-              {lcLoading && <Loader2 size={10} className="animate-spin text-gray-300 ml-1" />}
-            </button>
-            {question && (
-              <button onClick={() => setLeftTab('best')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
-                <Sparkles size={12} /> Best answers
-              </button>
-            )}
-            {question && (
-              <button onClick={() => setLeftTab('notes')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'notes' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
-                <StickyNote size={12} /> Notes
-              </button>
-            )}
-            {question && (
-              <button onClick={() => setLeftTab('accepted')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${leftTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
-                <Trophy size={12} /> My Solutions
-              </button>
-            )}
-          </div>
-
+        {/* Description panel */}
+        <div className={`${activeTab !== 'editor' ? 'flex' : 'hidden'} flex-col w-full flex-1 bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
           <div className="flex-1 overflow-y-auto p-4">
-            {leftTab === 'description' && (
+            {activeTab === 'description' && (
               <>
                 {question && (question.tags || []).length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-4">
@@ -315,13 +307,13 @@ export default function SpeedsterQuestionPage() {
                 )}
               </>
             )}
-            {leftTab === 'notes' && question && (
+            {activeTab === 'notes' && question && (
               <WhiteboardNotes storageKey={`lm_whiteboard:${question.id}:${question.slug}`} />
             )}
-            {leftTab === 'best' && question && (
-              <BestAnswersPanel questionId={question.id} slug={question.slug} active={leftTab === 'best'} />
+            {activeTab === 'best' && question && (
+              <BestAnswersPanel questionId={question.id} slug={question.slug} active={activeTab === 'best'} />
             )}
-            {leftTab === 'accepted' && (
+            {activeTab === 'accepted' && (
               <AcceptedSolutions
                 submissions={submissions} loading={subsLoading} selectedSub={selectedSub}
                 subCodeLoading={subCodeLoading} copied={copiedSub}
@@ -332,8 +324,8 @@ export default function SpeedsterQuestionPage() {
 
         </div>
 
-        {/* RIGHT — editor */}
-        <div className={`${mobilePanel === 'editor' ? 'flex' : 'hidden'} w-full flex-1 min-h-0 overflow-x-hidden`}>
+        {/* Editor panel */}
+        <div className={`${activeTab === 'editor' ? 'flex' : 'hidden'} w-full flex-1 min-h-0 overflow-x-hidden`}>
           {question ? (
             <LeetCodeEditor
               appQuestionId={question.id}
