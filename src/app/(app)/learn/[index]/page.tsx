@@ -26,6 +26,7 @@ import BestAnswersPanel from '@/components/BestAnswersPanel'
 import WhiteboardNotes from '@/components/WhiteboardNotes'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import LearnAcSubmitTable from '@/components/learn/LearnAcSubmitTable'
+import { CODE_HIGHLIGHT_TOKEN_CSS } from '@/lib/codeHighlightTheme'
 
 hljs.registerLanguage('python', pythonLang)
 hljs.registerLanguage('cpp', cppLang)
@@ -35,11 +36,10 @@ function EditorialCodeBlock({ code, lang }: { code: string; lang: string }) {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    if (codeRef.current && code && (lang === 'python' || lang === 'cpp')) {
-      codeRef.current.removeAttribute('data-highlighted')
-      codeRef.current.textContent = code
-      hljs.highlightElement(codeRef.current)
-    }
+    if (!codeRef.current) return
+    codeRef.current.removeAttribute('data-highlighted')
+    codeRef.current.textContent = code || ''
+    if (code && (lang === 'python' || lang === 'cpp')) hljs.highlightElement(codeRef.current)
   }, [code, lang])
 
   const copy = async () => {
@@ -49,7 +49,11 @@ function EditorialCodeBlock({ code, lang }: { code: string; lang: string }) {
   }
 
   return (
-    <div className="rounded-xl overflow-hidden border border-gray-700 bg-[#282c34] my-4">
+    <div className="learn-editorial-hljs rounded-xl overflow-hidden border border-gray-700 bg-[#282c34] my-4">
+      <style>{`
+        .learn-editorial-hljs .hljs { background: #282c34; color: #abb2bf; }
+        ${CODE_HIGHLIGHT_TOKEN_CSS}
+      `}</style>
       <div className="flex items-center justify-between px-4 py-2 bg-[#21252b] border-b border-gray-700">
         <span className="text-xs font-semibold text-gray-400">{lang === 'cpp' ? 'C++' : lang === 'python' ? 'Python' : lang}</span>
         <button onClick={copy} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors">
@@ -59,7 +63,7 @@ function EditorialCodeBlock({ code, lang }: { code: string; lang: string }) {
       </div>
       <div className="overflow-x-auto">
         <pre className="p-4 text-[12px] leading-relaxed m-0 bg-[#282c34]">
-          <code ref={codeRef} className={`language-${lang}`}>{code}</code>
+          <code ref={codeRef} className={`hljs language-${lang}`} />
         </pre>
       </div>
     </div>
