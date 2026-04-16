@@ -1,46 +1,22 @@
 'use client'
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect } from 'react'
 
-type Theme = 'dark' | 'light'
-
-const ThemeCtx = createContext<{ theme: Theme; toggle: () => void }>({
-  theme: 'dark',
-  toggle: () => {},
-})
+const ThemeCtx = createContext({ theme: 'light' as const })
 
 export function useTheme() {
   return useContext(ThemeCtx)
 }
 
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark')
-
-  // On mount, read persisted preference (html class already set by inline script)
+  // Force light mode: remove any stale dark class and lock to light
   useEffect(() => {
-    const stored = localStorage.getItem('theme') as Theme | null
-    const resolved: Theme = stored === 'light' ? 'light' : 'dark'
-    setTheme(resolved)
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+    localStorage.setItem('theme', 'light')
   }, [])
 
-  // Keep <html> class + localStorage in sync
-  useEffect(() => {
-    const root = document.documentElement
-    if (theme === 'dark') {
-      root.classList.add('dark')
-      root.classList.remove('light')
-    } else {
-      root.classList.remove('dark')
-      root.classList.add('light')
-    }
-    localStorage.setItem('theme', theme)
-  }, [theme])
-
-  function toggle() {
-    setTheme(t => (t === 'dark' ? 'light' : 'dark'))
-  }
-
   return (
-    <ThemeCtx.Provider value={{ theme, toggle }}>
+    <ThemeCtx.Provider value={{ theme: 'light' }}>
       {children}
     </ThemeCtx.Provider>
   )

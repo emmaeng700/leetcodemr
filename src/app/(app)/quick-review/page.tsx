@@ -324,12 +324,12 @@ export default function QuickReviewPage() {
           }`}>
             <div className={`px-5 py-3 border-b flex items-center justify-between ${
               isQuestion
-                ? urgent ? 'bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-500/30' : 'bg-indigo-50 border-indigo-100 dark:bg-indigo-950/40 dark:border-indigo-500/30'
-                : urgent ? 'bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-500/30' : 'bg-green-50 border-green-100 dark:bg-green-950/40 dark:border-green-500/30'
+                ? urgent ? 'bg-red-50 border-red-200  ' : 'bg-indigo-50 border-indigo-100  '
+                : urgent ? 'bg-red-50 border-red-200  ' : 'bg-green-50 border-green-100  '
             }`}>
               <div className="flex items-center gap-2 min-w-0">
                 <span className={`text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                  isQuestion ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-300'
+                  isQuestion ? 'bg-indigo-100 text-indigo-600  ' : 'bg-green-100 text-green-600  '
                 }`}>
                   {isQuestion ? '📖 Question' : '💡 Solution'}
                 </span>

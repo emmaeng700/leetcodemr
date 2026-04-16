@@ -23,17 +23,17 @@ function daysUntil(nextReview: string) {
 }
 
 const STATUS_STYLE: Record<string, string> = {
-  mastered: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400 border-green-300 dark:border-green-500/40',
-  revised:  'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-500/40',
-  reviewed: 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-500/40',
-  learnt:   'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-500/40',
+  mastered: 'bg-green-100  text-green-700  border-green-300 ',
+  revised:  'bg-orange-100  text-orange-700  border-orange-300 ',
+  reviewed: 'bg-yellow-100  text-yellow-700  border-yellow-300 ',
+  learnt:   'bg-blue-100  text-blue-700  border-blue-300 ',
 }
 
 const STATUS_META: Record<string, { bg: string; text: string; label: string; emoji: string }> = {
-  learnt:   { bg: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-500/30',    text: 'text-blue-600 dark:text-blue-400',   label: 'Hard for me', emoji: '📘' },
-  reviewed: { bg: 'bg-yellow-50 dark:bg-yellow-950/40 border-yellow-200 dark:border-yellow-500/30', text: 'text-yellow-600 dark:text-yellow-400', label: 'Getting there', emoji: '📙' },
-  revised:  { bg: 'bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-500/30', text: 'text-orange-600 dark:text-orange-400', label: 'Easy for me', emoji: '📒' },
-  mastered: { bg: 'bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-500/30',   text: 'text-green-600 dark:text-green-400',  label: 'Mastered', emoji: '📗' },
+  learnt:   { bg: 'bg-blue-50  border-blue-200 ',    text: 'text-blue-600 ',   label: 'Hard for me', emoji: '📘' },
+  reviewed: { bg: 'bg-yellow-50  border-yellow-200 ', text: 'text-yellow-600 ', label: 'Getting there', emoji: '📙' },
+  revised:  { bg: 'bg-orange-50  border-orange-200 ', text: 'text-orange-600 ', label: 'Easy for me', emoji: '📒' },
+  mastered: { bg: 'bg-green-50  border-green-200 ',   text: 'text-green-600 ',  label: 'Mastered', emoji: '📗' },
 }
 
 const PAGE_SIZE = 5
@@ -261,7 +261,7 @@ export default function ReviewPage() {
         <section className="mb-7">
           <h2 className="text-sm font-bold text-[var(--text)] mb-3 flex items-center gap-2">
             <Flame size={15} className="text-orange-500" /> Due for Review
-            <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-full text-xs border border-orange-200 dark:border-orange-500/30">
+            <span className="px-2 py-0.5 bg-orange-100  text-orange-600  rounded-full text-xs border border-orange-200 ">
               {due.length}/{getDailyReviewCapChicago()}
             </span>
           </h2>
@@ -270,11 +270,11 @@ export default function ReviewPage() {
               <div
                 key={q.id}
                 onClick={() => router.push(`/practice/${q.id}`)}
-                className="flex items-center justify-between gap-2 flex-wrap bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-xl px-4 py-3 cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all group"
+                className="flex items-center justify-between gap-2 flex-wrap bg-indigo-50  border border-indigo-200  rounded-xl px-4 py-3 cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all group"
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
-                  <span className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{q.title}</span>
+                  <span className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-600 ">{q.title}</span>
                   <DifficultyBadge difficulty={q.difficulty} />
                   {q.p.status && (
                     <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border hidden sm:inline ${STATUS_STYLE[q.p.status] || ''}`}>
@@ -300,11 +300,11 @@ export default function ReviewPage() {
       )}
 
       {due.length === 0 && inSR.length > 0 && (
-        <div className="mb-7 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-500/30 rounded-xl px-5 py-4 flex items-center gap-3">
+        <div className="mb-7 bg-green-50  border border-green-200  rounded-xl px-5 py-4 flex items-center gap-3">
           <CheckCircle size={18} className="text-green-500 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-green-700 dark:text-green-400">All caught up! 🎉</p>
-            <p className="text-xs text-green-600 dark:text-green-500">No reviews due. Check back for your next scheduled review.</p>
+            <p className="text-sm font-semibold text-green-700 ">All caught up! 🎉</p>
+            <p className="text-xs text-green-600 ">No reviews due. Check back for your next scheduled review.</p>
           </div>
         </div>
       )}

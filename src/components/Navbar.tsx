@@ -2,13 +2,11 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useTheme } from '@/components/ThemeProvider'
 import { getOpenQuestionContext } from '@/lib/openQuestionContext'
 import {
   BookOpen, Menu, X, LogOut, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
   Calendar, Info, Timer, Code2, Zap, Gauge, Gamepad2, RefreshCw, Library,
-  Sun, Moon,
 } from 'lucide-react'
 
 const STUDY_LINKS = [
@@ -55,8 +53,6 @@ export default function Navbar() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [answersNavHref, setAnswersNavHref] = useState('/answers')
-  const { theme, toggle } = useTheme()
-  const isDark = theme === 'dark'
   const build = process.env.NEXT_PUBLIC_COMMIT_SHA
 
   useEffect(() => {
@@ -85,15 +81,6 @@ export default function Navbar() {
                 build {build}
               </span>
             )}
-            {/* Theme toggle */}
-            <button
-              onClick={toggle}
-              className="p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-muted)] transition-colors"
-              title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {isDark ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-
             <button
               onClick={handleLogout}
               className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"

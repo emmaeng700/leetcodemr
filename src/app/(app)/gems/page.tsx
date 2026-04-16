@@ -190,10 +190,10 @@ export default function GemsPage() {
             ) : (
               /* BACK */
               <div className="bg-[var(--bg-card)] rounded-2xl border border-indigo-200 shadow-md overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-3 border-b border-indigo-100 bg-indigo-50 dark:bg-indigo-950/40">
+                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-3 border-b border-indigo-100 bg-indigo-50 ">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">{card.emoji}</span>
-                    <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">{card.front}</span>
+                    <span className="text-sm font-bold text-indigo-700 ">{card.front}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {card.type === 'template' && (

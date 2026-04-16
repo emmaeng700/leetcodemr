@@ -1,7 +1,5 @@
 @import "tailwindcss";
 
-/* Enable class-based dark mode for Tailwind v4 */
-@variant dark (&:where(.dark, .dark *));
 
 /* ── Color tokens ────────────────────────────────── */
 :root {
@@ -19,19 +17,6 @@
   --accent-glow:  rgba(99,102,241,0.12);
 }
 
-.dark {
-  --bg:           #0f172a;   /* slate-900                      */
-  --bg-card:      #1e293b;   /* slate-800                      */
-  --bg-input:     #1e293b;   /* slate-800                      */
-  --bg-muted:     #334155;   /* slate-700                      */
-  --border:       rgba(255,255,255,0.10);
-  --border-soft:  rgba(255,255,255,0.05);
-  --text:         #f1f5f9;   /* slate-200                      */
-  --text-muted:   #94a3b8;   /* slate-400                      */
-  --text-subtle:  #64748b;   /* slate-500                      */
-  --shadow:       0 1px 16px rgba(0,0,0,0.50);
-  --accent-glow:  rgba(99,102,241,0.20);
-}
 
 html {
   overscroll-behavior: none;
@@ -143,50 +128,6 @@ body {
 .lc-description td { border: 1px solid rgba(0,0,0,0.12); padding: 6px 10px; text-align: left; }
 .lc-description th { font-weight: 600; background: rgba(0,0,0,0.04); }
 
-/* ── Dark mode — override LeetCode's hardcoded light colours ────────────── */
-.dark .lc-description,
-.dark .lc-description * {
-  color: #e2e8f0;
-}
-.dark .lc-description a { color: #818cf8; }
-.dark .lc-description strong,
-.dark .lc-description b  { color: #f1f5f9; }
-
-.dark .lc-description img {
-  border-color: rgba(255,255,255,0.10) !important;
-}
-.dark .lc-description code {
-  background: #334155 !important;
-  color: #c7d2fe !important;
-  border-radius: 4px;
-  padding: 1px 5px;
-}
-.dark .lc-description pre {
-  background: #0f172a !important;
-  border: 1px solid rgba(255,255,255,0.10) !important;
-  border-radius: 8px;
-  padding: 12px;
-  overflow-x: auto;
-  color: #e2e8f0 !important;
-}
-.dark .lc-description pre code {
-  background: none !important;
-  color: #e2e8f0 !important;
-  padding: 0;
-}
-.dark .lc-description .example-block {
-  background: #1e293b !important;
-  border: 1px solid rgba(255,255,255,0.08) !important;
-}
-/* Kill any leftover inline background-color LeetCode injects */
-.dark .lc-description [style*="background"] {
-  background: #1e293b !important;
-  color: #e2e8f0 !important;
-}
-.dark .lc-description th { background: rgba(255,255,255,0.05) !important; }
-.dark .lc-description th,
-.dark .lc-description td { border-color: rgba(255,255,255,0.10) !important; }
-.dark .lc-table-wrap { border-color: rgba(255,255,255,0.08); }
 
 /* Hide scrollbar on overflow-x-auto filter rows */
 .scrollbar-none {

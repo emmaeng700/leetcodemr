@@ -226,7 +226,7 @@ function AnswersPageInner() {
             questionId={selected.id}
             slug={selected.slug}
             active
-            theme="dark"
+            theme="default"
             layout="full"
             className="text-gray-100"
           />

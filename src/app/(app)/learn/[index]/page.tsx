@@ -640,8 +640,8 @@ function LearnInner() {
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
           <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🧩</span>
           <span className="text-xs font-semibold text-[var(--text)] truncate">{currentPattern.name}</span>
-          {patternPct >= 80 && <span className="text-[10px] font-bold text-green-600 dark:text-green-400 shrink-0">🔥 Crushing it!</span>}
-          {patternPct >= 50 && patternPct < 80 && <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 shrink-0">💪 Solid progress</span>}
+          {patternPct >= 80 && <span className="text-[10px] font-bold text-green-600  shrink-0">🔥 Crushing it!</span>}
+          {patternPct >= 50 && patternPct < 80 && <span className="text-[10px] font-bold text-indigo-500  shrink-0">💪 Solid progress</span>}
           {patternPct > 0 && patternPct < 50 && <span className="text-[10px] font-semibold text-amber-500 shrink-0">📈 Building momentum</span>}
           {patternPct === 0 && <span className="text-[10px] font-semibold text-[var(--text-subtle)] shrink-0">🧩 Fresh territory</span>}
           <div className="flex items-center gap-1.5 ml-auto shrink-0">
@@ -742,7 +742,7 @@ function LearnInner() {
             {lcLoading && <Loader2 size={10} className="animate-spin text-[var(--text-muted)]" />}
           </button>
           <button onClick={() => setActiveTab('editorial')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'editorial' ? 'border-purple-500 text-purple-600 dark:text-purple-400' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'editorial' ? 'border-purple-500 text-purple-600 ' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
             <FileText size={12} /> Editorial
           </button>
           <button onClick={() => setActiveTab('best')}

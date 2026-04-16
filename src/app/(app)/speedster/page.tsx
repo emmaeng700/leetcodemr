@@ -612,7 +612,7 @@ export default function SpeedsterPage() {
                   >
                     <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{it.id}</span>
                     <span className="flex-1 min-w-0 text-sm font-semibold text-[var(--text)] truncate">{q.title}</span>
-                    <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 px-2 py-0.5 rounded-full shrink-0">
+                    <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50  border border-indigo-200  px-2 py-0.5 rounded-full shrink-0">
                       Review #{(it.review_count ?? 0) + 1}
                     </span>
                     <DifficultyBadge difficulty={q.difficulty} />
@@ -699,7 +699,7 @@ export default function SpeedsterPage() {
                       <span className="text-xs text-[var(--text-subtle)] font-mono">#{currentQ.id}</span>
                       <DifficultyBadge difficulty={currentQ.difficulty} />
                       {(currentQ.source || []).map(s => (
-                        <span key={s} className="text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 dark:text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-500/30">{s}</span>
+                        <span key={s} className="text-xs bg-indigo-50  text-indigo-500  px-2 py-0.5 rounded-full border border-indigo-100 ">{s}</span>
                       ))}
                     </div>
                     <div className="flex items-center gap-2">
@@ -715,7 +715,7 @@ export default function SpeedsterPage() {
                         }}
                         style={{ touchAction: 'manipulation' }}
                         className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors ${
-                          visited.has(currentQ.id) ? 'bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400 border-green-300 dark:border-green-500/40' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)] hover:border-green-300 hover:text-green-500'
+                          visited.has(currentQ.id) ? 'bg-green-50  text-green-600  border-green-300 ' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)] hover:border-green-300 hover:text-green-500'
                         }`}
                       >
                         {visited.has(currentQ.id) ? <><CheckCircle size={11} /> Visited</> : <><Circle size={11} /> Mark visited</>}
@@ -751,14 +751,14 @@ export default function SpeedsterPage() {
                 </div>
               ) : (
                 /* BACK */
-                <div className="bg-[var(--bg-card)] rounded-2xl border border-indigo-300 dark:border-indigo-500/50 shadow-md overflow-hidden w-full min-w-0">
-                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-950/40">
+                <div className="bg-[var(--bg-card)] rounded-2xl border border-indigo-300  shadow-md overflow-hidden w-full min-w-0">
+                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-indigo-200  bg-indigo-50 ">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <span className="text-xs text-[var(--text-subtle)] font-mono">#{currentQ.id}</span>
                       <DifficultyBadge difficulty={currentQ.difficulty} />
-                      <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300 truncate">{currentQ.title}</span>
+                      <span className="text-sm font-bold text-indigo-700  truncate">{currentQ.title}</span>
                     </div>
-                    <span className="text-xs text-indigo-400 dark:text-indigo-300 font-medium shrink-0">← Flip back</span>
+                    <span className="text-xs text-indigo-400  font-medium shrink-0">← Flip back</span>
                   </div>
                   <div className="p-4 min-w-0" onClick={e => e.stopPropagation()}>
                     <CodePanel pythonCode={currentQ.python_solution} cppCode={currentQ.cpp_solution} />
@@ -1043,7 +1043,7 @@ export default function SpeedsterPage() {
                       <span className="text-xs text-[var(--text-subtle)] font-mono">#{currentQ.id}</span>
                       <DifficultyBadge difficulty={currentQ.difficulty} />
                       {(currentQ.source || []).map(s => (
-                        <span key={s} className="text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 dark:text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-500/30">{s}</span>
+                        <span key={s} className="text-xs bg-indigo-50  text-indigo-500  px-2 py-0.5 rounded-full border border-indigo-100 ">{s}</span>
                       ))}
                     </div>
                     <span className="text-xs text-[var(--text-subtle)] font-medium">Tap to reveal →</span>
@@ -1076,14 +1076,14 @@ export default function SpeedsterPage() {
                 </div>
               ) : (
                 /* BACK */
-                <div className="bg-[var(--bg-card)] rounded-2xl border border-indigo-300 dark:border-indigo-500/50 shadow-md overflow-hidden w-full min-w-0">
-                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-950/40">
+                <div className="bg-[var(--bg-card)] rounded-2xl border border-indigo-300  shadow-md overflow-hidden w-full min-w-0">
+                  <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-3 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-indigo-200  bg-indigo-50 ">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <span className="text-xs text-[var(--text-subtle)] font-mono">#{currentQ.id}</span>
                       <DifficultyBadge difficulty={currentQ.difficulty} />
-                      <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300 truncate">{currentQ.title}</span>
+                      <span className="text-sm font-bold text-indigo-700  truncate">{currentQ.title}</span>
                     </div>
-                    <span className="text-xs text-indigo-400 dark:text-indigo-300 font-medium shrink-0">← Flip back</span>
+                    <span className="text-xs text-indigo-400  font-medium shrink-0">← Flip back</span>
                   </div>
                   <div className="p-4 min-w-0" onClick={e => e.stopPropagation()}>
                     <CodePanel pythonCode={currentQ.python_solution} cppCode={currentQ.cpp_solution} />

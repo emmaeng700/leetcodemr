@@ -25,15 +25,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* Inline script sets dark/light class before first paint — no flash */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('theme');document.documentElement.classList.add(t==='light'?'light':'dark');}catch(e){}})();`,
-          }}
-        />
-      </head>
+    <html lang="en" className="light">
+      <head />
       <body className={inter.className}>
         <ThemeProvider>
           <SwRegister />

@@ -376,16 +376,16 @@ export default function DailyPage() {
           </div>
 
           {/* Pattern order + start-from picker */}
-          <div className="mt-4 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-500/30 rounded-xl px-3 py-3">
+          <div className="mt-4 bg-violet-50  border border-violet-200  rounded-xl px-3 py-3">
             <div className="flex items-start gap-2 mb-3">
               <span className="text-base shrink-0">🧩</span>
               <div>
-                <p className="text-xs font-bold text-violet-700 dark:text-violet-300">Pattern-First Order</p>
-                <p className="text-xs text-violet-600 dark:text-violet-400/80 leading-snug">Questions are grouped by the 20 core patterns, Easy→Hard within each. Choose which pattern to start from below.</p>
+                <p className="text-xs font-bold text-violet-700 ">Pattern-First Order</p>
+                <p className="text-xs text-violet-600  leading-snug">Questions are grouped by the 20 core patterns, Easy→Hard within each. Choose which pattern to start from below.</p>
               </div>
             </div>
             <div>
-              <p className="text-xs font-semibold text-violet-700 dark:text-violet-300 mb-2">Start from pattern:</p>
+              <p className="text-xs font-semibold text-violet-700  mb-2">Start from pattern:</p>
               <div className="flex flex-wrap gap-1.5">
                 <button
                   onClick={() => setStartFromPattern(null)}
@@ -412,7 +412,7 @@ export default function DailyPage() {
                 ))}
               </div>
               {startFromPattern && (
-                <p className="text-xs text-violet-600 dark:text-violet-400 mt-2 font-medium">
+                <p className="text-xs text-violet-600  mt-2 font-medium">
                   ✓ Plan starts at <strong>{startFromPattern}</strong>, then continues through all remaining patterns.
                 </p>
               )}
@@ -420,14 +420,14 @@ export default function DailyPage() {
           </div>
 
           {/* Preview */}
-          <div className="mt-4 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-xl p-4">
+          <div className="mt-4 bg-indigo-50  border border-indigo-200  rounded-xl p-4">
             <div className="flex justify-between items-center mb-1">
-              <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">At {perDay}/day you finish in</span>
-              <span className="text-lg font-black text-indigo-700 dark:text-indigo-300">{previewDays} days</span>
+              <span className="text-xs text-indigo-600  font-semibold">At {perDay}/day you finish in</span>
+              <span className="text-lg font-black text-indigo-700 ">{previewDays} days</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-xs text-indigo-500 dark:text-indigo-400">Estimated finish</span>
-              <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">{fmtDate(previewFinish)}</span>
+              <span className="text-xs text-indigo-500 ">Estimated finish</span>
+              <span className="text-sm font-bold text-indigo-700 ">{fmtDate(previewFinish)}</span>
             </div>
           </div>
         </div>
@@ -491,7 +491,7 @@ export default function DailyPage() {
             </p>
           )}
           {todayInfo.complete && (
-            <p className="text-xs text-green-500 dark:text-green-400 font-semibold mt-0.5">Plan complete!</p>
+            <p className="text-xs text-green-500  font-semibold mt-0.5">Plan complete!</p>
           )}
         </div>
         <div className="flex items-center gap-2 overflow-visible">
@@ -557,7 +557,7 @@ export default function DailyPage() {
 
       {/* Reset gate */}
       {showResetPrompt && (
-        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-500/30 rounded-xl p-4 mb-4">
+        <div className="bg-red-50  border border-red-200  rounded-xl p-4 mb-4">
           <p className="text-sm font-bold text-red-700 mb-1">Enter your plan lock code to reset</p>
           <p className="text-xs text-red-500 mb-3">This will wipe the entire plan. Your solved progress is safe.</p>
           <div className="flex flex-wrap gap-2 items-center">
@@ -569,7 +569,7 @@ export default function DailyPage() {
               placeholder="Your lock code"
               autoFocus
               className={`px-3 py-2 rounded-lg border text-sm focus:outline-none transition-colors ${
-                resetError ? 'border-red-500 bg-red-100 dark:bg-red-950/40 text-[var(--text)]' : 'border-[var(--border)] bg-[var(--bg-input)] text-[var(--text)]'
+                resetError ? 'border-red-500 bg-red-100  text-[var(--text)]' : 'border-[var(--border)] bg-[var(--bg-input)] text-[var(--text)]'
               }`}
             />
             <button onClick={handleResetConfirm} className="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition-colors">
@@ -587,16 +587,16 @@ export default function DailyPage() {
       {breathers.map(b => (
         <div
           key={b.name}
-          className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/30 rounded-xl p-4 mb-4 flex items-start gap-3"
+          className="bg-emerald-50  border border-emerald-200  rounded-xl p-4 mb-4 flex items-start gap-3"
         >
-          <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center shrink-0 mt-0.5">
-            <Wind size={15} className="text-emerald-600 dark:text-emerald-400" />
+          <div className="w-8 h-8 rounded-lg bg-emerald-100  flex items-center justify-center shrink-0 mt-0.5">
+            <Wind size={15} className="text-emerald-600 " />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-black text-emerald-800 dark:text-emerald-300">
+            <p className="text-sm font-black text-emerald-800 ">
               Breather — {b.name} (Day {b.day} of 2)
             </p>
-            <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5 mb-2">
+            <p className="text-xs text-emerald-700  mt-0.5 mb-2">
               You finished all <span className="font-semibold">{b.name}</span> questions! Spend today revising — re-read solutions and trace through edge cases before moving on.
             </p>
             <Link
@@ -639,8 +639,8 @@ export default function DailyPage() {
               Today — Day {todayInfo.dayNumber}
             </h2>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-              todayDone === todayQs.length ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' :
-              todayDone > 0 ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400' : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400'
+              todayDone === todayQs.length ? 'bg-green-100  text-green-700 ' :
+              todayDone > 0 ? 'bg-yellow-100  text-yellow-700 ' : 'bg-red-100  text-red-700 '
             }`}>
               {todayDone}/{todayQs.length} done
             </span>
@@ -662,7 +662,7 @@ export default function DailyPage() {
                   )}
                   <div
                     className={`flex items-center gap-3 p-3 rounded-xl border transition-colors mt-2 ${
-                      solved ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-500/30' : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-indigo-400/50'
+                      solved ? 'bg-green-50  border-green-200 ' : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-indigo-400/50'
                     }`}
                   >
                     <div className="shrink-0">
@@ -671,7 +671,7 @@ export default function DailyPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
-                        <span className={`text-sm font-semibold truncate ${solved ? 'text-green-500 dark:text-green-400 line-through' : 'text-[var(--text)]'}`}>
+                        <span className={`text-sm font-semibold truncate ${solved ? 'text-green-500  line-through' : 'text-[var(--text)]'}`}>
                           {q.title}
                         </span>
                         <a
@@ -693,7 +693,7 @@ export default function DailyPage() {
                       href={`/practice/${q.id}`}
                       className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
                         solved
-                          ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30 hover:bg-green-100 dark:hover:bg-green-900/50'
+                          ? 'bg-green-50  text-green-600  border border-green-200  hover:bg-green-100 '
                           : 'bg-indigo-600 text-white hover:bg-indigo-700'
                       }`}
                     >
@@ -706,7 +706,7 @@ export default function DailyPage() {
           </div>
 
           {todayDone === todayQs.length && todayQs.length > 0 && (
-            <div className="mt-4 text-center text-green-500 dark:text-green-400 font-bold text-sm">
+            <div className="mt-4 text-center text-green-500  font-bold text-sm">
               All done for today! See you tomorrow.
             </div>
           )}
@@ -729,7 +729,7 @@ export default function DailyPage() {
                   </h3>
                   {alreadySolved > 0 && (
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                      allPreSolved ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' : 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400'
+                      allPreSolved ? 'bg-green-100  text-green-700 ' : 'bg-purple-100  text-purple-600 '
                     }`}>
                       {alreadySolved}/{nextQs.length} pre-solved ✓
                     </span>
@@ -749,7 +749,7 @@ export default function DailyPage() {
                         key={q.id}
                         className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
                           solved
-                            ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-500/30'
+                            ? 'bg-green-50  border-green-200 '
                             : 'bg-purple-50/40 border-purple-100 hover:border-purple-200'
                         }`}
                       >
@@ -764,7 +764,7 @@ export default function DailyPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
-                            <span className={`text-sm font-medium truncate ${solved ? 'text-green-500 dark:text-green-400 line-through' : 'text-[var(--text)]'}`}>
+                            <span className={`text-sm font-medium truncate ${solved ? 'text-green-500  line-through' : 'text-[var(--text)]'}`}>
                               {q.title}
                             </span>
                           </div>
@@ -789,8 +789,8 @@ export default function DailyPage() {
                           href={`/practice/${q.id}`}
                           className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
                             solved
-                              ? 'border-green-200 dark:border-green-500/30 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30 hover:bg-green-100 dark:hover:bg-green-900/50'
-                              : 'border-purple-200 dark:border-purple-500/30 text-purple-600 dark:text-purple-400 bg-white dark:bg-purple-950/30 hover:bg-purple-50 dark:hover:bg-purple-900/50'
+                              ? 'border-green-200  text-green-600  bg-green-50  hover:bg-green-100 '
+                              : 'border-purple-200  text-purple-600  bg-white  hover:bg-purple-50 '
                           }`}
                         >
                           {solved ? 'Review' : 'Preview'}
@@ -827,9 +827,9 @@ export default function DailyPage() {
 
       {/* COMPLETE */}
       {todayInfo.complete && (
-        <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-500/30 rounded-xl p-5 mb-4 text-center">
+        <div className="bg-green-50  border border-green-200  rounded-xl p-5 mb-4 text-center">
           <div className="text-4xl mb-2">🏆</div>
-          <p className="font-bold text-green-700 dark:text-green-400">You finished all {plan.question_order.length} questions!</p>
+          <p className="font-bold text-green-700 ">You finished all {plan.question_order.length} questions!</p>
           <button
             onClick={async () => { await clearStudyPlan(); setPlan(null) }}
             className="mt-3 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-colors"
@@ -841,7 +841,7 @@ export default function DailyPage() {
 
       {/* REVIEWS DUE */}
       {dueReviews.length > 0 && (
-        <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-xl mb-4 overflow-hidden">
+        <div className="bg-indigo-50  border border-indigo-200  rounded-xl mb-4 overflow-hidden">
           <button
             type="button"
             onClick={() => setDueOpen(v => !v)}
@@ -859,7 +859,7 @@ export default function DailyPage() {
             <div className="px-4 pb-3 flex flex-wrap gap-2">
               <Link
                 href="/review"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-lg text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:border-indigo-400 hover:shadow-sm transition-all"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50  border border-indigo-200  rounded-lg text-xs font-semibold text-indigo-700  hover:border-indigo-400 hover:shadow-sm transition-all"
               >
                 Open reviews <ArrowRight size={12} />
               </Link>
@@ -867,7 +867,7 @@ export default function DailyPage() {
                 <Link
                   key={q.id}
                   href={`/practice/${q.id}`}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-lg text-xs hover:border-indigo-400 hover:shadow-sm transition-all text-left"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50  border border-indigo-200  rounded-lg text-xs hover:border-indigo-400 hover:shadow-sm transition-all text-left"
                 >
                   <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
                   <span className="text-indigo-400 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
@@ -945,7 +945,7 @@ export default function DailyPage() {
             <button
               type="button"
               onClick={() => setPastDaysShowAll(v => !v)}
-              className="mt-4 w-full py-2.5 text-sm font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-500/30 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+              className="mt-4 w-full py-2.5 text-sm font-semibold text-indigo-600  bg-indigo-50  border border-indigo-100  rounded-xl hover:bg-indigo-100  transition-colors"
             >
               {pastDaysShowAll
                 ? 'Show less (last 7 days)'

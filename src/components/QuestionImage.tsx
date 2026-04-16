@@ -40,7 +40,7 @@ export default function QuestionImage({
         className={[
           // Avoid clipping screenshot edges (question text often touches borders).
           // Use a scrollable frame so tall screenshots can still fill width.
-          'relative rounded-xl border border-[var(--border)] bg-slate-100 dark:bg-slate-900 p-2 max-h-[70vh] sm:max-h-[32rem] md:max-h-[36rem] overflow-y-auto',
+          'relative rounded-xl border border-[var(--border)] bg-slate-100  p-2 max-h-[70vh] sm:max-h-[32rem] md:max-h-[36rem] overflow-y-auto',
           className,
         ].join(' ')}
       >

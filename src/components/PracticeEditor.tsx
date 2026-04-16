@@ -68,7 +68,7 @@ export default function PracticeEditor({ questionId, slug, starterPython, starte
   const [code, setCode] = useState('')
   const [saved, setSaved] = useState(false)
   const [extensions, setExtensions] = useState<any[]>([])
-  const [theme, setTheme] = useState<any>(null)
+  const [theme] = useState<any[]>([])
   const [running, setRunning] = useState(false)
   const [output, setOutput] = useState<string | null>(null)
   const [showOutput, setShowOutput] = useState(false)
@@ -252,15 +252,13 @@ int main() {
   // Load language extensions lazily
   useEffect(() => {
     async function loadExtensions() {
-      const [{ python }, { cpp }, { oneDark }, viewMod, stateMod, cmdMod] = await Promise.all([
+      const [{ python }, { cpp }, viewMod, stateMod, cmdMod] = await Promise.all([
         import('@codemirror/lang-python'),
         import('@codemirror/lang-cpp'),
-        import('@codemirror/theme-one-dark'),
         import('@codemirror/view'),
         import('@codemirror/state'),
         import('@codemirror/commands'),
       ])
-      setTheme(oneDark)
       const { keymap } = viewMod
       const { Prec } = stateMod
       const { indentWithTab } = cmdMod
@@ -442,7 +440,7 @@ int main() {
       </div>
 
       <div className="practice-cm-wrap">
-        {typeof window !== 'undefined' && CodeMirror && theme && (
+        {typeof window !== 'undefined' && CodeMirror && (
           <CodeMirror
             value={code}
             height="320px"
@@ -453,11 +451,11 @@ int main() {
             basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
           />
         )}
-        {(!theme) && (
+        {!CodeMirror && (
           <textarea
             value={code}
             onChange={e => handleChange(e.target.value)}
-            className="w-full h-[320px] p-4 font-mono bg-gray-900 text-gray-100 resize-none focus:outline-none"
+            className="w-full h-[320px] p-4 font-mono bg-gray-50 text-gray-900 border border-gray-200 resize-none focus:outline-none"
             style={{ fontSize: '12px' }}
           />
         )}

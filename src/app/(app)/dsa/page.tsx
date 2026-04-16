@@ -150,7 +150,7 @@ export default function DSAPage() {
                       key={card.id}
                       className={`rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer ${
                         isFlipped
-                          ? 'border-indigo-300 bg-[var(--bg-muted)] dark:bg-[#1e2130] hover:border-indigo-400'
+                          ? 'border-indigo-300 bg-[var(--bg-muted)]  hover:border-indigo-400'
                           : 'border-[var(--border)] bg-[var(--bg-card)] hover:border-indigo-300 hover:shadow-md'
                       }`}
                       onClick={() => toggleFlip(card.id)}
@@ -280,7 +280,7 @@ export default function DSAPage() {
                       key={card.id}
                       className={`rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer ${
                         isFlipped
-                          ? 'border-violet-300 bg-[var(--bg-muted)] dark:bg-[#1e2130] hover:border-violet-400'
+                          ? 'border-violet-300 bg-[var(--bg-muted)]  hover:border-violet-400'
                           : 'border-[var(--border)] bg-[var(--bg-card)] hover:border-violet-300 hover:shadow-md'
                       }`}
                       onClick={() => toggleTutFlip(card.id)}

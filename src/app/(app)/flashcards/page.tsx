@@ -192,10 +192,10 @@ function FlashcardsInner() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[var(--text-muted)]">
-          <span className="bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 px-3 py-1.5 rounded-full">
+          <span className="bg-indigo-50  text-indigo-600  border border-indigo-200  px-3 py-1.5 rounded-full">
             {deck.length === 0 ? '0 / 0' : `${idx + 1} / ${deck.length}`}
           </span>
-          <span className="bg-green-50 dark:bg-green-900/40 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30 px-3 py-1.5 rounded-full flex items-center gap-1">
+          <span className="bg-green-50  text-green-600  border border-green-200  px-3 py-1.5 rounded-full flex items-center gap-1">
             <CheckCircle size={11} /> {visited.size} visited
           </span>
           <button
@@ -219,8 +219,8 @@ function FlashcardsInner() {
       {filterPattern && patternAllQs.length > 0 && (
         <div className={`mb-4 flex items-center gap-3 rounded-xl border px-4 py-3 ${
           patternPct === 100
-            ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-500/30'
-            : 'bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-500/30'
+            ? 'bg-green-50  border-green-200 '
+            : 'bg-violet-50  border-violet-200 '
         }`}>
           <span className="text-xl shrink-0">🧩</span>
           <div className="flex-1 min-w-0">
@@ -242,7 +242,7 @@ function FlashcardsInner() {
               </p>
             )}
             {patternPct === 100 && (
-              <p className="text-[11px] text-green-600 dark:text-green-400 mt-1 font-semibold">
+              <p className="text-[11px] text-green-600  mt-1 font-semibold">
                 ✅ Pattern complete! Move to the next one.
               </p>
             )}
@@ -355,7 +355,7 @@ function FlashcardsInner() {
                     <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
                     <DifficultyBadge difficulty={q.difficulty} />
                     {(q.source || []).map(s => (
-                      <span key={s} className="text-xs bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-500/20">{s}</span>
+                      <span key={s} className="text-xs bg-indigo-50  text-indigo-600  px-2 py-0.5 rounded-full border border-indigo-200 ">{s}</span>
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
@@ -367,7 +367,7 @@ function FlashcardsInner() {
                         setVisited(next)
                       }}
                       className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors ${
-                        visited.has(q.id) ? 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 border-green-300 dark:border-green-500/40' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)] hover:border-green-500/50 hover:text-green-400'
+                        visited.has(q.id) ? 'bg-green-100  text-green-600  border-green-300 ' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)] hover:border-green-500/50 hover:text-green-400'
                       }`}
                     >
                       {visited.has(q.id) ? <><CheckCircle size={11} /> Visited</> : <><Circle size={11} /> Mark visited</>}
@@ -408,7 +408,7 @@ function FlashcardsInner() {
             ) : (
               /* BACK */
               <div className="bg-[var(--bg-card)] rounded-2xl border border-indigo-500/40 shadow-xl shadow-indigo-900/20 overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-indigo-200 dark:border-indigo-500/20 bg-indigo-50 dark:bg-indigo-900/30">
+                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-indigo-200  bg-indigo-50 ">
                   <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
                     <DifficultyBadge difficulty={q.difficulty} />

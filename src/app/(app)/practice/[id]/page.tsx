@@ -335,16 +335,16 @@ export default function PracticePage() {
 
       {/* SR review actions */}
       {due && (
-        <div className="px-3 sm:px-4 py-2 border-b border-[var(--border)] bg-indigo-50/60 dark:bg-indigo-950/30 shrink-0">
+        <div className="px-3 sm:px-4 py-2 border-b border-[var(--border)] bg-indigo-50/60  shrink-0">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+            <div className="text-xs font-semibold text-indigo-700 ">
               🧠 Spaced repetition review due
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleFailReview}
                 disabled={reviewDone}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-200 dark:border-indigo-500/30 bg-white dark:bg-[var(--bg-card)] text-indigo-700 dark:text-indigo-300 hover:border-indigo-300 dark:hover:border-indigo-400/60 disabled:opacity-50"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-200  bg-white (--bg-card)] text-indigo-700  hover:border-indigo-300  disabled:opacity-50"
               >
                 Again
               </button>
@@ -377,7 +377,7 @@ export default function PracticePage() {
         </button>
         {question && (
           <button onClick={() => setActiveTab('best')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'best' ? 'border-amber-500 text-amber-600 dark:text-amber-400' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'best' ? 'border-amber-500 text-amber-600 ' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
             <Sparkles size={12} /> Best answers
           </button>
         )}

@@ -490,7 +490,7 @@ export default function AudiobookPage() {
           </button>
 
           <div className={`px-3 py-2 rounded-xl border text-xs font-semibold transition-colors ${
-            autoAdvance ? 'bg-violet-50 dark:bg-violet-950/40 text-violet-600 border-violet-200 dark:border-violet-500/30' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)]'
+            autoAdvance ? 'bg-violet-50  text-violet-600 border-violet-200 ' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)]'
           }`}>
             {autoAdvance ? '▶▶ Auto' : '— Manual'}
           </div>
@@ -536,7 +536,7 @@ export default function AudiobookPage() {
               }}
               className={`w-full text-left px-4 py-2.5 rounded-xl border text-sm transition-colors flex items-center gap-3 ${
                 i === idx
-                  ? 'border-violet-300 bg-violet-50 dark:bg-violet-950/30 text-violet-800 dark:text-violet-300'
+                  ? 'border-violet-300 bg-violet-50  text-violet-800 '
                   : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:border-[var(--border-soft)]'
               }`}
             >

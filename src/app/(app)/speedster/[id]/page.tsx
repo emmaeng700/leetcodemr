@@ -140,7 +140,7 @@ export default function SpeedsterQuestionPage() {
         key={qid}
         type="button"
         onClick={() => { goTo(qid); setShowList(false) }}
-        className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-yellow-50 dark:hover:bg-yellow-900/20 border-b border-[var(--border-soft)] ${qid === id ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}
+        className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-yellow-50  border-b border-[var(--border-soft)] ${qid === id ? 'bg-yellow-50 ' : ''}`}
       >
         <span className="shrink-0 tabular-nums text-xs font-mono text-[var(--text-subtle)]">#{lq.id}</span>
         <span className="min-w-0 flex-1 truncate text-[var(--text)]">{lq.title}</span>
@@ -300,7 +300,7 @@ export default function SpeedsterQuestionPage() {
                     <p className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide mb-2">Asked by</p>
                     <div className="flex flex-wrap gap-1.5">
                       {question.source.map(s => (
-                        <span key={s} className="text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">{s}</span>
+                        <span key={s} className="text-xs bg-blue-50  text-blue-600  px-2 py-0.5 rounded-full font-medium">{s}</span>
                       ))}
                     </div>
                   </div>

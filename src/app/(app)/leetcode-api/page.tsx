@@ -854,7 +854,7 @@ export default function LeetCodePage() {
                   questionId={bestAnswersId}
                   slug={question.titleSlug}
                   active={leftTab === 'best'}
-                  theme="dark"
+                  theme="default"
                 />
               </div>
             )}

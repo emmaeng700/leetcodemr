@@ -51,8 +51,8 @@ export default function PileupPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 pb-16">
       <div className="flex items-center gap-3 mb-5">
-        <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center shrink-0">
-          <Brain size={18} className="text-indigo-600 dark:text-indigo-300" />
+        <div className="w-9 h-9 rounded-xl bg-indigo-50  border border-indigo-200  flex items-center justify-center shrink-0">
+          <Brain size={18} className="text-indigo-600 " />
         </div>
         <div className="min-w-0">
           <h1 className="text-lg font-black text-[var(--text)]">Pileup</h1>
@@ -105,8 +105,8 @@ function Section({
 }) {
   const border =
     accent === 'red'
-      ? 'border-red-200 dark:border-red-500/30'
-      : 'border-indigo-200 dark:border-indigo-500/30'
+      ? 'border-red-200 '
+      : 'border-indigo-200 '
 
   return (
     <div className={`bg-[var(--bg-card)] rounded-xl border ${border} shadow-sm overflow-hidden`}>

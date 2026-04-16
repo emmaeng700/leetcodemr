@@ -124,15 +124,15 @@ function StreakCard({
   const message = getStreakMessage(streak)
 
   return (
-    <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/70 dark:to-amber-950/50 border border-orange-200 dark:border-orange-500/30 rounded-xl p-4 mb-3 shadow-lg shadow-orange-900/20">
+    <div className="bg-gradient-to-br from-orange-50 to-amber-50   border border-orange-200  rounded-xl p-4 mb-3 shadow-lg shadow-orange-900/20">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <Flame size={18} className="text-orange-400" />
-            <span className="text-2xl font-black text-orange-500 dark:text-orange-400">{streak}</span>
-            <span className="text-sm font-bold text-orange-600 dark:text-orange-500">{streak === 1 ? 'day' : 'days'}</span>
+            <span className="text-2xl font-black text-orange-500 ">{streak}</span>
+            <span className="text-sm font-bold text-orange-600 ">{streak === 1 ? 'day' : 'days'}</span>
           </div>
-          <p className="text-xs text-orange-600 dark:text-orange-300/80 font-medium leading-snug max-w-[200px]">{message}</p>
+          <p className="text-xs text-orange-600  font-medium leading-snug max-w-[200px]">{message}</p>
         </div>
         <div className="text-right shrink-0">
           <p className="text-xs font-bold text-[var(--text-muted)] mb-0.5">This week</p>
@@ -145,7 +145,7 @@ function StreakCard({
           <div key={i} className="flex flex-col items-center gap-1 flex-1">
             <div className={`w-full aspect-square rounded-full max-w-[28px] transition-colors ${
               d.active   ? 'bg-orange-400 shadow-sm shadow-orange-500/40' :
-              d.isToday  ? 'bg-orange-100 dark:bg-orange-900/50 border-2 border-orange-400 dark:border-orange-500/60' :
+              d.isToday  ? 'bg-orange-100  border-2 border-orange-400 ' :
               d.isFuture ? 'bg-[var(--bg-muted)]/60' :
                            'bg-[var(--bg-muted)]'
             }`} />
@@ -186,7 +186,7 @@ function PatternCoverageGrid({ questions, progress }: { questions: Question[]; p
         <div className="flex items-center gap-2">
           <TrendingUp size={15} className="text-indigo-400" />
           <span className="text-sm font-bold text-[var(--text)]">Pattern Coverage</span>
-          <span className="text-xs bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 px-2 py-0.5 rounded-full font-mono">{overallPct}% overall</span>
+          <span className="text-xs bg-indigo-50  text-indigo-600  border border-indigo-200  px-2 py-0.5 rounded-full font-mono">{overallPct}% overall</span>
         </div>
         <div className="flex items-center gap-2">
           {weakest && collapsed && (
@@ -201,56 +201,56 @@ function PatternCoverageGrid({ questions, progress }: { questions: Question[]; p
           {/* Motivational messages */}
           <div className="space-y-2 mb-3">
             {almostDone && (
-              <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-500/30 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 bg-green-50  border border-green-200  rounded-lg px-3 py-2">
                 <span className="text-base shrink-0">🏆</span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-green-700 dark:text-green-400">{almostDone.name} is almost conquered!</p>
-                  <p className="text-xs text-green-600 dark:text-green-400/80">Just {almostDone.total - almostDone.solved} more question{almostDone.total - almostDone.solved !== 1 ? 's' : ''} — finish it off, these will feel like a breeze 🔥</p>
+                  <p className="text-xs font-bold text-green-700 ">{almostDone.name} is almost conquered!</p>
+                  <p className="text-xs text-green-600 ">Just {almostDone.total - almostDone.solved} more question{almostDone.total - almostDone.solved !== 1 ? 's' : ''} — finish it off, these will feel like a breeze 🔥</p>
                 </div>
                 <Link href={`/learn/0?tags=${(almostDone.tags as readonly string[]).join(',')}`}
-                  className="text-xs font-semibold text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/50 border border-green-300 dark:border-green-500/40 px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
+                  className="text-xs font-semibold text-green-700  bg-green-100  border border-green-300  px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
                   Finish →
                 </Link>
               </div>
             )}
             {crushing && !almostDone && (
-              <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-500/30 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 bg-indigo-50  border border-indigo-200  rounded-lg px-3 py-2">
                 <span className="text-base shrink-0">🔥</span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-indigo-700 dark:text-indigo-400">You&apos;re crushing {crushing.name}!</p>
-                  <p className="text-xs text-indigo-600 dark:text-indigo-400/80">{crushing.pct}% done — these questions will feel like a breeze. Try a harder one 💪</p>
+                  <p className="text-xs font-bold text-indigo-700 ">You&apos;re crushing {crushing.name}!</p>
+                  <p className="text-xs text-indigo-600 ">{crushing.pct}% done — these questions will feel like a breeze. Try a harder one 💪</p>
                 </div>
                 <Link href={`/learn/0?tags=${(crushing.tags as readonly string[]).join(',')}`}
-                  className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-300 dark:border-indigo-500/40 px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
+                  className="text-xs font-semibold text-indigo-700  bg-indigo-100  border border-indigo-300  px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
                   Keep going →
                 </Link>
               </div>
             )}
             {untouched.length > 0 && (
-              <div className="flex items-center gap-2 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-500/30 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 bg-violet-50  border border-violet-200  rounded-lg px-3 py-2">
                 <span className="text-base shrink-0">🧩</span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-violet-700 dark:text-violet-400">Try a never-seen topic: {untouched[0].name}</p>
-                  <p className="text-xs text-violet-600 dark:text-violet-400/80">{untouched.length} pattern{untouched.length !== 1 ? 's' : ''} untouched — explore something new today!</p>
+                  <p className="text-xs font-bold text-violet-700 ">Try a never-seen topic: {untouched[0].name}</p>
+                  <p className="text-xs text-violet-600 ">{untouched.length} pattern{untouched.length !== 1 ? 's' : ''} untouched — explore something new today!</p>
                 </div>
                 <Link href={`/learn/0?tags=${(untouched[0].tags as readonly string[]).join(',')}`}
-                  className="text-xs font-semibold text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/50 border border-violet-300 dark:border-violet-500/40 px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
+                  className="text-xs font-semibold text-violet-700  bg-violet-100  border border-violet-300  px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
                   Explore →
                 </Link>
               </div>
             )}
             {weakest && (
-              <div className="flex items-center justify-between gap-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2.5">
+              <div className="flex items-center justify-between gap-3 bg-amber-50  border border-amber-200  rounded-lg px-3 py-2.5">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-base shrink-0">🎯</span>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400">Focus next — weakest pattern</p>
-                    <p className="text-xs text-amber-800 dark:text-amber-200 font-semibold truncate">{weakest.name} — {weakest.solved}/{weakest.total} solved ({weakest.pct}%)</p>
+                    <p className="text-xs font-bold text-amber-700 ">Focus next — weakest pattern</p>
+                    <p className="text-xs text-amber-800  font-semibold truncate">{weakest.name} — {weakest.solved}/{weakest.total} solved ({weakest.pct}%)</p>
                   </div>
                 </div>
                 <Link
                   href={`/learn/0?tags=${(weakest.tags as readonly string[]).join(',')}`}
-                  className="text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50 border border-amber-300 dark:border-amber-500/40 px-3 py-1.5 rounded-full hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors shrink-0 whitespace-nowrap"
+                  className="text-xs font-semibold text-amber-700  bg-amber-100  border border-amber-300  px-3 py-1.5 rounded-full hover:bg-amber-200  transition-colors shrink-0 whitespace-nowrap"
                 >
                   Study now →
                 </Link>
@@ -269,7 +269,7 @@ function PatternCoverageGrid({ questions, progress }: { questions: Question[]; p
                   href={`/learn/0?tags=${(p.tags as readonly string[]).join(',')}`}
                   className={`flex flex-col gap-1 px-3 py-2 rounded-lg border transition-all hover:border-indigo-400/60 hover:bg-[var(--bg-muted)] ${
                     isWeakest
-                      ? 'border-amber-300 dark:border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20'
+                      ? 'border-amber-300  bg-amber-50/50 '
                       : 'border-[var(--border-soft)]'
                   }`}
                 >
@@ -376,9 +376,9 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   }
   const daysLeft = date ? Math.ceil((new Date(date + 'T12:00:00').getTime() - Date.now()) / 86400000) : null
   const diffColor: Record<string, string> = {
-    Easy: 'bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-400 border-green-300 dark:border-green-500/30',
-    Medium: 'bg-yellow-100 dark:bg-yellow-900/60 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-500/30',
-    Hard: 'bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-400 border-red-300 dark:border-red-500/30',
+    Easy: 'bg-green-100  text-green-700  border-green-300 ',
+    Medium: 'bg-yellow-100  text-yellow-700  border-yellow-300 ',
+    Hard: 'bg-red-100  text-red-700  border-red-300 ',
   }
 
   const todayTopicMap = useMemo(() => buildExclusivePatternMap(questions), [questions])
@@ -415,9 +415,9 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
               build {process.env.NEXT_PUBLIC_COMMIT_SHA}
             </span>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-            allDone ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'
-            : doneCnt > 0 ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400'
-            : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400'
+            allDone ? 'bg-green-100  text-green-700 '
+            : doneCnt > 0 ? 'bg-yellow-100  text-yellow-700 '
+            : 'bg-red-100  text-red-700 '
           }`}>{doneCnt}/{dayQs.length} done</span>
           </div>
         </div>
@@ -436,7 +436,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
                   </div>
                 )}
                 <div className={`flex items-center gap-3 p-3 rounded-xl border transition-colors mt-2 ${
-                  solved ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-500/30'
+                  solved ? 'bg-green-50  border-green-200 '
                   : 'bg-[var(--bg-muted)] border-[var(--border)] hover:border-indigo-400/50'
                 }`}>
                   <div className="shrink-0">
@@ -445,13 +445,13 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
-                      <span className={`text-sm font-semibold truncate ${solved ? 'text-green-500 dark:text-green-400 line-through' : 'text-[var(--text)]'}`}>{q.title}</span>
+                      <span className={`text-sm font-semibold truncate ${solved ? 'text-green-500  line-through' : 'text-[var(--text)]'}`}>{q.title}</span>
                     </div>
                     <div className="mt-0.5"><DifficultyBadge difficulty={q.difficulty} /></div>
                   </div>
                   <Link href={`/practice/${q.id}`}
                     className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
-                      solved ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/30'
+                      solved ? 'bg-green-50  text-green-600  border border-green-200 '
                       : 'bg-indigo-600 text-white hover:bg-indigo-700'
                     }`}>
                     {solved ? <><RotateCcw size={11} /> Revisit</> : <>Solve <ChevronRight size={12} /></>}
@@ -461,7 +461,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
             )
           })}
         </div>
-        {allDone && <p className="mt-3 text-center text-sm font-bold text-green-500 dark:text-green-400">All done for today! 🎉</p>}
+        {allDone && <p className="mt-3 text-center text-sm font-bold text-green-500 ">All done for today! 🎉</p>}
       </div>
     )
   })()
@@ -487,16 +487,16 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
       <StreakCard streak={streakDisplay} log={planFilteredLog} goalsMetToday={goalsMetToday} />
       {todayDailyCard}
       {planNorm && (
-        <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-xl mb-5 overflow-hidden">
+        <div className="bg-indigo-50  border border-indigo-200  rounded-xl mb-5 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center gap-2">
               <Brain size={15} className="text-indigo-600" />
-              <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
+              <span className="text-sm font-bold text-indigo-700 ">
                 {dueReviews.length > 0 ? `Reviews due — ${dueReviews.length} question${dueReviews.length > 1 ? 's' : ''}` : 'Reviews — all caught up ✓'}
               </span>
             </div>
             {dueReviews.length > 0 && (
-              <Link href="/review" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
+              <Link href="/review" className="text-xs font-semibold text-indigo-600  hover:underline flex items-center gap-1">
                 Open all <ChevronRight size={12} />
               </Link>
             )}
@@ -510,7 +510,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
                 const overdueTxt = diff === 0 ? 'due today' : diff === 1 ? '1 day overdue' : `${diff}d overdue`
                 return (
                   <Link key={q.id} href={`/practice/${q.id}`}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-lg text-xs hover:border-indigo-400 transition-all"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50  border border-indigo-200  rounded-lg text-xs hover:border-indigo-400 transition-all"
                   >
                     <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
                     {qObj && <span className="text-[var(--text)] font-semibold truncate max-w-[120px]">{qObj.title}</span>}
@@ -520,7 +520,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
               })}
             </div>
           ) : (
-            <p className="px-4 pb-3 text-xs text-indigo-500 dark:text-indigo-400">No reviews due today — solve questions to build your SR queue.</p>
+            <p className="px-4 pb-3 text-xs text-indigo-500 ">No reviews due today — solve questions to build your SR queue.</p>
           )}
         </div>
       )}
@@ -554,7 +554,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
         ) : (
           <div>
             <p className="text-xs text-[var(--text-subtle)] mb-2">Set your interview date to track countdown</p>
-            <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-500/30 px-3 py-1.5 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors">
+            <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs font-semibold text-indigo-600  bg-indigo-50  border border-indigo-200  px-3 py-1.5 rounded-full hover:bg-indigo-100  transition-colors">
               <Calendar size={12} /> Set date
             </button>
           </div>
@@ -593,11 +593,11 @@ function DueReviewBanner() {
     return diff + ' days overdue'
   }
   return (
-    <div className="bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-500/30 rounded-xl mb-5 overflow-hidden">
+    <div className="bg-indigo-50  border border-indigo-200  rounded-xl mb-5 overflow-hidden">
       <button onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-900/30 transition-colors">
         <div className="flex items-center gap-2">
           <Brain size={16} className="text-indigo-400" />
-          <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">🧠 Spaced Repetition — {due.length} question{due.length > 1 ? 's' : ''} due for review</span>
+          <span className="text-sm font-bold text-indigo-700 ">🧠 Spaced Repetition — {due.length} question{due.length > 1 ? 's' : ''} due for review</span>
         </div>
         {open ? <ChevronUp size={15} className="text-indigo-400" /> : <ChevronDown size={15} className="text-indigo-400" />}
       </button>
@@ -605,9 +605,9 @@ function DueReviewBanner() {
         <div className="px-4 pb-3 flex flex-wrap gap-2">
           {due.map(q => (
             <button key={q.id} onClick={() => router.push('/practice/' + q.id)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[var(--bg-card)] border border-indigo-200 dark:border-indigo-500/30 rounded-lg text-xs hover:border-indigo-400 dark:hover:border-indigo-400/60 hover:shadow-sm transition-all text-left">
+              className="flex items-center gap-2 px-3 py-1.5 bg-white (--bg-card)] border border-indigo-200  rounded-lg text-xs hover:border-indigo-400  hover:shadow-sm transition-all text-left">
               <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
-              <span className="text-indigo-600 dark:text-indigo-400 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
+              <span className="text-indigo-600  text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
             </button>
           ))}
         </div>
@@ -670,7 +670,7 @@ function TodayPlanCard({ questions, progress }: { questions: Question[]; progres
               <div key={id} className="flex items-center gap-2">
                 <button
                   onClick={() => router.push('/practice/' + id)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-200 hover:border-amber-300 dark:hover:border-amber-400/60"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50  border border-amber-200  text-amber-800  hover:border-amber-300 "
                 >
                   {titleFor(id)}
                 </button>
@@ -694,7 +694,7 @@ function TodayPlanCard({ questions, progress }: { questions: Question[]; progres
               <button
                 key={d.id}
                 onClick={() => router.push('/practice/' + d.id)}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-500/30 text-indigo-800 dark:text-indigo-200 hover:border-indigo-300 dark:hover:border-indigo-400/60"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50  border border-indigo-200  text-indigo-800  hover:border-indigo-300 "
               >
                 {titleFor(d.id)}
               </button>
@@ -936,10 +936,10 @@ function HomeInner() {
 
         <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[var(--border)]">
           <span className="text-xs text-[var(--text-subtle)] self-center">Study {filtered.length} as:</span>
-          <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePattern ? ([...(QUICK_PATTERNS.find(p => p.name === activePattern)?.tags ?? [])]) : [])}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors">
+          <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePattern ? ([...(QUICK_PATTERNS.find(p => p.name === activePattern)?.tags ?? [])]) : [])}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50  text-indigo-600  border border-indigo-200  hover:bg-indigo-100  transition-colors">
             <Layers size={12} /> Flashcards
           </Link>
-          <Link href={`/learn/0?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePattern ? ([...(QUICK_PATTERNS.find(p => p.name === activePattern)?.tags ?? [])]) : [])}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors">
+          <Link href={`/learn/0?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePattern ? ([...(QUICK_PATTERNS.find(p => p.name === activePattern)?.tags ?? [])]) : [])}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50  text-emerald-600  border border-emerald-200  hover:bg-emerald-100  transition-colors">
             <BookOpen size={12} /> Learn mode
           </Link>
         </div>
@@ -959,13 +959,13 @@ function HomeInner() {
               return rev <= today
             }
             const STATUS_STYLES: Record<string, string> = {
-              learnt: 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400',
-              reviewed: 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-600 dark:text-yellow-400',
-              revised: 'bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400',
-              mastered: 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400',
+              learnt: 'bg-blue-100  text-blue-600 ',
+              reviewed: 'bg-yellow-100  text-yellow-600 ',
+              revised: 'bg-orange-100  text-orange-600 ',
+              mastered: 'bg-green-100  text-green-600 ',
             }
             return (
-              <Link key={q.id} href={'/practice/' + q.id} className={'group block rounded-xl border p-4 transition-all duration-150 hover:shadow-xl hover:shadow-indigo-900/20 hover:border-indigo-500/50 ' + (p.solved ? 'bg-green-50 dark:bg-green-950/40 border-green-300 dark:border-green-500/30' : 'bg-[var(--bg-card)] border-[var(--border-soft)]')}>
+              <Link key={q.id} href={'/practice/' + q.id} className={'group block rounded-xl border p-4 transition-all duration-150 hover:shadow-xl hover:shadow-indigo-900/20 hover:border-indigo-500/50 ' + (p.solved ? 'bg-green-50  border-green-300 ' : 'bg-[var(--bg-card)] border-[var(--border-soft)]')}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
@@ -984,8 +984,8 @@ function HomeInner() {
                   {(q.tags || []).slice(0, 3).map(tag => (
                     <span key={tag} className="text-xs bg-[var(--bg-muted)] text-[var(--text-subtle)] px-2 py-0.5 rounded-full">{tag}</span>
                   ))}
-                  {q.python_solution && <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">Py ✓</span>}
-                  {q.cpp_solution && <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full">C++ ✓</span>}
+                  {q.python_solution && <span className="text-xs bg-blue-100  text-blue-600  px-2 py-0.5 rounded-full">Py ✓</span>}
+                  {q.cpp_solution && <span className="text-xs bg-purple-100  text-purple-600  px-2 py-0.5 rounded-full">C++ ✓</span>}
                 </div>
                 {p.status && (
                   <div className="flex items-center gap-2 mt-2">
@@ -998,7 +998,7 @@ function HomeInner() {
                       </span>
                     )}
                     {p.status === 'mastered' && isDue(p.next_review) && (
-                      <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">🧠 Review due!</span>
+                      <span className="text-xs text-indigo-600  font-semibold">🧠 Review due!</span>
                     )}
                   </div>
                 )}

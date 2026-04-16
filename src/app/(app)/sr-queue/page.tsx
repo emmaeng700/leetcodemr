@@ -41,7 +41,7 @@ function QuestionRow({ q, p, urgency, completing, onDone }: {
             <span className={
               urgency === 'overdue' ? 'text-red-500 font-semibold' :
               urgency === 'today'   ? 'text-orange-500 font-semibold' :
-              urgency === 'soon'    ? 'text-yellow-600 dark:text-yellow-400' :
+              urgency === 'soon'    ? 'text-yellow-600 ' :
                                      'text-[var(--text-subtle)]'
             }>
               {days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? 'Due today' : `Due in ${days}d`}
@@ -51,14 +51,14 @@ function QuestionRow({ q, p, urgency, completing, onDone }: {
       </div>
       <div className="flex items-center gap-2 shrink-0">
         <Link href={`/practice/${q.id}`}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 text-xs font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors">
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50  text-indigo-600  border border-indigo-200  text-xs font-semibold hover:bg-indigo-100  transition-colors">
           Practice <ArrowRight size={11} />
         </Link>
         {(urgency === 'overdue' || urgency === 'today') && (
           <button
             onClick={() => onDone(q.id)}
             disabled={completing === q.id}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-500/30 text-xs font-semibold hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors disabled:opacity-40"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-50  text-green-700  border border-green-200  text-xs font-semibold hover:bg-green-100  transition-colors disabled:opacity-40"
           >
             <CheckCircle size={11} /> Done
           </button>
@@ -217,9 +217,9 @@ function SRQueueInner() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
         {[
-          { label: 'Overdue',   count: overdue.length,             color: 'text-red-600 dark:text-red-400',    bg: 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-500/30' },
-          { label: 'Due today', count: dueToday.length,            color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-500/30' },
-          { label: 'This week', count: soon.length,                color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-950/40 border-yellow-200 dark:border-yellow-500/30' },
+          { label: 'Overdue',   count: overdue.length,             color: 'text-red-600 ',    bg: 'bg-red-50  border-red-200 ' },
+          { label: 'Due today', count: dueToday.length,            color: 'text-orange-600 ', bg: 'bg-orange-50  border-orange-200 ' },
+          { label: 'This week', count: soon.length,                color: 'text-yellow-600 ', bg: 'bg-yellow-50  border-yellow-200 ' },
           { label: 'Later',     count: later.length + none.length, color: 'text-[var(--text-muted)]',           bg: 'bg-[var(--bg-card)] border-[var(--border)]' },
         ].map(s => (
           <div key={s.label} className={`rounded-xl border p-3 text-center ${s.bg}`}>
@@ -236,9 +236,9 @@ function SRQueueInner() {
         </div>
       ) : (
         <>
-          <Section title="🔴 Overdue"        items={overdueF}  urgency="overdue" accentCls="bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400"         completing={completing} onDone={handleDone} />
-          <Section title="🟡 Due Today"      items={dueTodayF} urgency="today"   accentCls="bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400" completing={completing} onDone={handleDone} />
-          <Section title="📅 This Week"      items={soonF}     urgency="soon"    accentCls="bg-yellow-50 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-400" completing={completing} onDone={handleDone} />
+          <Section title="🔴 Overdue"        items={overdueF}  urgency="overdue" accentCls="bg-red-50  text-red-700 "         completing={completing} onDone={handleDone} />
+          <Section title="🟡 Due Today"      items={dueTodayF} urgency="today"   accentCls="bg-orange-50  text-orange-700 " completing={completing} onDone={handleDone} />
+          <Section title="📅 This Week"      items={soonF}     urgency="soon"    accentCls="bg-yellow-50  text-yellow-700 " completing={completing} onDone={handleDone} />
           <Section title="⏳ Later"          items={laterF}    urgency="later"   accentCls="bg-[var(--bg-muted)] text-[var(--text-muted)]"                           completing={completing} onDone={handleDone} />
           {noneF.length > 0 && (
             <Section title="— Not scheduled" items={noneF}     urgency="none"    accentCls="bg-[var(--bg-muted)] text-[var(--text-subtle)]"                          completing={completing} onDone={handleDone} />
