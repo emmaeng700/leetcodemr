@@ -66,10 +66,9 @@ export default function PracticePage() {
   const [starred, setStarred] = useState(false)
   const [nextReview, setNextReview] = useState<string | null>(null)
   const [reviewDone, setReviewDone] = useState(false)
-  const [leftTab, setLeftTab] = useState<'description' | 'notes' | 'best' | 'accepted'>('description')
+  const [activeTab, setActiveTab] = useState<'description' | 'editorial' | 'best' | 'notes' | 'accepted' | 'editor'>('description')
 
-  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.slug, leftTab === 'accepted')
-  const [mobilePanel, setMobilePanel] = useState<'description' | 'editor'>('description')
+  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.slug, activeTab === 'accepted')
   const [timer, setTimer] = useState(0)
   const listWrapRef = useRef<HTMLDivElement>(null)
   useClickOutside(listWrapRef, () => setShowList(false), showList)
@@ -369,80 +368,50 @@ export default function PracticePage() {
         </div>
       ) : null })()}
 
-      {/* Mobile panel tabs */}
-      <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
-        <button onClick={() => setMobilePanel('description')}
-          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)]'}`}>
-          📖 Description
+      {/* Unified tab bar */}
+      <div className="flex overflow-x-auto border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 scrollbar-none">
+        <button onClick={() => setActiveTab('description')}
+          className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+          <BookOpen size={12} /> Description
+          {lcLoading && <Loader2 size={10} className="animate-spin text-[var(--text-muted)]" />}
         </button>
-        <button onClick={() => setMobilePanel('editor')}
-          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'editor' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)]'}`}>
+        {question?.explanation && (
+          <button onClick={() => setActiveTab('editorial')}
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'editorial' ? 'border-purple-500 text-purple-600 dark:text-purple-400' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+            📝 Editorial
+          </button>
+        )}
+        {question && (
+          <button onClick={() => setActiveTab('best')}
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'best' ? 'border-amber-500 text-amber-600 dark:text-amber-400' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+            <Sparkles size={12} /> Best answers
+          </button>
+        )}
+        {question && (
+          <button onClick={() => setActiveTab('notes')}
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'notes' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+            <StickyNote size={12} /> Notes
+          </button>
+        )}
+        {question && (
+          <button onClick={() => setActiveTab('accepted')}
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+            <Trophy size={12} /> My Solutions
+          </button>
+        )}
+        <button onClick={() => setActiveTab('editor')}
+          className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'editor' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
           💻 Editor
         </button>
       </div>
 
-      {/* Split layout */}
+      {/* Content area */}
       <div className="flex flex-col flex-1 overflow-hidden">
 
-        {/* LEFT — Question description */}
-        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} flex-col w-full flex-1 bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
-          {/* Tab bar */}
-          <div className="flex overflow-x-auto border-b border-[var(--border)] bg-[var(--bg-card)]/80 shrink-0 items-center scrollbar-none">
-            <button
-              onClick={() => setLeftTab('description')}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
-                leftTab === 'description'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
-              }`}
-            >
-              <BookOpen size={12} /> Description
-              {/* Subtle live fetch indicator */}
-              {lcLoading && (
-                <Loader2 size={10} className="animate-spin text-[var(--text-muted)] ml-1" />
-              )}
-            </button>
-            {question && (
-              <button
-                onClick={() => setLeftTab('best')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${
-                  leftTab === 'best'
-                    ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-                    : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
-                }`}
-              >
-                <Sparkles size={12} /> Best answers
-              </button>
-            )}
-            {question && (
-              <button
-                onClick={() => setLeftTab('notes')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${
-                  leftTab === 'notes'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
-                }`}
-              >
-                <StickyNote size={12} /> Notes
-              </button>
-            )}
-            {question && (
-              <button
-                onClick={() => setLeftTab('accepted')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${
-                  leftTab === 'accepted'
-                    ? 'border-green-500 text-green-600'
-                    : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
-                }`}
-              >
-                <Trophy size={12} /> My Solutions
-              </button>
-            )}
-          </div>
-
-          {/* Content */}
+        {/* Description panel (all non-editor tabs) */}
+        <div className={`${activeTab !== 'editor' ? 'flex' : 'hidden'} flex-col w-full flex-1 bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
           <div className="flex-1 overflow-y-auto p-4">
-            {leftTab === 'description' && (
+            {activeTab === 'description' && (
               <>
                 {/* Tags */}
                 {question && (question.tags || []).length > 0 && (
@@ -494,15 +463,22 @@ export default function PracticePage() {
               </>
             )}
 
-            {leftTab === 'notes' && question && (
+            {activeTab === 'editorial' && question?.explanation && (
+              <div className="prose prose-sm dark:prose-invert max-w-none text-[var(--text)]">
+                <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest mb-3">Editorial / Approach</p>
+                <div className="text-sm leading-relaxed whitespace-pre-wrap">{question.explanation}</div>
+              </div>
+            )}
+
+            {activeTab === 'notes' && question && (
               <WhiteboardNotes storageKey={`lm_whiteboard:${question.id}:${question.slug}`} />
             )}
 
-            {leftTab === 'best' && question && (
-              <BestAnswersPanel questionId={question.id} slug={question.slug} active={leftTab === 'best'} />
+            {activeTab === 'best' && question && (
+              <BestAnswersPanel questionId={question.id} slug={question.slug} active={activeTab === 'best'} />
             )}
 
-            {leftTab === 'accepted' && (
+            {activeTab === 'accepted' && (
               <AcceptedSolutions
                 submissions={submissions}
                 loading={subsLoading}
@@ -517,8 +493,8 @@ export default function PracticePage() {
           </div>
         </div>
 
-        {/* RIGHT — LeetCode editor + tests */}
-        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} w-full flex-1 min-h-0 overflow-x-hidden`}>
+        {/* Editor panel */}
+        <div className={`${activeTab === 'editor' ? 'flex flex-col' : 'hidden'} w-full flex-1 min-h-0 overflow-x-hidden`}>
           {question ? (
             <LeetCodeEditor appQuestionId={question.id} slug={question.slug} onAccepted={due && !reviewDone ? handleCompleteReview : undefined} />
           ) : (
