@@ -59,15 +59,15 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
   }
 
   return (
-    <div className="relative group">
+    <div className="relative">
       <button
         type="button"
         onClick={copy}
-        className="absolute top-2 right-2 z-10 flex items-center gap-1 px-2 py-1 rounded-md bg-gray-700/80 hover:bg-gray-600 text-gray-300 hover:text-white text-[10px] font-medium transition-all opacity-0 group-hover:opacity-100"
+        className="absolute top-2 right-2 z-10 flex items-center gap-1 px-2 py-1 rounded-md bg-white/90 hover:bg-white border border-gray-200 text-gray-600 hover:text-gray-900 text-[10px] font-medium shadow-sm transition-all"
       >
         {copied ? (
           <>
-            <Check size={10} className="text-green-400" /> Copied
+            <Check size={10} className="text-green-500" /> Copied
           </>
         ) : (
           <>
@@ -75,8 +75,7 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
           </>
         )}
       </button>
-      <pre className="text-[11px] leading-relaxed bg-[#080e1c] text-gray-100 rounded-lg p-3 overflow-x-auto border border-gray-800/60 whitespace-pre">
-        {/* `hljs` class gives theme CSS a reliable hook; text-gray-100 is fallback if CSS fails to load. */}
+      <pre className="text-[11px] leading-relaxed bg-[#1e1e2e] text-gray-100 rounded-lg p-3 pt-8 overflow-x-auto border border-gray-200 whitespace-pre">
         <code ref={ref} className="hljs text-gray-100" />
       </pre>
     </div>
