@@ -596,9 +596,15 @@ export default function DailyPage() {
             <p className="text-sm font-black text-emerald-800 dark:text-emerald-300">
               Breather — {b.name} (Day {b.day} of 2)
             </p>
-            <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
-              You finished all <span className="font-semibold">{b.name}</span> questions! Spend today revising the pattern — re-read solutions, trace through edge cases, and make sure it sticks before moving on.
+            <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5 mb-2">
+              You finished all <span className="font-semibold">{b.name}</span> questions! Spend today revising — re-read solutions and trace through edge cases before moving on.
             </p>
+            <Link
+              href={`/learn/0?tags=${encodeURIComponent((QUICK_PATTERNS.find(p => p.name === b.name)?.tags[0]) ?? b.name)}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition-colors"
+            >
+              <ArrowRight size={12} /> Revise {b.name}
+            </Link>
           </div>
         </div>
       ))}
