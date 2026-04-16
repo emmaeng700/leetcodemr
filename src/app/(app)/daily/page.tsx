@@ -5,8 +5,9 @@ import { usePathname } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
-import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List, Brain, Star } from 'lucide-react'
+import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List, Brain, Star, Wind } from 'lucide-react'
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress } from '@/lib/db'
+import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
 import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
 import { QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
@@ -148,12 +149,15 @@ export default function DailyPage() {
   // Extra days
   const [extraDays, setExtraDays] = useState(0)
 
+  const [breathers, setBreathers] = useState<ActiveBreather[]>([])
+
   const topicMap = useMemo(() => buildExclusivePatternMap(allQuestions), [allQuestions])
 
   const refreshProgress = useCallback(async () => {
     try {
       const prog = await getProgress()
       setProgress(prog)
+      setBreathers(getActiveBreathers())
     } catch {
       /* ignore */
     }
@@ -188,6 +192,7 @@ export default function DailyPage() {
       setProgress(prog)
       setPlan(p)
       setDueReviews(due)
+      setBreathers(getActiveBreathers())
       setLoading(false)
     }
     load()
@@ -577,6 +582,26 @@ export default function DailyPage() {
           </div>
         </div>
       )}
+
+      {/* Breather banners */}
+      {breathers.map(b => (
+        <div
+          key={b.name}
+          className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/30 rounded-xl p-4 mb-4 flex items-start gap-3"
+        >
+          <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center shrink-0 mt-0.5">
+            <Wind size={15} className="text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-black text-emerald-800 dark:text-emerald-300">
+              Breather — {b.name} (Day {b.day} of 2)
+            </p>
+            <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
+              You finished all <span className="font-semibold">{b.name}</span> questions! Spend today revising the pattern — re-read solutions, trace through edge cases, and make sure it sticks before moving on.
+            </p>
+          </div>
+        </div>
+      ))}
 
       {/* Progress bar */}
       {!todayInfo.pending && (

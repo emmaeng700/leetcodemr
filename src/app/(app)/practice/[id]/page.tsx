@@ -8,6 +8,7 @@ import WhiteboardNotes from '@/components/WhiteboardNotes'
 import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan } from '@/lib/db'
 import { formatTime, isDue, stripScripts} from '@/lib/utils'
 import { getPatternForQuestion } from '@/lib/patternUtils'
+import { checkAndRecordBreather } from '@/lib/breatherUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
@@ -81,6 +82,7 @@ export default function PracticePage() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startRef = useRef(Date.now())
+  const progressRef = useRef<Record<string, { solved?: boolean }>>({})
 
   // Load local data immediately — no spinner blocking the page
   useEffect(() => {
@@ -99,6 +101,7 @@ export default function PracticePage() {
       setSolved(!!prog[String(id)]?.solved)
       setStarred(!!prog[String(id)]?.starred)
       setNextReview(prog[String(id)]?.next_review ?? null)
+      progressRef.current = prog
     }
     load()
   }, [id])
@@ -197,18 +200,23 @@ export default function PracticePage() {
     if (!question) return
     const newSolved = !solved
     setSolved(newSolved)
+    progressRef.current = { ...progressRef.current, [String(id)]: { ...progressRef.current[String(id)], solved: newSolved } }
     await updateProgress(id, { solved: newSolved })
     if (newSolved) {
-      const pattern = getPatternForQuestion(question.tags ?? [])
-      const SOLVE_MSGS = [
-        `${pattern ? `${pattern} pattern ` : ''}locked in! Keep the streak alive 🔥`,
-        `One more down${pattern ? ` in ${pattern}` : ''}! You're building real pattern recognition 🧠`,
-        `${pattern ?? 'Question'} solved — each rep makes the next one easier 💪`,
-        `Another one bites the dust${pattern ? ` (${pattern})` : ''}! Stay consistent 🚀`,
-        `Nailed it${pattern ? ` — ${pattern} is getting clearer` : ''}! That muscle memory is building 🏆`,
-      ]
-      const msg = SOLVE_MSGS[Math.floor(Math.random() * SOLVE_MSGS.length)]
-      toast.success(msg, { duration: 3500 })
+      const completed = checkAndRecordBreather(id, allQuestions, progressRef.current)
+      if (completed) {
+        toast.success(`🎉 ${completed} pattern complete! Take 2 days to revise before moving on.`, { duration: 5000 })
+      } else {
+        const pattern = getPatternForQuestion(question.tags ?? [])
+        const SOLVE_MSGS = [
+          `${pattern ? `${pattern} pattern ` : ''}locked in! Keep the streak alive 🔥`,
+          `One more down${pattern ? ` in ${pattern}` : ''}! You're building real pattern recognition 🧠`,
+          `${pattern ?? 'Question'} solved — each rep makes the next one easier 💪`,
+          `Another one bites the dust${pattern ? ` (${pattern})` : ''}! Stay consistent 🚀`,
+          `Nailed it${pattern ? ` — ${pattern} is getting clearer` : ''}! That muscle memory is building 🏆`,
+        ]
+        toast.success(SOLVE_MSGS[Math.floor(Math.random() * SOLVE_MSGS.length)], { duration: 3500 })
+      }
     } else {
       toast.success('Unmarked')
     }

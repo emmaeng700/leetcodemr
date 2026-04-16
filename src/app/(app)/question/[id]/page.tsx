@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -14,6 +14,7 @@ import QuestionImage from '@/components/QuestionImage'
 import toast from 'react-hot-toast'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import { getPatternForQuestion } from '@/lib/patternUtils'
+import { checkAndRecordBreather } from '@/lib/breatherUtils'
 
 interface Question {
   id: number
@@ -50,6 +51,8 @@ export default function QuestionPage() {
   const [saving, setSaving] = useState(false)
   const [imageError, setImageError] = useState(false)
   const [showSolution, setShowSolution] = useState(false)
+  const allQuestionsRef = useRef<Array<{ id: number; tags: string[] }>>([])
+  const fullProgressRef = useRef<Record<string, { solved?: boolean }>>({})
 
   useEffect(() => {
     async function load() {
@@ -60,6 +63,8 @@ export default function QuestionPage() {
       const q = (qs as Question[]).find(q => q.id === id)
       if (!q) { setLoading(false); return }
       setQuestion(q)
+      allQuestionsRef.current = qs as Question[]
+      fullProgressRef.current = prog
       const p = prog[String(id)] || { solved: false, starred: false, notes: '' }
       setProgress(p)
       setNotes(p.notes || '')
@@ -77,7 +82,14 @@ export default function QuestionPage() {
     setSaving(true)
     const updated = { ...progress, notes, ...patch }
     setProgress(updated)
+    fullProgressRef.current = { ...fullProgressRef.current, [String(id)]: updated }
     await updateProgress(id, updated)
+    if (patch.solved === true) {
+      const completed = checkAndRecordBreather(id, allQuestionsRef.current, fullProgressRef.current)
+      if (completed) {
+        toast.success(`🎉 ${completed} pattern complete! Take 2 days to revise before moving on.`, { duration: 5000 })
+      }
+    }
     setSaving(false)
   }
 
