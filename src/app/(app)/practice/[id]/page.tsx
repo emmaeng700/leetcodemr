@@ -66,7 +66,7 @@ export default function PracticePage() {
   const [starred, setStarred] = useState(false)
   const [nextReview, setNextReview] = useState<string | null>(null)
   const [reviewDone, setReviewDone] = useState(false)
-  const [activeTab, setActiveTab] = useState<'description' | 'editorial' | 'best' | 'notes' | 'accepted' | 'editor'>('description')
+  const [activeTab, setActiveTab] = useState<'description' | 'best' | 'notes' | 'accepted' | 'editor'>('description')
 
   const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.slug, activeTab === 'accepted')
   const [timer, setTimer] = useState(0)
@@ -375,12 +375,6 @@ export default function PracticePage() {
           <BookOpen size={12} /> Description
           {lcLoading && <Loader2 size={10} className="animate-spin text-[var(--text-muted)]" />}
         </button>
-        {question?.explanation && (
-          <button onClick={() => setActiveTab('editorial')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'editorial' ? 'border-purple-500 text-purple-600 dark:text-purple-400' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-            📝 Editorial
-          </button>
-        )}
         {question && (
           <button onClick={() => setActiveTab('best')}
             className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'best' ? 'border-amber-500 text-amber-600 dark:text-amber-400' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
@@ -461,13 +455,6 @@ export default function PracticePage() {
                   </div>
                 )}
               </>
-            )}
-
-            {activeTab === 'editorial' && question?.explanation && (
-              <div className="prose prose-sm dark:prose-invert max-w-none text-[var(--text)]">
-                <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest mb-3">Editorial / Approach</p>
-                <div className="text-sm leading-relaxed whitespace-pre-wrap">{question.explanation}</div>
-              </div>
             )}
 
             {activeTab === 'notes' && question && (
