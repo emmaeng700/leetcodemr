@@ -285,6 +285,13 @@ function LearnInner() {
     if (studyMode !== null) localStorage.setItem('lm_study_mode', studyMode)
   }, [studyMode])
 
+  // In challenge mode, kick off any answer-revealing tab back to description
+  useEffect(() => {
+    if (studyMode === 'hide' && (activeTab === 'editorial' || activeTab === 'best' || activeTab === 'accepted')) {
+      setActiveTab('description')
+    }
+  }, [studyMode, activeTab])
+
   // Reset per question
   useEffect(() => {
     if (q) setNotes(progress[String(q.id)]?.notes || '')
@@ -741,22 +748,28 @@ function LearnInner() {
             <BookOpen size={12} /> Description
             {lcLoading && <Loader2 size={10} className="animate-spin text-[var(--text-muted)]" />}
           </button>
-          <button onClick={() => setActiveTab('editorial')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'editorial' ? 'border-purple-500 text-purple-600 ' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-            <FileText size={12} /> Editorial
-          </button>
-          <button onClick={() => setActiveTab('best')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-            <Sparkles size={12} /> Best answers
-          </button>
+          {studyMode !== 'hide' && (
+            <button onClick={() => setActiveTab('editorial')}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'editorial' ? 'border-purple-500 text-purple-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+              <FileText size={12} /> Editorial
+            </button>
+          )}
+          {studyMode !== 'hide' && (
+            <button onClick={() => setActiveTab('best')}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+              <Sparkles size={12} /> Best answers
+            </button>
+          )}
           <button onClick={() => setActiveTab('notes')}
             className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'notes' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
             <StickyNote size={12} /> Notes
           </button>
-          <button onClick={() => setActiveTab('accepted')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-            🏆 My Solutions
-          </button>
+          {studyMode !== 'hide' && (
+            <button onClick={() => setActiveTab('accepted')}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+              🏆 My Solutions
+            </button>
+          )}
           <button onClick={() => setActiveTab('editor')}
             className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'editor' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
             💻 Editor
