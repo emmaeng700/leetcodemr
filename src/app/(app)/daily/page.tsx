@@ -817,43 +817,49 @@ export default function DailyPage() {
       )}
 
       {/* REVIEWS DUE */}
-      {dueReviews.length > 0 && (
-        <div className="bg-indigo-50  border border-indigo-200  rounded-xl mb-4 overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setDueOpen(v => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-100 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Brain size={16} className="text-indigo-600" />
-              <span className="text-sm font-bold text-indigo-700">
-                Reviews due — {dueReviews.length} question{dueReviews.length > 1 ? 's' : ''}
-              </span>
-            </div>
-            {dueOpen ? <ChevronUp size={15} className="text-indigo-400" /> : <ChevronDown size={15} className="text-indigo-400" />}
-          </button>
-          {dueOpen && (
-            <div className="px-4 pb-3 flex flex-wrap gap-2">
-              <Link
-                href="/review"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50  border border-indigo-200  rounded-lg text-xs font-semibold text-indigo-700  hover:border-indigo-400 hover:shadow-sm transition-all"
-              >
-                Open reviews <ArrowRight size={12} />
-              </Link>
-              {dueReviews.map(q => (
+      <div className="bg-indigo-50 border border-indigo-200 rounded-xl mb-4 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setDueOpen(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-100 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Brain size={16} className="text-indigo-600" />
+            <span className="text-sm font-bold text-indigo-700">
+              {dueReviews.length > 0
+                ? `Reviews due — ${dueReviews.length} question${dueReviews.length > 1 ? 's' : ''}`
+                : 'No reviews due today ✓'}
+            </span>
+          </div>
+          {dueOpen ? <ChevronUp size={15} className="text-indigo-400" /> : <ChevronDown size={15} className="text-indigo-400" />}
+        </button>
+        {dueOpen && (
+          <div className="px-4 pb-3">
+            {dueReviews.length === 0 ? (
+              <p className="text-xs text-indigo-500">You're all caught up — no spaced repetition reviews due.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
                 <Link
-                  key={q.id}
-                  href={`/practice/${q.id}`}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50  border border-indigo-200  rounded-lg text-xs hover:border-indigo-400 hover:shadow-sm transition-all text-left"
+                  href="/review"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-semibold text-indigo-700 hover:border-indigo-400 hover:shadow-sm transition-all"
                 >
-                  <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
-                  <span className="text-indigo-400 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
+                  Open reviews <ArrowRight size={12} />
                 </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+                {dueReviews.map(q => (
+                  <Link
+                    key={q.id}
+                    href={`/practice/${q.id}`}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs hover:border-indigo-400 hover:shadow-sm transition-all text-left"
+                  >
+                    <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                    <span className="text-indigo-400 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* PENDING */}
       {todayInfo.pending && (
