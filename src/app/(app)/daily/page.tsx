@@ -816,29 +816,6 @@ export default function DailyPage() {
         </div>
       )}
 
-      {/* PENDING */}
-      {todayInfo.pending && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-4 text-center">
-          <div className="text-3xl mb-2">⏳</div>
-          <p className="font-bold text-amber-800 text-sm">Plan starts on {fmtDate(todayInfo.startDate || '')}</p>
-          <p className="text-xs text-amber-600 mt-1">Come back then and your questions will be waiting.</p>
-        </div>
-      )}
-
-      {/* COMPLETE */}
-      {todayInfo.complete && (
-        <div className="bg-green-50  border border-green-200  rounded-xl p-5 mb-4 text-center">
-          <div className="text-4xl mb-2">🏆</div>
-          <p className="font-bold text-green-700 ">You finished all {plan.question_order.length} questions!</p>
-          <button
-            onClick={async () => { await clearStudyPlan(); setPlan(null) }}
-            className="mt-3 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-colors"
-          >
-            Start New Plan
-          </button>
-        </div>
-      )}
-
       {/* REVIEWS DUE */}
       {dueReviews.length > 0 && (
         <div className="bg-indigo-50  border border-indigo-200  rounded-xl mb-4 overflow-hidden">
@@ -875,6 +852,29 @@ export default function DailyPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* PENDING */}
+      {todayInfo.pending && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-4 text-center">
+          <div className="text-3xl mb-2">⏳</div>
+          <p className="font-bold text-amber-800 text-sm">Plan starts on {fmtDate(todayInfo.startDate || '')}</p>
+          <p className="text-xs text-amber-600 mt-1">Come back then and your questions will be waiting.</p>
+        </div>
+      )}
+
+      {/* COMPLETE */}
+      {todayInfo.complete && (
+        <div className="bg-green-50  border border-green-200  rounded-xl p-5 mb-4 text-center">
+          <div className="text-4xl mb-2">🏆</div>
+          <p className="font-bold text-green-700 ">You finished all {plan.question_order.length} questions!</p>
+          <button
+            onClick={async () => { await clearStudyPlan(); setPlan(null) }}
+            className="mt-3 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-colors"
+          >
+            Start New Plan
+          </button>
         </div>
       )}
 
