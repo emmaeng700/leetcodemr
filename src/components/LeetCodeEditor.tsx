@@ -327,11 +327,27 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       }),
     })
       .then(r => r.json())
-      .then(json => {
+      .then(async json => {
         if (json.errors) throw new Error(json.errors[0]?.message)
-        const q: LCQuestion & { isPaidOnly?: boolean } = json.data?.question
+        let q: (LCQuestion & { isPaidOnly?: boolean }) | null = json.data?.question ?? null
+
+        // ── If session-based fetch returned null, retry without session ──────
+        // This handles free questions where the stored session is corrupt/expired.
+        // If the retry also returns null, the question genuinely requires auth (premium).
+        if (!q && sessionOK) {
+          try {
+            const fallbackQuery = `query($s:String!){question(titleSlug:$s){questionId questionFrontendId titleSlug isPaidOnly codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`
+            const fb = await fetch('/api/leetcode', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query: fallbackQuery, variables: { s: slug } }),
+            }).then(r => r.json())
+            q = fb.data?.question ?? null
+          } catch { /* ignore — show error below */ }
+        }
+
         if (!q) {
-          setLcErr('Could not load question data from LeetCode.')
+          // Differentiate: had session vs. no session, so the user knows what to fix
+          setLcErr(sessionOK ? 'session-expired-general' : 'no-session-general')
           return
         }
         // Premium question — differentiate between "no session" and "session expired"
@@ -590,6 +606,57 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
               <p className="text-sm text-gray-200 font-semibold">LeetCode Premium question</p>
               <p className="text-xs text-gray-400 max-w-xs">
                 Add your LeetCode session token using the
+                <span className="text-orange-300 font-semibold mx-1">Setup session</span>
+                button above, then retry.
+              </p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                <button
+                  onClick={() => { setLcErr(''); setRetryKey(k => k + 1) }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-500 transition"
+                >
+                  Retry
+                </button>
+                <a
+                  href={`https://leetcode.com/problems/${slug}/`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white text-xs font-semibold rounded-lg hover:bg-orange-600 transition"
+                >
+                  Open on LeetCode ↗
+                </a>
+              </div>
+            </div>
+          ) : lcErr === 'session-expired-general' ? (
+            <div className="space-y-3">
+              <div className="text-2xl">🔄</div>
+              <p className="text-sm text-gray-200 font-semibold">LeetCode session expired</p>
+              <p className="text-xs text-gray-400 max-w-xs">
+                Your saved session token has expired. Go to LeetCode, copy a fresh
+                <code className="mx-1 px-1 py-0.5 bg-gray-800 rounded text-orange-300">LEETCODE_SESSION</code>
+                and update it on the{' '}
+                <a href="/leetcode-api" className="text-orange-300 underline hover:text-orange-200">LeetCode page</a>
+                , then retry.
+              </p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                <button
+                  onClick={() => { setLcErr(''); setRetryKey(k => k + 1) }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-500 transition"
+                >
+                  Retry
+                </button>
+                <a
+                  href="/leetcode-api"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white text-xs font-semibold rounded-lg hover:bg-orange-600 transition"
+                >
+                  Update Session
+                </a>
+              </div>
+            </div>
+          ) : lcErr === 'no-session-general' ? (
+            <div className="space-y-3">
+              <div className="text-2xl">🔗</div>
+              <p className="text-sm text-gray-200 font-semibold">Could not load question</p>
+              <p className="text-xs text-gray-400 max-w-xs">
+                Connect your LeetCode account using the
                 <span className="text-orange-300 font-semibold mx-1">Setup session</span>
                 button above, then retry.
               </p>

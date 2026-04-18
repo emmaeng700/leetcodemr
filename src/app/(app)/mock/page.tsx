@@ -14,6 +14,7 @@ import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import DescriptionRenderer from '@/components/DescriptionRenderer'
 
 interface Question {
   id: number
@@ -412,9 +413,12 @@ export default function MockInterviewPage() {
                     <div className="h-3 bg-gray-100 rounded w-3/4" />
                   </div>
                 ) : (
-                  <div className="text-sm text-[var(--text)] leading-relaxed whitespace-pre-wrap">
-                    {question.description || <span className="text-[var(--text-subtle)] italic text-xs">No local description. <a href={`https://leetcode.com/problems/${question.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a></span>}
-                  </div>
+                  question.description
+                    ? <DescriptionRenderer description={question.description} />
+                    : <span className="text-[var(--text-subtle)] italic text-xs">
+                        No local description.{' '}
+                        <a href={`https://leetcode.com/problems/${question.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
+                      </span>
                 )}
               </div>
             )}

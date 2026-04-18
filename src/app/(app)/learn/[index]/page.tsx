@@ -27,6 +27,7 @@ import WhiteboardNotes from '@/components/WhiteboardNotes'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import LearnAcSubmitTable from '@/components/learn/LearnAcSubmitTable'
 import { CODE_HIGHLIGHT_TOKEN_CSS } from '@/lib/codeHighlightTheme'
+import DescriptionRenderer from '@/components/DescriptionRenderer'
 
 hljs.registerLanguage('python', pythonLang)
 hljs.registerLanguage('cpp', cppLang)
@@ -869,15 +870,13 @@ function LearnInner() {
                       <div className="h-3 bg-gray-100 rounded w-3/4" />
                     </div>
                   ) : (
-                    <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-                      {q.description || (
-                        <span className="text-gray-400 italic text-xs">
+                    q.description
+                      ? <DescriptionRenderer description={q.description} />
+                      : <span className="text-gray-400 italic text-xs">
                           No description cached.{' '}
                           <a href={`https://leetcode.com/problems/${q.slug}/`} target="_blank" rel="noopener noreferrer"
                             className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
                         </span>
-                      )}
-                    </div>
                   )}
 
                   {/* Company sources */}
