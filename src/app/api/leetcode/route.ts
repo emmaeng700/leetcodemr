@@ -24,9 +24,6 @@ export async function POST(req: NextRequest) {
             Origin: 'https://leetcode.com',
             'x-requested-with': 'XMLHttpRequest',
             'User-Agent': UA,
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin',
           }
 
     const res = await fetch(LEETCODE_GRAPHQL, {
@@ -39,7 +36,9 @@ export async function POST(req: NextRequest) {
     const text = await res.text()
     const parsed = parseLeetCodeJsonText(text, res.status)
     if (!parsed.ok) {
-      return NextResponse.json({ errors: [{ message: parsed.error }] }, { status: 502 })
+      const msg =
+        parsed.error === 'non_json_html' ? 'Could not load from LeetCode.' : parsed.error
+      return NextResponse.json({ errors: [{ message: msg }] }, { status: 502 })
     }
     return NextResponse.json(parsed.data, { status: res.status })
   } catch (err) {

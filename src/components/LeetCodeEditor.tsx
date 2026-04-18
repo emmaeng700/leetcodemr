@@ -199,14 +199,7 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
       <p className="text-[11px] text-gray-500 leading-relaxed">
         Go to <strong className="text-gray-300">leetcode.com</strong> → DevTools → Application → Cookies, copy
         {' '}<code className="bg-gray-800 px-1 rounded text-orange-300">LEETCODE_SESSION</code> and
-        {' '}<code className="bg-gray-800 px-1 rounded text-orange-300">csrftoken</code> (value only, not the name=
-        prefix).
-      </p>
-      <p className="text-[11px] text-amber-200/90 leading-relaxed bg-amber-950/40 border border-amber-800/50 rounded-lg px-2 py-1.5">
-        Run/Submit talks to LeetCode from <strong className="text-amber-100">this app&apos;s server</strong>. On a
-        hosted site (e.g. Vercel), LeetCode often returns a challenge page even with valid cookies. If that happens,
-        use <code className="text-amber-200">npm run dev</code> locally or submit on leetcode.com — it is not your
-        solution code failing.
+        {' '}<code className="bg-gray-800 px-1 rounded text-orange-300">csrftoken</code> (paste the value only).
       </p>
       <div className="flex gap-1.5">
         <div className="relative flex-1">
@@ -483,7 +476,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       try {
         data = JSON.parse(raw) as LCResult & { error?: string }
       } catch {
-        setResultErr('Check poll got a non-JSON response — try updating your LeetCode session.')
+        setResultErr('Run failed.')
         setRunning(false); setPollMsg(''); return
       }
       if (!res.ok && data.error) {
@@ -542,7 +535,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       try {
         data = JSON.parse(raw) as { error?: string; interpret_id?: string }
       } catch {
-        setResultErr('Server returned non-JSON (try refreshing the page or updating your LeetCode session).')
+        setResultErr('Run failed.')
         setRunning(false); setPollMsg(''); return
       }
       if (data.error) { setResultErr(data.error); setRunning(false); setPollMsg(''); return }
@@ -568,7 +561,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       try {
         data = JSON.parse(raw) as { error?: string; submission_id?: string }
       } catch {
-        setResultErr('Server returned non-JSON (try refreshing the page or updating your LeetCode session).')
+        setResultErr('Submit failed.')
         setRunning(false); setPollMsg(''); return
       }
       if (data.error) { setResultErr(data.error); setRunning(false); setPollMsg(''); return }
@@ -920,18 +913,10 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           {bottomTab === 'result' && (
             <div className="space-y-2 text-xs">
               {resultErr && (
-                <div className="space-y-1">
-                  <p className="text-red-400 flex items-start gap-1.5">
-                    <XCircle size={12} className="shrink-0 mt-0.5" />
-                    <span className="min-w-0 break-words">{resultErr}</span>
-                  </p>
-                  {(resultErr.includes('HTML') || resultErr.includes('web page')) && (
-                    <p className="text-[11px] text-gray-500 pl-5">
-                      This happens before your code runs on LeetCode (server/cookies/Cloudflare). Try{' '}
-                      <code className="text-gray-400">npm run dev</code> locally or use leetcode.com to Run/Submit.
-                    </p>
-                  )}
-                </div>
+                <p className="text-red-400 flex items-start gap-1.5">
+                  <XCircle size={12} className="shrink-0 mt-0.5" />
+                  <span className="min-w-0 break-words">{resultErr}</span>
+                </p>
               )}
               {!result && !resultErr && !pollMsg && <p className="text-gray-600">Run your code first.</p>}
               {result && (

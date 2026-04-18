@@ -3,21 +3,24 @@
  * (login wall, Cloudflare, rate limits, bad cookies). Calling `res.json()` on
  * that body throws: SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
  */
+export function isLeetCodeHtmlBody(text: string): boolean {
+  const t = text.trimStart()
+  const probe = t.slice(0, 80).toLowerCase()
+  return (
+    probe.startsWith('<!doctype') ||
+    probe.startsWith('<html') ||
+    (t.startsWith('<') && probe.includes('html'))
+  )
+}
+
 export function parseLeetCodeJsonText(
   text: string,
   httpStatus: number,
 ): { ok: true; data: unknown } | { ok: false; error: string } {
-  const t = text.trimStart()
-  const probe = t.slice(0, 80).toLowerCase()
-  if (
-    probe.startsWith('<!doctype') ||
-    probe.startsWith('<html') ||
-    (t.startsWith('<') && probe.includes('html'))
-  ) {
+  if (isLeetCodeHtmlBody(text)) {
     return {
       ok: false,
-      error:
-        'LeetCode returned HTML instead of JSON (login wall, Cloudflare, or rate limit). Try: (1) Re-save cookies with only the value (no LEETCODE_SESSION= prefix), trimmed. (2) If you use a deployed site (e.g. Vercel), LeetCode may block the server IP even with valid cookies — run the app locally (npm run dev) or submit on leetcode.com. (3) After a bot check, you may need cookie cf_clearance from the same browser session (advanced).',
+      error: 'non_json_html',
     }
   }
   try {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseLeetCodeJsonText } from '@/lib/parseLeetCodeResponse'
-import { lcFetchInit, leetCodeProblemApiHeaders } from '@/lib/leetcodeHttp'
+import { fetchLeetCodeProblemPost } from '@/lib/leetcodeHttp'
 
 const LC = 'https://leetcode.com'
 
@@ -13,22 +13,22 @@ export async function POST(req: NextRequest) {
     }
 
     const slug = encodeURIComponent(String(titleSlug))
-    const res = await fetch(`${LC}/problems/${slug}/interpret_solution/`, {
-      method: 'POST',
-      headers: leetCodeProblemApiHeaders(String(titleSlug), session, csrfToken),
-      body: JSON.stringify({
+    const { res, text } = await fetchLeetCodeProblemPost(
+      `${LC}/problems/${slug}/interpret_solution/`,
+      {
         lang,
         question_id: String(questionId),
         typed_code: code,
         data_input: testInput,
-      }),
-      ...lcFetchInit,
-    })
+      },
+      String(titleSlug),
+      session,
+      csrfToken,
+    )
 
-    const text = await res.text()
     const parsed = parseLeetCodeJsonText(text, res.status)
     if (!parsed.ok) {
-      return NextResponse.json({ error: parsed.error }, { status: 502 })
+      return NextResponse.json({ error: 'Run failed.' }, { status: 502 })
     }
     const data = parsed.data as { error?: string; interpret_id?: string }
 

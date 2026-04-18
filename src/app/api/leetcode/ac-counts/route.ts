@@ -67,7 +67,10 @@ export async function POST(req: NextRequest) {
     const text = await res.text()
     const parsed = parseLeetCodeJsonText(text, res.status)
     if (!parsed.ok) {
-      return NextResponse.json({ bySlug: {}, error: parsed.error }, { status: 502 })
+      if (parsed.error === 'non_json_html') {
+        return NextResponse.json({ bySlug: {} })
+      }
+      return NextResponse.json({ bySlug: {}, error: 'Could not load counts.' }, { status: 502 })
     }
     const json = parsed.data as {
       errors?: Array<{ message?: string }>
