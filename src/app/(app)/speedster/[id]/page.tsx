@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { getPatternForQuestion } from '@/lib/patternUtils'
 import { useClickOutside } from '@/hooks/useClickOutside'
@@ -60,10 +60,7 @@ export default function SpeedsterQuestionPage() {
   const [lcFailed, setLcFailed] = useState(false)
   const [isPremium, setIsPremium] = useState(false)
 
-  const lcTitleSlug = useMemo(
-    () => (question ? resolveLeetCodeSlug(question.id, question.slug) : undefined),
-    [question],
-  )
+  const lcTitleSlug = question ? resolveLeetCodeSlug(question.id, question.slug) : undefined
 
   const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(lcTitleSlug, activeTab === 'accepted')
 
@@ -218,7 +215,7 @@ export default function SpeedsterQuestionPage() {
             <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0 hidden sm:inline">#{question.id}</span>
             <h1 className="font-bold text-[var(--text)] text-sm leading-snug">{question.title}</h1>
             <div className="shrink-0 hidden sm:block"><DifficultyBadge difficulty={question.difficulty} /></div>
-            <a href={leetCodeUrl(lcTitleSlug!)} target="_blank" rel="noopener noreferrer"
+            <a href={leetCodeUrl(lcTitleSlug)} target="_blank" rel="noopener noreferrer"
               className="shrink-0 text-gray-300 hover:text-orange-400 transition-colors hidden sm:inline">
               <ExternalLink size={12} />
             </a>
@@ -295,7 +292,7 @@ export default function SpeedsterQuestionPage() {
                     {question?.description || (
                       <span className="text-[var(--text-subtle)] italic text-xs">
                         Description unavailable.{' '}
-                        <a href={leetCodeUrl(lcTitleSlug!)} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
+                        <a href={leetCodeUrl(lcTitleSlug)} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
                       </span>
                     )}
                   </div>

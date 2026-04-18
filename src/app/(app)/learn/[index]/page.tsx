@@ -265,7 +265,7 @@ function LearnInner() {
 
   const safeIdx = Math.min(routeIndex, Math.max(filtered.length - 1, 0))
   const q         = filtered[safeIdx] || null
-  const lcTitleSlug = useMemo(() => (q ? resolveLeetCodeSlug(q.id, q.slug) : undefined), [q])
+  const lcTitleSlug = q ? resolveLeetCodeSlug(q.id, q.slug) : undefined
   const p         = q ? (progress[String(q.id)] || {}) : {}
   const solved    = p.solved    || false
   const starred   = p.starred   || false
@@ -633,7 +633,7 @@ function LearnInner() {
             </button>
 
             {/* Open on LeetCode */}
-            <a href={leetCodeUrl(lcTitleSlug!)} target="_blank" rel="noopener noreferrer"
+            <a href={leetCodeUrl(lcTitleSlug)} target="_blank" rel="noopener noreferrer"
               className="p-1.5 text-gray-300 hover:text-orange-400 transition-colors" title="Open on LeetCode">
               <ExternalLink size={14} />
             </a>
@@ -875,7 +875,7 @@ function LearnInner() {
                       ? <DescriptionRenderer description={q.description} />
                       : <span className="text-gray-400 italic text-xs">
                           No description cached.{' '}
-                          <a href={leetCodeUrl(lcTitleSlug!)} target="_blank" rel="noopener noreferrer"
+                          <a href={leetCodeUrl(lcTitleSlug)} target="_blank" rel="noopener noreferrer"
                             className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
                         </span>
                   )}

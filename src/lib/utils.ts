@@ -14,13 +14,15 @@ const LEETCODE_SLUG_FIX_BY_QUESTION_ID: Record<number, string> = {
   787: 'cheapest-flights-within-k-stops',
 }
 
-export function resolveLeetCodeSlug(questionId: number, slug: string): string {
-  return LEETCODE_SLUG_FIX_BY_QUESTION_ID[questionId] ?? slug
+export function resolveLeetCodeSlug(questionId: number, slug: string | null | undefined): string {
+  const raw = String(slug ?? '').trim()
+  return LEETCODE_SLUG_FIX_BY_QUESTION_ID[questionId] ?? raw
 }
 
 /** Canonical problem URL (LeetCode serves the description UI on this path). */
-export function leetCodeUrl(slug: string): string {
-  const s = slug.trim()
+export function leetCodeUrl(slug: string | null | undefined): string {
+  const s = String(slug ?? '').trim()
+  if (!s) return 'https://leetcode.com/problemset/all/'
   return `https://leetcode.com/problems/${encodeURIComponent(s)}/description/`
 }
 
