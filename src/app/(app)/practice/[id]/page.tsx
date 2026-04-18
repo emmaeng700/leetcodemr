@@ -6,7 +6,8 @@ import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy,
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import WhiteboardNotes from '@/components/WhiteboardNotes'
 import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan } from '@/lib/db'
-import { formatTime, isDue, stripScripts} from '@/lib/utils'
+import { formatTime, isDue, stripScripts } from '@/lib/utils'
+import DescriptionRenderer from '@/components/DescriptionRenderer'
 import { getPatternForQuestion } from '@/lib/patternUtils'
 import { checkAndRecordBreather } from '@/lib/breatherUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -110,7 +111,10 @@ export default function PracticePage() {
     setOpenQuestionContext({ id: question.id, slug: question.slug, title: question.title })
   }, [question])
 
-  // Fetch real LeetCode description in the background once we have the slug
+  // Fetch real LeetCode description in the background once we have the slug.
+  // Reads session from localStorage first; if empty falls back to Supabase
+  // so the live HTML loads correctly even when the user hasn't visited
+  // the LeetCode page yet in this browser session.
   useEffect(() => {
     if (!question?.slug) return
     let cancelled = false
@@ -118,29 +122,38 @@ export default function PracticePage() {
     setLcFailed(false)
     setIsPremium(false)
 
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 8000)
-
-    const session  = localStorage.getItem('lc_session')  || ''
-    const csrfToken = localStorage.getItem('lc_csrf')    || ''
-
-    fetch('/api/leetcode', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify({
-        session, csrfToken,
-        query: `query questionContent($titleSlug: String!) {
-          question(titleSlug: $titleSlug) {
-            content
-            isPaidOnly
+    async function doFetch() {
+      // Resolve session — localStorage first, Supabase fallback
+      let session  = localStorage.getItem('lc_session')  || ''
+      let csrfToken = localStorage.getItem('lc_csrf')    || ''
+      if (!session || !csrfToken) {
+        try {
+          const d = await fetch('/api/lc-session').then(r => r.json())
+          if (d.lc_session && d.lc_csrf) {
+            session = d.lc_session; csrfToken = d.lc_csrf
+            localStorage.setItem('lc_session', session)
+            localStorage.setItem('lc_csrf', csrfToken)
           }
-        }`,
-        variables: { titleSlug: question.slug },
-      }),
-    })
-      .then(r => r.json())
-      .then(data => {
+        } catch { /* ignore — will try without session */ }
+      }
+
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 8000)
+
+      try {
+        const res = await fetch('/api/leetcode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            session, csrfToken,
+            query: `query questionContent($titleSlug: String!) {
+              question(titleSlug: $titleSlug) { content isPaidOnly }
+            }`,
+            variables: { titleSlug: question!.slug },
+          }),
+        })
+        const data = await res.json()
         if (cancelled) return
         const q = data?.data?.question
         if (q?.isPaidOnly && !q?.content) {
@@ -150,20 +163,16 @@ export default function PracticePage() {
         } else {
           setLcFailed(true)
         }
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setLcFailed(true)
-      })
-      .finally(() => {
+      } finally {
         clearTimeout(timeout)
         if (!cancelled) setLcLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-      controller.abort()
-      clearTimeout(timeout)
+      }
     }
+
+    doFetch()
+    return () => { cancelled = true }
   }, [question?.slug])
 
   // Timer
@@ -433,14 +442,14 @@ export default function PracticePage() {
                     <div className="h-3 bg-slate-700 rounded w-5/6" />
                   </div>
                 ) : (
-                  <div className="text-sm text-[var(--text)] leading-relaxed whitespace-pre-wrap">
-                    {question?.description || (
-                      <span className="text-[var(--text-subtle)] italic text-xs">
+                  /* Live fetch failed — render cached plain-text description
+                     with the same parser used on the learn page */
+                  question?.description
+                    ? <DescriptionRenderer description={question.description} />
+                    : <span className="text-[var(--text-subtle)] italic text-xs">
                         Description unavailable.{' '}
                         <a href={`https://leetcode.com/problems/${question?.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
                       </span>
-                    )}
-                  </div>
                 )}
 
                 {/* Company tags */}

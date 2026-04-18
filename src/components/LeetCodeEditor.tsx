@@ -409,8 +409,11 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         }
 
         if (!q) {
-          // Differentiate: had session vs. no session, so the user knows what to fix
-          setLcErr(sessionOK ? 'session-expired-general' : 'no-session-general')
+          // Both with-session and without-session returned null.
+          // For free questions this usually means LeetCode's API is temporarily
+          // blocking the proxy, not necessarily that the session is wrong.
+          // Only blame the session if the user has NO session set at all.
+          setLcErr(sessionOK ? 'load-failed' : 'no-session-general')
           return
         }
         // Premium question — differentiate between "no session" and "session expired"
@@ -700,16 +703,15 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
                 </a>
               </div>
             </div>
-          ) : lcErr === 'session-expired-general' ? (
+          ) : lcErr === 'load-failed' ? (
             <div className="space-y-3">
-              <div className="text-2xl">🔄</div>
-              <p className="text-sm text-gray-200 font-semibold">LeetCode session expired</p>
+              <div className="text-2xl">⚡</div>
+              <p className="text-sm text-gray-200 font-semibold">Couldn&apos;t reach LeetCode</p>
               <p className="text-xs text-gray-400 max-w-xs">
-                Your saved session token has expired. Go to LeetCode, copy a fresh
-                <code className="mx-1 px-1 py-0.5 bg-gray-800 rounded text-orange-300">LEETCODE_SESSION</code>
-                and update it on the{' '}
-                <a href="/leetcode-api" className="text-orange-300 underline hover:text-orange-200">LeetCode page</a>
-                , then retry.
+                LeetCode&apos;s API didn&apos;t return data. This can happen when the session
+                is expired or their servers are being slow. Use the{' '}
+                <button onClick={() => setShowSessionHint(h => !h)} className="text-orange-300 underline">Session</button>
+                {' '}button above to refresh your credentials, then retry.
               </p>
               <div className="flex flex-wrap gap-2 justify-center">
                 <button
@@ -719,10 +721,11 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
                   Retry
                 </button>
                 <a
-                  href="/leetcode-api"
+                  href={`https://leetcode.com/problems/${slug}/`}
+                  target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white text-xs font-semibold rounded-lg hover:bg-orange-600 transition"
                 >
-                  Update Session
+                  Open on LeetCode ↗
                 </a>
               </div>
             </div>
