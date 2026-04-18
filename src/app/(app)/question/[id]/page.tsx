@@ -15,6 +15,7 @@ import toast from 'react-hot-toast'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import { getPatternForQuestion } from '@/lib/patternUtils'
 import { checkAndRecordBreather } from '@/lib/breatherUtils'
+import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 
 interface Question {
   id: number
@@ -181,7 +182,7 @@ export default function QuestionPage() {
 
             {question.slug && (
               <a
-                href={`https://leetcode.com/problems/${question.slug}/`}
+                href={leetCodeUrl(resolveLeetCodeSlug(question.id, question.slug))}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-orange-50 text-orange-500 border border-orange-200 hover:bg-orange-100 transition-colors"

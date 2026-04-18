@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { stripScripts } from '@/lib/utils'
+import { stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import Link from 'next/link'
 import {
   ChevronLeft,
@@ -158,7 +158,7 @@ function LineGameQuestionPanel({
           <span className="text-sm font-bold text-indigo-700 truncate">{question.title}</span>
         </div>
         <a
-          href={`https://leetcode.com/problems/${question.slug}/`}
+          href={leetCodeUrl(resolveLeetCodeSlug(question.id, question.slug))}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-xs text-indigo-600 font-semibold hover:underline shrink-0"

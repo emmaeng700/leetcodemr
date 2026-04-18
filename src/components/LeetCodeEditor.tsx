@@ -7,6 +7,7 @@ import {
   Eye, EyeOff,
 } from 'lucide-react'
 import { getProgress, updateProgress, incrementAcSubmitCount } from '@/lib/db'
+import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import toast from 'react-hot-toast'
 
@@ -234,6 +235,7 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
 
 /* ══════════════════════════════════════════════════════════ */
 export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncToApp = true }: Props) {
+  const lcSlug = resolveLeetCodeSlug(appQuestionId, slug)
   const onAcceptedRef = useRef(onAccepted)
   useEffect(() => { onAcceptedRef.current = onAccepted }, [onAccepted])
 
@@ -260,7 +262,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   /* Bottom panel */
   const [bottomTab,        setBottomTab]        = useState<'testcase' | 'result'>('testcase')
   const [showSolutionsModal, setShowSolutionsModal] = useState(false)
-  const acSols = useAcceptedSolutions(slug, showSolutionsModal)
+  const acSols = useAcceptedSolutions(lcSlug, showSolutionsModal)
   const [cases,      setCases]      = useState<TestCase[]>([])
   const [activeCase, setActiveCase] = useState(0)
   const [testInput,  setTestInput]  = useState('')
@@ -378,7 +380,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
   /* ── Fetch LeetCode question data ── */
   useEffect(() => {
-    if (!slug || !sessionReady) return
+    if (!lcSlug || !sessionReady) return
     setLcLoad(true); setLcErr('')
 
     fetch('/api/leetcode', {
@@ -386,7 +388,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       body: JSON.stringify({
         session, csrfToken: csrf,
         query: `query($s:String!){question(titleSlug:$s){questionId questionFrontendId titleSlug isPaidOnly codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`,
-        variables: { s: slug },
+        variables: { s: lcSlug },
       }),
     })
       .then(r => r.json())
@@ -402,7 +404,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
             const fallbackQuery = `query($s:String!){question(titleSlug:$s){questionId questionFrontendId titleSlug isPaidOnly codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`
             const fb = await fetch('/api/leetcode', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ query: fallbackQuery, variables: { s: slug } }),
+              body: JSON.stringify({ query: fallbackQuery, variables: { s: lcSlug } }),
             }).then(r => r.json())
             q = fb.data?.question ?? null
           } catch { /* ignore — show error below */ }
@@ -431,7 +433,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       .catch(e => setLcErr(String(e)))
       .finally(() => setLcLoad(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, retryKey, sessionReady, session, csrf])
+  }, [lcSlug, retryKey, sessionReady, session, csrf])
 
   const handleCodeChange = (val: string) => setCode(val)
 
@@ -462,7 +464,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       setPollMsg(`Judging… ${i + 1}s`)
       const res = await fetch('/api/leetcode/check', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ checkId, titleSlug: slug, session, csrfToken: csrf }),
+        body: JSON.stringify({ checkId, titleSlug: lcSlug, session, csrfToken: csrf }),
       })
       const data: LCResult = await res.json()
       if (data.state !== 'PENDING' && data.state !== 'STARTED') {
@@ -501,7 +503,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       }
     }
     setResultErr('Timed out.'); setRunning(false); setPollMsg('')
-  }, [session, csrf, slug, appQuestionId])
+  }, [session, csrf, lcSlug, appQuestionId])
 
   /* ── Run test ── */
   const runTest = async () => {
@@ -510,7 +512,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     try {
       const res = await fetch('/api/leetcode/test', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ titleSlug: slug, questionId: lcQ.questionId, lang: LANG_LC[lang], code, testInput: cases[activeCase]?.raw || testInput, session, csrfToken: csrf }),
+        body: JSON.stringify({ titleSlug: lcSlug, questionId: lcQ.questionId, lang: LANG_LC[lang], code, testInput: cases[activeCase]?.raw || testInput, session, csrfToken: csrf }),
       })
       const data = await res.json()
       if (data.error) { setResultErr(data.error); setRunning(false); setPollMsg(''); return }
@@ -525,7 +527,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     try {
       const res = await fetch('/api/leetcode/submit', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ titleSlug: slug, questionId: lcQ.questionId, lang: LANG_LC[lang], code, session, csrfToken: csrf }),
+        body: JSON.stringify({ titleSlug: lcSlug, questionId: lcQ.questionId, lang: LANG_LC[lang], code, session, csrfToken: csrf }),
       })
       const data = await res.json()
       if (data.error) { setResultErr(data.error); setRunning(false); setPollMsg(''); return }
@@ -670,7 +672,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
                   Retry
                 </button>
                 <a
-                  href={`https://leetcode.com/problems/${slug}/`}
+                  href={leetCodeUrl(lcSlug)}
                   target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white text-xs font-semibold rounded-lg hover:bg-orange-600 transition"
                 >
@@ -695,7 +697,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
                   Retry
                 </button>
                 <a
-                  href={`https://leetcode.com/problems/${slug}/`}
+                  href={leetCodeUrl(lcSlug)}
                   target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white text-xs font-semibold rounded-lg hover:bg-orange-600 transition"
                 >
@@ -721,7 +723,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
                   Retry
                 </button>
                 <a
-                  href={`https://leetcode.com/problems/${slug}/`}
+                  href={leetCodeUrl(lcSlug)}
                   target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white text-xs font-semibold rounded-lg hover:bg-orange-600 transition"
                 >
@@ -746,7 +748,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
                   Retry
                 </button>
                 <a
-                  href={`https://leetcode.com/problems/${slug}/`}
+                  href={leetCodeUrl(lcSlug)}
                   target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white text-xs font-semibold rounded-lg hover:bg-orange-600 transition"
                 >

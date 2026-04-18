@@ -97,7 +97,7 @@ GRIND_169 = [
     {"id": 212,  "title": "Word Search II",                          "slug": "word-search-ii",                             "difficulty": "Hard",   "tags": ["Array", "String", "Backtracking", "Trie", "Matrix"], "source": ["Grind 169"]},
     {"id": 269,  "title": "Alien Dictionary",                        "slug": "alien-dictionary",                           "difficulty": "Hard",   "tags": ["Array", "String", "DFS", "BFS", "Graph", "Topological Sort"], "source": ["Grind 169"]},
     {"id": 815,  "title": "Bus Routes",                              "slug": "bus-routes",                                 "difficulty": "Hard",   "tags": ["Array", "Hash Table", "BFS"],            "source": ["Grind 169"]},
-    {"id": 787,  "title": "Cheapest Flights Within K Stops",         "slug": "find-the-cheapest-flight-within-k-stops",    "difficulty": "Medium", "tags": ["Dynamic Programming", "DFS", "BFS", "Graph", "Heap"], "source": ["Grind 169"]},
+    {"id": 787,  "title": "Cheapest Flights Within K Stops",         "slug": "cheapest-flights-within-k-stops",            "difficulty": "Medium", "tags": ["Dynamic Programming", "DFS", "BFS", "Graph", "Heap"], "source": ["Grind 169"]},
 
     # ── Binary Search Tree (5) ───────────────────────────────────────────────
     {"id": 235,  "title": "Lowest Common Ancestor of a Binary Search Tree", "slug": "lowest-common-ancestor-of-a-binary-search-tree", "difficulty": "Medium", "tags": ["Tree", "DFS", "BST"],       "source": ["Grind 169"]},

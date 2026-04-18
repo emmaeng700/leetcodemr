@@ -6,7 +6,7 @@ import {
   Lock, Unlock, BookOpen, Code2, Loader2, ExternalLink,
 } from 'lucide-react'
 import { getProgress, updateProgress, getMockSessions, saveMockSession, type MockSessionRecord } from '@/lib/db'
-import { formatTime, stripScripts} from '@/lib/utils'
+import { formatTime, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
@@ -51,7 +51,7 @@ function PremiumBlock({ slug }: { slug?: string }) {
         Your subscription may have lapsed or you may not have one active.
       </p>
       {slug && (
-        <a href={`https://leetcode.com/problems/${slug}/`} target="_blank" rel="noopener noreferrer"
+        <a href={leetCodeUrl(slug)} target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition-colors">
           Open on LeetCode ↗
         </a>
@@ -136,7 +136,7 @@ export default function MockInterviewPage() {
       body: JSON.stringify({
         session, csrfToken,
         query: `query questionContent($titleSlug: String!) { question(titleSlug: $titleSlug) { content isPaidOnly } }`,
-        variables: { titleSlug: question.slug },
+        variables: { titleSlug: resolveLeetCodeSlug(question.id, question.slug) },
       }),
     })
       .then(r => r.json())
@@ -149,7 +149,7 @@ export default function MockInterviewPage() {
       .catch(() => {})
       .finally(() => { clearTimeout(timer); if (!cancelled) setLcLoading(false) })
     return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
-  }, [question?.slug])
+  }, [question?.id, question?.slug])
 
   const pickQuestion = useCallback((): Question | null => {
     const exclusiveMap = buildExclusivePatternMap(allQuestions)
@@ -337,7 +337,7 @@ export default function MockInterviewPage() {
         <div className="hidden sm:flex items-center gap-2 shrink-0">
           <span className="text-xs text-[var(--text-muted)] font-mono">#{question.id}</span>
           <DifficultyBadge difficulty={question.difficulty} />
-          <a href={`https://leetcode.com/problems/${question.slug}/`} target="_blank" rel="noopener noreferrer"
+          <a href={leetCodeUrl(resolveLeetCodeSlug(question.id, question.slug))} target="_blank" rel="noopener noreferrer"
             className="text-[var(--text-subtle)] hover:text-orange-400 transition-colors"><ExternalLink size={12} /></a>
         </div>
 
@@ -402,7 +402,7 @@ export default function MockInterviewPage() {
                 {lcContent ? (
                   <div className="lc-description text-sm text-[var(--text)]" dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
                 ) : isPremium ? (
-                  <PremiumBlock slug={question.slug} />
+                  <PremiumBlock slug={resolveLeetCodeSlug(question.id, question.slug)} />
                 ) : lcLoading ? (
                   <div className="space-y-2 animate-pulse">
                     <div className="h-3 bg-gray-100 rounded w-full" />
@@ -417,7 +417,7 @@ export default function MockInterviewPage() {
                     ? <DescriptionRenderer description={question.description} />
                     : <span className="text-[var(--text-subtle)] italic text-xs">
                         No local description.{' '}
-                        <a href={`https://leetcode.com/problems/${question.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
+                        <a href={leetCodeUrl(resolveLeetCodeSlug(question.id, question.slug))} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
                       </span>
                 )}
               </div>

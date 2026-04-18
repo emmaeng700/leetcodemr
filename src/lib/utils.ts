@@ -9,8 +9,19 @@ export function shuffle<T>(arr: T[]): T[] {
 }
 
 // ── URL helpers ───────────────────────────────────────────────────────────────
+/** Slug fixes for outdated entries in bundled question data (LeetCode titleSlug is canonical). */
+const LEETCODE_SLUG_FIX_BY_QUESTION_ID: Record<number, string> = {
+  787: 'cheapest-flights-within-k-stops',
+}
+
+export function resolveLeetCodeSlug(questionId: number, slug: string): string {
+  return LEETCODE_SLUG_FIX_BY_QUESTION_ID[questionId] ?? slug
+}
+
+/** Canonical problem URL (LeetCode serves the description UI on this path). */
 export function leetCodeUrl(slug: string): string {
-  return `https://leetcode.com/problems/${slug}/`
+  const s = slug.trim()
+  return `https://leetcode.com/problems/${encodeURIComponent(s)}/description/`
 }
 
 // ── Time formatting ───────────────────────────────────────────────────────────

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Shuffle, RotateCcw, Layers, CheckCircle, Circle } from 'lucide-react'
 import { getFcVisited, addFcVisited, getProgress } from '@/lib/db'
-import { shuffle, stripScripts } from '@/lib/utils'
+import { shuffle, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { DIFFICULTY_LEVELS, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -131,14 +131,16 @@ function FlashcardsInner() {
   // Reset description when card changes
   useEffect(() => {
     if (!q?.slug) return
-    setLcContent(lcCacheRef.current[q.slug] ?? null)
+    const titleSlug = resolveLeetCodeSlug(q.id, q.slug)
+    setLcContent(lcCacheRef.current[titleSlug] ?? null)
     setIsPremium(false)
-  }, [q?.slug])
+  }, [q?.id, q?.slug])
 
   // Fetch live LeetCode description (same pattern as learn page)
   useEffect(() => {
     if (!q?.slug) return
-    if (lcCacheRef.current[q.slug]) { setLcContent(lcCacheRef.current[q.slug]); return }
+    const titleSlug = resolveLeetCodeSlug(q.id, q.slug)
+    if (lcCacheRef.current[titleSlug]) { setLcContent(lcCacheRef.current[titleSlug]); return }
     let cancelled = false
     setLcLoading(true)
     const ctrl = new AbortController()
@@ -152,7 +154,7 @@ function FlashcardsInner() {
       body: JSON.stringify({
         session, csrfToken,
         query: `query questionContent($titleSlug: String!) { question(titleSlug: $titleSlug) { content isPaidOnly } }`,
-        variables: { titleSlug: q.slug },
+        variables: { titleSlug },
       }),
     })
       .then(r => r.json())
@@ -160,12 +162,12 @@ function FlashcardsInner() {
         if (cancelled) return
         const qd = data?.data?.question
         if (qd?.isPaidOnly && !qd?.content) setIsPremium(true)
-        else if (qd?.content) { lcCacheRef.current[q.slug] = qd.content; setLcContent(qd.content) }
+        else if (qd?.content) { lcCacheRef.current[titleSlug] = qd.content; setLcContent(qd.content) }
       })
       .catch(() => {})
       .finally(() => { clearTimeout(timer); if (!cancelled) setLcLoading(false) })
     return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
-  }, [q?.slug])
+  }, [q?.id, q?.slug])
 
   // Pattern coverage for the active pattern filter (exclusive — each question in one pattern only)
   const exclusiveMapAll = filterPattern ? buildExclusivePatternMap(all) : null
@@ -399,7 +401,7 @@ function FlashcardsInner() {
                       <div className="h-3 bg-[var(--bg-muted)] rounded w-full" />
                     </div>
                   ) : isPremium ? (
-                    <p className="text-xs text-[var(--text-subtle)] italic">🔒 Premium question — <a href={`https://leetcode.com/problems/${q.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">view on LeetCode ↗</a></p>
+                    <p className="text-xs text-[var(--text-subtle)] italic">🔒 Premium question — <a href={leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">view on LeetCode ↗</a></p>
                   ) : (
                     <QuestionImage questionId={q.id} alt={q.title} className="bg-[var(--bg-muted)]" />
                   )}

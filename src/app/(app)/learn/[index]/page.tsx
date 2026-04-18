@@ -17,7 +17,7 @@ import { getProgress, updateProgress, completeReview, failReview, getStudyPlan }
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
-import { isDue, formatLocalDate, nextIntervalDays, stripScripts} from '@/lib/utils'
+import { isDue, formatLocalDate, nextIntervalDays, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import StatusRadio from '@/components/StatusRadio'
@@ -94,7 +94,7 @@ function PremiumBlock({ slug }: { slug?: string }) {
         Your subscription may have lapsed or you may not have one active.
       </p>
       {slug && (
-        <a href={`https://leetcode.com/problems/${slug}/`} target="_blank" rel="noopener noreferrer"
+        <a href={leetCodeUrl(slug)} target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition-colors">
           Open on LeetCode ↗
         </a>
@@ -265,6 +265,7 @@ function LearnInner() {
 
   const safeIdx = Math.min(routeIndex, Math.max(filtered.length - 1, 0))
   const q         = filtered[safeIdx] || null
+  const lcTitleSlug = useMemo(() => (q ? resolveLeetCodeSlug(q.id, q.slug) : undefined), [q])
   const p         = q ? (progress[String(q.id)] || {}) : {}
   const solved    = p.solved    || false
   const starred   = p.starred   || false
@@ -272,7 +273,7 @@ function LearnInner() {
   const reviewCount = p.review_count || 0
   const nextReview  = p.next_review  || null
   const due = isDue(nextReview) && solved
-  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(q?.slug, activeTab === 'accepted')
+  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(lcTitleSlug, activeTab === 'accepted')
 
   useEffect(() => {
     if (filtered.length === 0) return
@@ -326,7 +327,7 @@ function LearnInner() {
         query: `query questionContent($titleSlug: String!) {
           question(titleSlug: $titleSlug) { content isPaidOnly }
         }`,
-        variables: { titleSlug: q.slug },
+        variables: { titleSlug: resolveLeetCodeSlug(q.id, q.slug) },
       }),
     })
       .then(r => r.json())
@@ -340,7 +341,7 @@ function LearnInner() {
       .finally(() => { clearTimeout(timer); if (!cancelled) setLcLoading(false) })
 
     return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
-  }, [q?.slug])
+  }, [q?.id, q?.slug])
 
   // Fetch editorial when Editorial tab opens (requires LeetCode session for premium)
   useEffect(() => {
@@ -353,7 +354,7 @@ function LearnInner() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         query: 'query($s:String!){question(titleSlug:$s){solution{content paidOnly}}}',
-        variables: { s: q.slug },
+        variables: { s: resolveLeetCodeSlug(q.id, q.slug) },
         ...creds,
       }),
     })
@@ -409,7 +410,7 @@ function LearnInner() {
       })
       .catch(() => {})
       .finally(() => setEditorialLoad(false))
-  }, [activeTab, q?.slug, lcSession, lcCsrf])
+  }, [activeTab, q?.id, q?.slug, lcSession, lcCsrf])
 
   const goNext = () => {
     if (safeIdx < filtered.length - 1) {
@@ -632,7 +633,7 @@ function LearnInner() {
             </button>
 
             {/* Open on LeetCode */}
-            <a href={`https://leetcode.com/problems/${q.slug}/`} target="_blank" rel="noopener noreferrer"
+            <a href={leetCodeUrl(lcTitleSlug!)} target="_blank" rel="noopener noreferrer"
               className="p-1.5 text-gray-300 hover:text-orange-400 transition-colors" title="Open on LeetCode">
               <ExternalLink size={14} />
             </a>
@@ -859,7 +860,7 @@ function LearnInner() {
                   {lcContent ? (
                     <div className="lc-description text-sm text-[var(--text)]" dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
                   ) : isPremium ? (
-                    <PremiumBlock slug={q.slug} />
+                    <PremiumBlock slug={lcTitleSlug} />
                   ) : lcLoading ? (
                     <div className="space-y-2 animate-pulse">
                       <div className="h-3 bg-gray-100 rounded w-full" />
@@ -874,7 +875,7 @@ function LearnInner() {
                       ? <DescriptionRenderer description={q.description} />
                       : <span className="text-gray-400 italic text-xs">
                           No description cached.{' '}
-                          <a href={`https://leetcode.com/problems/${q.slug}/`} target="_blank" rel="noopener noreferrer"
+                          <a href={leetCodeUrl(lcTitleSlug!)} target="_blank" rel="noopener noreferrer"
                             className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
                         </span>
                   )}
@@ -922,7 +923,7 @@ function LearnInner() {
 
               {activeTab === 'best' && (
                 <div className="p-4 h-full">
-                  <BestAnswersPanel questionId={q.id} slug={q.slug} active={activeTab === 'best'} />
+                  <BestAnswersPanel questionId={q.id} slug={lcTitleSlug ?? q.slug} active={activeTab === 'best'} />
                 </div>
               )}
               {activeTab === 'editorial' && (

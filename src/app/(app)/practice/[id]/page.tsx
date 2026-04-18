@@ -1,12 +1,12 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, StickyNote, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import WhiteboardNotes from '@/components/WhiteboardNotes'
 import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan } from '@/lib/db'
-import { formatTime, isDue, stripScripts } from '@/lib/utils'
+import { formatTime, isDue, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import { getPatternForQuestion } from '@/lib/patternUtils'
 import { checkAndRecordBreather } from '@/lib/breatherUtils'
@@ -41,7 +41,7 @@ function PremiumBlock({ slug }: { slug?: string }) {
       </p>
       {slug && (
         <a
-          href={`https://leetcode.com/problems/${slug}/`}
+          href={leetCodeUrl(slug)}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition-colors"
@@ -69,7 +69,12 @@ export default function PracticePage() {
   const [reviewDone, setReviewDone] = useState(false)
   const [activeTab, setActiveTab] = useState<'description' | 'best' | 'notes' | 'accepted' | 'editor'>('description')
 
-  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.slug, activeTab === 'accepted')
+  const lcTitleSlug = useMemo(
+    () => (question ? resolveLeetCodeSlug(question.id, question.slug) : undefined),
+    [question],
+  )
+
+  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(lcTitleSlug, activeTab === 'accepted')
   const [timer, setTimer] = useState(0)
   const listWrapRef = useRef<HTMLDivElement>(null)
   useClickOutside(listWrapRef, () => setShowList(false), showList)
@@ -150,7 +155,7 @@ export default function PracticePage() {
             query: `query questionContent($titleSlug: String!) {
               question(titleSlug: $titleSlug) { content isPaidOnly }
             }`,
-            variables: { titleSlug: question!.slug },
+            variables: { titleSlug: resolveLeetCodeSlug(question!.id, question!.slug) },
           }),
         })
         const data = await res.json()
@@ -173,7 +178,7 @@ export default function PracticePage() {
 
     doFetch()
     return () => { cancelled = true }
-  }, [question?.slug])
+  }, [question?.id, question?.slug])
 
   // Timer
   useEffect(() => {
@@ -248,7 +253,7 @@ export default function PracticePage() {
             <h1 className="font-bold text-[var(--text)] text-sm leading-snug">{question.title}</h1>
             <div className="shrink-0 hidden sm:block"><DifficultyBadge difficulty={question.difficulty} /></div>
             <a
-              href={`https://leetcode.com/problems/${question.slug}/`}
+              href={leetCodeUrl(lcTitleSlug!)}
               target="_blank"
               rel="noopener noreferrer"
               className="shrink-0 text-[var(--text-muted)] hover:text-orange-400 transition-colors hidden sm:inline"
@@ -430,7 +435,7 @@ export default function PracticePage() {
                   <div className="lc-description text-sm text-[var(--text)]"
                     dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
                 ) : isPremium ? (
-                  <PremiumBlock slug={question?.slug} />
+                  <PremiumBlock slug={lcTitleSlug} />
                 ) : lcLoading ? (
                   <div className="space-y-3 animate-pulse">
                     <div className="h-3 bg-[var(--bg-muted)] rounded w-full" />
@@ -448,7 +453,7 @@ export default function PracticePage() {
                     ? <DescriptionRenderer description={question.description} />
                     : <span className="text-[var(--text-subtle)] italic text-xs">
                         Description unavailable.{' '}
-                        <a href={`https://leetcode.com/problems/${question?.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
+                        <a href={leetCodeUrl(lcTitleSlug!)} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
                       </span>
                 )}
 
@@ -471,7 +476,7 @@ export default function PracticePage() {
             )}
 
             {activeTab === 'best' && question && (
-              <BestAnswersPanel questionId={question.id} slug={question.slug} active={activeTab === 'best'} />
+              <BestAnswersPanel questionId={question.id} slug={lcTitleSlug ?? question.slug} active={activeTab === 'best'} />
             )}
 
             {activeTab === 'accepted' && (

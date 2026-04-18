@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { RotateCcw, Code2, Play, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import { getPracticeSession, savePracticeSession } from '@/lib/db'
+import { leetCodeUrl } from '@/lib/utils'
 
 // Code execution — proxied server-side through Next.js API
 const RUN_CODE_API = '/api/run-code'
@@ -412,7 +413,7 @@ int main() {
           <span className="text-xs font-bold text-gray-200 truncate">Practice — write it from memory</span>
           {slug && (
             <a
-              href={`https://leetcode.com/problems/${slug}/`}
+              href={leetCodeUrl(slug)}
               target="_blank"
               rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}

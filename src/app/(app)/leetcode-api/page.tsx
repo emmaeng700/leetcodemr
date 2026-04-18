@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { stripScripts } from '@/lib/utils'
+import { stripScripts, leetCodeUrl } from '@/lib/utils'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import ReactMarkdown from 'react-markdown'
@@ -686,7 +686,7 @@ export default function LeetCodePage() {
                     <h1 className="text-base font-bold text-gray-100">
                       {question.questionFrontendId}. {question.title}
                     </h1>
-                    <a href={`https://leetcode.com/problems/${question.titleSlug}/`}
+                    <a href={leetCodeUrl(question.titleSlug)}
                       target="_blank" rel="noopener noreferrer"
                       className="shrink-0 flex items-center gap-1 text-xs text-gray-500 hover:text-indigo-400 transition mt-0.5">
                       <ExternalLink size={12} />

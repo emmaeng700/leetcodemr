@@ -6,7 +6,7 @@ import {
   CheckCircle, Circle, List, Layers,
 } from 'lucide-react'
 import { getProgress, getPatternFcVisited, addPatternFcVisited } from '@/lib/db'
-import { shuffle, stripScripts } from '@/lib/utils'
+import { shuffle, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -149,9 +149,10 @@ function PatternFlashcards({
   // Reset + fetch live LeetCode description when card changes
   useEffect(() => {
     if (!card?.slug) return
-    setLcContent(lcCacheRef.current[card.slug] ?? null)
+    const titleSlug = resolveLeetCodeSlug(card.id, card.slug)
+    setLcContent(lcCacheRef.current[titleSlug] ?? null)
     setIsPremium(false)
-    if (lcCacheRef.current[card.slug]) return
+    if (lcCacheRef.current[titleSlug]) return
     let cancelled = false
     setLcLoading(true)
     const ctrl = new AbortController()
@@ -165,7 +166,7 @@ function PatternFlashcards({
       body: JSON.stringify({
         session, csrfToken,
         query: `query questionContent($titleSlug: String!) { question(titleSlug: $titleSlug) { content isPaidOnly } }`,
-        variables: { titleSlug: card.slug },
+        variables: { titleSlug },
       }),
     })
       .then(r => r.json())
@@ -173,12 +174,12 @@ function PatternFlashcards({
         if (cancelled) return
         const qd = data?.data?.question
         if (qd?.isPaidOnly && !qd?.content) setIsPremium(true)
-        else if (qd?.content) { lcCacheRef.current[card.slug] = qd.content; setLcContent(qd.content) }
+        else if (qd?.content) { lcCacheRef.current[titleSlug] = qd.content; setLcContent(qd.content) }
       })
       .catch(() => {})
       .finally(() => { clearTimeout(timer); if (!cancelled) setLcLoading(false) })
     return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
-  }, [card?.slug])
+  }, [card?.id, card?.slug])
 
   if (!card) return null
 
@@ -242,7 +243,7 @@ function PatternFlashcards({
                   <div className="h-8 bg-[var(--bg-muted)] rounded w-full mt-2" />
                 </div>
               ) : isPremium ? (
-                <p className="text-xs text-[var(--text-subtle)] italic">🔒 Premium — <a href={`https://leetcode.com/problems/${card.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">view on LeetCode ↗</a></p>
+                <p className="text-xs text-[var(--text-subtle)] italic">🔒 Premium — <a href={leetCodeUrl(resolveLeetCodeSlug(card.id, card.slug))} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">view on LeetCode ↗</a></p>
               ) : (
                 <ImageIfExists id={card.id} title={card.title} />
               )}

@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { stripScripts } from '@/lib/utils'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { getPatternForQuestion } from '@/lib/patternUtils'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter } from 'next/navigation'
@@ -34,7 +34,7 @@ function PremiumBlock({ slug }: { slug?: string }) {
       <h3 className="font-bold text-[var(--text)] text-base mb-1">LeetCode Premium Question</h3>
       <p className="text-sm text-[var(--text-muted)] mb-4 max-w-xs">Requires a LeetCode Premium subscription.</p>
       {slug && (
-        <a href={`https://leetcode.com/problems/${slug}/`} target="_blank" rel="noopener noreferrer"
+        <a href={leetCodeUrl(slug)} target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition-colors">
           Open on LeetCode ↗
         </a>
@@ -60,7 +60,12 @@ export default function SpeedsterQuestionPage() {
   const [lcFailed, setLcFailed] = useState(false)
   const [isPremium, setIsPremium] = useState(false)
 
-  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.slug, activeTab === 'accepted')
+  const lcTitleSlug = useMemo(
+    () => (question ? resolveLeetCodeSlug(question.id, question.slug) : undefined),
+    [question],
+  )
+
+  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(lcTitleSlug, activeTab === 'accepted')
 
   const listWrapRef = useRef<HTMLDivElement>(null)
   useClickOutside(listWrapRef, () => setShowList(false), showList)
@@ -105,7 +110,7 @@ export default function SpeedsterQuestionPage() {
       body: JSON.stringify({
         session, csrfToken,
         query: `query questionContent($titleSlug: String!) { question(titleSlug: $titleSlug) { content isPaidOnly } }`,
-        variables: { titleSlug: question.slug },
+        variables: { titleSlug: resolveLeetCodeSlug(question.id, question.slug) },
       }),
     })
       .then(r => r.json())
@@ -119,7 +124,7 @@ export default function SpeedsterQuestionPage() {
       .catch(() => { if (!cancelled) setLcFailed(true) })
       .finally(() => { clearTimeout(timeout); if (!cancelled) setLcLoading(false) })
     return () => { cancelled = true; controller.abort(); clearTimeout(timeout) }
-  }, [question?.slug])
+  }, [question?.id, question?.slug])
 
   // Derive index directly from plan order — no URL param needed
   const currentIdx = planOrder.indexOf(id)
@@ -213,7 +218,7 @@ export default function SpeedsterQuestionPage() {
             <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0 hidden sm:inline">#{question.id}</span>
             <h1 className="font-bold text-[var(--text)] text-sm leading-snug">{question.title}</h1>
             <div className="shrink-0 hidden sm:block"><DifficultyBadge difficulty={question.difficulty} /></div>
-            <a href={`https://leetcode.com/problems/${question.slug}/`} target="_blank" rel="noopener noreferrer"
+            <a href={leetCodeUrl(lcTitleSlug!)} target="_blank" rel="noopener noreferrer"
               className="shrink-0 text-gray-300 hover:text-orange-400 transition-colors hidden sm:inline">
               <ExternalLink size={12} />
             </a>
@@ -280,7 +285,7 @@ export default function SpeedsterQuestionPage() {
                 {lcContent ? (
                   <div className="lc-description text-sm text-[var(--text)]" dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
                 ) : isPremium ? (
-                  <PremiumBlock slug={question?.slug} />
+                  <PremiumBlock slug={lcTitleSlug} />
                 ) : lcLoading ? (
                   <div className="space-y-3 animate-pulse">
                     {[1,2,3,4,5].map(i => <div key={i} className="h-3 bg-gray-100 rounded" style={{ width: `${70 + i * 5}%` }} />)}
@@ -290,7 +295,7 @@ export default function SpeedsterQuestionPage() {
                     {question?.description || (
                       <span className="text-[var(--text-subtle)] italic text-xs">
                         Description unavailable.{' '}
-                        <a href={`https://leetcode.com/problems/${question?.slug}/`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
+                        <a href={leetCodeUrl(lcTitleSlug!)} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
                       </span>
                     )}
                   </div>
@@ -311,7 +316,7 @@ export default function SpeedsterQuestionPage() {
               <WhiteboardNotes storageKey={`lm_whiteboard:${question.id}:${question.slug}`} />
             )}
             {activeTab === 'best' && question && (
-              <BestAnswersPanel questionId={question.id} slug={question.slug} active={activeTab === 'best'} />
+              <BestAnswersPanel questionId={question.id} slug={lcTitleSlug ?? question.slug} active={activeTab === 'best'} />
             )}
             {activeTab === 'accepted' && (
               <AcceptedSolutions

@@ -14,6 +14,7 @@ import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
+import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 
 interface Question {
   id: number
@@ -675,7 +676,7 @@ export default function DailyPage() {
                           {q.title}
                         </span>
                         <a
-                          href={`https://leetcode.com/problems/${q.slug}/`}
+                          href={leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="shrink-0 text-[var(--text-subtle)] hover:text-orange-400 transition-colors"
@@ -930,7 +931,7 @@ export default function DailyPage() {
                             {q.title}
                           </Link>
                           <a
-                            href={`https://leetcode.com/problems/${q.slug}/`}
+                            href={leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="shrink-0 text-[var(--text-subtle)] hover:text-orange-400 transition-colors"

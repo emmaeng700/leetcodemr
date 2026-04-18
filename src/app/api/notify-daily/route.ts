@@ -3,6 +3,7 @@ import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 
 const USER_ID = 'emmanuel'
 const TZ = 'America/Chicago'
@@ -158,7 +159,7 @@ function buildSrBlockHtml(
     const qid = Number(r.question_id)
     const q = qMap[qid]
     const diff = q?.difficulty ?? ''
-    const lcLink = q?.slug ? `https://leetcode.com/problems/${q.slug}/` : null
+    const lcLink = q?.slug ? leetCodeUrl(resolveLeetCodeSlug(qid, q.slug)) : null
     const reviewNum = (r.review_count ?? 0) + 1
     return `
           <tr>
@@ -394,7 +395,7 @@ export async function GET(req: NextRequest) {
     const q = qMap[id]
     const solved = solvedSet.has(id)
     const diff = q?.difficulty ?? ''
-    const lcLink = q?.slug ? `https://leetcode.com/problems/${q.slug}/` : null
+    const lcLink = q?.slug ? leetCodeUrl(resolveLeetCodeSlug(id, q.slug)) : null
     return `
       <tr>
         <td style="padding:12px 0;border-bottom:1px solid #f3f4f6;vertical-align:middle;">
