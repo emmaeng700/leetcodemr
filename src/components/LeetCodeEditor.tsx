@@ -467,15 +467,22 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     for (let i = 0; i < 30; i++) {
       await new Promise(r => setTimeout(r, 1000))
       setPollMsg(`Judging… ${i + 1}s`)
-      const res = await fetch('/api/leetcode/check', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ checkId, titleSlug: lcSlug, session, csrfToken: csrf }),
-      })
-      const raw = await res.text()
-      let data: LCResult & { error?: string }
-      try {
-        data = JSON.parse(raw) as LCResult & { error?: string }
-      } catch {
+      let res!: Response
+      let data: (LCResult & { error?: string }) | undefined
+      for (let att = 0; att < 3; att++) {
+        res = await fetch('/api/leetcode/check', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ checkId, titleSlug: lcSlug, session, csrfToken: csrf }),
+        })
+        const raw = await res.text()
+        try {
+          data = JSON.parse(raw) as LCResult & { error?: string }
+          break
+        } catch {
+          if (att < 2) await new Promise(r => setTimeout(r, 400 * (att + 1)))
+        }
+      }
+      if (data === undefined) {
         setResultErr('Run failed.')
         setRunning(false); setPollMsg(''); return
       }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseLeetCodeJsonText } from '@/lib/parseLeetCodeResponse'
-import { fetchLeetCodeProblemPost } from '@/lib/leetcodeHttp'
+import { fetchLeetCodeProblemPost, toLeetCodeQuestionId } from '@/lib/leetcodeHttp'
 
 const LC = 'https://leetcode.com'
 
@@ -12,14 +12,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing LEETCODE_SESSION or csrftoken' }, { status: 401 })
     }
 
+    const qid = toLeetCodeQuestionId(questionId)
     const slug = encodeURIComponent(String(titleSlug))
     const { res, text } = await fetchLeetCodeProblemPost(
       `${LC}/problems/${slug}/interpret_solution/`,
       {
         lang,
-        question_id: String(questionId),
+        question_id: qid,
         typed_code: code,
-        data_input: testInput,
+        data_input: testInput ?? '',
+        test_mode: false,
       },
       String(titleSlug),
       session,

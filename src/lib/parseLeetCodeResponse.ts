@@ -3,8 +3,14 @@
  * (login wall, Cloudflare, rate limits, bad cookies). Calling `res.json()` on
  * that body throws: SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
  */
+
+/** Strip BOM / trim before JSON.parse (some edges return \ufeff{...}). */
+export function stripResponseForJson(text: string): string {
+  return text.replace(/^\uFEFF/, '').trimStart()
+}
+
 export function isLeetCodeHtmlBody(text: string): boolean {
-  const t = text.trimStart()
+  const t = stripResponseForJson(text)
   const probe = t.slice(0, 80).toLowerCase()
   return (
     probe.startsWith('<!doctype') ||
@@ -17,14 +23,15 @@ export function parseLeetCodeJsonText(
   text: string,
   httpStatus: number,
 ): { ok: true; data: unknown } | { ok: false; error: string } {
-  if (isLeetCodeHtmlBody(text)) {
+  const cleaned = stripResponseForJson(text)
+  if (isLeetCodeHtmlBody(cleaned)) {
     return {
       ok: false,
       error: 'non_json_html',
     }
   }
   try {
-    return { ok: true, data: JSON.parse(text) as unknown }
+    return { ok: true, data: JSON.parse(cleaned) as unknown }
   } catch {
     return {
       ok: false,

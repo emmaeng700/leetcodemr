@@ -2,6 +2,12 @@ import { isLeetCodeHtmlBody } from '@/lib/parseLeetCodeResponse'
 
 const LC = 'https://leetcode.com'
 
+/** LeetCode accepts numeric backend id; GraphQL often returns a string. */
+export function toLeetCodeQuestionId(raw: unknown): number | string {
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : String(raw ?? '')
+}
+
 /** User pasted "LEETCODE_SESSION=..." into the value field, or added quotes/newlines */
 export function normalizeLcCookieValue(raw: unknown): string {
   let s = String(raw ?? '').trim()
@@ -22,12 +28,19 @@ const UA =
 
 export type LcProblemReferer = 'description' | 'problem-root'
 
-/** Browser-like headers for JSON POST to LeetCode problem APIs (submit / run). No Sec-Fetch / sec-ch-* — those often mismatch server-side fetches and confuse edge checks. */
+export type LcPostStrategy = {
+  referer: LcProblemReferer
+  /** Match DevTools / python tools that send Sec-Fetch-* (helps some edge/WAF paths). */
+  chromeHeaders?: boolean
+  omitOrigin?: boolean
+}
+
+/** Browser-like headers for JSON POST to LeetCode problem APIs (submit / run). */
 export function leetCodeProblemApiHeaders(
   titleSlug: string,
   session: string,
   csrfToken: string,
-  opts?: { referer?: LcProblemReferer },
+  opts?: LcPostStrategy,
 ): Record<string, string> {
   const sess = normalizeLcCookieValue(session)
   const csrf = normalizeLcCookieValue(csrfToken)
@@ -36,17 +49,28 @@ export function leetCodeProblemApiHeaders(
     (opts?.referer ?? 'description') === 'description'
       ? `${slug}/description/`
       : `${slug}/`
-  return {
+  const base: Record<string, string> = {
     'Content-Type': 'application/json',
     Cookie: `LEETCODE_SESSION=${sess}; csrftoken=${csrf}`,
     'X-CSRFToken': csrf,
     Referer: `${LC}/problems/${refPath}`,
-    Origin: LC,
     Accept: 'application/json, text/plain, */*',
     'Accept-Language': 'en-US,en;q=0.9',
     'x-requested-with': 'XMLHttpRequest',
     'User-Agent': UA,
   }
+  if (!opts?.omitOrigin) {
+    base.Origin = LC
+  }
+  if (opts?.chromeHeaders) {
+    base['Sec-Fetch-Dest'] = 'empty'
+    base['Sec-Fetch-Mode'] = 'cors'
+    base['Sec-Fetch-Site'] = 'same-origin'
+    base['sec-ch-ua'] = '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"'
+    base['sec-ch-ua-mobile'] = '?0'
+    base['sec-ch-ua-platform'] = '"macOS"'
+  }
+  return base
 }
 
 export function leetCodeGraphqlHeaders(session: string, csrfToken: string): Record<string, string> {
@@ -69,7 +93,7 @@ export function leetCodeCheckHeaders(
   titleSlug: string,
   session: string,
   csrfToken: string,
-  opts?: { referer?: LcProblemReferer },
+  opts?: { referer?: LcProblemReferer; chromeHeaders?: boolean },
 ): Record<string, string> {
   const sess = normalizeLcCookieValue(session)
   const csrf = normalizeLcCookieValue(csrfToken)
@@ -78,7 +102,7 @@ export function leetCodeCheckHeaders(
     (opts?.referer ?? 'description') === 'description'
       ? `${slug}/description/`
       : `${slug}/`
-  return {
+  const base: Record<string, string> = {
     Cookie: `LEETCODE_SESSION=${sess}; csrftoken=${csrf}`,
     Referer: `${LC}/problems/${refPath}`,
     Accept: 'application/json',
@@ -86,15 +110,37 @@ export function leetCodeCheckHeaders(
     'x-requested-with': 'XMLHttpRequest',
     'User-Agent': UA,
   }
+  if (opts?.chromeHeaders) {
+    base['Sec-Fetch-Dest'] = 'empty'
+    base['Sec-Fetch-Mode'] = 'cors'
+    base['Sec-Fetch-Site'] = 'same-origin'
+    base['sec-ch-ua'] = '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"'
+    base['sec-ch-ua-mobile'] = '?0'
+    base['sec-ch-ua-platform'] = '"macOS"'
+  }
+  return base
 }
 
 export const lcFetchInit: Pick<RequestInit, 'cache'> = { cache: 'no-store' }
 
-const RETRY_MS = 400
+const RETRY_MS = 450
+
+const POST_STRATEGIES: LcPostStrategy[] = [
+  { referer: 'description' },
+  { referer: 'problem-root' },
+  { referer: 'description', chromeHeaders: true },
+  { referer: 'description', omitOrigin: true },
+]
+
+const CHECK_STRATEGIES: Array<{ referer: LcProblemReferer; chromeHeaders?: boolean }> = [
+  { referer: 'description' },
+  { referer: 'problem-root' },
+  { referer: 'description', chromeHeaders: true },
+]
 
 /**
- * POST to submit/interpret_solution. If LeetCode returns an HTML page (often transient),
- * retry once with a different Referer — same browser typically uses /description/.
+ * POST to submit/interpret_solution. Retries with alternate Referer / headers if HTML
+ * (login wall, transient edge) — matches patterns used by working CLI/python tools.
  */
 export async function fetchLeetCodeProblemPost(
   fullUrl: string,
@@ -103,9 +149,9 @@ export async function fetchLeetCodeProblemPost(
   session: string,
   csrf: string,
 ): Promise<{ res: Response; text: string }> {
-  const referers: LcProblemReferer[] = ['description', 'problem-root']
-  for (let i = 0; i < referers.length; i++) {
-    const headers = leetCodeProblemApiHeaders(titleSlug, session, csrf, { referer: referers[i] })
+  let last: { res: Response; text: string } | null = null
+  for (let i = 0; i < POST_STRATEGIES.length; i++) {
+    const headers = leetCodeProblemApiHeaders(titleSlug, session, csrf, POST_STRATEGIES[i])
     const res = await fetch(fullUrl, {
       method: 'POST',
       headers,
@@ -113,32 +159,35 @@ export async function fetchLeetCodeProblemPost(
       ...lcFetchInit,
     })
     const text = await res.text()
-    const isLast = i === referers.length - 1
+    last = { res, text }
+    const isLast = i === POST_STRATEGIES.length - 1
     if (isLast || !isLeetCodeHtmlBody(text)) {
-      return { res, text }
+      return last
     }
     await new Promise(r => setTimeout(r, RETRY_MS))
   }
-  throw new Error('fetchLeetCodeProblemPost: unreachable')
+  return last!
 }
 
-/** GET check/ poll — retry once on HTML body with alternate Referer. */
+/** GET check/ poll — retry on HTML with alternate Referer / headers. */
 export async function fetchLeetCodeCheckGet(
   fullUrl: string,
   titleSlug: string,
   session: string,
   csrf: string,
 ): Promise<{ res: Response; text: string }> {
-  const referers: LcProblemReferer[] = ['description', 'problem-root']
-  for (let i = 0; i < referers.length; i++) {
-    const headers = leetCodeCheckHeaders(titleSlug, session, csrf, { referer: referers[i] })
+  let last: { res: Response; text: string } | null = null
+  for (let i = 0; i < CHECK_STRATEGIES.length; i++) {
+    const s = CHECK_STRATEGIES[i]
+    const headers = leetCodeCheckHeaders(titleSlug, session, csrf, s)
     const res = await fetch(fullUrl, { headers, ...lcFetchInit })
     const text = await res.text()
-    const isLast = i === referers.length - 1
+    last = { res, text }
+    const isLast = i === CHECK_STRATEGIES.length - 1
     if (isLast || !isLeetCodeHtmlBody(text)) {
-      return { res, text }
+      return last
     }
     await new Promise(r => setTimeout(r, RETRY_MS))
   }
-  throw new Error('fetchLeetCodeCheckGet: unreachable')
+  return last!
 }
