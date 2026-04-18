@@ -310,6 +310,18 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         .catch(() => {})
         .finally(() => setSessionReady(true))
     }
+
+    // Re-read localStorage whenever the user focuses this tab/window.
+    // Covers the case where they saved their session on another page
+    // (e.g. /leetcode-api) and navigated back via soft navigation —
+    // the component stays mounted but needs the fresh session to retry.
+    const onFocus = () => {
+      const s = localStorage.getItem('lc_session') ?? ''
+      const c = localStorage.getItem('lc_csrf')    ?? ''
+      if (s && c) { setSession(s); setCsrf(c) }
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
   }, [])
 
   /* ── Load CodeMirror extensions ── */
