@@ -466,7 +466,18 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ checkId, titleSlug: lcSlug, session, csrfToken: csrf }),
       })
-      const data: LCResult = await res.json()
+      const raw = await res.text()
+      let data: LCResult & { error?: string }
+      try {
+        data = JSON.parse(raw) as LCResult & { error?: string }
+      } catch {
+        setResultErr('Check poll got a non-JSON response — try updating your LeetCode session.')
+        setRunning(false); setPollMsg(''); return
+      }
+      if (!res.ok && data.error) {
+        setResultErr(String(data.status_msg || data.error))
+        setRunning(false); setPollMsg(''); return
+      }
       if (data.state !== 'PENDING' && data.state !== 'STARTED') {
         setResult(data); setRunning(false); setPollMsg(''); setBottomTab('result')
 
@@ -514,9 +525,20 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ titleSlug: lcSlug, questionId: lcQ.questionId, lang: LANG_LC[lang], code, testInput: cases[activeCase]?.raw || testInput, session, csrfToken: csrf }),
       })
-      const data = await res.json()
+      const raw = await res.text()
+      let data: { error?: string; interpret_id?: string }
+      try {
+        data = JSON.parse(raw) as { error?: string; interpret_id?: string }
+      } catch {
+        setResultErr('Server returned non-JSON (try refreshing the page or updating your LeetCode session).')
+        setRunning(false); setPollMsg(''); return
+      }
       if (data.error) { setResultErr(data.error); setRunning(false); setPollMsg(''); return }
-      await poll(data.interpret_id, 'test')
+      if (data.interpret_id == null) {
+        setResultErr('LeetCode did not return a run id.')
+        setRunning(false); setPollMsg(''); return
+      }
+      await poll(String(data.interpret_id), 'test')
     } catch (e) { setResultErr(String(e)); setRunning(false); setPollMsg('') }
   }
 
@@ -529,9 +551,20 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ titleSlug: lcSlug, questionId: lcQ.questionId, lang: LANG_LC[lang], code, session, csrfToken: csrf }),
       })
-      const data = await res.json()
+      const raw = await res.text()
+      let data: { error?: string; submission_id?: string }
+      try {
+        data = JSON.parse(raw) as { error?: string; submission_id?: string }
+      } catch {
+        setResultErr('Server returned non-JSON (try refreshing the page or updating your LeetCode session).')
+        setRunning(false); setPollMsg(''); return
+      }
       if (data.error) { setResultErr(data.error); setRunning(false); setPollMsg(''); return }
-      await poll(data.submission_id, 'submit')
+      if (data.submission_id == null) {
+        setResultErr('LeetCode did not return a submission id.')
+        setRunning(false); setPollMsg(''); return
+      }
+      await poll(String(data.submission_id), 'submit')
     } catch (e) { setResultErr(String(e)); setRunning(false); setPollMsg('') }
   }
 

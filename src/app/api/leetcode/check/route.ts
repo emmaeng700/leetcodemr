@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { parseLeetCodeJsonText } from '@/lib/parseLeetCodeResponse'
 
 const LC = 'https://leetcode.com'
 
@@ -17,8 +18,15 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    const data = await res.json()
-    return NextResponse.json(data)
+    const text = await res.text()
+    const parsed = parseLeetCodeJsonText(text, res.status)
+    if (!parsed.ok) {
+      return NextResponse.json(
+        { error: parsed.error, state: 'ERROR', status_msg: parsed.error },
+        { status: 502 },
+      )
+    }
+    return NextResponse.json(parsed.data)
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }

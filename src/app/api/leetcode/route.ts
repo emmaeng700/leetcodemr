@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { parseLeetCodeJsonText } from '@/lib/parseLeetCodeResponse'
 
 const LEETCODE_GRAPHQL = 'https://leetcode.com/graphql'
 
@@ -30,8 +31,12 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(graphqlBody),
     })
 
-    const data = await res.json()
-    return NextResponse.json(data, { status: res.status })
+    const text = await res.text()
+    const parsed = parseLeetCodeJsonText(text, res.status)
+    if (!parsed.ok) {
+      return NextResponse.json({ errors: [{ message: parsed.error }] }, { status: 502 })
+    }
+    return NextResponse.json(parsed.data, { status: res.status })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }

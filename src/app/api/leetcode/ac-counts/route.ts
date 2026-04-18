@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { parseLeetCodeJsonText } from '@/lib/parseLeetCodeResponse'
 
 const LC_GRAPHQL = 'https://leetcode.com/graphql'
 const USER_ID = 'emmanuel'
@@ -69,7 +70,15 @@ export async function POST(req: NextRequest) {
       }),
     })
 
-    const json = await res.json()
+    const text = await res.text()
+    const parsed = parseLeetCodeJsonText(text, res.status)
+    if (!parsed.ok) {
+      return NextResponse.json({ bySlug: {}, error: parsed.error }, { status: 502 })
+    }
+    const json = parsed.data as {
+      errors?: Array<{ message?: string }>
+      data?: { submissionList?: { hasNext?: boolean; submissions?: Array<{ statusDisplay?: string; titleSlug?: string }> } }
+    }
     if (json.errors?.length) {
       const msg = String(json.errors[0]?.message ?? 'graphql_error')
       return NextResponse.json({ bySlug: {}, error: msg }, { status: 400 })
