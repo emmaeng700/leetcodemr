@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseLeetCodeJsonText } from '@/lib/parseLeetCodeResponse'
+import { lcFetchInit, leetCodeProblemApiHeaders } from '@/lib/leetcodeHttp'
 
 const LC = 'https://leetcode.com'
 
@@ -11,25 +12,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing LEETCODE_SESSION or csrftoken' }, { status: 401 })
     }
 
-    const res = await fetch(`${LC}/problems/${titleSlug}/interpret_solution/`, {
+    const slug = encodeURIComponent(String(titleSlug))
+    const res = await fetch(`${LC}/problems/${slug}/interpret_solution/`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cookie': `LEETCODE_SESSION=${session}; csrftoken=${csrfToken}`,
-        'X-CSRFToken': csrfToken,
-        'Referer': `${LC}/problems/${titleSlug}/`,
-        'Origin': LC,
-        'Accept': 'application/json',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'x-requested-with': 'XMLHttpRequest',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-      },
+      headers: leetCodeProblemApiHeaders(String(titleSlug), session, csrfToken),
       body: JSON.stringify({
         lang,
         question_id: String(questionId),
         typed_code: code,
         data_input: testInput,
       }),
+      ...lcFetchInit,
     })
 
     const text = await res.text()

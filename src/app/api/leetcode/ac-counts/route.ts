@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { parseLeetCodeJsonText } from '@/lib/parseLeetCodeResponse'
+import { lcFetchInit, leetCodeGraphqlHeaders } from '@/lib/leetcodeHttp'
 
 const LC_GRAPHQL = 'https://leetcode.com/graphql'
 const USER_ID = 'emmanuel'
@@ -55,19 +56,12 @@ export async function POST(req: NextRequest) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const res = await fetch(LC_GRAPHQL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Referer: 'https://leetcode.com',
-        Origin: 'https://leetcode.com',
-        Cookie: `LEETCODE_SESSION=${session}; csrftoken=${csrfToken}`,
-        'X-CSRFToken': csrfToken,
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
+      headers: leetCodeGraphqlHeaders(session, csrfToken),
       body: JSON.stringify({
         query: QUERY,
         variables: { offset, limit: SUBMISSION_PAGE },
       }),
+      ...lcFetchInit,
     })
 
     const text = await res.text()

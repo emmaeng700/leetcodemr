@@ -17,7 +17,7 @@ export function parseLeetCodeJsonText(
     return {
       ok: false,
       error:
-        'LeetCode returned a web page instead of JSON — usually an expired session, bot check, or rate limit. Open leetcode.com, copy fresh LEETCODE_SESSION and csrftoken (DevTools → Application → Cookies), then save them in the app.',
+        'LeetCode returned HTML instead of JSON (login wall, Cloudflare, or rate limit). Try: (1) Re-save cookies with only the value (no LEETCODE_SESSION= prefix), trimmed. (2) If you use a deployed site (e.g. Vercel), LeetCode may block the server IP even with valid cookies — run the app locally (npm run dev) or submit on leetcode.com. (3) After a bot check, you may need cookie cf_clearance from the same browser session (advanced).',
     }
   }
   try {

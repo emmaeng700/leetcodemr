@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { normalizeLcCookieValue } from '@/lib/leetcodeHttp'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,7 +24,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { lc_session, lc_csrf } = await req.json()
+  const body = await req.json()
+  const lc_session = normalizeLcCookieValue(body.lc_session)
+  const lc_csrf = normalizeLcCookieValue(body.lc_csrf)
 
   const { error } = await supabase
     .from('user_settings')

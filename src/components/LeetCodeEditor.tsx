@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { getProgress, updateProgress, incrementAcSubmitCount } from '@/lib/db'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
+import { normalizeLcCookieValue } from '@/lib/leetcodeHttp'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import toast from 'react-hot-toast'
 
@@ -198,7 +199,14 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
       <p className="text-[11px] text-gray-500 leading-relaxed">
         Go to <strong className="text-gray-300">leetcode.com</strong> → DevTools → Application → Cookies, copy
         {' '}<code className="bg-gray-800 px-1 rounded text-orange-300">LEETCODE_SESSION</code> and
-        {' '}<code className="bg-gray-800 px-1 rounded text-orange-300">csrftoken</code>.
+        {' '}<code className="bg-gray-800 px-1 rounded text-orange-300">csrftoken</code> (value only, not the name=
+        prefix).
+      </p>
+      <p className="text-[11px] text-amber-200/90 leading-relaxed bg-amber-950/40 border border-amber-800/50 rounded-lg px-2 py-1.5">
+        Run/Submit talks to LeetCode from <strong className="text-amber-100">this app&apos;s server</strong>. On a
+        hosted site (e.g. Vercel), LeetCode often returns a challenge page even with valid cookies. If that happens,
+        use <code className="text-amber-200">npm run dev</code> locally or submit on leetcode.com — it is not your
+        solution code failing.
       </p>
       <div className="flex gap-1.5">
         <div className="relative flex-1">
@@ -221,7 +229,9 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
           className="w-28 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-gray-200 focus:outline-none focus:border-indigo-500"
         />
         <button
-          onClick={() => canSave && onSave(s.trim(), c.trim())}
+          onClick={() =>
+            canSave && onSave(normalizeLcCookieValue(s), normalizeLcCookieValue(c))
+          }
           disabled={!canSave}
           style={{ touchAction: 'manipulation' }}
           className="px-3 py-1.5 bg-indigo-600 text-white text-[11px] font-bold rounded-lg hover:bg-indigo-500 disabled:opacity-40 transition shrink-0"
@@ -294,8 +304,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
   /* ── Load session — localStorage first, Supabase fallback ── */
   useEffect(() => {
-    const ls = localStorage.getItem('lc_session') ?? ''
-    const lc = localStorage.getItem('lc_csrf')    ?? ''
+    const ls = normalizeLcCookieValue(localStorage.getItem('lc_session') ?? '')
+    const lc = normalizeLcCookieValue(localStorage.getItem('lc_csrf') ?? '')
     if (ls && lc) {
       setSession(ls); setCsrf(lc); setSessionReady(true)
     } else {
@@ -304,9 +314,11 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         .then(r => r.json())
         .then(d => {
           if (d.lc_session && d.lc_csrf) {
-            setSession(d.lc_session); setCsrf(d.lc_csrf)
-            localStorage.setItem('lc_session', d.lc_session)
-            localStorage.setItem('lc_csrf',    d.lc_csrf)
+            const s = normalizeLcCookieValue(d.lc_session)
+            const t = normalizeLcCookieValue(d.lc_csrf)
+            setSession(s); setCsrf(t)
+            localStorage.setItem('lc_session', s)
+            localStorage.setItem('lc_csrf', t)
           }
         })
         .catch(() => {})
@@ -318,8 +330,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     // (e.g. /leetcode-api) and navigated back via soft navigation —
     // the component stays mounted but needs the fresh session to retry.
     const onFocus = () => {
-      const s = localStorage.getItem('lc_session') ?? ''
-      const c = localStorage.getItem('lc_csrf')    ?? ''
+      const s = normalizeLcCookieValue(localStorage.getItem('lc_session') ?? '')
+      const c = normalizeLcCookieValue(localStorage.getItem('lc_csrf') ?? '')
       if (s && c) { setSession(s); setCsrf(c) }
     }
     window.addEventListener('focus', onFocus)
@@ -907,7 +919,20 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           {/* Result tab */}
           {bottomTab === 'result' && (
             <div className="space-y-2 text-xs">
-              {resultErr && <p className="text-red-400 flex items-center gap-1"><XCircle size={12} /> {resultErr}</p>}
+              {resultErr && (
+                <div className="space-y-1">
+                  <p className="text-red-400 flex items-start gap-1.5">
+                    <XCircle size={12} className="shrink-0 mt-0.5" />
+                    <span className="min-w-0 break-words">{resultErr}</span>
+                  </p>
+                  {(resultErr.includes('HTML') || resultErr.includes('web page')) && (
+                    <p className="text-[11px] text-gray-500 pl-5">
+                      This happens before your code runs on LeetCode (server/cookies/Cloudflare). Try{' '}
+                      <code className="text-gray-400">npm run dev</code> locally or use leetcode.com to Run/Submit.
+                    </p>
+                  )}
+                </div>
+              )}
               {!result && !resultErr && !pollMsg && <p className="text-gray-600">Run your code first.</p>}
               {result && (
                 <div className="space-y-2">
