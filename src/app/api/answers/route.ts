@@ -19,7 +19,7 @@ function buildUrl(site: string, slug: string, id: string): string {
 function normalizeLang(raw: string): string {
   const map: Record<string, string> = {
     'python': 'python', 'python3': 'python', 'python2': 'python', 'py': 'python',
-    'c++': 'cpp', 'cpp': 'cpp', 'c plus plus': 'cpp',
+    'c++': 'cpp', 'cplusplus': 'cpp', 'cpp': 'cpp', 'c plus plus': 'cpp',
     'java': 'java',
     'javascript': 'javascript', 'js': 'javascript',
     'typescript': 'typescript', 'ts': 'typescript',
@@ -53,10 +53,36 @@ function detectLangFromCode(code: string): string {
   // Go
   if (/^package\s+\w+/m.test(code) || /\bfunc\s+\w+\(/.test(code)) return 'go'
 
-  // C++ fallback: class Solution { without public keyword
-  if (/class\s+Solution\s*\{/.test(code) && !/\bpublic\b/.test(code)) return 'cpp'
+  // C++ LeetCode (tabs often omit #include): "public:" is NOT Java's "public class"
+  if (/class\s+Solution\s*\{/.test(code)) {
+    if (/\bpublic\s*:\s*[\s\S]*\bvector\s*</.test(code)) return 'cpp'
+    if (/\bpublic\s*:\s*[\s\S]*\b(?:unordered_map|unordered_set|map\s*<|priority_queue|std::)/.test(code)) return 'cpp'
+    if (/\b(?:ListNode|TreeNode)\s*\*/.test(code)) return 'cpp'
+  }
+  // C++ fallback: class Solution { … } without Java "public class"
+  if (/class\s+Solution\s*\{/.test(code) && !/\bpublic\s+class\b/.test(code)) return 'cpp'
 
   return 'text'
+}
+
+/** Merge HTML-declared lang + content heuristics so Py/C++ survive mis-detection. */
+function resolvePyCppLang(code: string, declared: string): 'python' | 'cpp' | 'other' {
+  const meta = normalizeLang(declared)
+  if (meta === 'python' || meta === 'cpp') return meta
+
+  let inferred = detectLangFromCode(code)
+  // Java vs C++: LeetCode C++ uses Map in comments rarely; prefer symbols
+  if (inferred === 'java') {
+    if (/#include|std::|vector\s*<|unordered_map|unordered_set|public\s*:\s*$/m.test(code)) return 'cpp'
+    if (/class Solution\s*:/.test(code) || /^\s*def \w/m.test(code) || /^\s*from typing/m.test(code)) return 'python'
+  }
+  if (inferred === 'text') {
+    if (meta === 'python' || meta === 'cpp') return meta
+    if (/class Solution\s*:/.test(code)) return 'python'
+    if (/class\s+Solution\s*\{/.test(code) && /vector\s*<|std::|#include/.test(code)) return 'cpp'
+  }
+  if (inferred === 'python' || inferred === 'cpp') return inferred
+  return 'other'
 }
 
 function cleanCode(raw: string): string {
@@ -76,16 +102,18 @@ function cleanCode(raw: string): string {
  * Language detection is content-based — label matching is unreliable because all tab
  * labels appear before all code blocks in the HTML (MkDocs Material theme structure).
  */
+const MIN_SOLUTION_CHARS = 50
+
 function extractHighlightTableBlocks(html: string): Array<{ code: string; lang: string }> {
   const blocks: Array<{ code: string; lang: string }> = []
   const tdRe = /<td[^>]+class="[^"]*\bcode\b[^"]*"[^>]*>/gi
   let tm: RegExpExecArray | null
   while ((tm = tdRe.exec(html)) !== null) {
-    const slice = html.slice(tm.index, tm.index + 8000)
+    const slice = html.slice(tm.index, tm.index + 12000)
     const codeM = slice.match(/<code[^>]*>([\s\S]*?)<\/code>/)
     if (!codeM) continue
     const code = cleanCode(codeM[1])
-    if (code.length > 80) blocks.push({ code, lang: detectLangFromCode(code) })
+    if (code.length > MIN_SOLUTION_CHARS) blocks.push({ code, lang: detectLangFromCode(code) })
   }
   return blocks
 }
@@ -95,13 +123,51 @@ function extractHighlightTableBlocks(html: string): Array<{ code: string; lang: 
  */
 function extractSimplyLeet(html: string): Array<{ code: string; lang: string }> {
   const blocks: Array<{ code: string; lang: string }> = []
-  // Match <code class="language-X" ...>...</code>
-  const codeRe = /<code[^>]+class="[^"]*language-([a-zA-Z0-9+#]+)[^"]*"[^>]*>([\s\S]*?)<\/code>/gi
+  // Match <code class="language-X" ...> (order of attrs may vary)
+  const codeRe = /<code([^>]*)>([\s\S]*?)<\/code>/gi
   let m: RegExpExecArray | null
   while ((m = codeRe.exec(html)) !== null) {
+    const attrs = m[1]
+    const langM =
+      attrs.match(/language-([a-zA-Z0-9+#]+)/i)
+      ?? attrs.match(/(?:^|\s)lang(?:uage)?-([a-zA-Z0-9+#]+)/i)
+      ?? attrs.match(/hljs-([a-zA-Z0-9+-]+)/i)
+    if (!langM) continue
     const code = cleanCode(m[2])
-    // Must be long enough to be a real solution (not an inline expression)
-    if (code.length > 80) blocks.push({ code, lang: normalizeLang(m[1]) })
+    if (code.length > MIN_SOLUTION_CHARS) {
+      blocks.push({ code, lang: normalizeLang(langM[1]) })
+    }
+  }
+  // <pre class="language-cpp"><code>…</code></pre> (lang on pre only)
+  const preRe = /<pre([^>]*)>\s*<code[^>]*>([\s\S]*?)<\/code>\s*<\/pre>/gi
+  while ((m = preRe.exec(html)) !== null) {
+    const langM = m[1].match(/language-([a-zA-Z0-9+#]+)/i) ?? m[1].match(/hljs-([a-zA-Z0-9+-]+)/i)
+    if (!langM) continue
+    const code = cleanCode(m[2])
+    if (code.length > MIN_SOLUTION_CHARS) {
+      blocks.push({ code, lang: normalizeLang(langM[1]) })
+    }
+  }
+  return blocks
+}
+
+/** MkDocs / Material: <div class="highlight">…<pre><code> */
+function extractHighlightDivBlocks(html: string): Array<{ code: string; lang: string }> {
+  const blocks: Array<{ code: string; lang: string }> = []
+  const divRe = /<div[^>]+class="[^"]*\bhighlight\b[^"]*"[^>]*>([\s\S]*?)<\/div>/gi
+  let dm: RegExpExecArray | null
+  while ((dm = divRe.exec(html)) !== null) {
+    const inner = dm[1]
+    const langM = inner.match(/(?:language-|lang-)([a-zA-Z0-9+#]+)/i)
+    const codeM = inner.match(/<code[^>]*>([\s\S]*?)<\/code>/i) ?? inner.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i)
+    if (!codeM) continue
+    const code = cleanCode(codeM[1])
+    if (code.length > MIN_SOLUTION_CHARS) {
+      blocks.push({
+        code,
+        lang: normalizeLang(langM?.[1] ?? detectLangFromCode(code)),
+      })
+    }
   }
   return blocks
 }
@@ -112,12 +178,14 @@ function extractGeneric(html: string): Array<{ code: string; lang: string }> {
   const preRe = /<pre[^>]*>([\s\S]*?)<\/pre>/gi
   let m: RegExpExecArray | null
   while ((m = preRe.exec(html)) !== null) {
-    const langM = m[0].match(/(?:language-|lang-)([a-zA-Z0-9+#]+)/i)
+    const langM = m[0].match(/(?:language-|lang-|hljs-)([a-zA-Z0-9+#+-]+)/i)
       ?? m[1].match(/(?:language-|lang-)([a-zA-Z0-9+#]+)/i)
     const code = cleanCode(m[1])
     // Skip if it looks like just line numbers (digits and newlines only)
     if (/^\d[\d\s]*$/.test(code)) continue
-    if (code.length > 80) blocks.push({ code, lang: normalizeLang(langM?.[1] ?? detectLangFromCode(code)) })
+    if (code.length > MIN_SOLUTION_CHARS) {
+      blocks.push({ code, lang: normalizeLang(langM?.[1] ?? detectLangFromCode(code)) })
+    }
   }
   return blocks
 }
@@ -169,17 +237,27 @@ export async function GET(req: NextRequest) {
 
     if (site === 'walkccc' || site === 'doocs') {
       blocks = extractHighlightTableBlocks(html)
+      if (!blocks.length) blocks = extractHighlightDivBlocks(html)
       if (!blocks.length) blocks = extractGeneric(html)
     } else if (site === 'simplyleet' || site === 'leetcodeca') {
-      // Both use <code class="language-X"> pattern
       blocks = extractSimplyLeet(html)
+      if (!blocks.length) blocks = extractHighlightDivBlocks(html)
       if (!blocks.length) blocks = extractGeneric(html)
     } else {
       blocks = extractGeneric(html)
     }
 
-    // Strict: Python and C++ only — never show other languages
-    const filtered = blocks.filter(b => b.lang === 'python' || b.lang === 'cpp')
+    // Python and C++ only — use declared + content so tabbed HTML still resolves
+    const filtered: Array<{ code: string; lang: string }> = []
+    const seen = new Set<string>()
+    for (const b of blocks) {
+      const kind = resolvePyCppLang(b.code, b.lang)
+      if (kind === 'other') continue
+      const key = b.code.slice(0, 200)
+      if (seen.has(key)) continue
+      seen.add(key)
+      filtered.push({ code: b.code, lang: kind })
+    }
     return NextResponse.json({ blocks: filtered, url })
   } catch (err) {
     return NextResponse.json({ error: String(err), blocks: [], url })
