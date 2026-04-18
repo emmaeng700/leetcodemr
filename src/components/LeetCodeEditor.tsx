@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import {
   Play, Send, Loader2, CheckCircle, XCircle, Clock, Cpu,
   AlertCircle, Key, ChevronDown, ChevronUp, Star, Trophy,
+  Eye, EyeOff,
 } from 'lucide-react'
 import { getProgress, updateProgress, incrementAcSubmitCount } from '@/lib/db'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
@@ -176,6 +177,56 @@ function MobileKeybar({
             {label}
           </button>
         ))}
+      </div>
+    </div>
+  )
+}
+
+/* ── Inline session form ─────────────────────────────────── */
+function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => void; onClose: () => void }) {
+  const [s, setS] = useState('')
+  const [c, setC] = useState('')
+  const [showS, setShowS] = useState(false)
+  const canSave = s.trim().length > 10 && c.trim().length > 5
+  return (
+    <div className="bg-[#16213e] border-b border-gray-700/50 px-4 py-3 shrink-0 space-y-2">
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-xs font-semibold text-gray-200 flex items-center gap-1.5"><Key size={11} className="text-orange-400" /> Connect LeetCode Session</p>
+        <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xs">✕</button>
+      </div>
+      <p className="text-[11px] text-gray-500 leading-relaxed">
+        Go to <strong className="text-gray-300">leetcode.com</strong> → DevTools → Application → Cookies, copy
+        {' '}<code className="bg-gray-800 px-1 rounded text-orange-300">LEETCODE_SESSION</code> and
+        {' '}<code className="bg-gray-800 px-1 rounded text-orange-300">csrftoken</code>.
+      </p>
+      <div className="flex gap-1.5">
+        <div className="relative flex-1">
+          <input
+            type={showS ? 'text' : 'password'}
+            value={s}
+            onChange={e => setS(e.target.value)}
+            placeholder="LEETCODE_SESSION"
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-gray-200 focus:outline-none focus:border-indigo-500 pr-7"
+          />
+          <button onClick={() => setShowS(v => !v)} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500">
+            {showS ? <EyeOff size={11} /> : <Eye size={11} />}
+          </button>
+        </div>
+        <input
+          type="password"
+          value={c}
+          onChange={e => setC(e.target.value)}
+          placeholder="csrftoken"
+          className="w-28 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-gray-200 focus:outline-none focus:border-indigo-500"
+        />
+        <button
+          onClick={() => canSave && onSave(s.trim(), c.trim())}
+          disabled={!canSave}
+          style={{ touchAction: 'manipulation' }}
+          className="px-3 py-1.5 bg-indigo-600 text-white text-[11px] font-bold rounded-lg hover:bg-indigo-500 disabled:opacity-40 transition shrink-0"
+        >
+          Save
+        </button>
       </div>
     </div>
   )
@@ -558,12 +609,24 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         </div>
       </div>
 
-      {/* Session hint */}
+      {/* Session panel — inline form so users can enter session without leaving the page */}
       {showSessionHint && (
-        <div className="bg-[#16213e] border-b border-gray-700/50 px-4 py-3 text-xs text-gray-400 space-y-1 shrink-0">
-          <p>Go to <strong className="text-gray-200">leetcode.com</strong> → DevTools → Application → Cookies</p>
-          <p>Copy <code className="bg-gray-800 px-1 rounded text-orange-300">LEETCODE_SESSION</code> and <code className="bg-gray-800 px-1 rounded text-orange-300">csrftoken</code> → paste them in the <strong className="text-gray-200">LeetCode</strong> page, then come back.</p>
-        </div>
+        <SessionPanel
+          onSave={(s, c) => {
+            setSession(s); setCsrf(c)
+            localStorage.setItem('lc_session', s)
+            localStorage.setItem('lc_csrf', c)
+            // Persist to Supabase silently
+            fetch('/api/lc-session', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ lc_session: s, lc_csrf: c }),
+            }).catch(() => {})
+            setShowSessionHint(false)
+            setLcErr('')
+            setRetryKey(k => k + 1)
+          }}
+          onClose={() => setShowSessionHint(false)}
+        />
       )}
 
       {/* ── Editor loading state ── */}

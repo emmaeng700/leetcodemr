@@ -153,7 +153,10 @@ function parse(raw: string): Segment[] {
       let rowBuf: string[] = []
       while (i < lines.length) {
         const l = lines[i].trim()
-        if (!l || /^Example\s*\d+\s*:/.test(l) || l === 'Constraints:' || /^Follow.?up/i.test(l) || /^Note:/i.test(l)) break
+        // Hard section breaks
+        if (/^Example\s*\d+\s*:/.test(l) || l === 'Constraints:' || /^Follow.?up/i.test(l) || /^Note:/i.test(l)) break
+        // Skip blank lines inside example blocks (LeetCode uses blank lines between label and Input:)
+        if (!l) { i++; continue }
         if (/^(Input|Output|Explanation)\s*:/.test(l)) {
           if (rowBuf.length) { block.rows.push(joinLines(rowBuf)); rowBuf = [] }
           rowBuf.push(l)
@@ -182,15 +185,20 @@ function parse(raw: string): Segment[] {
 
       while (i < lines.length) {
         const l = lines[i].trim()
-        if (!l || /^(Follow|Note)/i.test(l)) break
-        // A new constraint starts with: digit, dash, or identifier with operator
+        // Stop at section headers
+        if (/^(Follow|Note)/i.test(l)) break
+        // Skip blank lines between constraint items
+        if (!l) { i++; continue }
+        // A new constraint starts with: bullet •, digit, dash, or identifier with operator
         const isNewConstraint =
           buf.length > 0 &&
-          (/^-?\d/.test(l) || /^[a-zA-Z].*(<= | == | != | <= )/.test(l) ||
+          (/^[•·–\-]/.test(l) ||
+           /^-?\d/.test(l) || /^[a-zA-Z].*(<= | == | != )/.test(l) ||
            /^[a-zA-Z]+\.length/.test(l) || /^[a-zA-Z]+\s*!=/.test(l) ||
            /^There /.test(l) || /^At /.test(l) || /^The /.test(l) || /^All /.test(l))
         if (isNewConstraint) flushConstraint()
-        buf.push(l)
+        // Strip leading bullet character before adding to buf
+        buf.push(l.replace(/^[•·–]\s*/, ''))
         i++
       }
       flushConstraint()
