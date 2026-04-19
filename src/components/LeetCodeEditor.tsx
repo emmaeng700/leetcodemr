@@ -271,6 +271,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [testInput,  setTestInput]  = useState('')
   const [running,    setRunning]    = useState(false)
   const [runMode,    setRunMode]    = useState<'test' | 'submit' | null>(null)
+  const [runCooldownUntil, setRunCooldownUntil] = useState(0)
   const [pollMsg,    setPollMsg]    = useState('')
   const [result,     setResult]     = useState<LCResult | null>(null)
   const [resultErr,  setResultErr]  = useState('')
@@ -531,12 +532,15 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   /* ── Run test ── */
   const runTest = async () => {
     if (!lcQ || !sessionOK) return
+    const now = Date.now()
+    if (runCooldownUntil > now) return
     setRunning(true); setRunMode('test'); setResult(null); setResultErr(''); setSolvedStatus(null); setPollMsg('Sending…'); setBottomTab('result')
     try {
       const res = await fetch('/api/leetcode/test', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ titleSlug: lcSlug, questionId: lcQ.questionId, lang: LANG_LC[lang], code, testInput: cases[activeCase]?.raw || testInput, session, csrfToken: csrf }),
       })
+      const retryAfterHeader = res.headers.get('Retry-After')
       const raw = await res.text()
       let data: { error?: string; interpret_id?: string }
       try {
@@ -544,6 +548,19 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       } catch {
         setResultErr('Run failed.')
         setRunning(false); setPollMsg(''); return
+      }
+      if (!res.ok && res.status === 429) {
+        const retryAfterSec =
+          (data as any)?.retryAfterSec
+            ? Number((data as any).retryAfterSec)
+            : retryAfterHeader
+              ? Number(retryAfterHeader)
+              : 30
+        const until = Date.now() + Math.max(5, Number.isFinite(retryAfterSec) ? retryAfterSec : 30) * 1000
+        setRunCooldownUntil(until)
+      } else {
+        // Always add a tiny debounce so accidental double-clicks don’t hammer LeetCode.
+        setRunCooldownUntil(Date.now() + 1500)
       }
       if (data.error) { setResultErr(data.error); setRunning(false); setPollMsg(''); return }
       if (data.interpret_id == null) {
