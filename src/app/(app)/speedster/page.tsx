@@ -7,6 +7,7 @@ import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import QuestionImage from '@/components/QuestionImage'
+import BestAnswersDeck from '@/components/BestAnswersDeck'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
@@ -762,6 +763,13 @@ export default function SpeedsterPage() {
                   </div>
                   <div className="p-4 min-w-0" onClick={e => e.stopPropagation()}>
                     <CodePanel pythonCode={currentQ.python_solution} cppCode={currentQ.cpp_solution} />
+                    <div className="mt-4">
+                      <BestAnswersDeck
+                        questionId={currentQ.id}
+                        slug={currentQ.slug}
+                        active={flipped}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -1087,6 +1095,13 @@ export default function SpeedsterPage() {
                   </div>
                   <div className="p-4 min-w-0" onClick={e => e.stopPropagation()}>
                     <CodePanel pythonCode={currentQ.python_solution} cppCode={currentQ.cpp_solution} />
+                    <div className="mt-4">
+                      <BestAnswersDeck
+                        questionId={currentQ.id}
+                        slug={currentQ.slug}
+                        active={flipped}
+                      />
+                    </div>
                   </div>
                 </div>
               )}

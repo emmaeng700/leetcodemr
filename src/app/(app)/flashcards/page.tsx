@@ -9,6 +9,7 @@ import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import QuestionImage from '@/components/QuestionImage'
+import BestAnswersDeck from '@/components/BestAnswersDeck'
 
 interface Question {
   id: number
@@ -429,6 +430,13 @@ function FlashcardsInner() {
                 {/* Stop propagation so language tabs / copy don't accidentally flip the card */}
                 <div className="p-4" onClick={e => e.stopPropagation()}>
                   <CodePanel pythonCode={q.python_solution} cppCode={q.cpp_solution} />
+                  <div className="mt-4">
+                    <BestAnswersDeck
+                      questionId={q.id}
+                      slug={q.slug}
+                      active={flipped}
+                    />
+                  </div>
                 </div>
               </div>
             )}
