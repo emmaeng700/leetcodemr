@@ -21,7 +21,9 @@ export async function POST(req: NextRequest) {
         question_id: qid,
         typed_code: code,
         data_input: testInput ?? '',
-        test_mode: false,
+        // LeetCode "Run" uses test_mode=true (submit uses false).
+        // Some accounts get a 403 HTML response if this is false.
+        test_mode: true,
       },
       String(titleSlug),
       session,
