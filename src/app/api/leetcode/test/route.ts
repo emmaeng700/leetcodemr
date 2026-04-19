@@ -14,38 +14,55 @@ export async function POST(req: NextRequest) {
 
     const qid = toLeetCodeQuestionId(questionId)
     const slug = encodeURIComponent(String(titleSlug))
-    const { res, text } = await fetchLeetCodeProblemPost(
-      `${LC}/problems/${slug}/interpret_solution/`,
-      {
-        lang,
-        question_id: qid,
-        typed_code: code,
-        data_input: testInput ?? '',
-        // LeetCode "Run" uses test_mode=true (submit uses false).
-        // Some accounts get a 403 HTML response if this is false.
-        test_mode: true,
-      },
-      String(titleSlug),
-      session,
-      csrfToken,
-    )
+    const url = `${LC}/problems/${slug}/interpret_solution/`
+    const input = testInput ?? ''
 
-    const parsed = parseLeetCodeJsonText(text, res.status)
+    // LeetCode is inconsistent about `interpret_solution` for some accounts/problems:
+    // - some require test_mode=true, others still accept false
+    // - some reject non-empty data_input with a 403 HTML response
+    // Try a few payload variants before giving up.
+    const payloads = [
+      { lang, question_id: qid, typed_code: code, data_input: input, test_mode: true },
+      { lang, question_id: qid, typed_code: code, data_input: input, test_mode: false },
+      { lang, question_id: qid, typed_code: code, data_input: '',    test_mode: true },
+      { lang, question_id: qid, typed_code: code, data_input: '',    test_mode: false },
+    ]
+
+    let lastRes: Response | null = null
+    let lastText = ''
+    for (const body of payloads) {
+      const { res, text } = await fetchLeetCodeProblemPost(
+        url,
+        body,
+        String(titleSlug),
+        session,
+        csrfToken,
+      )
+      lastRes = res
+      lastText = text
+
+      const parsed = parseLeetCodeJsonText(text, res.status)
+      if (!parsed.ok) continue
+      const data = parsed.data as { error?: string; interpret_id?: string }
+      if (!res.ok || data.error) continue
+      return NextResponse.json(data)
+    }
+
+    const parsed = parseLeetCodeJsonText(lastText, lastRes?.status ?? 0)
     if (!parsed.ok) {
       const hint =
         parsed.error === 'non_json_html'
-          ? `LeetCode returned HTML instead of JSON (HTTP ${res.status}). Your session may be expired, blocked, or rate-limited. Refresh LEETCODE_SESSION + csrftoken and try again.`
+          ? `LeetCode returned HTML instead of JSON (HTTP ${lastRes?.status}). Your session may be expired, blocked, or rate-limited. Refresh LEETCODE_SESSION + csrftoken and try again.`
           : parsed.error
-      return NextResponse.json({ error: hint, httpStatus: res.status }, { status: 502 })
+      return NextResponse.json({ error: hint, httpStatus: lastRes?.status }, { status: 502 })
     }
-    const data = parsed.data as { error?: string; interpret_id?: string }
+    const data = parsed.data as { error?: string }
 
-    if (!res.ok || data.error) {
-      return NextResponse.json({ error: data.error || `LeetCode returned ${res.status}` }, { status: res.status })
+    if (!lastRes?.ok || data.error) {
+      return NextResponse.json({ error: data.error || `LeetCode returned ${lastRes?.status}` }, { status: lastRes?.status ?? 502 })
     }
 
-    // Returns { interpret_id: "...", test_case: "..." }
-    return NextResponse.json(data)
+    return NextResponse.json({ error: 'Run failed.' }, { status: 502 })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }
