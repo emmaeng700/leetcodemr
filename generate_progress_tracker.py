@@ -33,36 +33,39 @@ EASY_BG  = HexColor("#D1FAE5"); EASY_FG  = HexColor("#065F46")
 MED_BG   = HexColor("#FEF3C7"); MED_FG   = HexColor("#92400E")
 HARD_BG  = HexColor("#FEE2E2"); HARD_FG  = HexColor("#991B1B")
 
-# Patterns ordered fewest → most questions (study priority)
-QUICK_PATTERNS = [
-    {"name":"Graphs",              "tags":["Graph","Union Find","Topological Sort"],          "color":"#EF4444"},
-    {"name":"Greedy",              "tags":["Greedy"],                                          "color":"#22C55E"},
-    {"name":"JavaScript",          "tags":["JavaScript","Concurrency"],                        "color":"#EAB308"},
-    {"name":"String",              "tags":["String"],                                          "color":"#0EA5E9"},
-    {"name":"Sliding Window",      "tags":["Sliding Window"],                                  "color":"#06B6D4"},
-    {"name":"Sorting",             "tags":["Sorting","Divide and Conquer"],                   "color":"#84CC16"},
+# ── Assignment order: MUST match generate_patterns_pdf.py exactly ─────────────
+# Arrays & Hashing is LAST so it acts as a catch-all for generic Array/Hash tags.
+# Changing this order causes questions to fall into the wrong pattern bucket.
+ASSIGN_PATTERNS = [
     {"name":"Bit Manipulation",    "tags":["Bit Manipulation"],                                "color":"#0F172A"},
-    {"name":"BFS",                 "tags":["BFS","Breadth-First Search"],                     "color":"#3B82F6"},
-    {"name":"Backtracking",        "tags":["Backtracking"],                                    "color":"#F43F5E"},
     {"name":"Trie",                "tags":["Trie"],                                            "color":"#7C3AED"},
-    {"name":"Math",                "tags":["Math","Number Theory","Simulation"],               "color":"#64748B"},
-    {"name":"Arrays & Hashing",    "tags":["Array","Hash Table","Prefix Sum"],                 "color":"#4F46E5"},
-    {"name":"Two Pointers",        "tags":["Two Pointers"],                                    "color":"#10B981"},
-    {"name":"Matrix",              "tags":["Matrix"],                                          "color":"#059669"},
     {"name":"Heap",                "tags":["Heap","Heap (Priority Queue)"],                   "color":"#A855F7"},
+    {"name":"Stack",               "tags":["Stack","Monotonic Stack","Monotonic Queue"],      "color":"#F59E0B"},
+    {"name":"Sliding Window",      "tags":["Sliding Window"],                                  "color":"#06B6D4"},
+    {"name":"Backtracking",        "tags":["Backtracking"],                                    "color":"#F43F5E"},
     {"name":"Linked List",         "tags":["Linked List","Doubly-Linked List"],               "color":"#EC4899"},
+    {"name":"Trees & BST",         "tags":["Tree","Binary Tree","Binary Search Tree","BST"],  "color":"#16A34A"},
     {"name":"DFS",                 "tags":["DFS","Depth-First Search"],                       "color":"#6366F1"},
+    {"name":"BFS",                 "tags":["BFS","Breadth-First Search"],                     "color":"#3B82F6"},
+    {"name":"Graphs",              "tags":["Graph","Union Find","Topological Sort"],          "color":"#EF4444"},
+    {"name":"Matrix",              "tags":["Matrix"],                                          "color":"#059669"},
+    {"name":"Two Pointers",        "tags":["Two Pointers"],                                    "color":"#10B981"},
     {"name":"Binary Search",       "tags":["Binary Search"],                                   "color":"#F97316"},
     {"name":"Dynamic Programming", "tags":["Dynamic Programming","Memoization"],              "color":"#D946EF"},
-    {"name":"Stack",               "tags":["Stack","Monotonic Stack","Monotonic Queue"],      "color":"#F59E0B"},
-    {"name":"Trees & BST",         "tags":["Tree","Binary Tree","Binary Search Tree","BST"],  "color":"#16A34A"},
+    {"name":"Greedy",              "tags":["Greedy"],                                          "color":"#22C55E"},
+    {"name":"Sorting",             "tags":["Sorting","Divide and Conquer"],                   "color":"#84CC16"},
+    {"name":"Math",                "tags":["Math","Number Theory","Simulation"],               "color":"#64748B"},
+    {"name":"String",              "tags":["String"],                                          "color":"#0EA5E9"},
+    {"name":"JavaScript",          "tags":["JavaScript","Concurrency"],                        "color":"#EAB308"},
+    {"name":"Arrays & Hashing",    "tags":["Array","Hash Table","Prefix Sum"],                 "color":"#4F46E5"},
 ]
 
 DIFF_ORDER = {"Easy": 0, "Medium": 1, "Hard": 2}
 
 def assign_pattern(q_tags):
+    """Assign a question to its primary pattern using the fixed priority order."""
     tag_set = set(q_tags)
-    for pat in QUICK_PATTERNS:
+    for pat in ASSIGN_PATTERNS:
         if tag_set & set(pat["tags"]):
             return pat["name"]
     return "Arrays & Hashing"
@@ -70,7 +73,9 @@ def assign_pattern(q_tags):
 def load_groups():
     with open(QUESTIONS) as f:
         questions = json.load(f)
-    groups = {p["name"]: [] for p in QUICK_PATTERNS}
+
+    pat_meta = {p["name"]: p for p in ASSIGN_PATTERNS}
+    groups   = {p["name"]: [] for p in ASSIGN_PATTERNS}
     seen = set()
     for q in questions:
         if q["id"] in seen:
@@ -80,7 +85,9 @@ def load_groups():
         groups[pat].append(q)
     for name in groups:
         groups[name].sort(key=lambda q: (DIFF_ORDER.get(q.get("difficulty",""), 1), q["id"]))
-    return [(p, groups[p["name"]]) for p in QUICK_PATTERNS]
+    # Sort patterns by ascending question count (fewest → most) for study priority display
+    pat_list = sorted(ASSIGN_PATTERNS, key=lambda p: len(groups[p["name"]]))
+    return [(p, groups[p["name"]]) for p in pat_list]
 
 def make_pdf():
     groups = load_groups()
