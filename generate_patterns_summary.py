@@ -89,6 +89,16 @@ QUICK_PATTERNS = [
     {"name": "Arrays & Hashing",    "tags": ["Array", "Hash Table", "Prefix Sum"]},
 ]
 
+def tint_hex(hex_color, factor=0.35):
+    """Blend a hex colour toward white (factor 1.0 = full colour, 0.0 = white).
+    Used so bar charts print clearly on B&W printers without heavy ink use."""
+    c = HexColor(hex_color)
+    r = int((c.red   * factor + 1.0 * (1 - factor)) * 255)
+    g = int((c.green * factor + 1.0 * (1 - factor)) * 255)
+    b = int((c.blue  * factor + 1.0 * (1 - factor)) * 255)
+    return "#{:02X}{:02X}{:02X}".format(r, g, b)
+
+
 def assign_pattern(q_tags):
     """Return first matching pattern name for a question's tags."""
     tag_set = set(q_tags)
@@ -229,7 +239,7 @@ def make_pdf():
             rowHeights=[10],
         )
         bar_inner.setStyle(TableStyle([
-            ("BACKGROUND", (0,0), (-1,-1), HexColor(color_hex)),
+            ("BACKGROUND", (0,0), (-1,-1), HexColor(tint_hex(color_hex))),
             ("TOPPADDING",    (0,0), (-1,-1), 0),
             ("BOTTOMPADDING", (0,0), (-1,-1), 0),
             ("LEFTPADDING",   (0,0), (-1,-1), 0),

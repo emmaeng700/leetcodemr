@@ -89,13 +89,21 @@ def make_pdf():
                 textColor=G700, alignment=TA_LEFT)
 
     def section_banner(text, color):
-        p = Paragraph(f"<b>{text}</b>", sec_s)
+        hex_c = "#{:02X}{:02X}{:02X}".format(
+            int(color.red*255), int(color.green*255), int(color.blue*255))
+        p = Paragraph(
+            f'<font color="{hex_c}"><b>{text}</b></font>',
+            S("sec_p", fontSize=8, fontName="Helvetica-Bold",
+              textColor=color, alignment=TA_LEFT)
+        )
         t = Table([[p]], colWidths=[PW])
         t.setStyle(TableStyle([
-            ("BACKGROUND",    (0,0),(-1,-1), color),
+            ("BACKGROUND",    (0,0),(-1,-1), G100),
             ("TOPPADDING",    (0,0),(-1,-1), 4),
             ("BOTTOMPADDING", (0,0),(-1,-1), 4),
-            ("LEFTPADDING",   (0,0),(-1,-1), 7),
+            ("LEFTPADDING",   (0,0),(-1,-1), 10),
+            ("LINEBEFORE",    (0,0),(0,-1),  4, color),
+            ("BOX",           (0,0),(-1,-1), 0.4, G300),
         ]))
         return t
 

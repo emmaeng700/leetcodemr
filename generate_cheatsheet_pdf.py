@@ -254,25 +254,28 @@ def make_pdf():
         c   = HexColor(pat["color"])
         cw  = COL - 2          # inner content width
 
-        # ── Header band ───────────────────────────────────────────────────────
+        # ── Header band — print-friendly: light bg + coloured left stripe ────
+        color_hex = pat["color"]
         hdr_name = Paragraph(
-            f"<b>{pat['name']}</b>  "
-            f"<font size='6' color='#ffffff99'>({pat['qs']} qs)</font>",
-            S("hn", fontSize=8, fontName="Helvetica-Bold", textColor=WHITE, leading=10)
+            f'<font color="{color_hex}"><b>{pat["name"]}</b></font>  '
+            f'<font size="6" color="#6B7280">({pat["qs"]} qs)</font>',
+            S("hn", fontSize=8, fontName="Helvetica-Bold", textColor=GRAY_900, leading=10)
         )
         hdr_cx = Paragraph(
             f"<b>{esc(pat['time'])}  ·  {pat['space']}</b>",
-            S("hc", fontSize=6.5, fontName="Helvetica-Bold", textColor=WHITE,
+            S("hc", fontSize=6.5, fontName="Helvetica-Bold", textColor=GRAY_500,
               leading=10, alignment=TA_RIGHT)
         )
         hdr = Table([[hdr_name, hdr_cx]], colWidths=[cw*0.58, cw*0.42])
         hdr.setStyle(TableStyle([
-            ("BACKGROUND",    (0,0),(-1,-1), c),
+            ("BACKGROUND",    (0,0),(-1,-1), GRAY_100),
             ("TOPPADDING",    (0,0),(-1,-1), 3),
             ("BOTTOMPADDING", (0,0),(-1,-1), 3),
-            ("LEFTPADDING",   (0,0),(-1,-1), 5),
+            ("LEFTPADDING",   (0,0),(-1,-1), 8),
             ("RIGHTPADDING",  (0,0),(-1,-1), 5),
             ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
+            ("LINEBEFORE",    (0,0),(0,-1),  4, c),
+            ("BOX",           (0,0),(-1,-1), 0.4, GRAY_200),
         ]))
 
         # ── Body ──────────────────────────────────────────────────────────────

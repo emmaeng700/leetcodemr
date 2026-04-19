@@ -49,15 +49,21 @@ def make_pdf():
                 textColor=G500, alignment=TA_CENTER)
 
     def section(title, color, light):
-        p = Paragraph(f"<b>{title}</b>",
-                      S("sh", fontSize=8.5, fontName="Helvetica-Bold",
-                        textColor=white, leading=11))
+        hex_c = "#{:02X}{:02X}{:02X}".format(
+            int(color.red*255), int(color.green*255), int(color.blue*255))
+        p = Paragraph(
+            f'<font color="{hex_c}"><b>{title}</b></font>',
+            S("sh", fontSize=8.5, fontName="Helvetica-Bold",
+              textColor=color, leading=11)
+        )
         t = Table([[p]], colWidths=[PW])
         t.setStyle(TableStyle([
-            ("BACKGROUND", (0,0),(-1,-1), color),
-            ("TOPPADDING", (0,0),(-1,-1), 4),
-            ("BOTTOMPADDING",(0,0),(-1,-1),4),
-            ("LEFTPADDING",(0,0),(-1,-1), 8),
+            ("BACKGROUND",    (0,0),(-1,-1), G100),
+            ("TOPPADDING",    (0,0),(-1,-1), 4),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 4),
+            ("LEFTPADDING",   (0,0),(-1,-1), 10),
+            ("LINEBEFORE",    (0,0),(0,-1),  4, color),
+            ("BOX",           (0,0),(-1,-1), 0.4, G300),
         ]))
         return t
 
@@ -224,7 +230,7 @@ def make_pdf():
     grid = Table(rows, colWidths=[C2, C2])
     grid.setStyle(TableStyle([
         ("VALIGN",        (0,0),(-1,-1), "TOP"),
-        ("BACKGROUND",    (0,0),(-1,-1), INDIGO_L),
+        ("BACKGROUND",    (0,0),(-1,-1), G50),
         ("LEFTPADDING",   (0,0),(-1,-1), 7),
         ("RIGHTPADDING",  (0,0),(0,-1),  int(GAP)),
         ("RIGHTPADDING",  (1,0),(1,-1),  7),
@@ -240,7 +246,7 @@ def make_pdf():
         ("BOTTOMPADDING", (0,0),(-1,-1), 6),
         ("LEFTPADDING",   (0,0),(-1,-1), 0),
         ("RIGHTPADDING",  (0,0),(-1,-1), 0),
-        ("BACKGROUND",    (0,0),(-1,-1), INDIGO_L),
+        ("BACKGROUND",    (0,0),(-1,-1), G50),
         ("BOX",           (0,0),(-1,-1), 0.4, G300),
     ]))
     story.append(wrapper)

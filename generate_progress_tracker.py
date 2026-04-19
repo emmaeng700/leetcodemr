@@ -160,21 +160,23 @@ def make_pdf():
         n_m   = sum(1 for q in qs if q.get("difficulty")=="Medium")
         n_h   = sum(1 for q in qs if q.get("difficulty")=="Hard")
 
-        # Banner
+        # Banner — print-friendly: light bg + coloured left stripe + coloured text
         banner_text = (
-            f'<font color="white"><b>{pat["name"]}</b></font>  '
-            f'<font color="#ffffff99" size="8">  {len(qs)} questions  ·  '
+            f'<b><font color="{pat["color"]}">{pat["name"]}</font></b>  '
+            f'<font size="8" color="#6B7280">  {len(qs)} questions  ·  '
             f'E:{n_e}  M:{n_m}  H:{n_h}</font>'
         )
         banner_p = Paragraph(banner_text,
                              S("bn", fontSize=10, fontName="Helvetica-Bold",
-                               textColor=white, leading=13))
+                               textColor=G900, leading=13))
         banner = Table([[banner_p]], colWidths=[PW])
         banner.setStyle(TableStyle([
-            ("BACKGROUND",    (0,0),(-1,-1), color),
+            ("BACKGROUND",    (0,0),(-1,-1), G100),
             ("TOPPADDING",    (0,0),(-1,-1), 5),
             ("BOTTOMPADDING", (0,0),(-1,-1), 5),
-            ("LEFTPADDING",   (0,0),(-1,-1), 8),
+            ("LEFTPADDING",   (0,0),(-1,-1), 10),
+            ("LINEBEFORE",    (0,0),(0,-1),  4, color),
+            ("BOX",           (0,0),(-1,-1), 0.4, G300),
         ]))
         story.append(banner)
 
