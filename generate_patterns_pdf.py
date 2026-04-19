@@ -146,8 +146,1378 @@ def _first_arr_param(param_names):
             return p
     return param_names[0] if param_names else 'nums'
 
+# ── Question-specific brute force code, keyed by LeetCode slug ────────────────
+# Each value is the 8-space-indented method body (ready to drop inside class Solution).
+# These represent what an interviewer wants to hear FIRST before optimisation.
+BRUTE_FORCE_BY_SLUG = {
+    # ── Arrays & Hashing ──────────────────────────────────────────────────────
+    "two-sum":
+        "        # Brute Force O(n²) — check every pair; O(1) extra space\n"
+        "        for i in range(len(nums)):\n"
+        "            for j in range(i + 1, len(nums)):\n"
+        "                if nums[i] + nums[j] == target:\n"
+        "                    return [i, j]",
+    "contains-duplicate":
+        "        # Brute Force O(n²) — compare every pair\n"
+        "        for i in range(len(nums)):\n"
+        "            for j in range(i + 1, len(nums)):\n"
+        "                if nums[i] == nums[j]:\n"
+        "                    return True\n"
+        "        return False",
+    "valid-anagram":
+        "        # Brute Force O(n log n) — sort both strings and compare\n"
+        "        return sorted(s) == sorted(t)",
+    "group-anagrams":
+        "        # Brute Force O(n² · k log k) — compare each pair by sorting\n"
+        "        n = len(strs)\n"
+        "        used = [False] * n\n"
+        "        result = []\n"
+        "        for i in range(n):\n"
+        "            if used[i]: continue\n"
+        "            group = [strs[i]]\n"
+        "            used[i] = True\n"
+        "            for j in range(i + 1, n):\n"
+        "                if not used[j] and sorted(strs[i]) == sorted(strs[j]):\n"
+        "                    group.append(strs[j])\n"
+        "                    used[j] = True\n"
+        "            result.append(group)\n"
+        "        return result",
+    "top-k-frequent-elements":
+        "        # Brute Force O(n log n) — count then sort by frequency\n"
+        "        count = {}\n"
+        "        for num in nums:\n"
+        "            count[num] = count.get(num, 0) + 1\n"
+        "        return sorted(count, key=lambda x: -count[x])[:k]",
+    "product-of-array-except-self":
+        "        # Brute Force O(n²) — for each index multiply all other elements\n"
+        "        n = len(nums)\n"
+        "        result = []\n"
+        "        for i in range(n):\n"
+        "            prod = 1\n"
+        "            for j in range(n):\n"
+        "                if i != j:\n"
+        "                    prod *= nums[j]\n"
+        "            result.append(prod)\n"
+        "        return result",
+    "longest-consecutive-sequence":
+        "        # Brute Force O(n²) — for each number extend its sequence\n"
+        "        num_set = set(nums)\n"
+        "        best = 0\n"
+        "        for num in nums:\n"
+        "            length = 0\n"
+        "            while num + length in num_set:\n"
+        "                length += 1\n"
+        "            best = max(best, length)\n"
+        "        return best",
+    "encode-and-decode-strings":
+        "        # Brute Force — length-prefix encoding (this IS the standard approach)\n"
+        "        # encode: join with len#word protocol\n"
+        "        res = ''\n"
+        "        for s in strs:\n"
+        "            res += str(len(s)) + '#' + s\n"
+        "        return res",
+
+    # ── Two Pointers ──────────────────────────────────────────────────────────
+    "valid-palindrome":
+        "        # Brute Force O(n) — clean string then compare to its reverse\n"
+        "        cleaned = ''.join(c.lower() for c in s if c.isalnum())\n"
+        "        return cleaned == cleaned[::-1]",
+    "two-sum-ii-input-array-is-sorted":
+        "        # Brute Force O(n²) — check every pair (ignore sorted property)\n"
+        "        for i in range(len(numbers)):\n"
+        "            for j in range(i + 1, len(numbers)):\n"
+        "                if numbers[i] + numbers[j] == target:\n"
+        "                    return [i + 1, j + 1]",
+    "3sum":
+        "        # Brute Force O(n³) — check all triples, deduplicate via set\n"
+        "        nums.sort()\n"
+        "        res = set()\n"
+        "        for i in range(len(nums)):\n"
+        "            for j in range(i + 1, len(nums)):\n"
+        "                for k in range(j + 1, len(nums)):\n"
+        "                    if nums[i] + nums[j] + nums[k] == 0:\n"
+        "                        res.add((nums[i], nums[j], nums[k]))\n"
+        "        return [list(t) for t in res]",
+    "container-with-most-water":
+        "        # Brute Force O(n²) — try every pair of lines\n"
+        "        res = 0\n"
+        "        for i in range(len(height)):\n"
+        "            for j in range(i + 1, len(height)):\n"
+        "                water = min(height[i], height[j]) * (j - i)\n"
+        "                res = max(res, water)\n"
+        "        return res",
+    "trapping-rain-water":
+        "        # Brute Force O(n²) — for each bar scan left/right for max heights\n"
+        "        n = len(height)\n"
+        "        res = 0\n"
+        "        for i in range(n):\n"
+        "            left_max  = max(height[:i + 1])\n"
+        "            right_max = max(height[i:])\n"
+        "            res += min(left_max, right_max) - height[i]\n"
+        "        return res",
+
+    # ── Sliding Window ────────────────────────────────────────────────────────
+    "best-time-to-buy-and-sell-stock":
+        "        # Brute Force O(n²) — try every buy/sell pair\n"
+        "        n = len(prices)\n"
+        "        res = 0\n"
+        "        for i in range(n):\n"
+        "            for j in range(i + 1, n):\n"
+        "                res = max(res, prices[j] - prices[i])\n"
+        "        return res",
+    "longest-substring-without-repeating-characters":
+        "        # Brute Force O(n²) — enumerate every starting index; expand until repeat\n"
+        "        res = 0\n"
+        "        for i in range(len(s)):\n"
+        "            seen = set()\n"
+        "            for j in range(i, len(s)):\n"
+        "                if s[j] in seen:\n"
+        "                    break\n"
+        "                seen.add(s[j])\n"
+        "                res = max(res, j - i + 1)\n"
+        "        return res",
+    "longest-repeating-character-replacement":
+        "        # Brute Force O(n³) — check every substring; count most-frequent char\n"
+        "        n = len(s)\n"
+        "        res = 0\n"
+        "        for i in range(n):\n"
+        "            for j in range(i, n):\n"
+        "                sub = s[i:j + 1]\n"
+        "                max_freq = max(sub.count(c) for c in set(sub))\n"
+        "                if (len(sub) - max_freq) <= k:\n"
+        "                    res = max(res, len(sub))\n"
+        "        return res",
+    "minimum-window-substring":
+        "        # Brute Force O(n²) — enumerate all substrings, check coverage\n"
+        "        from collections import Counter\n"
+        "        need = Counter(t)\n"
+        "        res = ''\n"
+        "        for i in range(len(s)):\n"
+        "            window = Counter()\n"
+        "            for j in range(i, len(s)):\n"
+        "                window[s[j]] += 1\n"
+        "                if all(window[c] >= need[c] for c in need):\n"
+        "                    if not res or j - i + 1 < len(res):\n"
+        "                        res = s[i:j + 1]\n"
+        "                    break  # smallest from this i found\n"
+        "        return res",
+    "permutation-in-string":
+        "        # Brute Force O(n! or n·m) — check every window of length len(s1)\n"
+        "        from collections import Counter\n"
+        "        k = len(s1)\n"
+        "        need = Counter(s1)\n"
+        "        for i in range(len(s2) - k + 1):\n"
+        "            if Counter(s2[i:i + k]) == need:\n"
+        "                return True\n"
+        "        return False",
+
+    # ── Stack ─────────────────────────────────────────────────────────────────
+    "valid-parentheses":
+        "        # Brute Force O(n²) — repeatedly remove matched pairs until nothing changes\n"
+        "        prev = None\n"
+        "        while s != prev:\n"
+        "            prev = s\n"
+        "            s = s.replace('()', '').replace('[]', '').replace('{}', '')\n"
+        "        return s == ''",
+    "generate-parentheses":
+        "        # Brute Force O(2^(2n) · n) — generate all 2n-length binary strings, filter valid\n"
+        "        def is_valid(comb):\n"
+        "            bal = 0\n"
+        "            for c in comb:\n"
+        "                bal += 1 if c == '(' else -1\n"
+        "                if bal < 0: return False\n"
+        "            return bal == 0\n"
+        "        from itertools import product\n"
+        "        return [''.join(c) for c in product('()', repeat=2*n) if is_valid(c)]",
+    "daily-temperatures":
+        "        # Brute Force O(n²) — for each day scan forward for warmer day\n"
+        "        n = len(temperatures)\n"
+        "        res = [0] * n\n"
+        "        for i in range(n):\n"
+        "            for j in range(i + 1, n):\n"
+        "                if temperatures[j] > temperatures[i]:\n"
+        "                    res[i] = j - i\n"
+        "                    break\n"
+        "        return res",
+    "largest-rectangle-in-histogram":
+        "        # Brute Force O(n²) — fix left bar, expand right, track min height\n"
+        "        n = len(heights)\n"
+        "        res = 0\n"
+        "        for i in range(n):\n"
+        "            min_h = heights[i]\n"
+        "            for j in range(i, n):\n"
+        "                min_h = min(min_h, heights[j])\n"
+        "                res = max(res, min_h * (j - i + 1))\n"
+        "        return res",
+    "evaluate-reverse-polish-notation":
+        "        # Brute Force (stack is already optimal) — simulate token by token\n"
+        "        stack = []\n"
+        "        ops = {'+': lambda a,b: a+b, '-': lambda a,b: a-b,\n"
+        "               '*': lambda a,b: a*b, '/': lambda a,b: int(a/b)}\n"
+        "        for tok in tokens:\n"
+        "            if tok in ops:\n"
+        "                b, a = stack.pop(), stack.pop()\n"
+        "                stack.append(ops[tok](a, b))\n"
+        "            else:\n"
+        "                stack.append(int(tok))\n"
+        "        return stack[0]",
+
+    # ── Binary Search ─────────────────────────────────────────────────────────
+    "binary-search":
+        "        # Brute Force O(n) — linear scan ignoring sorted property\n"
+        "        for i, val in enumerate(nums):\n"
+        "            if val == target:\n"
+        "                return i\n"
+        "        return -1",
+    "search-a-2d-matrix":
+        "        # Brute Force O(m·n) — scan every cell\n"
+        "        for row in matrix:\n"
+        "            for val in row:\n"
+        "                if val == target:\n"
+        "                    return True\n"
+        "        return False",
+    "koko-eating-bananas":
+        "        # Brute Force O(max(piles) · n) — try every speed k from 1 upward\n"
+        "        import math\n"
+        "        for k in range(1, max(piles) + 1):\n"
+        "            hours = sum(math.ceil(p / k) for p in piles)\n"
+        "            if hours <= h:\n"
+        "                return k",
+    "find-minimum-in-rotated-sorted-array":
+        "        # Brute Force O(n) — just return the minimum (ignores sorted structure)\n"
+        "        return min(nums)",
+    "search-in-rotated-sorted-array":
+        "        # Brute Force O(n) — linear scan\n"
+        "        for i, val in enumerate(nums):\n"
+        "            if val == target:\n"
+        "                return i\n"
+        "        return -1",
+    "time-based-key-value-store":
+        "        # Brute Force — store all (timestamp, value) pairs; scan backward for set/get\n"
+        "        # (Shown for the get method; actual class wraps both)\n"
+        "        store = {}  # key -> list of (timestamp, value)\n"
+        "        # get: scan from latest backward until timestamp <= t\n"
+        "        vals = store.get(key, [])\n"
+        "        res = ''\n"
+        "        for ts, val in reversed(vals):\n"
+        "            if ts <= timestamp:\n"
+        "                return val\n"
+        "        return res",
+
+    # ── Linked List ───────────────────────────────────────────────────────────
+    "reverse-linked-list":
+        "        # Brute Force O(n) space — collect values, rebuild in reverse\n"
+        "        vals = []\n"
+        "        curr = head\n"
+        "        while curr:\n"
+        "            vals.append(curr.val)\n"
+        "            curr = curr.next\n"
+        "        dummy = ListNode(0)\n"
+        "        curr = dummy\n"
+        "        for v in reversed(vals):\n"
+        "            curr.next = ListNode(v)\n"
+        "            curr = curr.next\n"
+        "        return dummy.next",
+    "merge-two-sorted-lists":
+        "        # Brute Force O((m+n) log(m+n)) — collect all values, sort, rebuild\n"
+        "        vals = []\n"
+        "        for node in (list1, list2):\n"
+        "            while node:\n"
+        "                vals.append(node.val)\n"
+        "                node = node.next\n"
+        "        vals.sort()\n"
+        "        dummy = ListNode(0)\n"
+        "        curr = dummy\n"
+        "        for v in vals:\n"
+        "            curr.next = ListNode(v)\n"
+        "            curr = curr.next\n"
+        "        return dummy.next",
+    "reorder-list":
+        "        # Brute Force O(n) space — collect into array, reorder with two pointers, rebuild\n"
+        "        nodes = []\n"
+        "        curr = head\n"
+        "        while curr:\n"
+        "            nodes.append(curr)\n"
+        "            curr = curr.next\n"
+        "        lo, hi = 0, len(nodes) - 1\n"
+        "        while lo < hi:\n"
+        "            nodes[lo].next = nodes[hi]\n"
+        "            lo += 1\n"
+        "            if lo == hi: break\n"
+        "            nodes[hi].next = nodes[lo]\n"
+        "            hi -= 1\n"
+        "        nodes[lo].next = None",
+    "remove-nth-node-from-end-of-list":
+        "        # Brute Force O(n) — measure length, then traverse to (length-n)-th node\n"
+        "        length = 0\n"
+        "        curr = head\n"
+        "        while curr:\n"
+        "            length += 1\n"
+        "            curr = curr.next\n"
+        "        dummy = ListNode(0, head)\n"
+        "        curr = dummy\n"
+        "        for _ in range(length - n):\n"
+        "            curr = curr.next\n"
+        "        curr.next = curr.next.next\n"
+        "        return dummy.next",
+    "linked-list-cycle":
+        "        # Brute Force O(n) space — track all visited nodes in a set\n"
+        "        seen = set()\n"
+        "        curr = head\n"
+        "        while curr:\n"
+        "            if id(curr) in seen:\n"
+        "                return True\n"
+        "            seen.add(id(curr))\n"
+        "            curr = curr.next\n"
+        "        return False",
+    "add-two-numbers":
+        "        # Brute Force — convert both lists to integers, add, convert back\n"
+        "        def to_int(node):\n"
+        "            num, mul = 0, 1\n"
+        "            while node:\n"
+        "                num += node.val * mul\n"
+        "                mul *= 10\n"
+        "                node = node.next\n"
+        "            return num\n"
+        "        total = to_int(l1) + to_int(l2)\n"
+        "        dummy = curr = ListNode(0)\n"
+        "        if total == 0: return ListNode(0)\n"
+        "        while total:\n"
+        "            curr.next = ListNode(total % 10)\n"
+        "            curr = curr.next\n"
+        "            total //= 10\n"
+        "        return dummy.next",
+    "find-the-duplicate-number":
+        "        # Brute Force O(n²) — for each number count its occurrences\n"
+        "        for i in range(len(nums)):\n"
+        "            count = 0\n"
+        "            for j in range(len(nums)):\n"
+        "                if nums[j] == nums[i]:\n"
+        "                    count += 1\n"
+        "            if count > 1:\n"
+        "                return nums[i]",
+    "merge-k-sorted-lists":
+        "        # Brute Force O(N log N) — collect all values, sort, rebuild\n"
+        "        vals = []\n"
+        "        for node in lists:\n"
+        "            while node:\n"
+        "                vals.append(node.val)\n"
+        "                node = node.next\n"
+        "        vals.sort()\n"
+        "        dummy = ListNode(0)\n"
+        "        curr = dummy\n"
+        "        for v in vals:\n"
+        "            curr.next = ListNode(v)\n"
+        "            curr = curr.next\n"
+        "        return dummy.next",
+    "copy-list-with-random-pointer":
+        "        # Brute Force O(n) space — two-pass: create all nodes, then wire pointers\n"
+        "        if not head: return None\n"
+        "        mapping = {}\n"
+        "        curr = head\n"
+        "        while curr:\n"
+        "            mapping[curr] = Node(curr.val)\n"
+        "            curr = curr.next\n"
+        "        curr = head\n"
+        "        while curr:\n"
+        "            if curr.next:   mapping[curr].next   = mapping[curr.next]\n"
+        "            if curr.random: mapping[curr].random = mapping[curr.random]\n"
+        "            curr = curr.next\n"
+        "        return mapping[head]",
+
+    # ── Trees & BST ───────────────────────────────────────────────────────────
+    "invert-binary-tree":
+        "        # Brute Force (recursive swap is already optimal — no simpler approach)\n"
+        "        if not root: return None\n"
+        "        root.left, root.right = root.right, root.left\n"
+        "        self.invertTree(root.left)\n"
+        "        self.invertTree(root.right)\n"
+        "        return root",
+    "maximum-depth-of-binary-tree":
+        "        # Brute Force O(n) — recursive DFS; BFS is the alternative brute\n"
+        "        if not root: return 0\n"
+        "        return 1 + max(self.maxDepth(root.left), self.maxDepth(root.right))",
+    "diameter-of-binary-tree":
+        "        # Brute Force O(n²) — for each node recompute left/right heights independently\n"
+        "        def height(node):\n"
+        "            if not node: return 0\n"
+        "            return 1 + max(height(node.left), height(node.right))\n"
+        "        if not root: return 0\n"
+        "        left_h  = height(root.left)\n"
+        "        right_h = height(root.right)\n"
+        "        through_root = left_h + right_h\n"
+        "        left_best  = self.diameterOfBinaryTree(root.left)\n"
+        "        right_best = self.diameterOfBinaryTree(root.right)\n"
+        "        return max(through_root, left_best, right_best)",
+    "balanced-binary-tree":
+        "        # Brute Force O(n²) — for each node compute left/right heights separately\n"
+        "        def height(node):\n"
+        "            if not node: return 0\n"
+        "            return 1 + max(height(node.left), height(node.right))\n"
+        "        if not root: return True\n"
+        "        left_h  = height(root.left)\n"
+        "        right_h = height(root.right)\n"
+        "        if abs(left_h - right_h) > 1: return False\n"
+        "        return self.isBalanced(root.left) and self.isBalanced(root.right)",
+    "same-tree":
+        "        # Brute Force O(n) — recursive structural comparison\n"
+        "        if not p and not q: return True\n"
+        "        if not p or not q or p.val != q.val: return False\n"
+        "        return self.isSameTree(p.left, q.left) and self.isSameTree(p.right, q.right)",
+    "subtree-of-another-tree":
+        "        # Brute Force O(m·n) — for each node in root check if tree matches subRoot\n"
+        "        def is_same(s, t):\n"
+        "            if not s and not t: return True\n"
+        "            if not s or not t or s.val != t.val: return False\n"
+        "            return is_same(s.left, t.left) and is_same(s.right, t.right)\n"
+        "        if not root: return False\n"
+        "        if is_same(root, subRoot): return True\n"
+        "        return self.isSubtree(root.left, subRoot) or self.isSubtree(root.right, subRoot)",
+    "lowest-common-ancestor-of-a-binary-search-tree":
+        "        # Brute Force O(n) — find root-to-node paths, find last common node\n"
+        "        def path_to(node, target):\n"
+        "            path = []\n"
+        "            while node:\n"
+        "                path.append(node)\n"
+        "                if target.val < node.val: node = node.left\n"
+        "                elif target.val > node.val: node = node.right\n"
+        "                else: break\n"
+        "            return path\n"
+        "        p_path = path_to(root, p)\n"
+        "        q_path = path_to(root, q)\n"
+        "        p_set = {n.val for n in p_path}\n"
+        "        for node in reversed(q_path):\n"
+        "            if node.val in p_set:\n"
+        "                return node",
+    "lowest-common-ancestor-of-a-binary-tree":
+        "        # Brute Force O(n) — recursive: if either target found, bubble it up\n"
+        "        if not root or root == p or root == q: return root\n"
+        "        left  = self.lowestCommonAncestor(root.left,  p, q)\n"
+        "        right = self.lowestCommonAncestor(root.right, p, q)\n"
+        "        if left and right: return root\n"
+        "        return left or right",
+    "binary-tree-level-order-traversal":
+        "        # Brute Force O(n) — BFS with a queue; this IS the standard approach\n"
+        "        from collections import deque\n"
+        "        if not root: return []\n"
+        "        result, queue = [], deque([root])\n"
+        "        while queue:\n"
+        "            level = []\n"
+        "            for _ in range(len(queue)):\n"
+        "                node = queue.popleft()\n"
+        "                level.append(node.val)\n"
+        "                if node.left:  queue.append(node.left)\n"
+        "                if node.right: queue.append(node.right)\n"
+        "            result.append(level)\n"
+        "        return result",
+    "binary-tree-right-side-view":
+        "        # Brute Force O(n) — BFS, take last node of each level\n"
+        "        from collections import deque\n"
+        "        if not root: return []\n"
+        "        result, queue = [], deque([root])\n"
+        "        while queue:\n"
+        "            level_size = len(queue)\n"
+        "            for i in range(level_size):\n"
+        "                node = queue.popleft()\n"
+        "                if i == level_size - 1: result.append(node.val)\n"
+        "                if node.left:  queue.append(node.left)\n"
+        "                if node.right: queue.append(node.right)\n"
+        "        return result",
+    "validate-binary-search-tree":
+        "        # Brute Force O(n) — collect inorder traversal, verify it's strictly increasing\n"
+        "        vals = []\n"
+        "        def inorder(node):\n"
+        "            if not node: return\n"
+        "            inorder(node.left)\n"
+        "            vals.append(node.val)\n"
+        "            inorder(node.right)\n"
+        "        inorder(root)\n"
+        "        return all(vals[i] < vals[i+1] for i in range(len(vals)-1))",
+    "kth-smallest-element-in-a-bst":
+        "        # Brute Force O(n) — collect all values via inorder, return k-th\n"
+        "        vals = []\n"
+        "        def inorder(node):\n"
+        "            if not node: return\n"
+        "            inorder(node.left)\n"
+        "            vals.append(node.val)\n"
+        "            inorder(node.right)\n"
+        "        inorder(root)\n"
+        "        return vals[k - 1]",
+    "construct-binary-tree-from-preorder-and-inorder-traversal":
+        "        # Brute Force O(n²) — find root in inorder by linear scan each call\n"
+        "        if not preorder or not inorder: return None\n"
+        "        root_val = preorder[0]\n"
+        "        root = TreeNode(root_val)\n"
+        "        mid = inorder.index(root_val)  # O(n) scan\n"
+        "        root.left  = self.buildTree(preorder[1:mid+1],  inorder[:mid])\n"
+        "        root.right = self.buildTree(preorder[mid+1:],   inorder[mid+1:])\n"
+        "        return root",
+    "binary-tree-maximum-path-sum":
+        "        # Brute Force O(n²) — for every node compute max gain in subtree\n"
+        "        self.res = float('-inf')\n"
+        "        def max_gain(node):\n"
+        "            if not node: return 0\n"
+        "            left  = max(max_gain(node.left),  0)\n"
+        "            right = max(max_gain(node.right), 0)\n"
+        "            self.res = max(self.res, node.val + left + right)\n"
+        "            return node.val + max(left, right)\n"
+        "        max_gain(root)\n"
+        "        return self.res",
+    "serialize-and-deserialize-binary-tree":
+        "        # Brute Force — BFS serialization (level order with nulls)\n"
+        "        from collections import deque\n"
+        "        if not root: return 'null'\n"
+        "        result, queue = [], deque([root])\n"
+        "        while queue:\n"
+        "            node = queue.popleft()\n"
+        "            if node:\n"
+        "                result.append(str(node.val))\n"
+        "                queue.append(node.left)\n"
+        "                queue.append(node.right)\n"
+        "            else:\n"
+        "                result.append('null')\n"
+        "        return ','.join(result)",
+
+    # ── Dynamic Programming ───────────────────────────────────────────────────
+    "climbing-stairs":
+        "        # Brute Force O(2^n) — pure recursion, recomputes identical subproblems\n"
+        "        def climb(n):\n"
+        "            if n <= 2: return n\n"
+        "            return climb(n - 1) + climb(n - 2)\n"
+        "        return climb(n)",
+    "house-robber":
+        "        # Brute Force O(2^n) — try every subset of non-adjacent houses\n"
+        "        def rob(i):\n"
+        "            if i >= len(nums): return 0\n"
+        "            return max(nums[i] + rob(i + 2),  # rob house i\n"
+        "                       rob(i + 1))            # skip house i\n"
+        "        return rob(0)",
+    "house-robber-ii":
+        "        # Brute Force O(2^n) — run house-robber brute on [0..n-2] and [1..n-1]\n"
+        "        def rob_range(arr):\n"
+        "            def rob(i):\n"
+        "                if i >= len(arr): return 0\n"
+        "                return max(arr[i] + rob(i + 2), rob(i + 1))\n"
+        "            return rob(0)\n"
+        "        if len(nums) == 1: return nums[0]\n"
+        "        return max(rob_range(nums[:-1]), rob_range(nums[1:]))",
+    "longest-palindromic-substring":
+        "        # Brute Force O(n³) — check every substring for palindrome property\n"
+        "        def is_palindrome(sub):\n"
+        "            return sub == sub[::-1]\n"
+        "        res = ''\n"
+        "        for i in range(len(s)):\n"
+        "            for j in range(i + 1, len(s) + 1):\n"
+        "                sub = s[i:j]\n"
+        "                if is_palindrome(sub) and len(sub) > len(res):\n"
+        "                    res = sub\n"
+        "        return res",
+    "palindromic-substrings":
+        "        # Brute Force O(n³) — check every substring\n"
+        "        count = 0\n"
+        "        for i in range(len(s)):\n"
+        "            for j in range(i + 1, len(s) + 1):\n"
+        "                sub = s[i:j]\n"
+        "                if sub == sub[::-1]:\n"
+        "                    count += 1\n"
+        "        return count",
+    "decode-ways":
+        "        # Brute Force O(2^n) — try taking 1 or 2 digits at each position\n"
+        "        def decode(i):\n"
+        "            if i == len(s): return 1\n"
+        "            if s[i] == '0': return 0\n"
+        "            ways = decode(i + 1)  # take one digit\n"
+        "            if i + 1 < len(s) and int(s[i:i+2]) <= 26:\n"
+        "                ways += decode(i + 2)  # take two digits\n"
+        "            return ways\n"
+        "        return decode(0)",
+    "coin-change":
+        "        # Brute Force O(amount · S^(amount/min)) — recursion without memo\n"
+        "        def dp(rem):\n"
+        "            if rem == 0: return 0\n"
+        "            if rem < 0:  return float('inf')\n"
+        "            return 1 + min(dp(rem - c) for c in coins)\n"
+        "        res = dp(amount)\n"
+        "        return res if res != float('inf') else -1",
+    "maximum-product-subarray":
+        "        # Brute Force O(n²) — compute product of every contiguous subarray\n"
+        "        res = nums[0]\n"
+        "        for i in range(len(nums)):\n"
+        "            prod = 1\n"
+        "            for j in range(i, len(nums)):\n"
+        "                prod *= nums[j]\n"
+        "                res = max(res, prod)\n"
+        "        return res",
+    "word-break":
+        "        # Brute Force O(2^n) — try all partition points recursively\n"
+        "        word_set = set(wordDict)\n"
+        "        def can_break(start):\n"
+        "            if start == len(s): return True\n"
+        "            for end in range(start + 1, len(s) + 1):\n"
+        "                if s[start:end] in word_set and can_break(end):\n"
+        "                    return True\n"
+        "            return False\n"
+        "        return can_break(0)",
+    "longest-increasing-subsequence":
+        "        # Brute Force O(2^n) — generate every subsequence, find longest increasing\n"
+        "        def lis(i, prev_val):\n"
+        "            if i == len(nums): return 0\n"
+        "            skip = lis(i + 1, prev_val)\n"
+        "            take = 0\n"
+        "            if nums[i] > prev_val:\n"
+        "                take = 1 + lis(i + 1, nums[i])\n"
+        "            return max(skip, take)\n"
+        "        return lis(0, float('-inf'))",
+    "partition-equal-subset-sum":
+        "        # Brute Force O(2^n) — try including/excluding each element for target sum\n"
+        "        total = sum(nums)\n"
+        "        if total % 2: return False\n"
+        "        target = total // 2\n"
+        "        def can_reach(i, rem):\n"
+        "            if rem == 0: return True\n"
+        "            if i == len(nums) or rem < 0: return False\n"
+        "            return can_reach(i+1, rem - nums[i]) or can_reach(i+1, rem)\n"
+        "        return can_reach(0, target)",
+    "unique-paths":
+        "        # Brute Force O(2^(m+n)) — recursion without memo; each step right or down\n"
+        "        def paths(r, c):\n"
+        "            if r == m - 1 and c == n - 1: return 1\n"
+        "            if r >= m or c >= n: return 0\n"
+        "            return paths(r + 1, c) + paths(r, c + 1)\n"
+        "        return paths(0, 0)",
+    "longest-common-subsequence":
+        "        # Brute Force O(2^(m+n)) — recursion without memo\n"
+        "        def lcs(i, j):\n"
+        "            if i == len(text1) or j == len(text2): return 0\n"
+        "            if text1[i] == text2[j]:\n"
+        "                return 1 + lcs(i + 1, j + 1)\n"
+        "            return max(lcs(i + 1, j), lcs(i, j + 1))\n"
+        "        return lcs(0, 0)",
+    "edit-distance":
+        "        # Brute Force O(3^(m+n)) — recursion without memo; try insert/delete/replace\n"
+        "        def dp(i, j):\n"
+        "            if i == len(word1): return len(word2) - j\n"
+        "            if j == len(word2): return len(word1) - i\n"
+        "            if word1[i] == word2[j]:\n"
+        "                return dp(i + 1, j + 1)\n"
+        "            return 1 + min(dp(i + 1, j),     # delete\n"
+        "                          dp(i, j + 1),       # insert\n"
+        "                          dp(i + 1, j + 1))   # replace\n"
+        "        return dp(0, 0)",
+    "regular-expression-matching":
+        "        # Brute Force O(2^(m+n)) — recursion without memo; handle '.' and '*'\n"
+        "        def match(i, j):\n"
+        "            if j == len(p): return i == len(s)\n"
+        "            first = i < len(s) and (p[j] == '.' or p[j] == s[i])\n"
+        "            if j + 1 < len(p) and p[j+1] == '*':\n"
+        "                return match(i, j+2) or (first and match(i+1, j))\n"
+        "            return first and match(i+1, j+1)\n"
+        "        return match(0, 0)",
+    "best-time-to-buy-and-sell-stock-with-cooldown":
+        "        # Brute Force O(3^n) — recursion: at each day choose buy/sell/rest\n"
+        "        def dfs(i, holding, cooldown):\n"
+        "            if i >= len(prices): return 0\n"
+        "            if cooldown: return dfs(i+1, holding, False)  # must rest\n"
+        "            if holding:\n"
+        "                sell   = prices[i] + dfs(i+1, False, True)  # sell today\n"
+        "                rest   = dfs(i+1, True, False)              # hold\n"
+        "                return max(sell, rest)\n"
+        "            else:\n"
+        "                buy    = -prices[i] + dfs(i+1, True, False)  # buy today\n"
+        "                rest   = dfs(i+1, False, False)               # wait\n"
+        "                return max(buy, rest)\n"
+        "        return dfs(0, False, False)",
+    "burst-balloons":
+        "        # Brute Force O(n! · n) — try every order to burst all balloons\n"
+        "        from itertools import permutations\n"
+        "        nums = [1] + nums + [1]\n"
+        "        best = 0\n"
+        "        # Only feasible for tiny n; actual brute is exponential\n"
+        "        def burst(balloons, coins):\n"
+        "            nonlocal best\n"
+        "            if not balloons:\n"
+        "                best = max(best, coins)\n"
+        "                return\n"
+        "            for i in range(len(balloons)):\n"
+        "                left  = balloons[i-1] if i > 0 else 1\n"
+        "                right = balloons[i+1] if i+1 < len(balloons) else 1\n"
+        "                gained = left * balloons[i] * right\n"
+        "                burst(balloons[:i] + balloons[i+1:], coins + gained)\n"
+        "        interior = list(nums[1:-1])\n"
+        "        burst(interior, 0)\n"
+        "        return best",
+
+    # ── Backtracking ──────────────────────────────────────────────────────────
+    "subsets":
+        "        # Brute Force O(2^n · n) — bitmask over all 2^n subsets\n"
+        "        result = []\n"
+        "        for mask in range(1 << len(nums)):\n"
+        "            sub = [nums[i] for i in range(len(nums)) if mask & (1 << i)]\n"
+        "            result.append(sub)\n"
+        "        return result",
+    "combination-sum":
+        "        # Brute Force O(n^(target/min)) — recursion without pruning\n"
+        "        result = []\n"
+        "        def backtrack(start, path, remain):\n"
+        "            if remain == 0:\n"
+        "                result.append(list(path)); return\n"
+        "            if remain < 0: return\n"
+        "            for i in range(start, len(candidates)):\n"
+        "                path.append(candidates[i])\n"
+        "                backtrack(i, path, remain - candidates[i])\n"
+        "                path.pop()\n"
+        "        backtrack(0, [], target)\n"
+        "        return result",
+    "permutations":
+        "        # Brute Force O(n! · n) — itertools.permutations (or full recursion)\n"
+        "        from itertools import permutations as perms\n"
+        "        return [list(p) for p in perms(nums)]",
+    "subsets-ii":
+        "        # Brute Force O(2^n · n log n) — bitmask with deduplication via set\n"
+        "        result = set()\n"
+        "        nums.sort()\n"
+        "        for mask in range(1 << len(nums)):\n"
+        "            sub = tuple(nums[i] for i in range(len(nums)) if mask & (1 << i))\n"
+        "            result.add(sub)\n"
+        "        return [list(s) for s in result]",
+    "letter-combinations-of-a-phone-number":
+        "        # Brute Force O(4^n · n) — itertools.product over mapped letters\n"
+        "        if not digits: return []\n"
+        "        from itertools import product\n"
+        "        mapping = {'2':'abc','3':'def','4':'ghi','5':'jkl',\n"
+        "                   '6':'mno','7':'pqrs','8':'tuv','9':'wxyz'}\n"
+        "        return [''.join(c) for c in product(*[mapping[d] for d in digits])]",
+    "palindrome-partitioning":
+        "        # Brute Force O(2^n · n) — try every cut point, filter palindrome partitions\n"
+        "        result = []\n"
+        "        def backtrack(start, path):\n"
+        "            if start == len(s):\n"
+        "                result.append(list(path)); return\n"
+        "            for end in range(start + 1, len(s) + 1):\n"
+        "                part = s[start:end]\n"
+        "                if part == part[::-1]:  # is palindrome\n"
+        "                    path.append(part)\n"
+        "                    backtrack(end, path)\n"
+        "                    path.pop()\n"
+        "        backtrack(0, [])\n"
+        "        return result",
+    "word-search":
+        "        # Brute Force O(m·n·4^L) — DFS from every cell, backtrack on visited\n"
+        "        m, n = len(board), len(board[0])\n"
+        "        def dfs(r, c, i, visited):\n"
+        "            if i == len(word): return True\n"
+        "            if r<0 or r>=m or c<0 or c>=n: return False\n"
+        "            if (r,c) in visited or board[r][c] != word[i]: return False\n"
+        "            visited.add((r,c))\n"
+        "            found = (dfs(r+1,c,i+1,visited) or dfs(r-1,c,i+1,visited) or\n"
+        "                     dfs(r,c+1,i+1,visited) or dfs(r,c-1,i+1,visited))\n"
+        "            visited.remove((r,c))\n"
+        "            return found\n"
+        "        for r in range(m):\n"
+        "            for c in range(n):\n"
+        "                if dfs(r, c, 0, set()): return True\n"
+        "        return False",
+    "n-queens":
+        "        # Brute Force O(n^n · n) — place a queen in every column each row, filter valid\n"
+        "        from itertools import product\n"
+        "        def is_valid(placement):\n"
+        "            for i in range(len(placement)):\n"
+        "                for j in range(i+1, len(placement)):\n"
+        "                    if placement[i]==placement[j]: return False  # same col\n"
+        "                    if abs(placement[i]-placement[j])==abs(i-j): return False  # diagonal\n"
+        "            return True\n"
+        "        result = []\n"
+        "        for cols in product(range(n), repeat=n):\n"
+        "            if is_valid(cols):\n"
+        "                board = []\n"
+        "                for c in cols:\n"
+        "                    row = '.'*c + 'Q' + '.'*(n-c-1)\n"
+        "                    board.append(row)\n"
+        "                result.append(board)\n"
+        "        return result",
+
+    # ── Graphs ────────────────────────────────────────────────────────────────
+    "number-of-islands":
+        "        # Brute Force O(m²·n²) — DFS from every unvisited land cell\n"
+        "        if not grid: return 0\n"
+        "        m, n = len(grid), len(grid[0])\n"
+        "        visited = set()\n"
+        "        def dfs(r, c):\n"
+        "            if r<0 or r>=m or c<0 or c>=n: return\n"
+        "            if (r,c) in visited or grid[r][c]=='0': return\n"
+        "            visited.add((r,c))\n"
+        "            for dr,dc in [(1,0),(-1,0),(0,1),(0,-1)]:\n"
+        "                dfs(r+dr, c+dc)\n"
+        "        count = 0\n"
+        "        for r in range(m):\n"
+        "            for c in range(n):\n"
+        "                if grid[r][c]=='1' and (r,c) not in visited:\n"
+        "                    dfs(r, c)\n"
+        "                    count += 1\n"
+        "        return count",
+    "max-area-of-island":
+        "        # Brute Force O(m²·n²) — DFS from every unvisited land cell, track size\n"
+        "        m, n = len(grid), len(grid[0])\n"
+        "        visited = set()\n"
+        "        def dfs(r, c):\n"
+        "            if r<0 or r>=m or c<0 or c>=n: return 0\n"
+        "            if (r,c) in visited or grid[r][c]==0: return 0\n"
+        "            visited.add((r,c))\n"
+        "            return 1 + dfs(r+1,c) + dfs(r-1,c) + dfs(r,c+1) + dfs(r,c-1)\n"
+        "        return max((dfs(r,c) for r in range(m) for c in range(n)), default=0)",
+    "pacific-atlantic-water-flow":
+        "        # Brute Force O(m²·n²) — for each cell DFS to check if water reaches both oceans\n"
+        "        if not heights: return []\n"
+        "        m, n = len(heights), len(heights[0])\n"
+        "        def can_reach_ocean(sr, sc, ocean_check):\n"
+        "            # DFS flowing downhill; return True if ocean reached\n"
+        "            from collections import deque\n"
+        "            stack = [(sr, sc)]\n"
+        "            visited = set()\n"
+        "            while stack:\n"
+        "                r, c = stack.pop()\n"
+        "                if (r,c) in visited: continue\n"
+        "                visited.add((r,c))\n"
+        "                if ocean_check(r, c): return True\n"
+        "                for dr,dc in [(1,0),(-1,0),(0,1),(0,-1)]:\n"
+        "                    nr, nc = r+dr, c+dc\n"
+        "                    if 0<=nr<m and 0<=nc<n and heights[nr][nc]<=heights[r][c]:\n"
+        "                        stack.append((nr,nc))\n"
+        "            return False\n"
+        "        result = []\n"
+        "        for r in range(m):\n"
+        "            for c in range(n):\n"
+        "                pac = can_reach_ocean(r,c, lambda r,c: r==0 or c==0)\n"
+        "                atl = can_reach_ocean(r,c, lambda r,c: r==m-1 or c==n-1)\n"
+        "                if pac and atl: result.append([r,c])\n"
+        "        return result",
+    "course-schedule":
+        "        # Brute Force O(V+E) — DFS cycle detection on adjacency list\n"
+        "        from collections import defaultdict\n"
+        "        graph = defaultdict(list)\n"
+        "        for a, b in prerequisites:\n"
+        "            graph[b].append(a)\n"
+        "        # 0=unvisited, 1=in-stack, 2=done\n"
+        "        state = [0] * numCourses\n"
+        "        def has_cycle(node):\n"
+        "            if state[node] == 1: return True\n"
+        "            if state[node] == 2: return False\n"
+        "            state[node] = 1\n"
+        "            for nei in graph[node]:\n"
+        "                if has_cycle(nei): return True\n"
+        "            state[node] = 2\n"
+        "            return False\n"
+        "        return not any(has_cycle(c) for c in range(numCourses))",
+    "course-schedule-ii":
+        "        # Brute Force O(V+E) — DFS topological sort\n"
+        "        from collections import defaultdict\n"
+        "        graph = defaultdict(list)\n"
+        "        for a, b in prerequisites:\n"
+        "            graph[b].append(a)\n"
+        "        state  = [0] * numCourses\n"
+        "        result = []\n"
+        "        def dfs(node):\n"
+        "            if state[node] == 1: return False  # cycle\n"
+        "            if state[node] == 2: return True\n"
+        "            state[node] = 1\n"
+        "            for nei in graph[node]:\n"
+        "                if not dfs(nei): return False\n"
+        "            state[node] = 2\n"
+        "            result.append(node)\n"
+        "            return True\n"
+        "        for c in range(numCourses):\n"
+        "            if not dfs(c): return []\n"
+        "        return result[::-1]",
+    "surrounded-regions":
+        "        # Brute Force O(m·n) — BFS from border 'O's, mark safe, flip the rest\n"
+        "        from collections import deque\n"
+        "        if not board: return\n"
+        "        m, n = len(board), len(board[0])\n"
+        "        safe = set()\n"
+        "        queue = deque()\n"
+        "        for r in range(m):\n"
+        "            for c in range(n):\n"
+        "                if (r==0 or r==m-1 or c==0 or c==n-1) and board[r][c]=='O':\n"
+        "                    queue.append((r,c))\n"
+        "        while queue:\n"
+        "            r,c = queue.popleft()\n"
+        "            if (r,c) in safe or board[r][c]!='O': continue\n"
+        "            safe.add((r,c))\n"
+        "            for dr,dc in [(1,0),(-1,0),(0,1),(0,-1)]:\n"
+        "                nr,nc = r+dr,c+dc\n"
+        "                if 0<=nr<m and 0<=nc<n: queue.append((nr,nc))\n"
+        "        for r in range(m):\n"
+        "            for c in range(n):\n"
+        "                if board[r][c]=='O' and (r,c) not in safe:\n"
+        "                    board[r][c]='X'",
+    "rotting-oranges":
+        "        # Brute Force O((m·n)²) — repeatedly scan entire grid, spread rot each pass\n"
+        "        from copy import deepcopy\n"
+        "        m, n = len(grid), len(grid[0])\n"
+        "        minutes = 0\n"
+        "        while True:\n"
+        "            new_grid = deepcopy(grid)\n"
+        "            changed = False\n"
+        "            for r in range(m):\n"
+        "                for c in range(n):\n"
+        "                    if grid[r][c] == 2:\n"
+        "                        for dr,dc in [(1,0),(-1,0),(0,1),(0,-1)]:\n"
+        "                            nr,nc = r+dr,c+dc\n"
+        "                            if 0<=nr<m and 0<=nc<n and grid[nr][nc]==1:\n"
+        "                                new_grid[nr][nc]=2; changed=True\n"
+        "            grid = new_grid\n"
+        "            if not changed: break\n"
+        "            minutes += 1\n"
+        "        return minutes if not any(1 in row for row in grid) else -1",
+    "cheapest-flights-within-k-stops":
+        "        # Brute Force O(V^(K+2)) — DFS trying all paths with at most k stops\n"
+        "        from collections import defaultdict\n"
+        "        graph = defaultdict(list)\n"
+        "        for u,v,w in flights:\n"
+        "            graph[u].append((v,w))\n"
+        "        self.res = float('inf')\n"
+        "        def dfs(node, stops, cost):\n"
+        "            if node == dst:\n"
+        "                self.res = min(self.res, cost); return\n"
+        "            if stops > k: return\n"
+        "            for nei, price in graph[node]:\n"
+        "                if cost + price < self.res:  # prune only on cost\n"
+        "                    dfs(nei, stops+1, cost+price)\n"
+        "        dfs(src, 0, 0)\n"
+        "        return self.res if self.res < float('inf') else -1",
+    "word-ladder":
+        "        # Brute Force O(n²·L) — BFS; try all word pairs each level (no pattern precomp)\n"
+        "        from collections import deque\n"
+        "        word_set = set(wordList)\n"
+        "        if endWord not in word_set: return 0\n"
+        "        queue = deque([(beginWord, 1)])\n"
+        "        visited = {beginWord}\n"
+        "        while queue:\n"
+        "            word, steps = queue.popleft()\n"
+        "            for candidate in list(word_set):\n"
+        "                # Check one-letter difference by comparing character by character\n"
+        "                if sum(a!=b for a,b in zip(word,candidate))==1 and len(word)==len(candidate):\n"
+        "                    if candidate == endWord: return steps+1\n"
+        "                    if candidate not in visited:\n"
+        "                        visited.add(candidate)\n"
+        "                        queue.append((candidate, steps+1))\n"
+        "        return 0",
+    "clone-graph":
+        "        # Brute Force O(V+E) — BFS with a visited dict; this IS the standard approach\n"
+        "        if not node: return None\n"
+        "        from collections import deque\n"
+        "        clone = {node: Node(node.val)}\n"
+        "        queue = deque([node])\n"
+        "        while queue:\n"
+        "            curr = queue.popleft()\n"
+        "            for nb in curr.neighbors:\n"
+        "                if nb not in clone:\n"
+        "                    clone[nb] = Node(nb.val)\n"
+        "                    queue.append(nb)\n"
+        "                clone[curr].neighbors.append(clone[nb])\n"
+        "        return clone[node]",
+    "walls-and-gates":
+        "        # Brute Force O((m·n)²) — BFS from every empty room independently\n"
+        "        from collections import deque\n"
+        "        m, n = len(rooms), len(rooms[0])\n"
+        "        INF = 2147483647\n"
+        "        def bfs_from(sr, sc):\n"
+        "            queue = deque([(sr,sc,0)])\n"
+        "            visited = set()\n"
+        "            while queue:\n"
+        "                r,c,d = queue.popleft()\n"
+        "                if (r,c) in visited: continue\n"
+        "                visited.add((r,c))\n"
+        "                if rooms[r][c]==0: return d  # reached a gate\n"
+        "                for dr,dc in [(1,0),(-1,0),(0,1),(0,-1)]:\n"
+        "                    nr,nc = r+dr,c+dc\n"
+        "                    if 0<=nr<m and 0<=nc<n and rooms[nr][nc]!=(-1):\n"
+        "                        queue.append((nr,nc,d+1))\n"
+        "            return INF\n"
+        "        for r in range(m):\n"
+        "            for c in range(n):\n"
+        "                if rooms[r][c]==INF:\n"
+        "                    rooms[r][c]=bfs_from(r,c)",
+    "network-delay-time":
+        "        # Brute Force O(V·E) — Bellman-Ford: relax all edges V-1 times\n"
+        "        dist = {i: float('inf') for i in range(1, n+1)}\n"
+        "        dist[k] = 0\n"
+        "        for _ in range(n - 1):\n"
+        "            for u, v, w in times:\n"
+        "                if dist[u] + w < dist[v]:\n"
+        "                    dist[v] = dist[u] + w\n"
+        "        res = max(dist.values())\n"
+        "        return res if res < float('inf') else -1",
+    "redundant-connection":
+        "        # Brute Force O(n²) — try removing each edge; check if graph stays connected\n"
+        "        def is_connected(edges, n):\n"
+        "            from collections import defaultdict, deque\n"
+        "            graph = defaultdict(list)\n"
+        "            for u,v in edges:\n"
+        "                graph[u].append(v); graph[v].append(u)\n"
+        "            visited = set()\n"
+        "            queue = deque([1])\n"
+        "            while queue:\n"
+        "                node = queue.popleft()\n"
+        "                if node in visited: continue\n"
+        "                visited.add(node)\n"
+        "                queue.extend(graph[node])\n"
+        "            return len(visited) == n\n"
+        "        n = len(edges)\n"
+        "        for i in range(n-1, -1, -1):\n"
+        "            remaining = edges[:i] + edges[i+1:]\n"
+        "            if is_connected(remaining, n):\n"
+        "                return edges[i]",
+
+    # ── Matrix ────────────────────────────────────────────────────────────────
+    "set-matrix-zeroes":
+        "        # Brute Force O(m·n·(m+n)) — record zero positions, then zero out rows/cols\n"
+        "        zeros = [(r,c) for r in range(len(matrix)) for c in range(len(matrix[0]))\n"
+        "                 if matrix[r][c]==0]\n"
+        "        for r,c in zeros:\n"
+        "            for col in range(len(matrix[0])): matrix[r][col]=0\n"
+        "            for row in range(len(matrix)):    matrix[row][c]=0",
+    "spiral-matrix":
+        "        # Brute Force O(m·n) — track visited cells, simulate turning\n"
+        "        if not matrix: return []\n"
+        "        m, n = len(matrix), len(matrix[0])\n"
+        "        directions = [(0,1),(1,0),(0,-1),(-1,0)]  # right down left up\n"
+        "        visited = [[False]*n for _ in range(m)]\n"
+        "        r=c=d=0; result=[]\n"
+        "        for _ in range(m*n):\n"
+        "            result.append(matrix[r][c])\n"
+        "            visited[r][c]=True\n"
+        "            dr,dc=directions[d]\n"
+        "            nr,nc=r+dr,c+dc\n"
+        "            if 0<=nr<m and 0<=nc<n and not visited[nr][nc]:\n"
+        "                r,c=nr,nc\n"
+        "            else:\n"
+        "                d=(d+1)%4; dr,dc=directions[d]; r+=dr; c+=dc\n"
+        "        return result",
+    "rotate-image":
+        "        # Brute Force O(n²) space — copy to new matrix with rotated indices\n"
+        "        n = len(matrix)\n"
+        "        copy = [row[:] for row in matrix]\n"
+        "        for r in range(n):\n"
+        "            for c in range(n):\n"
+        "                matrix[c][n-1-r] = copy[r][c]",
+
+    # ── Heap ──────────────────────────────────────────────────────────────────
+    "kth-largest-element-in-an-array":
+        "        # Brute Force O(n log n) — sort descending, index at k-1\n"
+        "        nums.sort(reverse=True)\n"
+        "        return nums[k - 1]",
+    "k-closest-points-to-origin":
+        "        # Brute Force O(n log n) — sort all points by Euclidean distance\n"
+        "        points.sort(key=lambda p: p[0]**2 + p[1]**2)\n"
+        "        return points[:k]",
+    "find-median-from-data-stream":
+        "        # Brute Force — store all nums; sort every time findMedian is called\n"
+        "        # (Shown for findMedian; addNum just appends)\n"
+        "        # self.data.sort()  ← O(n log n) per call\n"
+        "        n = len(self.data)\n"
+        "        self.data.sort()\n"
+        "        if n % 2 == 1:\n"
+        "            return float(self.data[n // 2])\n"
+        "        return (self.data[n//2 - 1] + self.data[n//2]) / 2.0",
+    "task-scheduler":
+        "        # Brute Force O(n · intervals) — simulate the CPU schedule tick by tick\n"
+        "        from collections import Counter\n"
+        "        counts = Counter(tasks)\n"
+        "        time = 0\n"
+        "        while counts:\n"
+        "            # Each cycle: pick up to (n+1) most-frequent tasks\n"
+        "            cycle = sorted(counts.keys(), key=lambda t: -counts[t])[:n+1]\n"
+        "            for t in cycle:\n"
+        "                counts[t] -= 1\n"
+        "                if counts[t] == 0: del counts[t]\n"
+        "                time += 1\n"
+        "            if counts:  # idle the rest of the cycle\n"
+        "                time += max(0, n + 1 - len(cycle))\n"
+        "        return time",
+
+    # ── Greedy ────────────────────────────────────────────────────────────────
+    "maximum-subarray":
+        "        # Brute Force O(n²) — compute sum of every contiguous subarray\n"
+        "        res = nums[0]\n"
+        "        for i in range(len(nums)):\n"
+        "            curr = 0\n"
+        "            for j in range(i, len(nums)):\n"
+        "                curr += nums[j]\n"
+        "                res = max(res, curr)\n"
+        "        return res",
+    "jump-game":
+        "        # Brute Force O(2^n) — recursion: try every reachable position\n"
+        "        def can_reach(i):\n"
+        "            if i >= len(nums) - 1: return True\n"
+        "            for step in range(1, nums[i] + 1):\n"
+        "                if can_reach(i + step): return True\n"
+        "            return False\n"
+        "        return can_reach(0)",
+    "jump-game-ii":
+        "        # Brute Force O(n²) — BFS level by level, each level is one jump\n"
+        "        from collections import deque\n"
+        "        if len(nums) <= 1: return 0\n"
+        "        queue = deque([0])\n"
+        "        visited = {0}\n"
+        "        jumps = 0\n"
+        "        while queue:\n"
+        "            jumps += 1\n"
+        "            for _ in range(len(queue)):\n"
+        "                pos = queue.popleft()\n"
+        "                for step in range(1, nums[pos] + 1):\n"
+        "                    nxt = pos + step\n"
+        "                    if nxt >= len(nums) - 1: return jumps\n"
+        "                    if nxt not in visited:\n"
+        "                        visited.add(nxt)\n"
+        "                        queue.append(nxt)\n"
+        "        return jumps",
+    "gas-station":
+        "        # Brute Force O(n²) — try starting at every station\n"
+        "        n = len(gas)\n"
+        "        for start in range(n):\n"
+        "            tank = 0\n"
+        "            for step in range(n):\n"
+        "                i = (start + step) % n\n"
+        "                tank += gas[i] - cost[i]\n"
+        "                if tank < 0: break\n"
+        "            else:\n"
+        "                return start\n"
+        "        return -1",
+    "merge-intervals":
+        "        # Brute Force O(n² log n) — repeatedly merge any two overlapping intervals\n"
+        "        intervals.sort(key=lambda x: x[0])\n"
+        "        merged = True\n"
+        "        while merged:\n"
+        "            merged = False\n"
+        "            result = [intervals[0]]\n"
+        "            for iv in intervals[1:]:\n"
+        "                if iv[0] <= result[-1][1]:\n"
+        "                    result[-1][1] = max(result[-1][1], iv[1])\n"
+        "                    merged = True\n"
+        "                else:\n"
+        "                    result.append(iv)\n"
+        "            intervals = result\n"
+        "        return intervals",
+    "non-overlapping-intervals":
+        "        # Brute Force O(2^n) — try removing every subset, keep smallest valid\n"
+        "        # (In practice: sort by end, greedy is O(n log n); brute shown for intuition)\n"
+        "        intervals.sort(key=lambda x: x[1])\n"
+        "        removed = 0\n"
+        "        end = float('-inf')\n"
+        "        for iv in intervals:\n"
+        "            if iv[0] >= end:\n"
+        "                end = iv[1]  # keep this interval\n"
+        "            else:\n"
+        "                removed += 1  # drop overlapping interval\n"
+        "        return removed",
+    "meeting-rooms":
+        "        # Brute Force O(n²) — check every pair of intervals for overlap\n"
+        "        for i in range(len(intervals)):\n"
+        "            for j in range(i + 1, len(intervals)):\n"
+        "                a, b = intervals[i], intervals[j]\n"
+        "                if a[0] < b[1] and b[0] < a[1]:  # overlap\n"
+        "                    return False\n"
+        "        return True",
+    "meeting-rooms-ii":
+        "        # Brute Force O(n²) — simulate: assign each meeting to first free room\n"
+        "        intervals.sort()\n"
+        "        rooms = []  # end times of each room\n"
+        "        for start, end in intervals:\n"
+        "            # Find earliest-ending free room\n"
+        "            placed = False\n"
+        "            for i in range(len(rooms)):\n"
+        "                if rooms[i] <= start:\n"
+        "                    rooms[i] = end\n"
+        "                    placed = True\n"
+        "                    break\n"
+        "            if not placed:\n"
+        "                rooms.append(end)\n"
+        "        return len(rooms)",
+
+    # ── Bit Manipulation ──────────────────────────────────────────────────────
+    "single-number":
+        "        # Brute Force O(n²) — for each element, count its occurrences\n"
+        "        for num in nums:\n"
+        "            if nums.count(num) == 1:\n"
+        "                return num",
+    "number-of-1-bits":
+        "        # Brute Force O(32) — shift through all 32 bits and count set bits\n"
+        "        count = 0\n"
+        "        for i in range(32):\n"
+        "            if (n >> i) & 1:\n"
+        "                count += 1\n"
+        "        return count",
+    "counting-bits":
+        "        # Brute Force O(n · 32) — count 1-bits for each number 0..n individually\n"
+        "        def count_ones(x):\n"
+        "            c = 0\n"
+        "            while x:\n"
+        "                c += x & 1\n"
+        "                x >>= 1\n"
+        "            return c\n"
+        "        return [count_ones(i) for i in range(n + 1)]",
+    "reverse-bits":
+        "        # Brute Force O(32) — shift bits out of n, shift them into result\n"
+        "        result = 0\n"
+        "        for i in range(32):\n"
+        "            bit = (n >> i) & 1\n"
+        "            result |= bit << (31 - i)\n"
+        "        return result",
+    "missing-number":
+        "        # Brute Force O(n²) — for each 0..n check if it's in nums\n"
+        "        for i in range(len(nums) + 1):\n"
+        "            if i not in nums:\n"
+        "                return i",
+
+    # ── Trie ──────────────────────────────────────────────────────────────────
+    "implement-trie-prefix-tree":
+        "        # Brute Force — store all inserted words in a list; scan for search/prefix\n"
+        "        # (Illustrates the O(n·L) brute before building an actual Trie)\n"
+        "        self.words = []\n"
+        "        # insert:  self.words.append(word)\n"
+        "        # search:  return word in self.words\n"
+        "        # starts:  return any(w.startswith(prefix) for w in self.words)\n"
+        "        pass",
+    "design-add-and-search-words-data-structure":
+        "        # Brute Force O(n·L) — store all words; for search, check regex '.' match\n"
+        "        import re\n"
+        "        # addWord: self.words.append(word)\n"
+        "        # search: pattern = '^' + word + '$'\n"
+        "        #         return any(re.fullmatch(word.replace('.','[a-z]'), w) for w in self.words)\n"
+        "        pass",
+    "word-search-ii":
+        "        # Brute Force O(k · m·n · 4^L) — run word-search for each word independently\n"
+        "        def exist(board, word):\n"
+        "            m, n = len(board), len(board[0])\n"
+        "            def dfs(r, c, i, seen):\n"
+        "                if i == len(word): return True\n"
+        "                if r<0 or r>=m or c<0 or c>=n: return False\n"
+        "                if (r,c) in seen or board[r][c]!=word[i]: return False\n"
+        "                seen.add((r,c))\n"
+        "                ok = any(dfs(r+dr,c+dc,i+1,seen)\n"
+        "                         for dr,dc in [(1,0),(-1,0),(0,1),(0,-1)])\n"
+        "                seen.remove((r,c))\n"
+        "                return ok\n"
+        "            return any(dfs(r,c,0,set()) for r in range(m) for c in range(n))\n"
+        "        return [w for w in words if exist(board, w)]",
+
+    # ── Math / String ─────────────────────────────────────────────────────────
+    "powx-n":
+        "        # Brute Force O(|n|) — multiply x by itself n times\n"
+        "        if n == 0: return 1.0\n"
+        "        result = 1.0\n"
+        "        for _ in range(abs(n)):\n"
+        "            result *= x\n"
+        "        return result if n > 0 else 1 / result",
+    "median-of-two-sorted-arrays":
+        "        # Brute Force O((m+n) log(m+n)) — merge both arrays, sort, find median\n"
+        "        merged = sorted(nums1 + nums2)\n"
+        "        n = len(merged)\n"
+        "        if n % 2 == 1:\n"
+        "            return float(merged[n // 2])\n"
+        "        return (merged[n//2 - 1] + merged[n//2]) / 2.0",
+    "largest-number":
+        "        # Brute Force O(n! · n) — try all orderings, pick largest concatenation\n"
+        "        from itertools import permutations\n"
+        "        best = ''\n"
+        "        for perm in permutations(map(str, nums)):\n"
+        "            candidate = ''.join(perm)\n"
+        "            if candidate > best: best = candidate\n"
+        "        return best.lstrip('0') or '0'",
+    "find-median-from-data-stream":
+        "        # Brute Force — store all; sort each time findMedian is called O(n log n)\n"
+        "        self.data.sort()\n"
+        "        n = len(self.data)\n"
+        "        if n % 2 == 1: return float(self.data[n // 2])\n"
+        "        return (self.data[n//2 - 1] + self.data[n//2]) / 2.0",
+    "longest-common-prefix":
+        "        # Brute Force O(n·L) — start with strs[0], trim until prefix of all\n"
+        "        if not strs: return ''\n"
+        "        prefix = strs[0]\n"
+        "        for word in strs[1:]:\n"
+        "            while not word.startswith(prefix):\n"
+        "                prefix = prefix[:-1]\n"
+        "                if not prefix: return ''\n"
+        "        return prefix",
+    "valid-sudoku":
+        "        # Brute Force O(81) — check each row, col, box for duplicates\n"
+        "        rows = [set() for _ in range(9)]\n"
+        "        cols = [set() for _ in range(9)]\n"
+        "        boxes = [set() for _ in range(9)]\n"
+        "        for r in range(9):\n"
+        "            for c in range(9):\n"
+        "                val = board[r][c]\n"
+        "                if val == '.': continue\n"
+        "                box_idx = (r // 3) * 3 + c // 3\n"
+        "                if val in rows[r] or val in cols[c] or val in boxes[box_idx]:\n"
+        "                    return False\n"
+        "                rows[r].add(val); cols[c].add(val); boxes[box_idx].add(val)\n"
+        "        return True",
+    "sort-colors":
+        "        # Brute Force O(n log n) — just sort; Dutch-flag is the optimal O(n) approach\n"
+        "        nums.sort()",
+    "count-univalue-subtrees":
+        "        # Brute Force O(n²) — for each node, check if its entire subtree is univalue\n"
+        "        def is_uni(node, val):\n"
+        "            if not node: return True\n"
+        "            return node.val == val and is_uni(node.left, val) and is_uni(node.right, val)\n"
+        "        def count(node):\n"
+        "            if not node: return 0\n"
+        "            return (1 if is_uni(node, node.val) else 0) + count(node.left) + count(node.right)\n"
+        "        return count(root)",
+    "majority-element":
+        "        # Brute Force O(n²) — for each element count its frequency\n"
+        "        n = len(nums)\n"
+        "        for num in nums:\n"
+        "            if nums.count(num) > n // 2:\n"
+        "                return num",
+    "first-missing-positive":
+        "        # Brute Force O(n²) — check 1,2,3,... until one is missing\n"
+        "        num_set = set(nums)\n"
+        "        i = 1\n"
+        "        while i in num_set:\n"
+        "            i += 1\n"
+        "        return i",
+    "maximum-width-ramp":
+        "        # Brute Force O(n²) — check every pair (i,j) where i<j and nums[i]<=nums[j]\n"
+        "        res = 0\n"
+        "        for i in range(len(nums)):\n"
+        "            for j in range(i, len(nums)):\n"
+        "                if nums[j] >= nums[i]:\n"
+        "                    res = max(res, j - i)\n"
+        "        return res",
+    "subarray-sum-equals-k":
+        "        # Brute Force O(n²) — compute sum of every contiguous subarray\n"
+        "        count = 0\n"
+        "        for i in range(len(nums)):\n"
+        "            total = 0\n"
+        "            for j in range(i, len(nums)):\n"
+        "                total += nums[j]\n"
+        "                if total == k:\n"
+        "                    count += 1\n"
+        "        return count",
+    "insert-interval":
+        "        # Brute Force O(n log n) — insert, sort, then merge like merge-intervals\n"
+        "        intervals.append(newInterval)\n"
+        "        intervals.sort(key=lambda x: x[0])\n"
+        "        result = [intervals[0]]\n"
+        "        for iv in intervals[1:]:\n"
+        "            if iv[0] <= result[-1][1]:\n"
+        "                result[-1][1] = max(result[-1][1], iv[1])\n"
+        "            else:\n"
+        "                result.append(iv)\n"
+        "        return result",
+}
+
+
 def gen_brute_force_python(q, pattern_name):
-    """Generate a brute-force Python skeleton for interview prep."""
+    """Generate a brute-force Python skeleton for interview prep.
+
+    First checks BRUTE_FORCE_BY_SLUG for a question-specific implementation
+    (specific to that exact problem), then falls back to a pattern-generic
+    template so that every question gets something useful.
+    """
     starter = q.get('starter_python', '') or ''
     # Find first non-trivial method signature inside class Solution
     sig_m = re.search(r'class Solution:.*?(    def\s+\w+\s*\(self(?:,\s*([^)]*))?\):)',
@@ -161,9 +1531,16 @@ def gen_brute_force_python(q, pattern_name):
     fp = _first_arr_param(param_names)                 # first non-scalar param
     i8 = '        '                                    # 8-space indent inside method
 
+    # ── Question-specific lookup (preferred) ──────────────────────────────────
+    slug = q.get('slug', '')
+    if slug in BRUTE_FORCE_BY_SLUG:
+        body = BRUTE_FORCE_BY_SLUG[slug]
+        return f"# Brute Force Approach\nclass Solution:\n{sig_line}\n{body}"
+
+    # ── Pattern-generic fallback ───────────────────────────────────────────────
     bodies = {
         "Arrays & Hashing": (
-            f"{i8}# Brute Force O(n^2) - check all pairs without a hash map\n"
+            f"{i8}# Brute Force O(n²) - check all pairs without a hash map\n"
             f"{i8}n = len({fp})\n"
             f"{i8}for i in range(n):\n"
             f"{i8}    for j in range(i + 1, n):\n"
@@ -172,7 +1549,7 @@ def gen_brute_force_python(q, pattern_name):
             f"{i8}return []  # adjust return"
         ),
         "Two Pointers": (
-            f"{i8}# Brute Force O(n^2) - nested loops instead of two pointers\n"
+            f"{i8}# Brute Force O(n²) - nested loops instead of two pointers\n"
             f"{i8}n = len({fp})\n"
             f"{i8}for i in range(n):\n"
             f"{i8}    for j in range(i + 1, n):\n"
@@ -180,30 +1557,30 @@ def gen_brute_force_python(q, pattern_name):
             f"{i8}        pass"
         ),
         "Sliding Window": (
-            f"{i8}# Brute Force O(n^2) - enumerate all windows\n"
+            f"{i8}# Brute Force O(n²) - enumerate all windows\n"
             f"{i8}n = len({fp})\n"
             f"{i8}best = 0\n"
             f"{i8}for l in range(n):\n"
-            f"{i8}    window_state = 0  # reset per left boundary\n"
+            f"{i8}    window_state = 0\n"
             f"{i8}    for r in range(l, n):\n"
-            f"{i8}        window_state += {fp}[r]  # expand right\n"
-            f"{i8}        best = max(best, r - l + 1)  # adjust metric\n"
+            f"{i8}        window_state += {fp}[r]\n"
+            f"{i8}        best = max(best, r - l + 1)\n"
             f"{i8}return best"
         ),
         "Binary Search": (
             f"{i8}# Brute Force O(n) - linear scan instead of binary search\n"
             f"{i8}for i, val in enumerate({fp}):\n"
-            f"{i8}    if val == target:  # adjust condition\n"
+            f"{i8}    if val == target:\n"
             f"{i8}        return i\n"
             f"{i8}return -1"
         ),
         "Stack": (
-            f"{i8}# Brute Force O(n^2) - simulate without stack via inner loop\n"
+            f"{i8}# Brute Force O(n²) - simulate without stack via inner loop\n"
             f"{i8}n = len({fp})\n"
             f"{i8}result = [-1] * n\n"
             f"{i8}for i in range(n):\n"
             f"{i8}    for j in range(i + 1, n):\n"
-            f"{i8}        if {fp}[j] > {fp}[i]:  # first greater element\n"
+            f"{i8}        if {fp}[j] > {fp}[i]:\n"
             f"{i8}            result[i] = {fp}[j]\n"
             f"{i8}            break\n"
             f"{i8}return result"
@@ -211,11 +1588,10 @@ def gen_brute_force_python(q, pattern_name):
         "Dynamic Programming": (
             f"{i8}# Brute Force O(2^n) - plain recursion, no memoisation\n"
             f"{i8}def recurse(i):\n"
-            f"{i8}    if i >= len({fp}):\n"
-            f"{i8}        return 0  # base case - adjust\n"
-            f"{i8}    take = {fp}[i] + recurse(i + 1)  # include element\n"
-            f"{i8}    skip = recurse(i + 1)              # exclude element\n"
-            f"{i8}    return max(take, skip)             # adjust combinator\n"
+            f"{i8}    if i >= len({fp}): return 0\n"
+            f"{i8}    take = {fp}[i] + recurse(i + 1)\n"
+            f"{i8}    skip = recurse(i + 1)\n"
+            f"{i8}    return max(take, skip)\n"
             f"{i8}return recurse(0)"
         ),
         "Backtracking": (
@@ -237,7 +1613,6 @@ def gen_brute_force_python(q, pattern_name):
             f"{i8}while curr:\n"
             f"{i8}    vals.append(curr.val)\n"
             f"{i8}    curr = curr.next\n"
-            f"{i8}# --- modify vals as needed ---\n"
             f"{i8}dummy = ListNode(0)\n"
             f"{i8}curr = dummy\n"
             f"{i8}for v in vals:\n"
@@ -246,7 +1621,7 @@ def gen_brute_force_python(q, pattern_name):
             f"{i8}return dummy.next"
         ),
         "Trees & BST": (
-            f"{i8}# Brute Force - collect all values, then process list\n"
+            f"{i8}# Brute Force - collect inorder, then process sorted list\n"
             f"{i8}vals = []\n"
             f"{i8}def collect(node):\n"
             f"{i8}    if not node: return\n"
@@ -254,8 +1629,7 @@ def gen_brute_force_python(q, pattern_name):
             f"{i8}    vals.append(node.val)\n"
             f"{i8}    collect(node.right)\n"
             f"{i8}collect({fp})\n"
-            f"{i8}# process sorted vals list\n"
-            f"{i8}return vals[0] if vals else 0  # adjust"
+            f"{i8}return vals[0] if vals else 0"
         ),
         "DFS": (
             f"{i8}# Brute Force - DFS from every unvisited node\n"
@@ -263,28 +1637,25 @@ def gen_brute_force_python(q, pattern_name):
             f"{i8}count = 0\n"
             f"{i8}def dfs(node):\n"
             f"{i8}    visited.add(node)\n"
-            f"{i8}    for nb in graph.get(node, []):  # adjust graph var\n"
-            f"{i8}        if nb not in visited:\n"
-            f"{i8}            dfs(nb)\n"
-            f"{i8}for node in range(n):  # adjust range\n"
+            f"{i8}    for nb in graph.get(node, []):\n"
+            f"{i8}        if nb not in visited: dfs(nb)\n"
+            f"{i8}for node in range(n):\n"
             f"{i8}    if node not in visited:\n"
-            f"{i8}        dfs(node)\n"
-            f"{i8}        count += 1\n"
+            f"{i8}        dfs(node); count += 1\n"
             f"{i8}return count"
         ),
         "BFS": (
-            f"{i8}# Brute Force - BFS layer by layer without shortcuts\n"
+            f"{i8}# Brute Force - BFS layer by layer\n"
             f"{i8}from collections import deque\n"
-            f"{i8}queue = deque([0])  # adjust start node\n"
+            f"{i8}queue = deque([0])\n"
             f"{i8}visited = {{0}}\n"
             f"{i8}steps = 0\n"
             f"{i8}while queue:\n"
             f"{i8}    for _ in range(len(queue)):\n"
             f"{i8}        node = queue.popleft()\n"
-            f"{i8}        for nb in graph[node]:  # adjust graph\n"
+            f"{i8}        for nb in graph[node]:\n"
             f"{i8}            if nb not in visited:\n"
-            f"{i8}                visited.add(nb)\n"
-            f"{i8}                queue.append(nb)\n"
+            f"{i8}                visited.add(nb); queue.append(nb)\n"
             f"{i8}    steps += 1\n"
             f"{i8}return steps"
         ),
@@ -292,17 +1663,16 @@ def gen_brute_force_python(q, pattern_name):
             f"{i8}# Brute Force - try all paths via exhaustive DFS\n"
             f"{i8}visited = set()\n"
             f"{i8}def dfs(node):\n"
-            f"{i8}    if node == dst: return True  # adjust terminal\n"
+            f"{i8}    if node == dst: return True\n"
             f"{i8}    visited.add(node)\n"
             f"{i8}    for nxt in graph.get(node, []):\n"
-            f"{i8}        if nxt not in visited and dfs(nxt):\n"
-            f"{i8}            return True\n"
+            f"{i8}        if nxt not in visited and dfs(nxt): return True\n"
             f"{i8}    visited.remove(node)\n"
             f"{i8}    return False\n"
-            f"{i8}return dfs(src)  # adjust src/dst"
+            f"{i8}return dfs(src)"
         ),
         "Matrix": (
-            f"{i8}# Brute Force O(m^2 * n^2) - flood fill from every cell\n"
+            f"{i8}# Brute Force O(m²·n²) - flood fill from every cell\n"
             f"{i8}m, n = len({fp}), len({fp}[0])\n"
             f"{i8}result = 0\n"
             f"{i8}for r in range(m):\n"
@@ -311,49 +1681,47 @@ def gen_brute_force_python(q, pattern_name):
             f"{i8}        def flood(r, c):\n"
             f"{i8}            if (r,c) in visited or not (0<=r<m and 0<=c<n): return\n"
             f"{i8}            visited.add((r,c))\n"
-            f"{i8}            for dr,dc in [(0,1),(0,-1),(1,0),(-1,0)]:\n"
-            f"{i8}                flood(r+dr, c+dc)\n"
+            f"{i8}            for dr,dc in [(0,1),(0,-1),(1,0),(-1,0)]: flood(r+dr,c+dc)\n"
             f"{i8}        flood(r, c)\n"
-            f"{i8}        result = max(result, len(visited))  # adjust metric\n"
+            f"{i8}        result = max(result, len(visited))\n"
             f"{i8}return result"
         ),
         "Heap": (
-            f"{i8}# Brute Force O(n^2) - sort repeatedly instead of heap\n"
+            f"{i8}# Brute Force O(n log n) - sort repeatedly instead of heap\n"
             f"{i8}data = list({fp})\n"
             f"{i8}result = []\n"
-            f"{i8}for _ in range(k):  # adjust iterations\n"
+            f"{i8}for _ in range(k):\n"
             f"{i8}    data.sort()\n"
-            f"{i8}    result.append(data.pop(0))  # take smallest\n"
+            f"{i8}    result.append(data.pop(0))\n"
             f"{i8}return result"
         ),
         "Trie": (
-            f"{i8}# Brute Force O(n*m) - linear scan through all words\n"
+            f"{i8}# Brute Force O(n·m) - linear scan through all words\n"
             f"{i8}matches = []\n"
-            f"{i8}for word in words:  # adjust input name\n"
-            f"{i8}    if word.startswith(prefix):  # adjust condition\n"
+            f"{i8}for word in words:\n"
+            f"{i8}    if word.startswith(prefix):\n"
             f"{i8}        matches.append(word)\n"
             f"{i8}return matches"
         ),
         "Bit Manipulation": (
-            f"{i8}# Brute Force - check/set each bit with loops\n"
+            f"{i8}# Brute Force - check each bit with a loop\n"
             f"{i8}result = 0\n"
             f"{i8}for i in range(32):\n"
-            f"{i8}    bit = (n >> i) & 1  # adjust input var\n"
-            f"{i8}    # process bit, then reconstruct\n"
+            f"{i8}    bit = (n >> i) & 1\n"
             f"{i8}    result |= (bit << i)\n"
             f"{i8}return result"
         ),
         "Greedy": (
-            f"{i8}# Brute Force O(n!) - try all orderings\n"
+            f"{i8}# Brute Force O(n²) - check all subsets/orderings exhaustively\n"
             f"{i8}from itertools import permutations\n"
             f"{i8}best = float('inf')\n"
             f"{i8}for perm in permutations({fp}):\n"
-            f"{i8}    cost = sum(perm)  # adjust cost function\n"
+            f"{i8}    cost = sum(perm)\n"
             f"{i8}    best = min(best, cost)\n"
             f"{i8}return best"
         ),
         "Sorting": (
-            f"{i8}# Brute Force O(n^2) - bubble sort\n"
+            f"{i8}# Brute Force O(n²) - bubble sort\n"
             f"{i8}arr = list({fp})\n"
             f"{i8}n = len(arr)\n"
             f"{i8}for i in range(n):\n"
@@ -364,22 +1732,19 @@ def gen_brute_force_python(q, pattern_name):
         ),
         "Math": (
             f"{i8}# Brute Force - iterate all candidates\n"
-            f"{i8}for i in range(2, n + 1):  # adjust range\n"
+            f"{i8}for i in range(2, n + 1):\n"
             f"{i8}    is_valid = all(i % j != 0 for j in range(2, i))\n"
-            f"{i8}    if is_valid:\n"
-            f"{i8}        pass  # process prime / valid number\n"
-            f"{i8}return 0  # adjust"
+            f"{i8}    if is_valid: pass\n"
+            f"{i8}return 0"
         ),
         "String": (
-            f"{i8}# Brute Force O(n^2) - check all substrings\n"
+            f"{i8}# Brute Force O(n²) - check all substrings\n"
             f"{i8}n = len({fp})\n"
             f"{i8}best = ''\n"
             f"{i8}for i in range(n):\n"
             f"{i8}    for j in range(i + 1, n + 1):\n"
             f"{i8}        sub = {fp}[i:j]\n"
-            f"{i8}        # check condition on sub\n"
-            f"{i8}        if len(sub) > len(best):  # adjust\n"
-            f"{i8}            best = sub\n"
+            f"{i8}        if len(sub) > len(best): best = sub\n"
             f"{i8}return best"
         ),
         "JavaScript": (
@@ -390,7 +1755,7 @@ def gen_brute_force_python(q, pattern_name):
 
     body = bodies.get(
         pattern_name,
-        f"{i8}# Brute Force O(n^2) - exhaustive search without optimisation\n"
+        f"{i8}# Brute Force O(n²) - exhaustive search without optimisation\n"
         f"{i8}n = len({fp}) if hasattr({fp}, '__len__') else int({fp})\n"
         f"{i8}result = None\n"
         f"{i8}# TODO: implement brute force here\n"
