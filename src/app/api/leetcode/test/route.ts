@@ -4,6 +4,11 @@ import { fetchLeetCodeProblemPost, toLeetCodeQuestionId } from '@/lib/leetcodeHt
 
 const LC = 'https://leetcode.com'
 
+const RUN_RATE = { windowMs: 30_000, max: 3, penaltyMs: 60_000 } as const
+type Bucket = { count: number; resetAt: number; penaltyUntil: number }
+const getBuckets = () =>
+  ((globalThis as any).__lc_run_buckets ??= new Map<string, Bucket>()) as Map<string, Bucket>
+
 export async function POST(req: NextRequest) {
   try {
     const { titleSlug, questionId, lang, code, testInput, session, csrfToken } = await req.json()
@@ -12,14 +17,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing LEETCODE_SESSION or csrftoken' }, { status: 401 })
     }
 
+    // Soft rate-limit to avoid hammering LeetCode interpret_solution (which triggers 429).
+    // Best-effort: in-memory map (works well enough on warm serverless instances).
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const sessKey = String(session).slice(0, 16)
+    const key = `${ip}:${sessKey}:${String(titleSlug)}:${String(lang)}`
+    const now = Date.now()
+    const buckets = getBuckets()
+    const b = buckets.get(key) ?? { count: 0, resetAt: now + RUN_RATE.windowMs, penaltyUntil: 0 }
+    if (b.resetAt <= now) { b.count = 0; b.resetAt = now + RUN_RATE.windowMs }
+    if (b.penaltyUntil > now) {
+      const waitSec = Math.ceil((b.penaltyUntil - now) / 1000)
+      return NextResponse.json(
+        { error: `Run cooldown active. Try again in ${waitSec}s.`, retryAfterSec: waitSec, httpStatus: 429 },
+        { status: 429, headers: { 'Retry-After': String(waitSec) } },
+      )
+    }
+    b.count += 1
+    if (b.count > RUN_RATE.max) {
+      b.penaltyUntil = now + RUN_RATE.penaltyMs
+      const waitSec = Math.ceil(RUN_RATE.penaltyMs / 1000)
+      buckets.set(key, b)
+      return NextResponse.json(
+        { error: `Too many Run requests. Cooldown for ${waitSec}s.`, retryAfterSec: waitSec, httpStatus: 429 },
+        { status: 429, headers: { 'Retry-After': String(waitSec) } },
+      )
+    }
+    buckets.set(key, b)
+
     const qid = toLeetCodeQuestionId(questionId)
     const slug = encodeURIComponent(String(titleSlug))
     const url = `${LC}/problems/${slug}/interpret_solution/`
     const input = testInput ?? ''
 
+    // Default to test_mode=false. Some accounts return:
+    // "You do not have permissions to use test mode."
+    // In those cases, test_mode=true will never work.
     const attempts: Array<{ test_mode: boolean; data_input: string }> = [
-      { test_mode: true, data_input: input },
       { test_mode: false, data_input: input },
+      { test_mode: true, data_input: input },
     ]
     if (input.trim() !== '') {
       attempts.push({ test_mode: true, data_input: '' })
@@ -42,13 +78,16 @@ export async function POST(req: NextRequest) {
       lastText = text
 
       if (res.status === 429) {
+        // Penalize quickly if LeetCode is already rate-limiting.
+        const bb = buckets.get(key)
+        if (bb) { bb.penaltyUntil = Math.max(bb.penaltyUntil, Date.now() + RUN_RATE.penaltyMs); buckets.set(key, bb) }
         return NextResponse.json(
           {
             error:
               'LeetCode rate-limited this run (HTTP 429). Wait a minute and try Run again — avoid spamming Run while debugging.',
             httpStatus: res.status,
           },
-          { status: 429 },
+          { status: 429, headers: { 'Retry-After': '60' } },
         )
       }
 
@@ -56,6 +95,12 @@ export async function POST(req: NextRequest) {
       if (!parsed.ok) continue
 
       const data = parsed.data as { error?: string; interpret_id?: string }
+      if (data?.error && /permissions to use test mode/i.test(String(data.error))) {
+        // Don't keep trying test_mode=true; it's forbidden for this account/session.
+        // Re-run once with test_mode=false (already first attempt), otherwise surface error.
+        if (a.test_mode === true) continue
+        return NextResponse.json({ error: String(data.error), httpStatus: res.status }, { status: 403 })
+      }
       if (!res.ok || data.error) continue
       if (data.interpret_id) return NextResponse.json(data)
     }
