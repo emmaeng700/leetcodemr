@@ -1,16 +1,16 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   ExternalLink, Loader2, AlertCircle, Copy, Check,
-  LayoutGrid, Layers, Eye, EyeOff, ChevronDown, ChevronUp,
+  LayoutGrid, Layers, RotateCcw, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 
 export const BEST_ANSWER_SITES = [
-  { key: 'walkccc',    label: 'WalkCC',      color: 'text-blue-400',    border: 'border-blue-500/30',    bg: 'bg-blue-500/5',    dot: 'bg-blue-400'    },
-  { key: 'doocs',      label: 'LeetDoocs',   color: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/5', dot: 'bg-emerald-400' },
-  { key: 'simplyleet', label: 'SimplyLeet',  color: 'text-purple-400',  border: 'border-purple-500/30',  bg: 'bg-purple-500/5',  dot: 'bg-purple-400'  },
-  { key: 'leetcodeca', label: 'LeetCode.ca', color: 'text-orange-400',  border: 'border-orange-500/30',  bg: 'bg-orange-500/5',  dot: 'bg-orange-400'  },
+  { key: 'walkccc',    label: 'WalkCC',      color: 'text-blue-400',    border: 'border-blue-500/30',    bg: 'bg-blue-500/5'    },
+  { key: 'doocs',      label: 'LeetDoocs',   color: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/5' },
+  { key: 'simplyleet', label: 'SimplyLeet',  color: 'text-purple-400',  border: 'border-purple-500/30',  bg: 'bg-purple-500/5'  },
+  { key: 'leetcodeca', label: 'LeetCode.ca', color: 'text-orange-400',  border: 'border-orange-500/30',  bg: 'bg-orange-500/5'  },
 ] as const
 
 type SiteKey = (typeof BEST_ANSWER_SITES)[number]['key']
@@ -22,7 +22,6 @@ interface SiteState {
   url: string
   error?: string
 }
-interface Curated { python_solution?: string; explanation?: string }
 
 const emptyStates = (): Record<SiteKey, SiteState> => ({
   walkccc:    { status: 'idle', blocks: [], url: '' },
@@ -66,7 +65,7 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
       >
         {copied ? <><Check size={10} className="text-green-500" /> Copied</> : <><Copy size={10} /> Copy</>}
       </button>
-      <pre className="text-[11px] leading-relaxed bg-[#1e1e2e] text-gray-100 rounded-lg p-3 pt-8 overflow-x-auto border border-gray-700/50 whitespace-pre">
+      <pre className="text-[11px] leading-relaxed bg-[#1e1e2e] text-gray-100 rounded-lg p-3 pt-8 overflow-x-auto border border-gray-700/40 whitespace-pre">
         <code ref={ref} className="hljs text-gray-100" />
       </pre>
     </div>
@@ -90,16 +89,12 @@ export default function BestAnswersPanel({
   layout = 'compact',
   className = '',
 }: BestAnswersPanelProps) {
-  const [states, setStates]       = useState<Record<SiteKey, SiteState>>(emptyStates)
-  const [viewMode, setViewMode]   = useState<'grid' | 'flashcard'>('grid')
-  // flashcard state
-  const [revealed, setRevealed]   = useState(false)
-  const [showExpl, setShowExpl]   = useState(false)
-  // curated solution from questions_full.json — loaded independently of external APIs
-  const [curated, setCurated]     = useState<Curated | null>(null)  // null = not yet loaded
-  const [curatedLoading, setCuratedLoading] = useState(false)
+  const [states, setStates]     = useState<Record<SiteKey, SiteState>>(emptyStates)
+  const [viewMode, setViewMode] = useState<'grid' | 'flashcard'>('flashcard')
+  const [flipped, setFlipped]   = useState(false)
+  const [cardIdx, setCardIdx]   = useState(0)
 
-  // ── Inject highlight.js theme once ────────────────────────────────────────
+  /* inject highlight.js stylesheet once */
   useEffect(() => {
     if (!document.getElementById('hljs-theme-best-answers')) {
       const link = document.createElement('link')
@@ -110,25 +105,7 @@ export default function BestAnswersPanel({
     }
   }, [])
 
-  // ── Fetch curated solution from local JSON (fast, browser-cached) ─────────
-  // Runs whenever the question changes, regardless of tab visibility.
-  useEffect(() => {
-    if (!questionId || questionId <= 0) return
-    setCurated(null)
-    setRevealed(false)
-    setShowExpl(false)
-    setCuratedLoading(true)
-    fetch('/questions_full.json')
-      .then(r => r.json())
-      .then((qs: Array<{ id: number; python_solution?: string; explanation?: string }>) => {
-        const q = qs.find(x => x.id === questionId)
-        setCurated(q ? { python_solution: q.python_solution, explanation: q.explanation } : {})
-      })
-      .catch(() => setCurated({}))
-      .finally(() => setCuratedLoading(false))
-  }, [questionId])
-
-  // ── Fetch external site solutions (only when the tab is active) ───────────
+  /* fetch external sites (only when this tab is visible) */
   const fetchSite = useCallback((site: SiteKey, id: number, qslug: string) => {
     setStates(prev => ({ ...prev, [site]: { status: 'loading', blocks: [], url: '' } }))
     fetch(`/api/answers?site=${site}&slug=${encodeURIComponent(qslug)}&id=${id}`)
@@ -158,48 +135,80 @@ export default function BestAnswersPanel({
     for (const s of BEST_ANSWER_SITES) fetchSite(s.key, questionId, slug)
   }, [active, slug, questionId, fetchSite])
 
-  // ── Shared style helpers ───────────────────────────────────────────────────
+  type DeckCard = {
+    siteKey: SiteKey
+    siteLabel: string
+    siteColor: string
+    url: string
+    code: string
+    lang: string
+  }
+
+  const deck = useMemo((): DeckCard[] => {
+    const cards: DeckCard[] = []
+    for (const site of BEST_ANSWER_SITES) {
+      const s = states[site.key]
+      if (!s || !s.blocks?.length) continue
+      for (const b of s.blocks) {
+        cards.push({
+          siteKey: site.key,
+          siteLabel: site.label,
+          siteColor: site.color,
+          url: s.url,
+          code: b.code,
+          lang: b.lang,
+        })
+      }
+    }
+    // Prefer Python cards first, then C++.
+    cards.sort((a, b) => (a.lang === b.lang ? 0 : a.lang === 'python' ? -1 : 1))
+    return cards
+  }, [states])
+
+  useEffect(() => {
+    // Reset deck navigation when question changes / answers refetch.
+    setCardIdx(0)
+    setFlipped(false)
+  }, [questionId, slug])
+
+  useEffect(() => {
+    // Clamp idx if the deck shrinks.
+    if (cardIdx >= deck.length) setCardIdx(0)
+  }, [deck.length, cardIdx])
+
   const subtle    = theme === 'dark' ? 'text-gray-500' : 'text-[var(--text-subtle,#6b7280)]'
   const grid      = layout === 'full' ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'grid grid-cols-1 gap-3'
   const panelMaxH = layout === 'full' ? 'max-h-[22rem]' : 'max-h-[18rem]'
-  const activeBtn   = 'bg-indigo-600 text-white shadow-sm'
-  const inactiveBtn = 'text-gray-400 hover:text-gray-200'
-
-  const hasSolution = !!(curated?.python_solution?.trim())
-  const hasExplain  = !!(curated?.explanation?.trim())
 
   return (
     <div className={className}>
-      {/* ── Top bar: subtitle + view toggle ─────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <p className={`text-xs ${subtle}`}>
-          Compare community solutions or self-test in Flashcard mode.{' '}
-          <a
-            href={`/answers?id=${questionId}&slug=${encodeURIComponent(slug)}`}
-            className="text-indigo-400 hover:underline"
-          >
-            Open Answers page →
-          </a>
-        </p>
 
-        <div className="flex items-center gap-0.5 shrink-0 bg-gray-800/60 border border-gray-700/50 rounded-lg p-0.5">
-          <button
-            onClick={() => setViewMode('grid')}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all ${viewMode === 'grid' ? activeBtn : inactiveBtn}`}
-          >
-            <LayoutGrid size={11} /> Grid
-          </button>
-          <button
-            onClick={() => setViewMode('flashcard')}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all ${viewMode === 'flashcard' ? activeBtn : inactiveBtn}`}
-          >
-            <Layers size={11} /> Flashcard
-          </button>
-        </div>
+      {/* ── View mode toggle ──────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 mb-4">
+        <button
+          onClick={() => setViewMode('grid')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+            viewMode === 'grid'
+              ? 'bg-indigo-600 border-indigo-500 text-white shadow'
+              : 'bg-gray-800/60 border-gray-700/50 text-gray-400 hover:text-gray-200 hover:border-gray-600'
+          }`}
+        >
+          <LayoutGrid size={12} /> Grid
+        </button>
+        <button
+          onClick={() => { setViewMode('flashcard'); setFlipped(false) }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+            viewMode === 'flashcard'
+              ? 'bg-indigo-600 border-indigo-500 text-white shadow'
+              : 'bg-gray-800/60 border-gray-700/50 text-gray-400 hover:text-gray-200 hover:border-gray-600'
+          }`}
+        >
+          <Layers size={12} /> Flashcard
+        </button>
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════
-          GRID MODE — unchanged behaviour
+          GRID MODE
       ══════════════════════════════════════════════════════════════════ */}
       {viewMode === 'grid' && (
         <div className={grid}>
@@ -213,13 +222,13 @@ export default function BestAnswersPanel({
                   <span className={`text-xs font-bold ${site.color}`}>{site.label}</span>
                   {s.url && (
                     <a href={s.url} target="_blank" rel="noopener noreferrer"
-                      className={`flex items-center gap-1 text-[10px] transition-colors ${theme === 'dark' ? 'text-gray-500 hover:text-gray-300' : 'text-[var(--text-muted,#9ca3af)] hover:text-[var(--text,#111827)]'}`}>
+                      className={`flex items-center gap-1 text-[10px] transition-colors ${theme === 'dark' ? 'text-gray-500 hover:text-gray-300' : 'text-[var(--text-muted,#9ca3af)] hover:text-[var(--text,#111)]'}`}>
                       <ExternalLink size={11} /> Open
                     </a>
                   )}
                 </div>
                 <div className={`flex-1 overflow-y-auto p-2 ${panelMaxH}`}>
-                  {s.status === 'idle' && <div className={`py-8 text-center text-[11px] ${subtle}`}>Waiting…</div>}
+                  {s.status === 'idle'    && <div className={`py-8 text-center text-[11px] ${subtle}`}>Waiting…</div>}
                   {s.status === 'loading' && (
                     <div className={`flex items-center justify-center gap-2 py-8 text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-[var(--text-muted,#9ca3af)]'}`}>
                       <Loader2 size={13} className="animate-spin" /> Fetching…
@@ -227,7 +236,7 @@ export default function BestAnswersPanel({
                   )}
                   {s.status === 'error' && (
                     <div className="flex flex-col items-center gap-2 py-8 text-center">
-                      <AlertCircle size={16} className={theme === 'dark' ? 'text-gray-600' : 'text-[var(--text-muted,#9ca3af)]'} />
+                      <AlertCircle size={16} className="text-gray-600" />
                       <p className={`text-xs ${subtle}`}>Could not load solutions</p>
                       {s.url && <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-400 hover:underline">Open on site →</a>}
                     </div>
@@ -251,132 +260,219 @@ export default function BestAnswersPanel({
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          FLASHCARD MODE
-          Uses curated data from questions_full.json — no external API needed.
-          Works instantly regardless of whether external sites have loaded.
+          FLASHCARD MODE — 3-D flip card
+          Front  = study prompt
+          Back   = fetched “best answers” (includes SimplyLeet)
       ══════════════════════════════════════════════════════════════════ */}
       {viewMode === 'flashcard' && (
-        <div className="rounded-2xl border border-gray-700/60 bg-gray-900/70 overflow-hidden shadow-lg">
+        <div className="flex flex-col gap-3">
 
-          {/* ── FRONT — study prompt ─────────────────────────────────────── */}
-          {!revealed && (
-            <div className="flex flex-col items-center justify-center gap-5 py-10 px-6 text-center min-h-[220px]">
-              {curatedLoading && (
-                <Loader2 size={22} className="animate-spin text-gray-600" />
-              )}
+          {/* flip hint */}
+          <p className="text-center text-xs text-gray-600">
+            {flipped ? 'Reading the answer — flip back to re-test' : 'Click the card to flip it and see the answer'}
+          </p>
 
-              {!curatedLoading && (
-                <>
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-semibold text-gray-200">
-                      Can you recall the solution?
-                    </p>
-                    <p className="text-xs text-gray-500 max-w-xs">
-                      Think through your approach, then reveal the curated answer below.
-                    </p>
-                  </div>
+          {/* deck controls */}
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => { setFlipped(false); setCardIdx(i => (deck.length ? (i - 1 + deck.length) % deck.length : 0)) }}
+              disabled={deck.length <= 1}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                deck.length <= 1
+                  ? 'bg-gray-800/30 border-gray-800/30 text-gray-600 cursor-not-allowed'
+                  : 'bg-gray-800/60 border-gray-700/50 text-gray-300 hover:text-gray-100 hover:border-gray-600'
+              }`}
+            >
+              <ChevronLeft size={12} /> Prev
+            </button>
 
-                  <ul className="space-y-1 text-left w-full max-w-xs">
-                    {[
-                      'What is the time complexity?',
-                      'Which data structure or technique?',
-                      'Any edge cases to handle?',
-                    ].map(q => (
-                      <li key={q} className="flex items-start gap-2 text-xs text-gray-600">
-                        <span className="mt-px text-gray-700">·</span>
-                        <span>{q}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {hasSolution ? (
-                    <button
-                      type="button"
-                      onClick={() => setRevealed(true)}
-                      className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition-all shadow-md shadow-indigo-900/40"
-                    >
-                      <Eye size={14} /> Reveal Answer
-                    </button>
-                  ) : (
-                    /* No curated solution in JSON — offer Grid mode instead */
-                    <div className="flex flex-col items-center gap-2">
-                      <p className="text-xs text-gray-600">No curated solution stored for this question.</p>
-                      <button
-                        type="button"
-                        onClick={() => setViewMode('grid')}
-                        className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                      >
-                        View community solutions in Grid →
-                      </button>
-                    </div>
-                  )}
-                </>
+            <div className="text-xs text-gray-500">
+              {deck.length ? (
+                <span>
+                  Card <span className="text-gray-300 font-semibold">{cardIdx + 1}</span> / {deck.length}
+                </span>
+              ) : (
+                <span>Waiting for best answers…</span>
               )}
             </div>
-          )}
 
-          {/* ── BACK — curated solution + explanation ─────────────────────── */}
-          {revealed && (
-            <div className="flex flex-col">
+            <button
+              type="button"
+              onClick={() => { setFlipped(false); setCardIdx(i => (deck.length ? (i + 1) % deck.length : 0)) }}
+              disabled={deck.length <= 1}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                deck.length <= 1
+                  ? 'bg-gray-800/30 border-gray-800/30 text-gray-600 cursor-not-allowed'
+                  : 'bg-gray-800/60 border-gray-700/50 text-gray-300 hover:text-gray-100 hover:border-gray-600'
+              }`}
+            >
+              Next <ChevronRight size={12} />
+            </button>
+          </div>
 
-              {/* Source label */}
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700/50 bg-gray-800/50">
-                <span className="text-[11px] font-semibold text-indigo-300 tracking-wide uppercase">
-                  ★ Curated Solution — Python
-                </span>
-                <button
-                  type="button"
-                  onClick={() => { setRevealed(false); setShowExpl(false) }}
-                  className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
-                >
-                  <EyeOff size={11} /> Hide
-                </button>
-              </div>
+          {/* ── 3-D flip card ─────────────────────────────────────────── */}
+          <div
+            style={{ perspective: '1400px' }}
+            className="w-full"
+          >
+            {(() => {
+              const card = deck[cardIdx]
+              const canFlip = !!card
+              return (
+            <div
+              onClick={() => {
+                if (canFlip) setFlipped(f => !f)
+              }}
+              style={{
+                position: 'relative',
+                transformStyle: 'preserve-3d',
+                transition: 'transform 0.55s cubic-bezier(0.4, 0, 0.2, 1)',
+                transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                minHeight: '260px',
+                cursor: canFlip ? 'pointer' : 'wait',
+              }}
+              className="w-full select-none"
+              role="button"
+              aria-label={flipped ? 'Flip card back to front' : 'Flip card to reveal answer'}
+            >
 
-              {/* Code */}
-              <div className="p-3 max-h-[320px] overflow-y-auto">
-                {hasSolution && (
-                  <HighlightedCode code={curated!.python_solution!} lang="python" />
+              {/* ── FRONT FACE ────────────────────────────────────────── */}
+              <div
+                style={{
+                  backfaceVisibility: 'hidden',
+                  WebkitBackfaceVisibility: 'hidden',
+                  position: 'absolute',
+                  inset: 0,
+                }}
+                className="rounded-2xl border-2 border-indigo-500/30 bg-gradient-to-br from-gray-900 to-[#0f1729] flex flex-col items-center justify-center text-center gap-5 p-7"
+              >
+                {!card ? (
+                  <Loader2 size={24} className="animate-spin text-gray-600" />
+                ) : (
+                  <>
+                    {/* card label */}
+                    <div className="absolute top-3 left-4 flex items-center gap-1.5 text-[10px] text-indigo-400/70 font-semibold uppercase tracking-widest">
+                      <Layers size={10} /> Flashcard
+                    </div>
+
+                    {/* flip arrow hint */}
+                    <div className="absolute top-3 right-4 text-[10px] text-gray-700">
+                      tap to flip ↻
+                    </div>
+
+                    <div className="space-y-2 mt-4">
+                      <p className="text-base font-bold text-gray-100">
+                        Can you recall the solution?
+                      </p>
+                      <p className="text-xs text-gray-500 max-w-xs leading-relaxed">
+                        Think through your approach before flipping
+                      </p>
+                    </div>
+
+                    <div className="text-[11px] text-gray-500">
+                      Source:{' '}
+                      <span className={`font-semibold ${card.siteColor}`}>{card.siteLabel}</span>
+                      {' · '}
+                      <span className="font-semibold text-gray-300">{card.lang === 'cpp' ? 'C++' : card.lang}</span>
+                    </div>
+
+                    <ul className="space-y-2 text-left w-full max-w-xs">
+                      {[
+                        '⏱  What is the time complexity?',
+                        '🗂  Which data structure or pattern?',
+                        '⚠️  Any edge cases to handle?',
+                      ].map(q => (
+                        <li key={q} className="text-xs text-gray-500 flex items-start gap-2">
+                          <span className="leading-tight">{q}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <div className="absolute bottom-4 inset-x-0 flex justify-center">
+                      <span className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-400/80 animate-pulse">
+                        <RotateCcw size={11} /> flip to reveal
+                      </span>
+                    </div>
+                  </>
                 )}
               </div>
 
-              {/* Explanation toggle */}
-              {hasExplain && (
-                <div className="border-t border-gray-700/40">
+              {/* ── BACK FACE ─────────────────────────────────────────── */}
+              <div
+                style={{
+                  backfaceVisibility: 'hidden',
+                  WebkitBackfaceVisibility: 'hidden',
+                  transform: 'rotateY(180deg)',
+                  position: 'absolute',
+                  inset: 0,
+                }}
+                className="rounded-2xl border-2 border-indigo-500/50 bg-gradient-to-br from-[#0f1729] to-gray-900 flex flex-col overflow-hidden"
+                /* stop click-through on buttons inside the back face */
+                onClick={e => e.stopPropagation()}
+              >
+                {/* back header */}
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-indigo-500/20 bg-indigo-600/10 shrink-0">
+                  <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-widest">
+                    ★ Best Answer · {card?.siteLabel ?? '…'}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setShowExpl(v => !v)}
-                    className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 hover:bg-gray-800/40 transition-all"
+                    onClick={() => setFlipped(false)}
+                    className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-indigo-300 transition-colors"
                   >
-                    <span className="font-medium">Explanation</span>
-                    {showExpl ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    <RotateCcw size={10} /> flip back
                   </button>
-                  {showExpl && (
-                    <div className="px-4 pb-4 text-xs text-gray-400 leading-relaxed whitespace-pre-wrap border-t border-gray-700/30 pt-3">
-                      {curated!.explanation}
+                </div>
+
+                {/* code (scrollable) */}
+                <div className="flex-1 overflow-y-auto p-3" style={{ maxHeight: '280px' }}>
+                  {card ? (
+                    <HighlightedCode code={card.code} lang={card.lang} />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full gap-2 text-center py-10">
+                      <Loader2 size={18} className="animate-spin text-gray-600" />
+                      <p className="text-xs text-gray-500">Fetching best answers…</p>
                     </div>
                   )}
                 </div>
-              )}
 
-              {/* Footer: community solutions link */}
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-700/50 bg-gray-800/30">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('grid')}
-                  className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                >
-                  <LayoutGrid size={11} /> Community solutions
-                </button>
-                <a
-                  href={`/answers?id=${questionId}&slug=${encodeURIComponent(slug)}`}
-                  className="text-[10px] text-indigo-400 hover:underline"
-                >
-                  Open Answers page →
-                </a>
+                {/* back footer */}
+                <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-t border-gray-700/40 bg-gray-800/30">
+                  <button
+                    type="button"
+                    onClick={() => { setFlipped(false); setViewMode('grid') }}
+                    className="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                  >
+                    <LayoutGrid size={10} /> Community solutions
+                  </button>
+                  {card?.url ? (
+                    <a
+                      href={card.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-indigo-400 hover:underline"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      Open source →
+                    </a>
+                  ) : (
+                    <a
+                      href={`/answers?id=${questionId}&slug=${encodeURIComponent(slug)}`}
+                      className="text-[10px] text-indigo-400 hover:underline"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      Answers page →
+                    </a>
+                  )}
+                </div>
               </div>
+
             </div>
-          )}
+              )
+            })()}
+          </div>
+
         </div>
       )}
     </div>
