@@ -50,15 +50,14 @@ export async function POST(req: NextRequest) {
     const url = `${LC}/problems/${slug}/interpret_solution/`
     const input = testInput ?? ''
 
-    // Default to test_mode=false. Some accounts return:
-    // "You do not have permissions to use test mode."
-    // In those cases, test_mode=true will never work.
-    const attempts: Array<{ test_mode: boolean; data_input: string }> = [
+    // Always use test_mode=false.
+    // Many accounts return: "You do not have permissions to use test mode."
+    // so trying test_mode=true breaks Run for them.
+    const attempts: Array<{ test_mode: false; data_input: string }> = [
       { test_mode: false, data_input: input },
-      { test_mode: true, data_input: input },
     ]
     if (input.trim() !== '') {
-      attempts.push({ test_mode: true, data_input: '' })
+      attempts.push({ test_mode: false, data_input: '' })
     }
 
     let lastRes: Response | null = null
@@ -96,9 +95,8 @@ export async function POST(req: NextRequest) {
 
       const data = parsed.data as { error?: string; interpret_id?: string }
       if (data?.error && /permissions to use test mode/i.test(String(data.error))) {
-        // Don't keep trying test_mode=true; it's forbidden for this account/session.
-        // Re-run once with test_mode=false (already first attempt), otherwise surface error.
-        if (a.test_mode === true) continue
+        // If LeetCode claims test mode is forbidden, we shouldn't ever hit this
+        // because we only send test_mode=false. Surface the message as-is.
         return NextResponse.json({ error: String(data.error), httpStatus: res.status }, { status: 403 })
       }
       if (!res.ok || data.error) continue
