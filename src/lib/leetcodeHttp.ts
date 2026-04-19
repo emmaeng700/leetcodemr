@@ -148,7 +148,9 @@ export async function fetchLeetCodeProblemPost(
   titleSlug: string,
   session: string,
   csrf: string,
+  opts?: { retryOnHtml?: boolean },
 ): Promise<{ res: Response; text: string }> {
+  const retryOnHtml = opts?.retryOnHtml !== false
   let last: { res: Response; text: string } | null = null
   for (let i = 0; i < POST_STRATEGIES.length; i++) {
     const headers = leetCodeProblemApiHeaders(titleSlug, session, csrf, POST_STRATEGIES[i])
@@ -160,8 +162,10 @@ export async function fetchLeetCodeProblemPost(
     })
     const text = await res.text()
     last = { res, text }
+    // Hitting LeetCode repeatedly while rate-limited makes things worse (HTTP 429).
+    if ([401, 403, 429].includes(res.status)) return last
     const isLast = i === POST_STRATEGIES.length - 1
-    if (isLast || !isLeetCodeHtmlBody(text)) {
+    if (!retryOnHtml || isLast || !isLeetCodeHtmlBody(text)) {
       return last
     }
     await new Promise(r => setTimeout(r, RETRY_MS))
@@ -183,6 +187,7 @@ export async function fetchLeetCodeCheckGet(
     const res = await fetch(fullUrl, { headers, ...lcFetchInit })
     const text = await res.text()
     last = { res, text }
+    if ([401, 403, 429].includes(res.status)) return last
     const isLast = i === CHECK_STRATEGIES.length - 1
     if (isLast || !isLeetCodeHtmlBody(text)) {
       return last
