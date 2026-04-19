@@ -17,8 +17,12 @@ export async function POST(req: NextRequest) {
 
     const parsed = parseLeetCodeJsonText(text, res.status)
     if (!parsed.ok) {
+      const hint =
+        parsed.error === 'non_json_html'
+          ? `LeetCode returned HTML instead of JSON (HTTP ${res.status}). Your session may be expired, blocked, or rate-limited. Refresh LEETCODE_SESSION + csrftoken and try again.`
+          : parsed.error
       return NextResponse.json(
-        { error: 'Run failed.', state: 'ERROR', status_msg: 'Run failed.' },
+        { error: hint, httpStatus: res.status, state: 'ERROR', status_msg: 'Run failed.' },
         { status: 502 },
       )
     }

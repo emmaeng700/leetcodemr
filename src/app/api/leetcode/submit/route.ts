@@ -30,7 +30,11 @@ export async function POST(req: NextRequest) {
 
     const parsed = parseLeetCodeJsonText(text, res.status)
     if (!parsed.ok) {
-      return NextResponse.json({ error: 'Submit failed.' }, { status: 502 })
+      const hint =
+        parsed.error === 'non_json_html'
+          ? `LeetCode returned HTML instead of JSON (HTTP ${res.status}). Your session may be expired, blocked, or rate-limited. Refresh LEETCODE_SESSION + csrftoken and try again.`
+          : parsed.error
+      return NextResponse.json({ error: hint, httpStatus: res.status }, { status: 502 })
     }
     const data = parsed.data as { error?: string; submission_id?: string | number }
 
