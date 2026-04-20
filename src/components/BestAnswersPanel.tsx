@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   ExternalLink, Loader2, AlertCircle, Copy, Check,
-  LayoutGrid, Layers, RotateCcw, ChevronLeft, ChevronRight,
+  LayoutGrid, Layers, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 
 export const BEST_ANSWER_SITES = [
@@ -91,7 +91,6 @@ export default function BestAnswersPanel({
 }: BestAnswersPanelProps) {
   const [states, setStates]     = useState<Record<SiteKey, SiteState>>(emptyStates)
   const [viewMode, setViewMode] = useState<'grid' | 'flashcard'>('grid')
-  const [flipped, setFlipped]   = useState(false)
   const [cardIdx, setCardIdx]   = useState(0)
 
   /* inject highlight.js stylesheet once */
@@ -168,7 +167,6 @@ export default function BestAnswersPanel({
   useEffect(() => {
     // Reset deck navigation when question changes / answers refetch.
     setCardIdx(0)
-    setFlipped(false)
   }, [questionId, slug])
 
   useEffect(() => {
@@ -196,7 +194,7 @@ export default function BestAnswersPanel({
           <LayoutGrid size={12} /> Grid
         </button>
         <button
-          onClick={() => { setViewMode('flashcard'); setFlipped(false) }}
+          onClick={() => setViewMode('flashcard')}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
             viewMode === 'flashcard'
               ? 'bg-indigo-600 border-indigo-500 text-white shadow'
@@ -267,16 +265,11 @@ export default function BestAnswersPanel({
       {viewMode === 'flashcard' && (
         <div className="flex flex-col gap-3">
 
-          {/* flip hint */}
-          <p className="text-center text-xs text-gray-600">
-            {flipped ? 'Reading the answer — flip back to re-test' : 'Click the card to flip it and see the answer'}
-          </p>
-
           {/* deck controls */}
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"
-              onClick={() => { setFlipped(false); setCardIdx(i => (deck.length ? (i - 1 + deck.length) % deck.length : 0)) }}
+              onClick={() => setCardIdx(i => (deck.length ? (i - 1 + deck.length) % deck.length : 0))}
               disabled={deck.length <= 1}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                 deck.length <= 1
@@ -299,7 +292,7 @@ export default function BestAnswersPanel({
 
             <button
               type="button"
-              onClick={() => { setFlipped(false); setCardIdx(i => (deck.length ? (i + 1) % deck.length : 0)) }}
+              onClick={() => setCardIdx(i => (deck.length ? (i + 1) % deck.length : 0))}
               disabled={deck.length <= 1}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                 deck.length <= 1
@@ -311,167 +304,68 @@ export default function BestAnswersPanel({
             </button>
           </div>
 
-          {/* ── 3-D flip card ─────────────────────────────────────────── */}
-          <div
-            style={{ perspective: '1400px' }}
-            className="w-full"
-          >
-            {(() => {
-              const card = deck[cardIdx]
-              const canFlip = !!card
-              return (
-            <div
-              onClick={() => {
-                if (canFlip) setFlipped(f => !f)
-              }}
-              style={{
-                position: 'relative',
-                transformStyle: 'preserve-3d',
-                transition: 'transform 0.55s cubic-bezier(0.4, 0, 0.2, 1)',
-                transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-                minHeight: '260px',
-                cursor: canFlip ? 'pointer' : 'wait',
-              }}
-              className="w-full select-none"
-              role="button"
-              aria-label={flipped ? 'Flip card back to front' : 'Flip card to reveal answer'}
-            >
-
-              {/* ── FRONT FACE ────────────────────────────────────────── */}
-              <div
-                style={{
-                  backfaceVisibility: 'hidden',
-                  WebkitBackfaceVisibility: 'hidden',
-                  position: 'absolute',
-                  inset: 0,
-                }}
-                className="rounded-2xl border-2 border-indigo-500/30 bg-gradient-to-br from-gray-900 to-[#0f1729] flex flex-col items-center justify-center text-center gap-5 p-7"
-              >
-                {!card ? (
-                  <Loader2 size={24} className="animate-spin text-gray-600" />
-                ) : (
-                  <>
-                    {/* card label */}
-                    <div className="absolute top-3 left-4 flex items-center gap-1.5 text-[10px] text-indigo-400/70 font-semibold uppercase tracking-widest">
-                      <Layers size={10} /> Flashcard
-                    </div>
-
-                    {/* flip arrow hint */}
-                    <div className="absolute top-3 right-4 text-[10px] text-gray-700">
-                      tap to flip ↻
-                    </div>
-
-                    <div className="space-y-2 mt-4">
-                      <p className="text-base font-bold text-gray-100">
-                        Can you recall the solution?
-                      </p>
-                      <p className="text-xs text-gray-500 max-w-xs leading-relaxed">
-                        Think through your approach before flipping
-                      </p>
-                    </div>
-
-                    <div className="text-[11px] text-gray-500">
-                      Source:{' '}
-                      <span className={`font-semibold ${card.siteColor}`}>{card.siteLabel}</span>
-                      {' · '}
-                      <span className="font-semibold text-gray-300">{card.lang === 'cpp' ? 'C++' : card.lang}</span>
-                    </div>
-
-                    <ul className="space-y-2 text-left w-full max-w-xs">
-                      {[
-                        '⏱  What is the time complexity?',
-                        '🗂  Which data structure or pattern?',
-                        '⚠️  Any edge cases to handle?',
-                      ].map(q => (
-                        <li key={q} className="text-xs text-gray-500 flex items-start gap-2">
-                          <span className="leading-tight">{q}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <div className="absolute bottom-4 inset-x-0 flex justify-center">
-                      <span className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-400/80 animate-pulse">
-                        <RotateCcw size={11} /> flip to reveal
-                      </span>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* ── BACK FACE ─────────────────────────────────────────── */}
-              <div
-                style={{
-                  backfaceVisibility: 'hidden',
-                  WebkitBackfaceVisibility: 'hidden',
-                  transform: 'rotateY(180deg)',
-                  position: 'absolute',
-                  inset: 0,
-                }}
-                className="rounded-2xl border-2 border-indigo-500/50 bg-gradient-to-br from-[#0f1729] to-gray-900 flex flex-col overflow-hidden"
-                /* stop click-through on buttons inside the back face */
-                onClick={e => e.stopPropagation()}
-              >
-                {/* back header */}
-                <div className="flex items-center justify-between px-4 py-2.5 border-b border-indigo-500/20 bg-indigo-600/10 shrink-0">
-                  <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-widest">
-                    ★ Best Answer · {card?.siteLabel ?? '…'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setFlipped(false)}
-                    className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-indigo-300 transition-colors"
-                  >
-                    <RotateCcw size={10} /> flip back
-                  </button>
-                </div>
-
-                {/* code (scrollable) */}
-                <div className="flex-1 overflow-y-auto p-3" style={{ maxHeight: '280px' }}>
-                  {card ? (
-                    <HighlightedCode code={card.code} lang={card.lang} />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full gap-2 text-center py-10">
-                      <Loader2 size={18} className="animate-spin text-gray-600" />
-                      <p className="text-xs text-gray-500">Fetching best answers…</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* back footer */}
-                <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-t border-gray-700/40 bg-gray-800/30">
-                  <button
-                    type="button"
-                    onClick={() => { setFlipped(false); setViewMode('grid') }}
-                    className="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
-                  >
-                    <LayoutGrid size={10} /> Community solutions
-                  </button>
+          {/* Answer-only card (no flip / recall prompt) */}
+          {(() => {
+            const card = deck[cardIdx]
+            return (
+              <div className="rounded-2xl border-2 border-indigo-500/30 bg-gradient-to-br from-[#0f1729] to-gray-900 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-indigo-500/20 bg-indigo-600/10">
+                  <div className="text-[11px] text-gray-500">
+                    <span className="font-semibold text-gray-300">★ Best Answer</span>
+                    {card ? (
+                      <>
+                        <span className="mx-2 text-gray-600">·</span>
+                        <span className={`font-bold ${card.siteColor}`}>{card.siteLabel}</span>
+                        <span className="mx-2 text-gray-600">·</span>
+                        <span className="font-semibold text-gray-300">{card.lang === 'cpp' ? 'C++' : card.lang}</span>
+                      </>
+                    ) : null}
+                  </div>
                   {card?.url ? (
                     <a
                       href={card.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[10px] text-indigo-400 hover:underline"
-                      onClick={e => e.stopPropagation()}
+                      className="flex items-center gap-1 text-[10px] text-indigo-400 hover:underline"
                     >
-                      Open source →
+                      <ExternalLink size={11} /> Open
                     </a>
                   ) : (
                     <a
                       href={`/answers?id=${questionId}&slug=${encodeURIComponent(slug)}`}
                       className="text-[10px] text-indigo-400 hover:underline"
-                      onClick={e => e.stopPropagation()}
                     >
                       Answers page →
                     </a>
                   )}
                 </div>
-              </div>
 
-            </div>
-              )
-            })()}
-          </div>
+                <div className="p-3" style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                  {card ? (
+                    <HighlightedCode code={card.code} lang={card.lang} />
+                  ) : (
+                    <div className="flex items-center justify-center gap-2 text-xs text-gray-500 py-10">
+                      <Loader2 size={16} className="animate-spin text-gray-600" />
+                      <span>Fetching best answers…</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="px-4 py-2.5 border-t border-gray-700/40 bg-gray-800/30 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('grid')}
+                    className="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                  >
+                    <LayoutGrid size={10} /> Community solutions
+                  </button>
+                  <span className="text-[10px] text-gray-600">
+                    {deck.length ? `${cardIdx + 1} / ${deck.length}` : '…'}
+                  </span>
+                </div>
+              </div>
+            )
+          })()}
 
         </div>
       )}
