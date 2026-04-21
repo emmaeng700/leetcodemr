@@ -350,7 +350,9 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   }, [progress, loaded])
 
   const planNorm = normalizeStudyPlanRow(studyPlan)
-  const isRandomPlan = planNorm?.mode === 'random'
+  // Avoid type drift issues (mode may not exist in older StudyPlanForStreak typings).
+  const planMode = (studyPlan as any)?.mode ?? (planNorm as any)?.mode
+  const isRandomPlan = planMode === 'random'
 
   // Today’s dot uses live daily+SR rules (mode-aware).
   const goalsMetToday = isRandomPlan
@@ -404,7 +406,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     if (!planNorm) return null
     const today = todayISOChicago()
 
-    if (planNorm.mode === 'random') {
+    if (planMode === 'random') {
       const perDay = planNorm.per_day ?? 1
       const done = Math.max(0, solvedTodayCount)
       const goalMet = done >= perDay
