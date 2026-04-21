@@ -5,11 +5,12 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp, RotateCcw } from 'lucide-react'
 import { QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
-import { getProgress, updateProgress, getActivityLog, getDueReviews, getReviewsCompletedToday, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getDailyReviewCapChicago } from '@/lib/db'
+import { getProgress, updateProgress, getActivityLog, getDueReviews, getReviewsCompletedToday, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getDailyReviewCapChicago, getTodaySolvedCount } from '@/lib/db'
 import { computeDailyGoalsMetToday, computePlanStreakDisplayNumber, normalizeStudyPlanRow } from '@/lib/streakGoals'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
 import { addToRebootQueue, getRebootQueue, removeFromRebootQueue } from '@/lib/rebootQueue'
+import { todayISOChicago } from '@/lib/studyPlanDay'
 
 interface Question {
   id: number
@@ -36,23 +37,20 @@ const DIFFICULTIES = ['All', 'Easy', 'Medium', 'Hard']
 const SOURCES = ['All', 'Grind 169', 'Denny Zhang', 'Premium 98', 'CodeSignal']
 
 
-function todayISO() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-}
-function localISO(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+function chicagoISO(d: Date) {
+  // Keep all streak/day keys consistent with the rest of the app (America/Chicago).
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
 }
 function computeStreak(log: Record<string, number>) {
   let streak = 0
   const d = new Date()
   // If today isn’t a “goals met” day yet, don’t zero the streak — count backward from
   // yesterday so the number stays “14 days through yesterday” while you finish today.
-  if (!log[localISO(d)]) {
+  if (!log[chicagoISO(d)]) {
     d.setDate(d.getDate() - 1)
   }
   while (true) {
-    const key = localISO(d)
+    const key = chicagoISO(d)
     if (!log[key]) break
     streak++
     d.setDate(d.getDate() - 1)
@@ -89,7 +87,7 @@ function getStreakMessage(streak: number): string {
     streak <= 29 ? STREAK_MESSAGES['21'] :
                    STREAK_MESSAGES['30']
   // pick one deterministically per day so it doesn't change on re-render
-  const seed = todayISO() + streak
+  const seed = todayISOChicago() + streak
   let h = 0; for (let i = 0; i < seed.length; i++) h = Math.imul(31, h) + seed.charCodeAt(i) | 0
   return msgs[Math.abs(h) % msgs.length]
 }
@@ -113,8 +111,8 @@ function StreakCard({
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday)
     d.setDate(monday.getDate() + i)
-    const key = localISO(d)
-    const isToday = key === todayISO()
+    const key = chicagoISO(d)
+    const isToday = key === todayISOChicago()
     const isFuture = d > today && !isToday
     const active = isToday ? goalsMetToday : !!log[key]
     return { label: ['M','T','W','T','F','S','S'][i], key, active, isToday, isFuture }
@@ -301,24 +299,27 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   const [studyPlan, setStudyPlan] = useState<Awaited<ReturnType<typeof getStudyPlan>>>(null)
   const [dueReviews, setDueReviews] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
   const [reviewsCompletedToday, setReviewsCompletedToday] = useState(0)
+  const [solvedTodayCount, setSolvedTodayCount] = useState(0)
   const [dailyQ, setDailyQ] = useState<Question | null>(null)
   const [loaded, setLoaded] = useState(false)
   const streakHydratedRef = useRef(false)
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const [log, interviewData, plan, due, reviewsDone] = await Promise.all([
+      const [log, interviewData, plan, due, reviewsDone, solvedToday] = await Promise.all([
         getActivityLog(),
         getInterviewDate(),
         getStudyPlan(),
         getDueReviews(),
         getReviewsCompletedToday(),
+        getTodaySolvedCount(),
       ])
       if (cancelled) return
       setActivityLog(log)
       setStudyPlan(plan)
       setDueReviews(due)
       setReviewsCompletedToday(reviewsDone)
+      setSolvedTodayCount(solvedToday)
       if (interviewData?.target_date) setDate(interviewData.target_date)
       setLoaded(true)
     }
@@ -333,18 +334,33 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     }
     let cancelled = false
     ;(async () => {
-      const [log, due, reviewsDone] = await Promise.all([getActivityLog(), getDueReviews(), getReviewsCompletedToday()])
+      const [log, due, reviewsDone, solvedToday] = await Promise.all([
+        getActivityLog(),
+        getDueReviews(),
+        getReviewsCompletedToday(),
+        getTodaySolvedCount(),
+      ])
       if (cancelled) return
       setActivityLog(log)
       setDueReviews(due)
       setReviewsCompletedToday(reviewsDone)
+      setSolvedTodayCount(solvedToday)
     })()
     return () => { cancelled = true }
   }, [progress, loaded])
-  const goalsMetToday = computeDailyGoalsMetToday(studyPlan, progress, dueReviews.length, reviewsCompletedToday)
+
   const planNorm = normalizeStudyPlanRow(studyPlan)
+  const isRandomPlan = planNorm?.mode === 'random'
+
+  // Today’s dot uses live daily+SR rules (mode-aware).
+  const goalsMetToday = isRandomPlan
+    ? (solvedTodayCount >= (planNorm?.per_day ?? 1) && dueReviews.length === 0)
+    : computeDailyGoalsMetToday(studyPlan, progress, dueReviews.length, reviewsCompletedToday)
+
   const streakDisplay = planNorm
-    ? (computePlanStreakDisplayNumber(studyPlan, progress, dueReviews.length, reviewsCompletedToday) ?? 0)
+    ? (isRandomPlan
+        ? computeStreak(activityLog)
+        : (computePlanStreakDisplayNumber(studyPlan, progress, dueReviews.length, reviewsCompletedToday) ?? 0))
     : computeStreak(activityLog)
   // Only show activity log dots from the current plan's start date onwards.
   // Old plan entries shouldn't bleed into a freshly generated plan's week view.
@@ -353,7 +369,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     : activityLog
   useEffect(() => {
     if (!questions.length) return
-    const todayKey = 'daily_q_' + todayISO()
+    const todayKey = 'daily_q_' + todayISOChicago()
     const stored = localStorage.getItem(todayKey)
     if (stored) { try { setDailyQ(JSON.parse(stored)); return } catch {} }
     const unsolved = questions.filter(q => !progress[String(q.id)]?.solved)
@@ -386,7 +402,52 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   // ── Today's daily questions ──────────────────────────────────────────────
   const todayDailyCard = (() => {
     if (!planNorm) return null
-    const today = todayISO()
+    const today = todayISOChicago()
+
+    if (planNorm.mode === 'random') {
+      const perDay = planNorm.per_day ?? 1
+      const done = Math.max(0, solvedTodayCount)
+      const goalMet = done >= perDay
+      const allDone = goalMet && dueReviews.length === 0
+
+      return (
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold text-[var(--text)] flex items-center gap-1.5">
+              <Calendar size={14} className="text-purple-500" /> Today — Random mode
+            </h2>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono text-[var(--text-subtle)] hidden sm:inline">
+                build {process.env.NEXT_PUBLIC_COMMIT_SHA}
+              </span>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                allDone ? 'bg-green-100  text-green-700 ' :
+                done > 0 ? 'bg-yellow-100  text-yellow-700 ' :
+                'bg-red-100  text-red-700 '
+              }`}>{Math.min(done, perDay)}/{perDay} done</span>
+            </div>
+          </div>
+
+          <p className="text-xs text-[var(--text-subtle)]">
+            Solve any {perDay} questions today{dueReviews.length ? ' and clear your reviews' : ''} to tick today.
+          </p>
+
+          {goalMet && dueReviews.length > 0 && (
+            <p className="mt-2 text-xs font-semibold text-amber-600">
+              Daily questions done — reviews still pending.
+            </p>
+          )}
+
+          {allDone && <p className="mt-3 text-center text-sm font-bold text-green-500 ">All done for today! 🎉</p>}
+
+          {!allDone && (
+            <Link href="/daily" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-purple-600  hover:underline">
+              Go to daily plan <ChevronRight size={12} />
+            </Link>
+          )}
+        </div>
+      )
+    }
     const start = new Date(planNorm.start_date + 'T12:00:00')
     const now = new Date(today + 'T12:00:00')
     const diffDays = Math.round((now.getTime() - start.getTime()) / 86400000)
@@ -466,7 +527,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     )
   })()
 
-  const today = todayISO()
+  const today = todayISOChicago()
   const overdueReviews = dueReviews.filter(q => q.next_review < today)
 
   if (!loaded) return null
@@ -531,7 +592,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
         </div>
         {editing ? (
           <div className="flex gap-2 items-center flex-wrap">
-            <input type="date" defaultValue={date} min={todayISO()}
+            <input type="date" defaultValue={date} min={todayISOChicago()}
               className="text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-indigo-500"
               onKeyDown={e => { if (e.key === 'Enter') handleDateSave((e.target as HTMLInputElement).value) }}
               onBlur={e => { if (e.target.value) handleDateSave(e.target.value); else setEditing(false) }}
