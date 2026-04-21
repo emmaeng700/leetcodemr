@@ -363,12 +363,19 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       }
       const keys = Prec.highest(keymap.of([{ key: 'Enter', run: smartEnter }, indentWithTab]))
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
-      // Track cursor only on doc changes (user typing).
-      // Ignoring selection-only updates prevents iOS from corrupting the ref
-      // when it silently repositions the cursor after a paired bracket insert.
-      // Arrow key toolbar buttons update the ref manually instead.
+      // Track cursor on doc changes AND on user-repositioning (native tap/drag).
+      // We suppress selection-only updates that arrive within 80ms of a docChanged
+      // to avoid iOS silently repositioning the cursor after a paired-bracket insert
+      // (which would corrupt the ref before the toolbar can read it).
+      let lastDocChangeAt = 0
       const cursorTracker = EditorView.updateListener.of((update: any) => {
         if (update.docChanged) {
+          lastDocChangeAt = Date.now()
+          const sel = update.state.selection.main
+          cursorPosRef.current = { from: sel.from, to: sel.to }
+        } else if (update.selectionSet && Date.now() - lastDocChangeAt > 80) {
+          // Native tap/drag moved the cursor without changing the document —
+          // sync the ref so toolbar arrows and ⌫ operate from the right spot.
           const sel = update.state.selection.main
           cursorPosRef.current = { from: sel.from, to: sel.to }
         }
