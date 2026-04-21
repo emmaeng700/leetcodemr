@@ -164,6 +164,39 @@ export default function DailyPage() {
 
   const topicMap = useMemo(() => buildExclusivePatternMap(allQuestions), [allQuestions])
 
+  // ── Derived values that must live before any early return (Rules of Hooks) ──
+  const isRandomMode = activePlanMode === 'random'
+
+  // Random mode: questions for selected focus pattern (unsolved first)
+  const randomFocusQs = useMemo(() => {
+    if (!isRandomMode || !focusPattern) return []
+    return allQuestions
+      .filter(q => (topicMap[q.id] ?? 'Other') === focusPattern)
+      .sort((a, b) => {
+        const aS = progress[String(a.id)]?.solved ? 1 : 0
+        const bS = progress[String(b.id)]?.solved ? 1 : 0
+        if (aS !== bS) return aS - bS  // unsolved first
+        const order = ['Easy', 'Medium', 'Hard']
+        return order.indexOf(a.difficulty) - order.indexOf(b.difficulty)
+      })
+  }, [isRandomMode, focusPattern, allQuestions, topicMap, progress])
+
+  // Count unsolved per pattern for the pattern picker badge
+  const unsolvedByPattern = useMemo(() => {
+    if (!isRandomMode) return {}
+    const counts: Record<string, number> = {}
+    for (const q of allQuestions) {
+      const pat = topicMap[q.id] ?? 'Other'
+      if (!progress[String(q.id)]?.solved) counts[pat] = (counts[pat] ?? 0) + 1
+    }
+    return counts
+  }, [isRandomMode, allQuestions, topicMap, progress])
+
+  const totalSolved = useMemo(
+    () => allQuestions.filter(q => !!progress[String(q.id)]?.solved).length,
+    [allQuestions, progress]
+  )
+
   const refreshProgress = useCallback(async () => {
     try {
       const [prog, solvedToday] = await Promise.all([getProgress(), getTodaySolvedCount()])
@@ -499,45 +532,10 @@ export default function DailyPage() {
     )
   }
 
-  // ── Active view derived data ──────────────────────────────────────────────
-  const isRandomMode = activePlanMode === 'random'
-
-  // Random mode: questions for selected focus pattern (unsolved first)
-  const randomFocusQs = useMemo(() => {
-    if (!isRandomMode || !focusPattern) return []
-    return allQuestions
-      .filter(q => (topicMap[q.id] ?? 'Other') === focusPattern)
-      .sort((a, b) => {
-        const aS = isSolved(a.id) ? 1 : 0
-        const bS = isSolved(b.id) ? 1 : 0
-        if (aS !== bS) return aS - bS  // unsolved first
-        const order = ['Easy', 'Medium', 'Hard']
-        return order.indexOf(a.difficulty) - order.indexOf(b.difficulty)
-      })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRandomMode, focusPattern, allQuestions, topicMap, progress])
-
-  // Count unsolved per pattern for the pattern picker badge
-  const unsolvedByPattern = useMemo(() => {
-    if (!isRandomMode) return {}
-    const counts: Record<string, number> = {}
-    for (const q of allQuestions) {
-      const pat = topicMap[q.id] ?? 'Other'
-      if (!isSolved(q.id)) counts[pat] = (counts[pat] ?? 0) + 1
-    }
-    return counts
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRandomMode, allQuestions, topicMap, progress])
-
+  // ── Active view derived data (plan is guaranteed non-null here) ────────────
   const todayInfo = getTodayInfo(plan, allQuestions, progress)
   const totalDays = Math.ceil(plan.question_order.length / plan.per_day)
 
-  // In random mode progress is based on total solved vs total questions
-  const totalSolved = useMemo(
-    () => allQuestions.filter(q => isSolved(q.id)).length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allQuestions, progress]
-  )
   const progressPct = isRandomMode
     ? Math.round((totalSolved / Math.max(allQuestions.length, 1)) * 100)
     : (todayInfo.dayNumber ? Math.round((todayInfo.dayNumber / totalDays) * 100) : 0)
