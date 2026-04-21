@@ -801,21 +801,23 @@ export async function rebalanceReviews(horizonDays = 60): Promise<void> {
 /** Same rules as notify-daily email: streak day counts only when today's active daily block is fully solved AND no SR reviews are due. */
 export async function syncStreakActivityFromGoals(): Promise<void> {
   const today = todayISOChicago()
-  const plan = await getStudyPlan()
-  const dueReviews = await getDueReviews()
+
+  // Read mode synchronously before any awaits
+  const mode = typeof window !== 'undefined'
+    ? (localStorage.getItem('lm_plan_mode_v1') ?? 'strict')
+    : 'strict'
+
+  // Fetch plan + due reviews in parallel — both are needed in every branch
+  const [plan, dueReviews] = await Promise.all([getStudyPlan(), getDueReviews()])
 
   const clearToday = async () => {
     await supabase.from('activity_log').delete().eq('user_id', USER_ID).eq('date', today)
   }
 
-  // Random mode: day done when solved_log[today] >= per_day (+ reviews clear)
-  const mode = typeof window !== 'undefined'
-    ? (localStorage.getItem('lm_plan_mode_v1') ?? 'strict')
-    : 'strict'
-
   let goalsMet = false
 
   if (mode === 'random' && plan) {
+    // Random mode: day done when solved_log[today] >= per_day AND reviews clear
     const solvedToday = await getTodaySolvedCount()
     goalsMet = solvedToday >= (plan.per_day ?? 1) && dueReviews.length === 0
   } else {
