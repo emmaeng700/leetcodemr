@@ -79,9 +79,14 @@ function isWeekendCT(dateISO: string): boolean {
   return weekday === 'Sat' || weekday === 'Sun'
 }
 
-function reviewCapForDayCT(dateISO: string): number {
-  // Match app caps: weekdays 2/day, weekends 4/day.
+/** How many reviews to SHOW in the email (small — it's just a reminder). */
+function emailDisplayCapForDayCT(dateISO: string): number {
   return isWeekendCT(dateISO) ? 4 : 2
+}
+
+/** Matches the app's actual spreading cap (db.ts getDailyReviewCapChicago). */
+function spreadCapForDayCT(dateISO: string): number {
+  return isWeekendCT(dateISO) ? 60 : 35
 }
 
 function addDaysCT(baseISO: string, days: number): string {
@@ -129,7 +134,9 @@ async function spreadOverdueReviewsForEmail(supabase: any, todayStr: string) {
     counts[day] = (counts[day] ?? 0) + 1
   }
 
-  const capToday = reviewCapForDayCT(todayStr)
+  // Use the same cap the app uses (35 weekday / 60 weekend) so we don't
+  // incorrectly displace reviews that the app is still planning to serve today.
+  const capToday = spreadCapForDayCT(todayStr)
   const overdue = progressRows
     .filter(r => r.next_review <= todayStr)
     .sort((a, b) => {
@@ -154,7 +161,7 @@ async function spreadOverdueReviewsForEmail(supabase: any, todayStr: string) {
     let placed = false
     for (let offset = 1; offset <= horizonDays; offset++) {
       const day = addDaysCT(todayStr, offset)
-      const cap = reviewCapForDayCT(day)
+      const cap = spreadCapForDayCT(day)
       if ((counts[day] ?? 0) < cap) {
         counts[day] = (counts[day] ?? 0) + 1
         updates.push({ question_id: r.question_id, next_review: day })
@@ -307,16 +314,18 @@ export async function GET(req: NextRequest) {
     .lte('next_review', todayStr)
     .order('next_review', { ascending: true })
 
-  const cap = reviewCapForDayCT(todayStr)
-  const dueReviews: DueReviewRow[] = ((srRows ?? []) as DueReviewRow[]).slice(0, cap)
+  // Email shows a small number of reviews (display cap), even though the app
+  // may have up to 35/60 due today. We don't want a wall-of-text email.
+  const emailCap = emailDisplayCapForDayCT(todayStr)
+  const dueReviews: DueReviewRow[] = ((srRows ?? []) as DueReviewRow[]).slice(0, emailCap)
 
-  // Count reviews already completed today — if ≥5, treat reviews as done.
+  // Count reviews already completed today — if ≥ display cap, treat as done.
   const { count: reviewsDoneToday } = await supabase
     .from('progress')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', USER_ID)
     .eq('last_reviewed', todayStr)
-  const reviewsSatisfied = dueReviews.length === 0 || (reviewsDoneToday ?? 0) >= 5
+  const reviewsSatisfied = dueReviews.length === 0 || (reviewsDoneToday ?? 0) >= emailCap
   const dueReviewsForEmail = reviewsSatisfied ? [] : dueReviews
 
   const appUrl = 'https://leetcodemr.vercel.app'
