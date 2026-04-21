@@ -6,7 +6,7 @@ import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List, Brain, Star, Wind } from 'lucide-react'
-import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount } from '@/lib/db'
+import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount, syncStreakActivityFromGoals } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
 import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
 import { QUICK_PATTERNS } from '@/lib/constants'
@@ -251,6 +251,8 @@ export default function DailyPage() {
   }, [])
 
   // When coming back from /practice (or any route), merge latest solved state immediately — no full-page reload.
+  // In random mode we also re-trigger the streak sync so the activity_log is
+  // marked correctly even if the practice-page trigger failed silently.
   useEffect(() => {
     if (!loading && pathname === '/daily') {
       const prev = prevPathRef.current
@@ -258,19 +260,34 @@ export default function DailyPage() {
       if (prev !== null && prev !== '/daily') {
         void refreshProgress()
         void refreshDue()
+        if (activePlanMode === 'random') {
+          void syncStreakActivityFromGoals().catch(() => {/* silent */})
+        }
       }
     } else {
       prevPathRef.current = pathname
     }
-  }, [pathname, loading, refreshProgress, refreshDue])
+  }, [pathname, loading, refreshProgress, refreshDue, activePlanMode])
 
   useEffect(() => {
     if (loading || pathname !== '/daily') return
     const onVis = () => {
-      if (document.visibilityState === 'visible') { void refreshProgress(); void refreshDue() }
+      if (document.visibilityState === 'visible') {
+        void refreshProgress()
+        void refreshDue()
+        if (activePlanMode === 'random') {
+          void syncStreakActivityFromGoals().catch(() => {/* silent */})
+        }
+      }
     }
     const onPageShow = (e: Event) => {
-      if ((e as PageTransitionEvent).persisted) { void refreshProgress(); void refreshDue() }
+      if ((e as PageTransitionEvent).persisted) {
+        void refreshProgress()
+        void refreshDue()
+        if (activePlanMode === 'random') {
+          void syncStreakActivityFromGoals().catch(() => {/* silent */})
+        }
+      }
     }
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener('pageshow', onPageShow)
@@ -278,7 +295,7 @@ export default function DailyPage() {
       document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener('pageshow', onPageShow)
     }
-  }, [loading, pathname, refreshProgress, refreshDue])
+  }, [loading, pathname, refreshProgress, refreshDue, activePlanMode])
 
   const { days: previewDays, date: previewFinish } = calcFinish(startDate, perDay, allQuestions.length)
 

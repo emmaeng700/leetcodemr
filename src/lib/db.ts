@@ -807,8 +807,20 @@ export async function syncStreakActivityFromGoals(): Promise<void> {
     ? (localStorage.getItem('lm_plan_mode_v1') ?? 'strict')
     : 'strict'
 
-  // Fetch plan + due reviews in parallel — both are needed in every branch
-  const [plan, dueReviews] = await Promise.all([getStudyPlan(), getDueReviews()])
+  // Lightweight due-review count — plain SELECT count, no recalibrate/spread
+  // side effects. getDueReviews() is too heavy here and can mis-report after
+  // spreading reviews mid-flight, causing the streak to silently not get marked.
+  const [plan, { count: rawDueCount }] = await Promise.all([
+    getStudyPlan(),
+    supabase
+      .from('progress')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', USER_ID)
+      .eq('solved', true)
+      .not('next_review', 'is', null)
+      .lte('next_review', today),
+  ])
+  const dueCount = rawDueCount ?? 0
 
   const clearToday = async () => {
     await supabase.from('activity_log').delete().eq('user_id', USER_ID).eq('date', today)
@@ -819,7 +831,7 @@ export async function syncStreakActivityFromGoals(): Promise<void> {
   if (mode === 'random' && plan) {
     // Random mode: day done when solved_log[today] >= per_day AND reviews clear
     const solvedToday = await getTodaySolvedCount()
-    goalsMet = solvedToday >= (plan.per_day ?? 1) && dueReviews.length === 0
+    goalsMet = solvedToday >= (plan.per_day ?? 1) && dueCount === 0
   } else {
     const { data: progressRows } = await supabase
       .from('progress')
@@ -831,15 +843,16 @@ export async function syncStreakActivityFromGoals(): Promise<void> {
       const r = row as { question_id: number; solved: boolean }
       progressMap[String(r.question_id)] = { solved: !!r.solved }
     }
-    goalsMet = computeDailyGoalsMetToday(plan, progressMap, dueReviews.length)
+    goalsMet = computeDailyGoalsMetToday(plan, progressMap, dueCount)
   }
 
   if (goalsMet) {
-    await supabase.from('activity_log').upsert({
+    const { error } = await supabase.from('activity_log').upsert({
       user_id: USER_ID,
       date: today,
       count: 1,
     }, { onConflict: 'user_id,date' })
+    if (error) console.error('[db] syncStreak: activity_log upsert failed:', error.message)
   } else {
     await clearToday()
   }
