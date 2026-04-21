@@ -80,6 +80,8 @@ export default function SpeedsterPage() {
   const lcCacheRef = useRef<Record<string, string>>({})
   const online = useOnlineStatus()
 
+  const [planMode, setPlanMode] = useState<'strict' | 'random'>('strict')
+
   // Ref to the mobile scrollable panel so we can lock scroll position on flip
   const cardsPanelRef = useRef<HTMLDivElement>(null)
   const cardListWrapMobileRef = useRef<HTMLDivElement>(null)
@@ -100,6 +102,8 @@ export default function SpeedsterPage() {
         setProgress(prog)
         setVisited(vis)
         setRuns(mr)
+        const mode = (localStorage.getItem('lm_plan_mode_v1') ?? 'strict') as 'strict' | 'random'
+        setPlanMode(mode)
         if (plan?.question_order?.length) {
           setPlanOrder(plan.question_order)
           setPerDay(plan.per_day || 3)
@@ -116,6 +120,8 @@ export default function SpeedsterPage() {
     }
     load()
   }, [])
+
+  const isRandomMode = planMode === 'random'
 
   const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
   // Exclusive pattern map — each question belongs to exactly one pattern
@@ -417,125 +423,146 @@ export default function SpeedsterPage() {
       </div>
 
       {/* ── Day card section ── */}
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={() => setDayIdx(i => Math.max(0, i - 1))} disabled={dayIdx === 0}
-          className="flex items-center gap-1 px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:border-yellow-300 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-          <ChevronLeft size={16} /> Prev
-        </button>
-        <div className="text-center">
-          <p className="text-base font-black text-gray-800">Day {dayIdx + 1}</p>
-          <p className="text-xs text-gray-400">{daySolved}/{currentDay.length} solved · {dayIdx + 1} of {totalDays} days</p>
-        </div>
-        <button onClick={() => setDayIdx(i => Math.min(totalDays - 1, i + 1))} disabled={dayIdx === totalDays - 1}
-          className="flex items-center gap-1 px-4 py-2 rounded-xl bg-yellow-500 text-white text-sm font-semibold hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-          Next <ChevronRight size={16} />
-        </button>
-      </div>
-
-      <div className="flex items-center justify-center gap-2 mb-4">
-        <button
-          type="button"
-          onClick={() => setFilterSolved('All')}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-            filterSolved === 'All' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-          }`}
-        >
-          All
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilterSolved('Unsolved')}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-            filterSolved === 'Unsolved' ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
-          }`}
-        >
-          Unsolved
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilterSolved('Solved')}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-            filterSolved === 'Solved' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-200 hover:border-green-300'
-          }`}
-        >
-          Solved
-        </button>
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-1 bg-gray-100 rounded-full mb-5 overflow-hidden">
-        <div className="h-full bg-yellow-400 rounded-full transition-all duration-300"
-          style={{ width: totalDays ? `${((dayIdx + 1) / totalDays) * 100}%` : '0%' }} />
-      </div>
-
-      {/* Day card */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-3">
-        {currentDayFiltered.length === 0 && (
-          <div className="px-5 py-8 text-center text-sm text-gray-400">
-            No questions in this day match your filter.
+      {isRandomMode ? (
+        /* Random mode — no fixed day schedule */
+        <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 mb-6">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-base">🎲</span>
+            <p className="text-sm font-bold text-purple-800">Random mode active</p>
           </div>
-        )}
-        {currentDayFiltered.map((qid, i) => {
-          const q = qMap[qid]
-          if (!q) return null
-          const solved = !!progress[String(qid)]?.solved
-          const topic = patternMap?.[qid] ?? 'Other'
-          const prevId = i > 0 ? currentDayFiltered[i - 1] : null
-          const prevTopic = prevId != null ? (patternMap?.[prevId] ?? 'Other') : null
-          const showTopic = i === 0 || topic !== prevTopic
-          return (
-            <div key={qid}>
-              {showTopic && (
-                <div className={`px-3 sm:px-5 py-2 ${i !== 0 ? 'border-t border-gray-100' : ''}`}>
-                  <div className="px-3 py-2 text-[11px] font-bold text-gray-500 bg-gray-50 rounded-xl border border-gray-200">
-                    🧩 Topic: <span className="text-gray-800">{topic}</span>
-                  </div>
-                </div>
-              )}
-              <Link href={`/speedster/${qid}`}
-                className={`flex items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 transition-colors group ${i !== 0 || showTopic ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
-                <div className="shrink-0">
-                  {solved
-                    ? <CheckCircle size={18} className="text-green-500" />
-                    : <Circle size={18} className="text-gray-200 group-hover:text-yellow-300 transition-colors" />}
-                </div>
-                <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
-                <span className={`flex-1 text-sm font-semibold truncate ${solved ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
-                <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
-                  Runs {runs[String(q.id)] ?? 0}/4
-                </span>
-                <DifficultyBadge difficulty={q.difficulty} />
-                <ChevronRight size={14} className="text-gray-300 group-hover:text-yellow-400 shrink-0 transition-colors" />
-              </Link>
-            </div>
-          )
-        })}
-      </div>
-
-      <button
-        type="button"
-        onPointerDown={e => {
-          e.preventDefault()
-          const idx = Math.max(0, Math.min(totalDays - 1, todayScheduleIdx))
-          setDayIdx(idx)
-          const panel = cardsPanelRef.current
-          if (panel) panel.scrollTo({ top: 0, behavior: 'smooth' })
-          else window.scrollTo({ top: 0, behavior: 'smooth' })
-        }}
-        className="w-full mt-3 mb-6 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-800 text-sm font-bold hover:bg-yellow-100 transition-colors"
-        style={{ touchAction: 'manipulation' }}
-      >
-        View today questions
-      </button>
-
-      {/* Day dots */}
-      {totalDays <= 20 && (
-        <div className="flex justify-center gap-1.5 mb-10 flex-wrap">
-          {days.map((_, i) => (
-            <button key={i} onClick={() => setDayIdx(i)}
-              className={`rounded-full transition-all ${i === dayIdx ? 'w-4 h-4 bg-yellow-500' : 'w-3 h-3 bg-gray-200 hover:bg-yellow-300'}`} />
-          ))}
+          <p className="text-xs text-purple-600 leading-snug">
+            No fixed daily order — use the pattern filter in the flashcards below to focus your practice, or head to Daily to pick today's pattern.
+          </p>
+          <Link
+            href="/daily"
+            className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors"
+          >
+            Go to Daily →
+          </Link>
         </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <button onClick={() => setDayIdx(i => Math.max(0, i - 1))} disabled={dayIdx === 0}
+              className="flex items-center gap-1 px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:border-yellow-300 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+              <ChevronLeft size={16} /> Prev
+            </button>
+            <div className="text-center">
+              <p className="text-base font-black text-gray-800">Day {dayIdx + 1}</p>
+              <p className="text-xs text-gray-400">{daySolved}/{currentDay.length} solved · {dayIdx + 1} of {totalDays} days</p>
+            </div>
+            <button onClick={() => setDayIdx(i => Math.min(totalDays - 1, i + 1))} disabled={dayIdx === totalDays - 1}
+              className="flex items-center gap-1 px-4 py-2 rounded-xl bg-yellow-500 text-white text-sm font-semibold hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+              Next <ChevronRight size={16} />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <button
+              type="button"
+              onClick={() => setFilterSolved('All')}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                filterSolved === 'All' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterSolved('Unsolved')}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                filterSolved === 'Unsolved' ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+              }`}
+            >
+              Unsolved
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterSolved('Solved')}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                filterSolved === 'Solved' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-200 hover:border-green-300'
+              }`}
+            >
+              Solved
+            </button>
+          </div>
+
+          {/* Progress bar */}
+          <div className="h-1 bg-gray-100 rounded-full mb-5 overflow-hidden">
+            <div className="h-full bg-yellow-400 rounded-full transition-all duration-300"
+              style={{ width: totalDays ? `${((dayIdx + 1) / totalDays) * 100}%` : '0%' }} />
+          </div>
+
+          {/* Day card */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-3">
+            {currentDayFiltered.length === 0 && (
+              <div className="px-5 py-8 text-center text-sm text-gray-400">
+                No questions in this day match your filter.
+              </div>
+            )}
+            {currentDayFiltered.map((qid, i) => {
+              const q = qMap[qid]
+              if (!q) return null
+              const solved = !!progress[String(qid)]?.solved
+              const topic = patternMap?.[qid] ?? 'Other'
+              const prevId = i > 0 ? currentDayFiltered[i - 1] : null
+              const prevTopic = prevId != null ? (patternMap?.[prevId] ?? 'Other') : null
+              const showTopic = i === 0 || topic !== prevTopic
+              return (
+                <div key={qid}>
+                  {showTopic && (
+                    <div className={`px-3 sm:px-5 py-2 ${i !== 0 ? 'border-t border-gray-100' : ''}`}>
+                      <div className="px-3 py-2 text-[11px] font-bold text-gray-500 bg-gray-50 rounded-xl border border-gray-200">
+                        🧩 Topic: <span className="text-gray-800">{topic}</span>
+                      </div>
+                    </div>
+                  )}
+                  <Link href={`/speedster/${qid}`}
+                    className={`flex items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 transition-colors group ${i !== 0 || showTopic ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
+                    <div className="shrink-0">
+                      {solved
+                        ? <CheckCircle size={18} className="text-green-500" />
+                        : <Circle size={18} className="text-gray-200 group-hover:text-yellow-300 transition-colors" />}
+                    </div>
+                    <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
+                    <span className={`flex-1 text-sm font-semibold truncate ${solved ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
+                    <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
+                      Runs {runs[String(q.id)] ?? 0}/4
+                    </span>
+                    <DifficultyBadge difficulty={q.difficulty} />
+                    <ChevronRight size={14} className="text-gray-300 group-hover:text-yellow-400 shrink-0 transition-colors" />
+                  </Link>
+                </div>
+              )
+            })}
+          </div>
+
+          <button
+            type="button"
+            onPointerDown={e => {
+              e.preventDefault()
+              const idx = Math.max(0, Math.min(totalDays - 1, todayScheduleIdx))
+              setDayIdx(idx)
+              const panel = cardsPanelRef.current
+              if (panel) panel.scrollTo({ top: 0, behavior: 'smooth' })
+              else window.scrollTo({ top: 0, behavior: 'smooth' })
+            }}
+            className="w-full mt-3 mb-6 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-800 text-sm font-bold hover:bg-yellow-100 transition-colors"
+            style={{ touchAction: 'manipulation' }}
+          >
+            View today questions
+          </button>
+
+          {/* Day dots */}
+          {totalDays <= 20 && (
+            <div className="flex justify-center gap-1.5 mb-10 flex-wrap">
+              {days.map((_, i) => (
+                <button key={i} onClick={() => setDayIdx(i)}
+                  className={`rounded-full transition-all ${i === dayIdx ? 'w-4 h-4 bg-yellow-500' : 'w-3 h-3 bg-gray-200 hover:bg-yellow-300'}`} />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* ── Reviews due + next 7 days (SR) ── */}
@@ -868,120 +895,140 @@ export default function SpeedsterPage() {
         </div>
 
         {/* ── Day card section ── */}
-        <div ref={todayCardsRef} className="flex items-center justify-between mb-4">
-          <button onClick={() => setDayIdx(i => Math.max(0, i - 1))} disabled={dayIdx === 0}
-            className="flex items-center gap-1 px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:border-yellow-300 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-            <ChevronLeft size={16} /> Prev
-          </button>
-          <div className="text-center">
-            <p className="text-base font-black text-gray-800">Day {dayIdx + 1}</p>
-            <p className="text-xs text-gray-400">{daySolved}/{currentDay.length} solved · {dayIdx + 1} of {totalDays} days</p>
-          </div>
-          <button onClick={() => setDayIdx(i => Math.min(totalDays - 1, i + 1))} disabled={dayIdx === totalDays - 1}
-            className="flex items-center gap-1 px-4 py-2 rounded-xl bg-yellow-500 text-white text-sm font-semibold hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-            Next <ChevronRight size={16} />
-          </button>
-        </div>
-
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <button
-            type="button"
-            onClick={() => setFilterSolved('All')}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-              filterSolved === 'All' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-            }`}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterSolved('Unsolved')}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-              filterSolved === 'Unsolved' ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
-            }`}
-          >
-            Unsolved
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterSolved('Solved')}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-              filterSolved === 'Solved' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-200 hover:border-green-300'
-            }`}
-          >
-            Solved
-          </button>
-        </div>
-
-        {/* Progress bar */}
-        <div className="h-1 bg-gray-100 rounded-full mb-5 overflow-hidden">
-          <div className="h-full bg-yellow-400 rounded-full transition-all duration-300"
-            style={{ width: totalDays ? `${((dayIdx + 1) / totalDays) * 100}%` : '0%' }} />
-        </div>
-
-        {/* Day card */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-3">
-          {currentDayFiltered.length === 0 && (
-            <div className="px-5 py-8 text-center text-sm text-gray-400">
-              No questions in this day match your filter.
+        {isRandomMode ? (
+          <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 mb-6">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-base">🎲</span>
+              <p className="text-sm font-bold text-purple-800">Random mode active</p>
             </div>
-          )}
-          {currentDayFiltered.map((qid, i) => {
-            const q = qMap[qid]
-            if (!q) return null
-            const solved = !!progress[String(qid)]?.solved
-            const topic = patternMap?.[qid] ?? 'Other'
-            const prevId = i > 0 ? currentDayFiltered[i - 1] : null
-            const prevTopic = prevId != null ? (patternMap?.[prevId] ?? 'Other') : null
-            const showTopic = i === 0 || topic !== prevTopic
-            return (
-              <div key={qid}>
-                {showTopic && (
-                  <div className={`px-3 sm:px-5 py-2 ${i !== 0 ? 'border-t border-gray-100' : ''}`}>
-                    <div className="px-3 py-2 text-[11px] font-bold text-gray-500 bg-gray-50 rounded-xl border border-gray-200">
-                      🧩 Topic: <span className="text-gray-800">{topic}</span>
-                    </div>
-                  </div>
-                )}
-                <Link href={`/speedster/${qid}`}
-                  className={`flex items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 transition-colors group ${i !== 0 || showTopic ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
-                  <div className="shrink-0">
-                    {solved
-                      ? <CheckCircle size={18} className="text-green-500" />
-                      : <Circle size={18} className="text-gray-200 group-hover:text-yellow-300 transition-colors" />}
-                  </div>
-                  <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
-                  <span className={`flex-1 text-sm font-semibold truncate ${solved ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
-                  <DifficultyBadge difficulty={q.difficulty} />
-                  <ChevronRight size={14} className="text-gray-300 group-hover:text-yellow-400 shrink-0 transition-colors" />
-                </Link>
-              </div>
-            )
-          })}
-        </div>
-
-        <button
-          type="button"
-          onPointerDown={e => {
-            e.preventDefault()
-            const idx = Math.max(0, Math.min(totalDays - 1, todayScheduleIdx))
-            setDayIdx(idx)
-            window.scrollTo({ top: 0, behavior: 'smooth' })
-          }}
-          className="w-full mt-3 mb-6 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-800 text-sm font-bold hover:bg-yellow-100 transition-colors"
-          style={{ touchAction: 'manipulation' }}
-        >
-          View today questions
-        </button>
-
-        {/* Day dots */}
-        {totalDays <= 20 && (
-          <div className="flex justify-center gap-1.5 mb-10 flex-wrap">
-            {days.map((_, i) => (
-              <button key={i} onClick={() => setDayIdx(i)}
-                className={`rounded-full transition-all ${i === dayIdx ? 'w-4 h-4 bg-yellow-500' : 'w-3 h-3 bg-gray-200 hover:bg-yellow-300'}`} />
-            ))}
+            <p className="text-xs text-purple-600 leading-snug">
+              No fixed daily order — use the pattern filter in the flashcards below to focus your practice, or head to Daily to pick today's pattern.
+            </p>
+            <Link
+              href="/daily"
+              className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors"
+            >
+              Go to Daily →
+            </Link>
           </div>
+        ) : (
+          <>
+            <div ref={todayCardsRef} className="flex items-center justify-between mb-4">
+              <button onClick={() => setDayIdx(i => Math.max(0, i - 1))} disabled={dayIdx === 0}
+                className="flex items-center gap-1 px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:border-yellow-300 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                <ChevronLeft size={16} /> Prev
+              </button>
+              <div className="text-center">
+                <p className="text-base font-black text-gray-800">Day {dayIdx + 1}</p>
+                <p className="text-xs text-gray-400">{daySolved}/{currentDay.length} solved · {dayIdx + 1} of {totalDays} days</p>
+              </div>
+              <button onClick={() => setDayIdx(i => Math.min(totalDays - 1, i + 1))} disabled={dayIdx === totalDays - 1}
+                className="flex items-center gap-1 px-4 py-2 rounded-xl bg-yellow-500 text-white text-sm font-semibold hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                Next <ChevronRight size={16} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => setFilterSolved('All')}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                  filterSolved === 'All' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                }`}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterSolved('Unsolved')}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                  filterSolved === 'Unsolved' ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+                }`}
+              >
+                Unsolved
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterSolved('Solved')}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                  filterSolved === 'Solved' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-200 hover:border-green-300'
+                }`}
+              >
+                Solved
+              </button>
+            </div>
+
+            {/* Progress bar */}
+            <div className="h-1 bg-gray-100 rounded-full mb-5 overflow-hidden">
+              <div className="h-full bg-yellow-400 rounded-full transition-all duration-300"
+                style={{ width: totalDays ? `${((dayIdx + 1) / totalDays) * 100}%` : '0%' }} />
+            </div>
+
+            {/* Day card */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-3">
+              {currentDayFiltered.length === 0 && (
+                <div className="px-5 py-8 text-center text-sm text-gray-400">
+                  No questions in this day match your filter.
+                </div>
+              )}
+              {currentDayFiltered.map((qid, i) => {
+                const q = qMap[qid]
+                if (!q) return null
+                const solved = !!progress[String(qid)]?.solved
+                const topic = patternMap?.[qid] ?? 'Other'
+                const prevId = i > 0 ? currentDayFiltered[i - 1] : null
+                const prevTopic = prevId != null ? (patternMap?.[prevId] ?? 'Other') : null
+                const showTopic = i === 0 || topic !== prevTopic
+                return (
+                  <div key={qid}>
+                    {showTopic && (
+                      <div className={`px-3 sm:px-5 py-2 ${i !== 0 ? 'border-t border-gray-100' : ''}`}>
+                        <div className="px-3 py-2 text-[11px] font-bold text-gray-500 bg-gray-50 rounded-xl border border-gray-200">
+                          🧩 Topic: <span className="text-gray-800">{topic}</span>
+                        </div>
+                      </div>
+                    )}
+                    <Link href={`/speedster/${qid}`}
+                      className={`flex items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 transition-colors group ${i !== 0 || showTopic ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
+                      <div className="shrink-0">
+                        {solved
+                          ? <CheckCircle size={18} className="text-green-500" />
+                          : <Circle size={18} className="text-gray-200 group-hover:text-yellow-300 transition-colors" />}
+                      </div>
+                      <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
+                      <span className={`flex-1 text-sm font-semibold truncate ${solved ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
+                      <DifficultyBadge difficulty={q.difficulty} />
+                      <ChevronRight size={14} className="text-gray-300 group-hover:text-yellow-400 shrink-0 transition-colors" />
+                    </Link>
+                  </div>
+                )
+              })}
+            </div>
+
+            <button
+              type="button"
+              onPointerDown={e => {
+                e.preventDefault()
+                const idx = Math.max(0, Math.min(totalDays - 1, todayScheduleIdx))
+                setDayIdx(idx)
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }}
+              className="w-full mt-3 mb-6 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-800 text-sm font-bold hover:bg-yellow-100 transition-colors"
+              style={{ touchAction: 'manipulation' }}
+            >
+              View today questions
+            </button>
+
+            {/* Day dots */}
+            {totalDays <= 20 && (
+              <div className="flex justify-center gap-1.5 mb-10 flex-wrap">
+                {days.map((_, i) => (
+                  <button key={i} onClick={() => setDayIdx(i)}
+                    className={`rounded-full transition-all ${i === dayIdx ? 'w-4 h-4 bg-yellow-500' : 'w-3 h-3 bg-gray-200 hover:bg-yellow-300'}`} />
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         {/* ── Flashcard section ── */}
