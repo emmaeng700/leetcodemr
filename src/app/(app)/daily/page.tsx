@@ -6,7 +6,7 @@ import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List, Brain, Star, Wind } from 'lucide-react'
-import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress } from '@/lib/db'
+import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
 import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
 import { QUICK_PATTERNS } from '@/lib/constants'
@@ -29,6 +29,10 @@ interface ProgressData {
   starred: boolean
   notes: string
 }
+
+type PlanMode = 'strict' | 'random'
+const PLAN_MODE_KEY    = 'lm_plan_mode_v1'
+const FOCUS_PATTERN_KEY = 'lm_focus_pattern_v1'
 
 interface StudyPlan {
   start_date: string
@@ -129,6 +133,12 @@ export default function DailyPage() {
   const [planCode, setPlanCode] = useState('')
   const [generating, setGenerating] = useState(false)
   const [startFromPattern, setStartFromPattern] = useState<string | null>(null)
+  const [setupMode, setSetupMode] = useState<PlanMode>('strict')   // chosen in setup form
+
+  // Active plan mode + random-mode state
+  const [activePlanMode, setActivePlanMode] = useState<PlanMode>('strict')
+  const [focusPattern, setFocusPattern] = useState<string | null>(null)
+  const [todaySolvedCount, setTodaySolvedCount] = useState(0)
 
   // Reset gate
   const [showResetPrompt, setShowResetPrompt] = useState(false)
@@ -156,8 +166,9 @@ export default function DailyPage() {
 
   const refreshProgress = useCallback(async () => {
     try {
-      const prog = await getProgress()
+      const [prog, solvedToday] = await Promise.all([getProgress(), getTodaySolvedCount()])
       setProgress(prog)
+      setTodaySolvedCount(solvedToday)
       setBreathers(getActiveBreathers())
     } catch {
       /* ignore */
@@ -183,16 +194,23 @@ export default function DailyPage() {
         localStorage.setItem(REBALANCE_KEY, '1')
       }
 
-      const [qs, prog, p, due] = await Promise.all([
+      const mode = (localStorage.getItem(PLAN_MODE_KEY) ?? 'strict') as PlanMode
+      setActivePlanMode(mode)
+      const savedFocus = localStorage.getItem(FOCUS_PATTERN_KEY)
+      if (savedFocus) setFocusPattern(savedFocus)
+
+      const [qs, prog, p, due, solvedToday] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getProgress(),
         getStudyPlan(),
         getDueReviews(),
+        getTodaySolvedCount(),
       ])
       setAllQuestions(qs)
       setProgress(prog)
       setPlan(p)
       setDueReviews(due)
+      setTodaySolvedCount(solvedToday)
       setBreathers(getActiveBreathers())
       setLoading(false)
     }
@@ -234,7 +252,8 @@ export default function DailyPage() {
   async function handleGenerate() {
     if (!planCode.trim()) return
     setGenerating(true)
-    const order = patternBasedStudyOrder(allQuestions, startFromPattern)
+    // For random mode the order is still generated (full pool), just not used day-by-day
+    const order = patternBasedStudyOrder(allQuestions, setupMode === 'random' ? null : startFromPattern)
     const newPlan: StudyPlan = {
       start_date: startDate,
       per_day: perDay,
@@ -244,6 +263,8 @@ export default function DailyPage() {
     const ok = await saveStudyPlan(newPlan)
     setGenerating(false)
     if (ok) {
+      localStorage.setItem(PLAN_MODE_KEY, setupMode)
+      setActivePlanMode(setupMode)
       setPlan(newPlan)
       toast.success('Study plan created!')
     } else {
@@ -290,6 +311,12 @@ export default function DailyPage() {
     return !!progress[String(id)]?.starred
   }
 
+  function setFocusPatternPersist(name: string | null) {
+    setFocusPattern(name)
+    if (name) localStorage.setItem(FOCUS_PATTERN_KEY, name)
+    else localStorage.removeItem(FOCUS_PATTERN_KEY)
+  }
+
   function toggleStar(id: number) {
     const n = !isStarred(id)
     setProgress(prev => ({
@@ -324,6 +351,33 @@ export default function DailyPage() {
           <div className="flex items-center justify-between mb-5">
             <span className="text-sm font-semibold text-[var(--text-muted)]">Total questions</span>
             <span className="text-2xl font-black text-indigo-600">{allQuestions.length}</span>
+          </div>
+
+          {/* Mode selector */}
+          <div className="mb-5">
+            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-2">Plan mode</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSetupMode('strict')}
+                className={`flex flex-col items-start px-3 py-3 rounded-xl border-2 text-left transition-colors ${
+                  setupMode === 'strict' ? 'border-indigo-500 bg-indigo-50' : 'border-[var(--border)] hover:border-indigo-300'
+                }`}
+              >
+                <span className="text-sm font-bold text-[var(--text)] flex items-center gap-1.5">🚔 Strict</span>
+                <span className="text-xs text-[var(--text-subtle)] mt-0.5 leading-snug">Fixed daily questions — follow the plan, no skipping</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSetupMode('random')}
+                className={`flex flex-col items-start px-3 py-3 rounded-xl border-2 text-left transition-colors ${
+                  setupMode === 'random' ? 'border-purple-500 bg-purple-50' : 'border-[var(--border)] hover:border-purple-300'
+                }`}
+              >
+                <span className="text-sm font-bold text-[var(--text)] flex items-center gap-1.5">🎲 Random</span>
+                <span className="text-xs text-[var(--text-subtle)] mt-0.5 leading-snug">Pick any topic each day — just hit your daily quota</span>
+              </button>
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -376,8 +430,8 @@ export default function DailyPage() {
             </div>
           </div>
 
-          {/* Pattern order + start-from picker */}
-          <div className="mt-4 bg-violet-50  border border-violet-200  rounded-xl px-3 py-3">
+          {/* Pattern order + start-from picker — strict mode only */}
+          {setupMode === 'strict' && <div className="mt-4 bg-violet-50  border border-violet-200  rounded-xl px-3 py-3">
             <div className="flex items-start gap-2 mb-3">
               <span className="text-base shrink-0">🧩</span>
               <div>
@@ -418,7 +472,7 @@ export default function DailyPage() {
                 </p>
               )}
             </div>
-          </div>
+          </div>}
 
           {/* Preview */}
           <div className="mt-4 bg-indigo-50  border border-indigo-200  rounded-xl p-4">
@@ -445,12 +499,54 @@ export default function DailyPage() {
     )
   }
 
-  // ACTIVE VIEW
+  // ── Active view derived data ──────────────────────────────────────────────
+  const isRandomMode = activePlanMode === 'random'
+
+  // Random mode: questions for selected focus pattern (unsolved first)
+  const randomFocusQs = useMemo(() => {
+    if (!isRandomMode || !focusPattern) return []
+    return allQuestions
+      .filter(q => (topicMap[q.id] ?? 'Other') === focusPattern)
+      .sort((a, b) => {
+        const aS = isSolved(a.id) ? 1 : 0
+        const bS = isSolved(b.id) ? 1 : 0
+        if (aS !== bS) return aS - bS  // unsolved first
+        const order = ['Easy', 'Medium', 'Hard']
+        return order.indexOf(a.difficulty) - order.indexOf(b.difficulty)
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRandomMode, focusPattern, allQuestions, topicMap, progress])
+
+  // Count unsolved per pattern for the pattern picker badge
+  const unsolvedByPattern = useMemo(() => {
+    if (!isRandomMode) return {}
+    const counts: Record<string, number> = {}
+    for (const q of allQuestions) {
+      const pat = topicMap[q.id] ?? 'Other'
+      if (!isSolved(q.id)) counts[pat] = (counts[pat] ?? 0) + 1
+    }
+    return counts
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRandomMode, allQuestions, topicMap, progress])
+
   const todayInfo = getTodayInfo(plan, allQuestions, progress)
   const totalDays = Math.ceil(plan.question_order.length / plan.per_day)
-  const progressPct = todayInfo.dayNumber ? Math.round((todayInfo.dayNumber / totalDays) * 100) : 0
-  const todayQs = todayInfo.questions || []
-  const todayDone = (todayInfo.questionIds || []).filter(id => isSolved(id)).length
+
+  // In random mode progress is based on total solved vs total questions
+  const totalSolved = useMemo(
+    () => allQuestions.filter(q => isSolved(q.id)).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allQuestions, progress]
+  )
+  const progressPct = isRandomMode
+    ? Math.round((totalSolved / Math.max(allQuestions.length, 1)) * 100)
+    : (todayInfo.dayNumber ? Math.round((todayInfo.dayNumber / totalDays) * 100) : 0)
+
+  const todayQs    = todayInfo.questions || []
+  const todayDone  = (todayInfo.questionIds || []).filter(id => isSolved(id)).length
+
+  // Random mode: day goal met when per_day new questions solved today
+  const randomGoalMet = isRandomMode && todaySolvedCount >= plan.per_day
 
   const dailyListItems = todayQs.map(q => (
     <a
@@ -480,10 +576,18 @@ export default function DailyPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-black text-[var(--text)] flex items-center gap-2">Study Plan</h1>
+          <h1 className="text-xl font-black text-[var(--text)] flex items-center gap-2">
+            Study Plan
+            {isRandomMode && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">🎲 Random</span>
+            )}
+          </h1>
           {!todayInfo.pending && !todayInfo.complete && todayInfo.dayNumber && (
             <p className="text-xs text-[var(--text-subtle)] mt-0.5">
-              Day {todayInfo.dayNumber} of {totalDays} · finish by {fmtDate(todayInfo.finishDate || '')}
+              {isRandomMode
+                ? `Day ${todayInfo.dayNumber} · ${totalSolved}/${allQuestions.length} solved · ${plan.per_day}/day goal`
+                : `Day ${todayInfo.dayNumber} of ${totalDays} · finish by ${fmtDate(todayInfo.finishDate || '')}`
+              }
             </p>
           )}
           {todayInfo.pending && (
@@ -613,26 +717,159 @@ export default function DailyPage() {
       {/* Progress bar */}
       {!todayInfo.pending && (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-4">
-          <div className="flex justify-between text-xs font-semibold text-[var(--text-muted)] mb-2">
-            <span>{todayInfo.complete ? 'Completed!' : `${todayInfo.dayNumber}/${totalDays} days`}</span>
-            <span className="text-indigo-600">{progressPct}%</span>
-          </div>
-          <div className="w-full h-3 bg-[var(--bg-muted)] rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-700"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
-          <div className="flex justify-between text-xs text-[var(--text-subtle)] mt-2">
-            <span>{fmtDate(plan.start_date)}</span>
-            <span>{todayInfo.daysLeft !== undefined ? `${todayInfo.daysLeft} days left` : ''}</span>
-            <span>{fmtDate(todayInfo.finishDate || '')}</span>
-          </div>
+          {isRandomMode ? (
+            <>
+              <div className="flex justify-between text-xs font-semibold text-[var(--text-muted)] mb-2">
+                <span>{totalSolved}/{allQuestions.length} questions solved</span>
+                <span className="text-purple-600">{progressPct}%</span>
+              </div>
+              <div className="w-full h-3 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full transition-all duration-700"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              {/* Today's quota mini-bar */}
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-xs text-[var(--text-subtle)] shrink-0">Today:</span>
+                <div className="flex-1 h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${randomGoalMet ? 'bg-green-500' : 'bg-amber-400'}`}
+                    style={{ width: `${Math.min(100, Math.round((todaySolvedCount / plan.per_day) * 100))}%` }}
+                  />
+                </div>
+                <span className={`text-xs font-bold shrink-0 ${randomGoalMet ? 'text-green-600' : 'text-amber-600'}`}>
+                  {todaySolvedCount}/{plan.per_day}
+                  {randomGoalMet ? ' ✓' : ''}
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex justify-between text-xs font-semibold text-[var(--text-muted)] mb-2">
+                <span>{todayInfo.complete ? 'Completed!' : `${todayInfo.dayNumber}/${totalDays} days`}</span>
+                <span className="text-indigo-600">{progressPct}%</span>
+              </div>
+              <div className="w-full h-3 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-700"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-[var(--text-subtle)] mt-2">
+                <span>{fmtDate(plan.start_date)}</span>
+                <span>{todayInfo.daysLeft !== undefined ? `${todayInfo.daysLeft} days left` : ''}</span>
+                <span>{fmtDate(todayInfo.finishDate || '')}</span>
+              </div>
+            </>
+          )}
         </div>
       )}
 
-      {/* TODAY'S QUESTIONS */}
-      {!todayInfo.pending && !todayInfo.complete && todayInfo.dayNumber && (
+      {/* TODAY'S QUESTIONS — random mode: pattern picker + pool */}
+      {!todayInfo.pending && !todayInfo.complete && todayInfo.dayNumber && isRandomMode && (
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-5 mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-[var(--text)] text-sm flex items-center gap-2">
+              <CalendarCheck size={15} className="text-purple-500" />
+              Today — Day {todayInfo.dayNumber}
+            </h2>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+              randomGoalMet ? 'bg-green-100 text-green-700' :
+              todaySolvedCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-purple-100 text-purple-700'
+            }`}>
+              {todaySolvedCount}/{plan.per_day} today
+            </span>
+          </div>
+
+          {randomGoalMet && (
+            <div className="mb-4 text-center text-green-600 font-bold text-sm bg-green-50 border border-green-200 rounded-xl py-2">
+              🎉 Daily quota hit! Reviews next, then you're done for today.
+            </div>
+          )}
+
+          {/* Pattern focus tabs */}
+          <p className="text-xs font-semibold text-[var(--text-muted)] mb-2">Focus on a pattern:</p>
+          <div className="flex gap-1.5 flex-wrap mb-4">
+            {QUICK_PATTERNS.map(p => {
+              const unsolved = unsolvedByPattern[p.name] ?? 0
+              const active = focusPattern === p.name
+              return (
+                <button
+                  key={p.name}
+                  type="button"
+                  onClick={() => setFocusPatternPersist(active ? null : p.name)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                    active
+                      ? 'bg-purple-600 text-white border-purple-600'
+                      : unsolved === 0
+                        ? 'bg-green-50 text-green-600 border-green-200 line-through opacity-60'
+                        : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-purple-400'
+                  }`}
+                >
+                  {p.name}
+                  {unsolved > 0 && <span className={`ml-0.5 ${active ? 'text-purple-200' : 'text-[var(--text-subtle)]'}`}>({unsolved})</span>}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Questions for the focused pattern */}
+          {focusPattern ? (
+            <div className="space-y-2">
+              {randomFocusQs.length === 0 ? (
+                <p className="text-xs text-[var(--text-subtle)] text-center py-4">No questions in this pattern.</p>
+              ) : (
+                randomFocusQs.map(q => {
+                  const solved = isSolved(q.id)
+                  return (
+                    <div
+                      key={q.id}
+                      className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                        solved ? 'bg-green-50 border-green-200 opacity-70' : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-purple-400/60'
+                      }`}
+                    >
+                      <div className="shrink-0">
+                        {solved ? <CheckCircle2 size={18} className="text-green-500" /> : <Circle size={18} className="text-[var(--text-subtle)]" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                          <span className={`text-sm font-semibold truncate ${solved ? 'text-green-500 line-through' : 'text-[var(--text)]'}`}>
+                            {q.title}
+                          </span>
+                          <a href={leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))} target="_blank" rel="noopener noreferrer"
+                            className="shrink-0 text-[var(--text-subtle)] hover:text-orange-400 transition-colors" onClick={e => e.stopPropagation()}>
+                            <ExternalLink size={11} />
+                          </a>
+                        </div>
+                        <div className="mt-1"><DifficultyBadge difficulty={q.difficulty} /></div>
+                      </div>
+                      <Link
+                        href={`/practice/${q.id}`}
+                        className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                          solved
+                            ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
+                            : 'bg-purple-600 text-white hover:bg-purple-700'
+                        }`}
+                      >
+                        {solved ? <><RotateCcw size={11} /> Revisit</> : <>Solve <ArrowRight size={12} /></>}
+                      </Link>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--text-subtle)] text-center py-6">
+              👆 Pick a pattern above to see its questions
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* TODAY'S QUESTIONS — strict mode */}
+      {!todayInfo.pending && !todayInfo.complete && todayInfo.dayNumber && !isRandomMode && (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-5 mb-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-[var(--text)] text-sm flex items-center gap-2">

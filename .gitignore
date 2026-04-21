@@ -39,3 +39,21 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Python
+__pycache__/
+*.pyc
+
+# Generated PDF output folders
+pattern_pdfs/
+LeetMastery_By_Pattern.pdf
+LeetMastery_By_Pattern_Print.pdf
+
+# Scraper / API caches
+.doocs_cache.json
+.full_langs_cache.json
+.all_sites_cache.json
+.answers_v2_cache.json
+.lc_content_cache.json
+.simplyleet_cache.json
+.img_cache/

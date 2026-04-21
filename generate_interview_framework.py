@@ -134,7 +134,7 @@ def make_pdf():
             "say": [
                 "Let me make sure I understand correctly…",
                 "A few quick clarifying questions before I start…",
-                "So n can be up to 10⁵, which suggests I'll need O(n log n) or better",
+                "So n can be up to 10<super>5</super>, which suggests I'll need O(n log n) or better",
             ],
         },
         {
@@ -253,72 +253,90 @@ def make_pdf():
     story.append(Spacer(1, 7))
 
     # ══════════════════════════════════════════════════════════════════════════
-    # SECTION 2 — Complexity hint from constraints | Scoring | Green/Red flags
+    # SECTION 2 — Complexity  (full width, stacked)
     # ══════════════════════════════════════════════════════════════════════════
-    C3  = (PW - 2*GAP) / 3
+    CL = 1.25 * inch          # left label column
+    CR = PW - CL              # right description column
 
-    # ── Constraints → complexity ──────────────────────────────────────────────
-    cx_banner = section("② n → Expected Complexity", TEAL, TEAL_L)
+    story.append(section("② n → Expected Complexity", TEAL, TEAL_L))
+    story.append(Spacer(1, 2))
     cx_rows = [
-        ["n ≤ 10",     "O(n!)  ·  O(2ⁿ)  backtracking / brute"],
-        ["n ≤ 20",     "O(2ⁿ)  bitmask DP / subsets"],
-        ["n ≤ 100",    "O(n³)  triple nested loops"],
-        ["n ≤ 1 000",  "O(n²)  nested loops, DP grid"],
-        ["n ≤ 10⁵",    "O(n log n)  sort + scan, heap, BS"],
-        ["n ≤ 10⁶",    "O(n)  single pass, hash map"],
-        ["n ≤ 10⁹",    "O(log n) or O(1)  math / binary search"],
+        ("n ≤ 10",    "O(n!)  ·  O(2<super>n</super>)   —   backtracking / brute force"),
+        ("n ≤ 20",    "O(2<super>n</super>)   —   bitmask DP / subsets"),
+        ("n ≤ 100",   "O(n<super>3</super>)   —   triple nested loops"),
+        ("n ≤ 1 000", "O(n<super>2</super>)   —   nested loops, DP grid"),
+        ("n ≤ 10<super>5</super>", "O(n log n)   —   sort + scan, heap, binary search"),
+        ("n ≤ 10<super>6</super>", "O(n)   —   single pass, hash map"),
+        ("n ≤ 10<super>9</super>", "O(log n) or O(1)   —   math / binary search"),
     ]
     cx_data = [[
-        Paragraph(r[0], S("cn", fontSize=7, fontName="Helvetica-Bold",
-                          textColor=TEAL, leading=9)),
-        Paragraph(r[1], S("cv", fontSize=6.8, fontName="Helvetica",
-                          textColor=G700, leading=9)),
+        Paragraph(r[0], S("cn", fontSize=7.5, fontName="Helvetica-Bold",
+                          textColor=TEAL, leading=10)),
+        Paragraph(r[1], S("cv", fontSize=7.5, fontName="Helvetica",
+                          textColor=G700, leading=10)),
     ] for r in cx_rows]
-    cx_tbl = Table(cx_data, colWidths=[0.62*C3, 1.38*C3])
+    cx_tbl = Table(cx_data, colWidths=[CL, CR])
     cx_tbl.setStyle(TableStyle([
         ("ROWBACKGROUNDS", (0,0),(-1,-1), [WHITE, G50]),
         ("LINEBELOW",      (0,0),(-1,-2), 0.25, G200),
-        ("TOPPADDING",     (0,0),(-1,-1), 3),
-        ("BOTTOMPADDING",  (0,0),(-1,-1), 3),
-        ("LEFTPADDING",    (0,0),(-1,-1), 6),
-        ("RIGHTPADDING",   (0,0),(-1,-1), 4),
+        ("TOPPADDING",     (0,0),(-1,-1), 4),
+        ("BOTTOMPADDING",  (0,0),(-1,-1), 4),
+        ("LEFTPADDING",    (0,0),(-1,-1), 8),
+        ("RIGHTPADDING",   (0,0),(-1,-1), 8),
         ("BOX",            (0,0),(-1,-1), 0.4, G300),
+        ("LINEAFTER",      (0,0),(0,-1),  0.3, G200),
     ]))
+    story.append(cx_tbl)
+    story.append(Spacer(1, 6))
 
-    # ── What interviewers score ───────────────────────────────────────────────
-    score_banner = section("③ What Interviewers Score", GREEN, GREEN_L)
+    # ══════════════════════════════════════════════════════════════════════════
+    # SECTION 3 — What Interviewers Score  (full width)
+    # ══════════════════════════════════════════════════════════════════════════
+    SL = 1.35 * inch          # category name column
+    SR = PW - SL
+
+    story.append(section("③ What Interviewers Score", GREEN, GREEN_L))
+    story.append(Spacer(1, 2))
     scores = [
-        ("Communication",   "Narrate your thinking. Never silent > 60 sec."),
-        ("Problem Solving", "Brute → insight → optimal. Show the journey."),
-        ("Code Quality",    "Readable names, no magic numbers, consistent style."),
-        ("Testing",         "Check edge cases yourself before being asked."),
-        ("Adaptability",    "Take hints gracefully. Update approach without ego."),
-        ("Correctness",     "Working solution first, then optimise if time allows."),
+        ("Communication",   "Narrate your thinking out loud. Never go silent for more than 60 seconds."),
+        ("Problem Solving", "Brute → insight → optimal. Show the full journey, not just the answer."),
+        ("Code Quality",    "Readable variable names, no magic numbers, consistent indentation and style."),
+        ("Testing",         "Check edge cases yourself before the interviewer has to ask."),
+        ("Adaptability",    "Take hints gracefully. Update your approach without ego or defensiveness."),
+        ("Correctness",     "Get a working solution first, then optimise only if time allows."),
     ]
     score_data = [[
-        Paragraph(f"<b>{s[0]}</b>", S("sk", fontSize=7, fontName="Helvetica-Bold",
-                                       textColor=GREEN, leading=9)),
-        Paragraph(s[1], S("sv", fontSize=6.8, fontName="Helvetica",
-                           textColor=G700, leading=9)),
+        Paragraph(f"<b>{s[0]}</b>", S("sk", fontSize=7.5, fontName="Helvetica-Bold",
+                                       textColor=GREEN, leading=10)),
+        Paragraph(s[1], S("sv", fontSize=7.5, fontName="Helvetica",
+                           textColor=G700, leading=10)),
     ] for s in scores]
-    score_tbl = Table(score_data, colWidths=[0.72*C3, 1.28*C3])
+    score_tbl = Table(score_data, colWidths=[SL, SR])
     score_tbl.setStyle(TableStyle([
         ("ROWBACKGROUNDS", (0,0),(-1,-1), [WHITE, G50]),
         ("LINEBELOW",      (0,0),(-1,-2), 0.25, G200),
-        ("TOPPADDING",     (0,0),(-1,-1), 3),
-        ("BOTTOMPADDING",  (0,0),(-1,-1), 3),
-        ("LEFTPADDING",    (0,0),(-1,-1), 6),
-        ("RIGHTPADDING",   (0,0),(-1,-1), 4),
+        ("TOPPADDING",     (0,0),(-1,-1), 4),
+        ("BOTTOMPADDING",  (0,0),(-1,-1), 4),
+        ("LEFTPADDING",    (0,0),(-1,-1), 8),
+        ("RIGHTPADDING",   (0,0),(-1,-1), 8),
         ("BOX",            (0,0),(-1,-1), 0.4, G300),
+        ("LINEAFTER",      (0,0),(0,-1),  0.3, G200),
     ]))
+    story.append(score_tbl)
+    story.append(Spacer(1, 6))
 
-    # ── Green flags / Red flags ───────────────────────────────────────────────
-    flags_banner = section("④ Green ✓ vs Red ✗ Flags", RED, RED_L)
+    # ══════════════════════════════════════════════════════════════════════════
+    # SECTION 4 — Green ✓ vs Red ✗ Flags  (full width, 2 equal cols)
+    # ══════════════════════════════════════════════════════════════════════════
+    FC = PW / 2               # each flag column
+
+    story.append(section("④ Green ✓ vs Red ✗ Flags", RED, RED_L))
+    story.append(Spacer(1, 2))
     green_flags = [
         "Ask 2–3 clarifying questions before coding",
         "Name the pattern out loud before solving",
         "State brute force + complexity before optimising",
-        "Walk through example by hand before coding",
+        "Walk through an example by hand before coding",
         "Catch your own bugs during the trace",
         "Say 'let me think' — never go silent",
         "Offer to test edge cases proactively",
@@ -326,55 +344,32 @@ def make_pdf():
     red_flags = [
         "Silent for > 60 seconds without narrating",
         "Jump straight to code without any explanation",
-        "Ignore edge cases (empty, null, overflow)",
-        "Present optimal with no mention of brute force",
-        "Get defensive when interviewer hints at issues",
+        "Ignore edge cases (empty input, null, overflow)",
+        "Present optimal solution with no mention of brute force",
+        "Get defensive when the interviewer hints at issues",
         "Spend > 5 min on brute force when optimal is clear",
-        "Not test the solution before declaring done",
+        "Not test the solution before declaring it done",
     ]
     flag_rows = []
     for g, r in zip(green_flags, red_flags):
         flag_rows.append([
-            Paragraph(f'<font color="#16A34A">✓</font>  {g}',
-                      S("gf", fontSize=6.5, fontName="Helvetica", textColor=G700, leading=9)),
-            Paragraph(f'<font color="#DC2626">✗</font>  {r}',
-                      S("rf", fontSize=6.5, fontName="Helvetica", textColor=G700, leading=9)),
+            Paragraph(f'<font color="#16A34A"><b>✓</b></font>  {g}',
+                      S("gf", fontSize=7.5, fontName="Helvetica", textColor=G700, leading=10)),
+            Paragraph(f'<font color="#DC2626"><b>✗</b></font>  {r}',
+                      S("rf", fontSize=7.5, fontName="Helvetica", textColor=G700, leading=10)),
         ])
-    flag_tbl = Table(flag_rows, colWidths=[C3*0.5, C3*0.5])
+    flag_tbl = Table(flag_rows, colWidths=[FC, FC])
     flag_tbl.setStyle(TableStyle([
         ("ROWBACKGROUNDS", (0,0),(-1,-1), [WHITE, G50]),
         ("LINEBELOW",      (0,0),(-1,-2), 0.25, G200),
-        ("TOPPADDING",     (0,0),(-1,-1), 3),
-        ("BOTTOMPADDING",  (0,0),(-1,-1), 3),
-        ("LEFTPADDING",    (0,0),(-1,-1), 6),
-        ("RIGHTPADDING",   (0,0),(-1,-1), 4),
+        ("TOPPADDING",     (0,0),(-1,-1), 4),
+        ("BOTTOMPADDING",  (0,0),(-1,-1), 4),
+        ("LEFTPADDING",    (0,0),(-1,-1), 8),
+        ("RIGHTPADDING",   (0,0),(-1,-1), 8),
         ("BOX",            (0,0),(-1,-1), 0.4, G300),
         ("LINEAFTER",      (0,0),(0,-1),  0.3, G200),
     ]))
-
-    # Assemble 3-col lower section
-    def col_stack(banner, tbl, spacer_after=4):
-        return [banner, Spacer(1,2), tbl, Spacer(1, spacer_after)]
-
-    lc = col_stack(cx_banner,    cx_tbl)
-    mc = col_stack(score_banner, score_tbl)
-    rc = col_stack(flags_banner, flag_tbl)
-
-    ml2 = max(len(lc), len(mc), len(rc))
-    for lst in (lc, mc, rc):
-        while len(lst) < ml2: lst.append(Spacer(1,1))
-
-    grid3 = Table(list(zip(lc, mc, rc)), colWidths=[C3, C3, C3])
-    grid3.setStyle(TableStyle([
-        ("VALIGN",        (0,0),(-1,-1), "TOP"),
-        ("LEFTPADDING",   (0,0),(-1,-1), 0),
-        ("RIGHTPADDING",  (0,0),(0,-1),  int(GAP)),
-        ("RIGHTPADDING",  (1,0),(1,-1),  int(GAP)),
-        ("RIGHTPADDING",  (2,0),(2,-1),  0),
-        ("TOPPADDING",    (0,0),(-1,-1), 0),
-        ("BOTTOMPADDING", (0,0),(-1,-1), 0),
-    ]))
-    story.append(grid3)
+    story.append(flag_tbl)
 
     # ── Footer ────────────────────────────────────────────────────────────────
     story.append(Spacer(1, 5))

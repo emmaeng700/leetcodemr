@@ -802,23 +802,35 @@ export async function rebalanceReviews(horizonDays = 60): Promise<void> {
 export async function syncStreakActivityFromGoals(): Promise<void> {
   const today = todayISOChicago()
   const plan = await getStudyPlan()
-  const { data: progressRows } = await supabase
-    .from('progress')
-    .select('question_id,solved')
-    .eq('user_id', USER_ID)
-
-  const progressMap: Record<string, { solved?: boolean }> = {}
-  for (const row of progressRows ?? []) {
-    const r = row as { question_id: number; solved: boolean }
-    progressMap[String(r.question_id)] = { solved: !!r.solved }
-  }
+  const dueReviews = await getDueReviews()
 
   const clearToday = async () => {
     await supabase.from('activity_log').delete().eq('user_id', USER_ID).eq('date', today)
   }
 
-  const dueReviews = await getDueReviews()
-  const goalsMet = computeDailyGoalsMetToday(plan, progressMap, dueReviews.length)
+  // Random mode: day done when solved_log[today] >= per_day (+ reviews clear)
+  const mode = typeof window !== 'undefined'
+    ? (localStorage.getItem('lm_plan_mode_v1') ?? 'strict')
+    : 'strict'
+
+  let goalsMet = false
+
+  if (mode === 'random' && plan) {
+    const solvedToday = await getTodaySolvedCount()
+    goalsMet = solvedToday >= (plan.per_day ?? 1) && dueReviews.length === 0
+  } else {
+    const { data: progressRows } = await supabase
+      .from('progress')
+      .select('question_id,solved')
+      .eq('user_id', USER_ID)
+
+    const progressMap: Record<string, { solved?: boolean }> = {}
+    for (const row of progressRows ?? []) {
+      const r = row as { question_id: number; solved: boolean }
+      progressMap[String(r.question_id)] = { solved: !!r.solved }
+    }
+    goalsMet = computeDailyGoalsMetToday(plan, progressMap, dueReviews.length)
+  }
 
   if (goalsMet) {
     await supabase.from('activity_log').upsert({

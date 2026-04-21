@@ -41,8 +41,8 @@ QUESTIONS    = SCRIPT_DIR / "public" / "questions_full.json"
 OUTPUT_PDF   = SCRIPT_DIR / "LeetMastery_By_Pattern.pdf"
 OUTPUT_PDF_PRINT = SCRIPT_DIR / "LeetMastery_By_Pattern_Print.pdf"
 # Printable: light gray code boxes, monochrome tokens (better on B&W / home printers)
-PRINT_CODE_FG = "#111827"
-PRINT_INLINE_CODE = "#374151"
+PRINT_CODE_FG = "#000000"       # pure black — crisp on any printer
+PRINT_INLINE_CODE = "#000000"
 DOOCS_CACHE  = SCRIPT_DIR / ".doocs_cache.json"       # desc HTML + all-lang blocks from Doocs
 SITES_CACHE  = SCRIPT_DIR / ".full_langs_cache.json"  # all sites, all languages
 LC_CACHE     = SCRIPT_DIR / ".lc_content_cache.json"  # editorial (already populated)
@@ -59,8 +59,8 @@ GRAY_500   = HexColor("#6B7280")
 GREEN      = HexColor("#16A34A")
 CODE_BG    = HexColor("#282C34")
 EXAMPLE_BG = HexColor("#F9FAFB")
-PRINT_CODE_BG = HexColor("#F3F4F6")
-PRINT_BANNER_BG = HexColor("#E5E7EB")
+PRINT_CODE_BG = HexColor("#FFFFFF")   # pure white — no grey wash on printer
+PRINT_BANNER_BG = HexColor("#F3F4F6") # very light grey banner
 
 DIFF_COLORS = {
     "easy":   (HexColor("#D1FAE5"), HexColor("#065F46")),
@@ -152,13 +152,13 @@ def _first_arr_param(param_names):
 BRUTE_FORCE_BY_SLUG = {
     # ── Arrays & Hashing ──────────────────────────────────────────────────────
     "two-sum":
-        "        # Brute Force O(n²) — check every pair; O(1) extra space\n"
+        "        # Brute Force O(n^2) — check every pair; O(1) extra space\n"
         "        for i in range(len(nums)):\n"
         "            for j in range(i + 1, len(nums)):\n"
         "                if nums[i] + nums[j] == target:\n"
         "                    return [i, j]",
     "contains-duplicate":
-        "        # Brute Force O(n²) — compare every pair\n"
+        "        # Brute Force O(n^2) — compare every pair\n"
         "        for i in range(len(nums)):\n"
         "            for j in range(i + 1, len(nums)):\n"
         "                if nums[i] == nums[j]:\n"
@@ -168,7 +168,7 @@ BRUTE_FORCE_BY_SLUG = {
         "        # Brute Force O(n log n) — sort both strings and compare\n"
         "        return sorted(s) == sorted(t)",
     "group-anagrams":
-        "        # Brute Force O(n² · k log k) — compare each pair by sorting\n"
+        "        # Brute Force O(n^2 · k log k) — compare each pair by sorting\n"
         "        n = len(strs)\n"
         "        used = [False] * n\n"
         "        result = []\n"
@@ -189,7 +189,7 @@ BRUTE_FORCE_BY_SLUG = {
         "            count[num] = count.get(num, 0) + 1\n"
         "        return sorted(count, key=lambda x: -count[x])[:k]",
     "product-of-array-except-self":
-        "        # Brute Force O(n²) — for each index multiply all other elements\n"
+        "        # Brute Force O(n^2) — for each index multiply all other elements\n"
         "        n = len(nums)\n"
         "        result = []\n"
         "        for i in range(n):\n"
@@ -200,7 +200,7 @@ BRUTE_FORCE_BY_SLUG = {
         "            result.append(prod)\n"
         "        return result",
     "longest-consecutive-sequence":
-        "        # Brute Force O(n²) — for each number extend its sequence\n"
+        "        # Brute Force O(n^2) — for each number extend its sequence\n"
         "        num_set = set(nums)\n"
         "        best = 0\n"
         "        for num in nums:\n"
@@ -223,13 +223,13 @@ BRUTE_FORCE_BY_SLUG = {
         "        cleaned = ''.join(c.lower() for c in s if c.isalnum())\n"
         "        return cleaned == cleaned[::-1]",
     "two-sum-ii-input-array-is-sorted":
-        "        # Brute Force O(n²) — check every pair (ignore sorted property)\n"
+        "        # Brute Force O(n^2) — check every pair (ignore sorted property)\n"
         "        for i in range(len(numbers)):\n"
         "            for j in range(i + 1, len(numbers)):\n"
         "                if numbers[i] + numbers[j] == target:\n"
         "                    return [i + 1, j + 1]",
     "3sum":
-        "        # Brute Force O(n³) — check all triples, deduplicate via set\n"
+        "        # Brute Force O(n^3) — check all triples, deduplicate via set\n"
         "        nums.sort()\n"
         "        res = set()\n"
         "        for i in range(len(nums)):\n"
@@ -239,7 +239,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                        res.add((nums[i], nums[j], nums[k]))\n"
         "        return [list(t) for t in res]",
     "container-with-most-water":
-        "        # Brute Force O(n²) — try every pair of lines\n"
+        "        # Brute Force O(n^2) — try every pair of lines\n"
         "        res = 0\n"
         "        for i in range(len(height)):\n"
         "            for j in range(i + 1, len(height)):\n"
@@ -247,7 +247,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                res = max(res, water)\n"
         "        return res",
     "trapping-rain-water":
-        "        # Brute Force O(n²) — for each bar scan left/right for max heights\n"
+        "        # Brute Force O(n^2) — for each bar scan left/right for max heights\n"
         "        n = len(height)\n"
         "        res = 0\n"
         "        for i in range(n):\n"
@@ -258,7 +258,7 @@ BRUTE_FORCE_BY_SLUG = {
 
     # ── Sliding Window ────────────────────────────────────────────────────────
     "best-time-to-buy-and-sell-stock":
-        "        # Brute Force O(n²) — try every buy/sell pair\n"
+        "        # Brute Force O(n^2) — try every buy/sell pair\n"
         "        n = len(prices)\n"
         "        res = 0\n"
         "        for i in range(n):\n"
@@ -266,7 +266,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                res = max(res, prices[j] - prices[i])\n"
         "        return res",
     "longest-substring-without-repeating-characters":
-        "        # Brute Force O(n²) — enumerate every starting index; expand until repeat\n"
+        "        # Brute Force O(n^2) — enumerate every starting index; expand until repeat\n"
         "        res = 0\n"
         "        for i in range(len(s)):\n"
         "            seen = set()\n"
@@ -277,7 +277,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                res = max(res, j - i + 1)\n"
         "        return res",
     "longest-repeating-character-replacement":
-        "        # Brute Force O(n³) — check every substring; count most-frequent char\n"
+        "        # Brute Force O(n^3) — check every substring; count most-frequent char\n"
         "        n = len(s)\n"
         "        res = 0\n"
         "        for i in range(n):\n"
@@ -288,7 +288,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                    res = max(res, len(sub))\n"
         "        return res",
     "minimum-window-substring":
-        "        # Brute Force O(n²) — enumerate all substrings, check coverage\n"
+        "        # Brute Force O(n^2) — enumerate all substrings, check coverage\n"
         "        from collections import Counter\n"
         "        need = Counter(t)\n"
         "        res = ''\n"
@@ -313,7 +313,7 @@ BRUTE_FORCE_BY_SLUG = {
 
     # ── Stack ─────────────────────────────────────────────────────────────────
     "valid-parentheses":
-        "        # Brute Force O(n²) — repeatedly remove matched pairs until nothing changes\n"
+        "        # Brute Force O(n^2) — repeatedly remove matched pairs until nothing changes\n"
         "        prev = None\n"
         "        while s != prev:\n"
         "            prev = s\n"
@@ -330,7 +330,7 @@ BRUTE_FORCE_BY_SLUG = {
         "        from itertools import product\n"
         "        return [''.join(c) for c in product('()', repeat=2*n) if is_valid(c)]",
     "daily-temperatures":
-        "        # Brute Force O(n²) — for each day scan forward for warmer day\n"
+        "        # Brute Force O(n^2) — for each day scan forward for warmer day\n"
         "        n = len(temperatures)\n"
         "        res = [0] * n\n"
         "        for i in range(n):\n"
@@ -340,7 +340,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                    break\n"
         "        return res",
     "largest-rectangle-in-histogram":
-        "        # Brute Force O(n²) — fix left bar, expand right, track min height\n"
+        "        # Brute Force O(n^2) — fix left bar, expand right, track min height\n"
         "        n = len(heights)\n"
         "        res = 0\n"
         "        for i in range(n):\n"
@@ -488,7 +488,7 @@ BRUTE_FORCE_BY_SLUG = {
         "            total //= 10\n"
         "        return dummy.next",
     "find-the-duplicate-number":
-        "        # Brute Force O(n²) — for each number count its occurrences\n"
+        "        # Brute Force O(n^2) — for each number count its occurrences\n"
         "        for i in range(len(nums)):\n"
         "            count = 0\n"
         "            for j in range(len(nums)):\n"
@@ -538,7 +538,7 @@ BRUTE_FORCE_BY_SLUG = {
         "        if not root: return 0\n"
         "        return 1 + max(self.maxDepth(root.left), self.maxDepth(root.right))",
     "diameter-of-binary-tree":
-        "        # Brute Force O(n²) — for each node recompute left/right heights independently\n"
+        "        # Brute Force O(n^2) — for each node recompute left/right heights independently\n"
         "        def height(node):\n"
         "            if not node: return 0\n"
         "            return 1 + max(height(node.left), height(node.right))\n"
@@ -550,7 +550,7 @@ BRUTE_FORCE_BY_SLUG = {
         "        right_best = self.diameterOfBinaryTree(root.right)\n"
         "        return max(through_root, left_best, right_best)",
     "balanced-binary-tree":
-        "        # Brute Force O(n²) — for each node compute left/right heights separately\n"
+        "        # Brute Force O(n^2) — for each node compute left/right heights separately\n"
         "        def height(node):\n"
         "            if not node: return 0\n"
         "            return 1 + max(height(node.left), height(node.right))\n"
@@ -644,7 +644,7 @@ BRUTE_FORCE_BY_SLUG = {
         "        inorder(root)\n"
         "        return vals[k - 1]",
     "construct-binary-tree-from-preorder-and-inorder-traversal":
-        "        # Brute Force O(n²) — find root in inorder by linear scan each call\n"
+        "        # Brute Force O(n^2) — find root in inorder by linear scan each call\n"
         "        if not preorder or not inorder: return None\n"
         "        root_val = preorder[0]\n"
         "        root = TreeNode(root_val)\n"
@@ -653,7 +653,7 @@ BRUTE_FORCE_BY_SLUG = {
         "        root.right = self.buildTree(preorder[mid+1:],   inorder[mid+1:])\n"
         "        return root",
     "binary-tree-maximum-path-sum":
-        "        # Brute Force O(n²) — for every node compute max gain in subtree\n"
+        "        # Brute Force O(n^2) — for every node compute max gain in subtree\n"
         "        self.res = float('-inf')\n"
         "        def max_gain(node):\n"
         "            if not node: return 0\n"
@@ -702,7 +702,7 @@ BRUTE_FORCE_BY_SLUG = {
         "        if len(nums) == 1: return nums[0]\n"
         "        return max(rob_range(nums[:-1]), rob_range(nums[1:]))",
     "longest-palindromic-substring":
-        "        # Brute Force O(n³) — check every substring for palindrome property\n"
+        "        # Brute Force O(n^3) — check every substring for palindrome property\n"
         "        def is_palindrome(sub):\n"
         "            return sub == sub[::-1]\n"
         "        res = ''\n"
@@ -713,7 +713,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                    res = sub\n"
         "        return res",
     "palindromic-substrings":
-        "        # Brute Force O(n³) — check every substring\n"
+        "        # Brute Force O(n^3) — check every substring\n"
         "        count = 0\n"
         "        for i in range(len(s)):\n"
         "            for j in range(i + 1, len(s) + 1):\n"
@@ -740,7 +740,7 @@ BRUTE_FORCE_BY_SLUG = {
         "        res = dp(amount)\n"
         "        return res if res != float('inf') else -1",
     "maximum-product-subarray":
-        "        # Brute Force O(n²) — compute product of every contiguous subarray\n"
+        "        # Brute Force O(n^2) — compute product of every contiguous subarray\n"
         "        res = nums[0]\n"
         "        for i in range(len(nums)):\n"
         "            prod = 1\n"
@@ -938,7 +938,7 @@ BRUTE_FORCE_BY_SLUG = {
 
     # ── Graphs ────────────────────────────────────────────────────────────────
     "number-of-islands":
-        "        # Brute Force O(m²·n²) — DFS from every unvisited land cell\n"
+        "        # Brute Force O(m^2·n^2) — DFS from every unvisited land cell\n"
         "        if not grid: return 0\n"
         "        m, n = len(grid), len(grid[0])\n"
         "        visited = set()\n"
@@ -956,7 +956,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                    count += 1\n"
         "        return count",
     "max-area-of-island":
-        "        # Brute Force O(m²·n²) — DFS from every unvisited land cell, track size\n"
+        "        # Brute Force O(m^2·n^2) — DFS from every unvisited land cell, track size\n"
         "        m, n = len(grid), len(grid[0])\n"
         "        visited = set()\n"
         "        def dfs(r, c):\n"
@@ -966,7 +966,7 @@ BRUTE_FORCE_BY_SLUG = {
         "            return 1 + dfs(r+1,c) + dfs(r-1,c) + dfs(r,c+1) + dfs(r,c-1)\n"
         "        return max((dfs(r,c) for r in range(m) for c in range(n)), default=0)",
     "pacific-atlantic-water-flow":
-        "        # Brute Force O(m²·n²) — for each cell DFS to check if water reaches both oceans\n"
+        "        # Brute Force O(m^2·n^2) — for each cell DFS to check if water reaches both oceans\n"
         "        if not heights: return []\n"
         "        m, n = len(heights), len(heights[0])\n"
         "        def can_reach_ocean(sr, sc, ocean_check):\n"
@@ -1051,7 +1051,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                if board[r][c]=='O' and (r,c) not in safe:\n"
         "                    board[r][c]='X'",
     "rotting-oranges":
-        "        # Brute Force O((m·n)²) — repeatedly scan entire grid, spread rot each pass\n"
+        "        # Brute Force O((m·n)^2) — repeatedly scan entire grid, spread rot each pass\n"
         "        from copy import deepcopy\n"
         "        m, n = len(grid), len(grid[0])\n"
         "        minutes = 0\n"
@@ -1086,7 +1086,7 @@ BRUTE_FORCE_BY_SLUG = {
         "        dfs(src, 0, 0)\n"
         "        return self.res if self.res < float('inf') else -1",
     "word-ladder":
-        "        # Brute Force O(n²·L) — BFS; try all word pairs each level (no pattern precomp)\n"
+        "        # Brute Force O(n^2·L) — BFS; try all word pairs each level (no pattern precomp)\n"
         "        from collections import deque\n"
         "        word_set = set(wordList)\n"
         "        if endWord not in word_set: return 0\n"
@@ -1117,7 +1117,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                clone[curr].neighbors.append(clone[nb])\n"
         "        return clone[node]",
     "walls-and-gates":
-        "        # Brute Force O((m·n)²) — BFS from every empty room independently\n"
+        "        # Brute Force O((m·n)^2) — BFS from every empty room independently\n"
         "        from collections import deque\n"
         "        m, n = len(rooms), len(rooms[0])\n"
         "        INF = 2147483647\n"
@@ -1149,7 +1149,7 @@ BRUTE_FORCE_BY_SLUG = {
         "        res = max(dist.values())\n"
         "        return res if res < float('inf') else -1",
     "redundant-connection":
-        "        # Brute Force O(n²) — try removing each edge; check if graph stays connected\n"
+        "        # Brute Force O(n^2) — try removing each edge; check if graph stays connected\n"
         "        def is_connected(edges, n):\n"
         "            from collections import defaultdict, deque\n"
         "            graph = defaultdict(list)\n"
@@ -1195,7 +1195,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                d=(d+1)%4; dr,dc=directions[d]; r+=dr; c+=dc\n"
         "        return result",
     "rotate-image":
-        "        # Brute Force O(n²) space — copy to new matrix with rotated indices\n"
+        "        # Brute Force O(n^2) space — copy to new matrix with rotated indices\n"
         "        n = len(matrix)\n"
         "        copy = [row[:] for row in matrix]\n"
         "        for r in range(n):\n"
@@ -1238,7 +1238,7 @@ BRUTE_FORCE_BY_SLUG = {
 
     # ── Greedy ────────────────────────────────────────────────────────────────
     "maximum-subarray":
-        "        # Brute Force O(n²) — compute sum of every contiguous subarray\n"
+        "        # Brute Force O(n^2) — compute sum of every contiguous subarray\n"
         "        res = nums[0]\n"
         "        for i in range(len(nums)):\n"
         "            curr = 0\n"
@@ -1255,7 +1255,7 @@ BRUTE_FORCE_BY_SLUG = {
         "            return False\n"
         "        return can_reach(0)",
     "jump-game-ii":
-        "        # Brute Force O(n²) — BFS level by level, each level is one jump\n"
+        "        # Brute Force O(n^2) — BFS level by level, each level is one jump\n"
         "        from collections import deque\n"
         "        if len(nums) <= 1: return 0\n"
         "        queue = deque([0])\n"
@@ -1273,7 +1273,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                        queue.append(nxt)\n"
         "        return jumps",
     "gas-station":
-        "        # Brute Force O(n²) — try starting at every station\n"
+        "        # Brute Force O(n^2) — try starting at every station\n"
         "        n = len(gas)\n"
         "        for start in range(n):\n"
         "            tank = 0\n"
@@ -1285,7 +1285,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                return start\n"
         "        return -1",
     "merge-intervals":
-        "        # Brute Force O(n² log n) — repeatedly merge any two overlapping intervals\n"
+        "        # Brute Force O(n^2 log n) — repeatedly merge any two overlapping intervals\n"
         "        intervals.sort(key=lambda x: x[0])\n"
         "        merged = True\n"
         "        while merged:\n"
@@ -1312,7 +1312,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                removed += 1  # drop overlapping interval\n"
         "        return removed",
     "meeting-rooms":
-        "        # Brute Force O(n²) — check every pair of intervals for overlap\n"
+        "        # Brute Force O(n^2) — check every pair of intervals for overlap\n"
         "        for i in range(len(intervals)):\n"
         "            for j in range(i + 1, len(intervals)):\n"
         "                a, b = intervals[i], intervals[j]\n"
@@ -1320,7 +1320,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                    return False\n"
         "        return True",
     "meeting-rooms-ii":
-        "        # Brute Force O(n²) — simulate: assign each meeting to first free room\n"
+        "        # Brute Force O(n^2) — simulate: assign each meeting to first free room\n"
         "        intervals.sort()\n"
         "        rooms = []  # end times of each room\n"
         "        for start, end in intervals:\n"
@@ -1337,7 +1337,7 @@ BRUTE_FORCE_BY_SLUG = {
 
     # ── Bit Manipulation ──────────────────────────────────────────────────────
     "single-number":
-        "        # Brute Force O(n²) — for each element, count its occurrences\n"
+        "        # Brute Force O(n^2) — for each element, count its occurrences\n"
         "        for num in nums:\n"
         "            if nums.count(num) == 1:\n"
         "                return num",
@@ -1365,7 +1365,7 @@ BRUTE_FORCE_BY_SLUG = {
         "            result |= bit << (31 - i)\n"
         "        return result",
     "missing-number":
-        "        # Brute Force O(n²) — for each 0..n check if it's in nums\n"
+        "        # Brute Force O(n^2) — for each 0..n check if it's in nums\n"
         "        for i in range(len(nums) + 1):\n"
         "            if i not in nums:\n"
         "                return i",
@@ -1458,7 +1458,7 @@ BRUTE_FORCE_BY_SLUG = {
         "        # Brute Force O(n log n) — just sort; Dutch-flag is the optimal O(n) approach\n"
         "        nums.sort()",
     "count-univalue-subtrees":
-        "        # Brute Force O(n²) — for each node, check if its entire subtree is univalue\n"
+        "        # Brute Force O(n^2) — for each node, check if its entire subtree is univalue\n"
         "        def is_uni(node, val):\n"
         "            if not node: return True\n"
         "            return node.val == val and is_uni(node.left, val) and is_uni(node.right, val)\n"
@@ -1467,20 +1467,20 @@ BRUTE_FORCE_BY_SLUG = {
         "            return (1 if is_uni(node, node.val) else 0) + count(node.left) + count(node.right)\n"
         "        return count(root)",
     "majority-element":
-        "        # Brute Force O(n²) — for each element count its frequency\n"
+        "        # Brute Force O(n^2) — for each element count its frequency\n"
         "        n = len(nums)\n"
         "        for num in nums:\n"
         "            if nums.count(num) > n // 2:\n"
         "                return num",
     "first-missing-positive":
-        "        # Brute Force O(n²) — check 1,2,3,... until one is missing\n"
+        "        # Brute Force O(n^2) — check 1,2,3,... until one is missing\n"
         "        num_set = set(nums)\n"
         "        i = 1\n"
         "        while i in num_set:\n"
         "            i += 1\n"
         "        return i",
     "maximum-width-ramp":
-        "        # Brute Force O(n²) — check every pair (i,j) where i<j and nums[i]<=nums[j]\n"
+        "        # Brute Force O(n^2) — check every pair (i,j) where i<j and nums[i]<=nums[j]\n"
         "        res = 0\n"
         "        for i in range(len(nums)):\n"
         "            for j in range(i, len(nums)):\n"
@@ -1488,7 +1488,7 @@ BRUTE_FORCE_BY_SLUG = {
         "                    res = max(res, j - i)\n"
         "        return res",
     "subarray-sum-equals-k":
-        "        # Brute Force O(n²) — compute sum of every contiguous subarray\n"
+        "        # Brute Force O(n^2) — compute sum of every contiguous subarray\n"
         "        count = 0\n"
         "        for i in range(len(nums)):\n"
         "            total = 0\n"
@@ -1540,7 +1540,7 @@ def gen_brute_force_python(q, pattern_name):
     # ── Pattern-generic fallback ───────────────────────────────────────────────
     bodies = {
         "Arrays & Hashing": (
-            f"{i8}# Brute Force O(n²) - check all pairs without a hash map\n"
+            f"{i8}# Brute Force O(n^2) - check all pairs without a hash map\n"
             f"{i8}n = len({fp})\n"
             f"{i8}for i in range(n):\n"
             f"{i8}    for j in range(i + 1, n):\n"
@@ -1549,7 +1549,7 @@ def gen_brute_force_python(q, pattern_name):
             f"{i8}return []  # adjust return"
         ),
         "Two Pointers": (
-            f"{i8}# Brute Force O(n²) - nested loops instead of two pointers\n"
+            f"{i8}# Brute Force O(n^2) - nested loops instead of two pointers\n"
             f"{i8}n = len({fp})\n"
             f"{i8}for i in range(n):\n"
             f"{i8}    for j in range(i + 1, n):\n"
@@ -1557,7 +1557,7 @@ def gen_brute_force_python(q, pattern_name):
             f"{i8}        pass"
         ),
         "Sliding Window": (
-            f"{i8}# Brute Force O(n²) - enumerate all windows\n"
+            f"{i8}# Brute Force O(n^2) - enumerate all windows\n"
             f"{i8}n = len({fp})\n"
             f"{i8}best = 0\n"
             f"{i8}for l in range(n):\n"
@@ -1575,7 +1575,7 @@ def gen_brute_force_python(q, pattern_name):
             f"{i8}return -1"
         ),
         "Stack": (
-            f"{i8}# Brute Force O(n²) - simulate without stack via inner loop\n"
+            f"{i8}# Brute Force O(n^2) - simulate without stack via inner loop\n"
             f"{i8}n = len({fp})\n"
             f"{i8}result = [-1] * n\n"
             f"{i8}for i in range(n):\n"
@@ -1672,7 +1672,7 @@ def gen_brute_force_python(q, pattern_name):
             f"{i8}return dfs(src)"
         ),
         "Matrix": (
-            f"{i8}# Brute Force O(m²·n²) - flood fill from every cell\n"
+            f"{i8}# Brute Force O(m^2·n^2) - flood fill from every cell\n"
             f"{i8}m, n = len({fp}), len({fp}[0])\n"
             f"{i8}result = 0\n"
             f"{i8}for r in range(m):\n"
@@ -1712,7 +1712,7 @@ def gen_brute_force_python(q, pattern_name):
             f"{i8}return result"
         ),
         "Greedy": (
-            f"{i8}# Brute Force O(n²) - check all subsets/orderings exhaustively\n"
+            f"{i8}# Brute Force O(n^2) - check all subsets/orderings exhaustively\n"
             f"{i8}from itertools import permutations\n"
             f"{i8}best = float('inf')\n"
             f"{i8}for perm in permutations({fp}):\n"
@@ -1721,7 +1721,7 @@ def gen_brute_force_python(q, pattern_name):
             f"{i8}return best"
         ),
         "Sorting": (
-            f"{i8}# Brute Force O(n²) - bubble sort\n"
+            f"{i8}# Brute Force O(n^2) - bubble sort\n"
             f"{i8}arr = list({fp})\n"
             f"{i8}n = len(arr)\n"
             f"{i8}for i in range(n):\n"
@@ -1738,7 +1738,7 @@ def gen_brute_force_python(q, pattern_name):
             f"{i8}return 0"
         ),
         "String": (
-            f"{i8}# Brute Force O(n²) - check all substrings\n"
+            f"{i8}# Brute Force O(n^2) - check all substrings\n"
             f"{i8}n = len({fp})\n"
             f"{i8}best = ''\n"
             f"{i8}for i in range(n):\n"
@@ -1755,7 +1755,7 @@ def gen_brute_force_python(q, pattern_name):
 
     body = bodies.get(
         pattern_name,
-        f"{i8}# Brute Force O(n²) - exhaustive search without optimisation\n"
+        f"{i8}# Brute Force O(n^2) - exhaustive search without optimisation\n"
         f"{i8}n = len({fp}) if hasattr({fp}, '__len__') else int({fp})\n"
         f"{i8}result = None\n"
         f"{i8}# TODO: implement brute force here\n"
@@ -2123,29 +2123,38 @@ def hl_xml(code, lang, printable=False):
     return "<br/>".join(final)
 
 # ── PDF styles ─────────────────────────────────────────────────────────────────
-def build_styles(printable=False):
-    code_fg = HexColor(PRINT_CODE_FG) if printable else HexColor("#ABB2BF")
+def build_styles(printable=False, code_size=None, bold=False):
+    code_fg    = HexColor(PRINT_CODE_FG) if printable else HexColor("#ABB2BF")
+    text_col   = HexColor("#000000") if printable else GRAY_700
+    default_cs = 8.5 if printable else 7.5
+    cs         = code_size if code_size is not None else default_cs
+    leading    = round(cs * 1.47, 1)
+    body_font  = "Helvetica-Bold" if bold else "Helvetica"
+    code_font  = "Courier-Bold"   if bold else "Courier"
     return {
-        "cover_title": ParagraphStyle("ct", fontSize=36, textColor=INDIGO,
+        "cover_title": ParagraphStyle("ct", fontSize=36, textColor=text_col,
             alignment=TA_CENTER, spaceAfter=12, fontName="Helvetica-Bold"),
-        "cover_sub":   ParagraphStyle("cs", fontSize=13, textColor=GRAY_500,
-            alignment=TA_CENTER, spaceAfter=6, fontName="Helvetica"),
-        "q_title":     ParagraphStyle("qt", fontSize=14, textColor=GRAY_700,
+        "cover_sub":   ParagraphStyle("cs", fontSize=13, textColor=text_col,
+            alignment=TA_CENTER, spaceAfter=6, fontName=body_font),
+        "q_title":     ParagraphStyle("qt", fontSize=14, textColor=text_col,
             fontName="Helvetica-Bold", spaceAfter=4),
-        "body":        ParagraphStyle("bd", fontSize=9.5, textColor=GRAY_700,
-            fontName="Helvetica", leading=15, spaceAfter=4),
-        "code":        ParagraphStyle("cd", fontSize=7.5, textColor=code_fg,
-            fontName="Courier", leading=11.5),
-        "editorial":   ParagraphStyle("ed", fontSize=9.5, textColor=GRAY_700,
-            fontName="Helvetica", leading=14, spaceAfter=4),
-        "toc_entry":   ParagraphStyle("te", fontSize=9.5, textColor=GRAY_700,
-            fontName="Helvetica", spaceAfter=2, leading=13),
+        "body":        ParagraphStyle("bd", fontSize=9.5, textColor=text_col,
+            fontName=body_font, leading=15, spaceAfter=4),
+        "code":        ParagraphStyle("cd", fontSize=cs, textColor=code_fg,
+            fontName=code_font, leading=leading),
+        "editorial":   ParagraphStyle("ed", fontSize=9.5, textColor=text_col,
+            fontName=body_font, leading=14, spaceAfter=4),
+        "toc_entry":   ParagraphStyle("te", fontSize=9.5, textColor=text_col,
+            fontName=body_font, spaceAfter=2, leading=13),
     }
 
 # ── PDF helpers ────────────────────────────────────────────────────────────────
-def diff_badge(difficulty=""):
+def diff_badge(difficulty="", printable=False):
     key = difficulty.lower() if difficulty else "easy"
-    bg, fg = DIFF_COLORS.get(key,(GRAY_100,GRAY_700))
+    if printable:
+        bg, fg = HexColor("#E5E7EB"), HexColor("#000000")
+    else:
+        bg, fg = DIFF_COLORS.get(key,(GRAY_100,GRAY_700))
     tbl = Table([[Paragraph(difficulty.upper() or "—",
                             ParagraphStyle("b", fontSize=8, fontName="Helvetica-Bold", textColor=fg))]],
                 colWidths=[0.7*inch])
@@ -2200,7 +2209,7 @@ def code_flowable(code, lang, styles, printable=False):
             ("BACKGROUND",(0,0),(-1,-1), bg),
             ("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7),
             ("LEFTPADDING",(0,0),(-1,-1),10),("RIGHTPADDING",(0,0),(-1,-1),10),
-            ("BOX",(0,0),(-1,-1),0.25, GRAY_500 if printable else GRAY_700),
+            ("BOX",(0,0),(-1,-1), 0.5 if printable else 0.25, HexColor("#000000") if printable else GRAY_700),
         ]))
         result.append(tbl)
     result.append(Spacer(1,5))
@@ -2210,9 +2219,10 @@ def safe_xml(t):
     return t.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
 
 # ── HTML description → flowables ───────────────────────────────────────────────
-def _inline(html, printable=False):
+def _inline(html, printable=False, bold=False):
     """Convert inline HTML to ReportLab XML."""
-    code_col = PRINT_INLINE_CODE if printable else "#E06C75"
+    code_col  = PRINT_INLINE_CODE if printable else "#E06C75"
+    code_font = "Courier-Bold" if bold else "Courier"
     html = re.sub(r"<strong[^>]*>(.*?)</strong>", r"<b>\1</b>", html, flags=re.S|re.I)
     html = re.sub(r"<b[^>]*>(.*?)</b>",           r"<b>\1</b>", html, flags=re.S|re.I)
     html = re.sub(r"<em[^>]*>(.*?)</em>",          r"<i>\1</i>", html, flags=re.S|re.I)
@@ -2222,7 +2232,7 @@ def _inline(html, printable=False):
 
     def _code_sub(m):
         return (
-            f'<font name="Courier" size="9" color="{code_col}">'
+            f'<font name="{code_font}" size="9" color="{code_col}">'
             f'{safe_xml(re.sub(chr(60)+r"[^>]+>","",m.group(1)))}</font>'
         )
 
@@ -2233,9 +2243,11 @@ def _inline(html, printable=False):
     html = html.replace("&nbsp;"," ").replace("&lt;","<").replace("&gt;",">").replace("&amp;","&")
     return re.sub(r"\s{2,}"," ",html).strip()
 
-def desc_to_flowables(desc_html, styles, printable=False):
+def desc_to_flowables(desc_html, styles, printable=False, bold=False):
     """Parse Doocs description HTML (between markers) into ReportLab flowables."""
     if not desc_html: return []
+    HF  = "Helvetica-Bold" if bold else "Helvetica"
+    CF  = "Courier-Bold"   if bold else "Courier"
     flowables = []
     desc_html = desc_html.replace("\r\n","\n").replace("\r","\n")
 
@@ -2284,10 +2296,11 @@ def desc_to_flowables(desc_html, styles, printable=False):
             if raw:
                 safe = raw.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
                 lines = safe.split("\n")
-                pre_bg = PRINT_CODE_BG if printable else EXAMPLE_BG
+                pre_bg   = PRINT_CODE_BG if printable else EXAMPLE_BG
+                pre_text = HexColor("#000000") if printable else GRAY_700
                 cell = Paragraph("<br/>".join(lines),
-                                 ParagraphStyle("pre", fontName="Courier", fontSize=8.5,
-                                                textColor=GRAY_700, leading=13,
+                                 ParagraphStyle("pre", fontName=CF, fontSize=8.5,
+                                                textColor=pre_text, leading=13,
                                                 backColor=pre_bg,
                                                 leftIndent=8, rightIndent=8,
                                                 spaceBefore=2, spaceAfter=4,
@@ -2297,23 +2310,25 @@ def desc_to_flowables(desc_html, styles, printable=False):
 
         # <ul>
         if m.group(7) is not None:
+            li_col = HexColor("#000000") if printable else GRAY_700
             for li in re.findall(r"<li[^>]*>([\s\S]*?)</li>", m.group(7) or "", re.I):
-                text = _inline(li, printable).strip()
+                text = _inline(li, printable, bold).strip()
                 if text:
                     flowables.append(Paragraph(f"• {text}",
-                        ParagraphStyle("li", fontName="Helvetica", fontSize=9.5,
-                                       textColor=GRAY_700, leading=14,
+                        ParagraphStyle("li", fontName=HF, fontSize=9.5,
+                                       textColor=li_col, leading=14,
                                        leftIndent=14, spaceAfter=2)))
             continue
 
         # <ol>
         if m.group(10) is not None:
+            li_col = HexColor("#000000") if printable else GRAY_700
             for i, li in enumerate(re.findall(r"<li[^>]*>([\s\S]*?)</li>", m.group(10) or "", re.I), 1):
-                text = _inline(li, printable).strip()
+                text = _inline(li, printable, bold).strip()
                 if text:
                     flowables.append(Paragraph(f"{i}. {text}",
-                        ParagraphStyle("oli", fontName="Helvetica", fontSize=9.5,
-                                       textColor=GRAY_700, leading=14,
+                        ParagraphStyle("oli", fontName=HF, fontSize=9.5,
+                                       textColor=li_col, leading=14,
                                        leftIndent=14, spaceAfter=2)))
             continue
 
@@ -2329,7 +2344,7 @@ def desc_to_flowables(desc_html, styles, printable=False):
                     if img_fl:
                         flowables += [Spacer(1,4), img_fl, Spacer(1,4)]
                 continue
-            text = _inline(inner, printable).strip()
+            text = _inline(inner, printable, bold).strip()
             if text and text != " ":
                 try:
                     flowables.append(Paragraph(text, styles["body"]))
@@ -2339,7 +2354,7 @@ def desc_to_flowables(desc_html, styles, printable=False):
 
         # <h2-6>
         if m.group(16) is not None:
-            text = _inline(m.group(16) or "", printable).strip()
+            text = _inline(m.group(16) or "", printable, bold).strip()
             if text:
                 flowables.append(Paragraph(f"<b>{safe_xml(text)}</b>",
                     ParagraphStyle("hdr", fontName="Helvetica-Bold", fontSize=11,
@@ -2349,7 +2364,7 @@ def desc_to_flowables(desc_html, styles, printable=False):
     return flowables
 
 # ── Editorial text → flowables ─────────────────────────────────────────────────
-def editorial_to_flowables(content, styles, printable=False):
+def editorial_to_flowables(content, styles, printable=False, bold=False):
     if not content: return []
     # Strip video/iframe
     content = re.sub(r"<div[^>]*class=\"[^\"]*video[^\"]*\"[^>]*>[\s\S]*?</div>","",content,flags=re.I)
@@ -2359,10 +2374,11 @@ def editorial_to_flowables(content, styles, printable=False):
     content = re.sub(r"^#{1,6}\s*(.+)$", r"\n__H__\1__EH__\n", content, flags=re.M)
     content = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", content)
     content = re.sub(r"\*(.+?)\*",     r"<i>\1</i>", content)
-    _cc = PRINT_INLINE_CODE if printable else "#E06C75"
+    _cc  = PRINT_INLINE_CODE if printable else "#E06C75"
+    _cfn = "Courier-Bold" if bold else "Courier"
     content = re.sub(
         r"`([^`]+)`",
-        lambda m: f'<font name="Courier" size="9" color="{_cc}">{safe_xml(m.group(1))}</font>',
+        lambda m: f'<font name="{_cfn}" size="9" color="{_cc}">{safe_xml(m.group(1))}</font>',
         content,
     )
     content = re.sub(r"\$\$(.+?)\$\$", r"<i>\1</i>", content)
@@ -2374,10 +2390,11 @@ def editorial_to_flowables(content, styles, printable=False):
         if "__H__" in block:
             text = re.sub(r"__H__|__EH__","",block)
             text = re.sub(r"<[^>]+>","",text).strip()
+            hdr_col = HexColor("#000000") if printable else INDIGO
             if text:
                 flowables.append(Paragraph(f"<b>{safe_xml(text)}</b>",
                     ParagraphStyle("eh", fontName="Helvetica-Bold", fontSize=11,
-                                   textColor=INDIGO, leading=16, spaceAfter=3, spaceBefore=8)))
+                                   textColor=hdr_col, leading=16, spaceAfter=3, spaceBefore=8)))
         else:
             block = re.sub(r"<(?!b>|/b>|i>|/i>|br/>|font|/font|super|/super|sub>|/sub>)[^>]+>","",block)
             block = block.replace("&nbsp;"," ").replace("\n"," ").strip()
@@ -2389,7 +2406,7 @@ def editorial_to_flowables(content, styles, printable=False):
     return flowables
 
 # ── Per-question PDF block ─────────────────────────────────────────────────────
-def build_question_block(q, styles, doocs_cache, sites_cache, lc_cache, pattern=None, printable=False):
+def build_question_block(q, styles, doocs_cache, sites_cache, lc_cache, pattern=None, printable=False, bold=False):
     story = []
     slug  = q.get("slug","")
     qid   = q["id"]
@@ -2398,13 +2415,16 @@ def build_question_block(q, styles, doocs_cache, sites_cache, lc_cache, pattern=
     lc    = lc_cache.get(slug, {})
     pattern_name = pattern["name"] if pattern else ""
     pattern_hex  = pattern.get("hex","#6366F1") if pattern else "#6366F1"
+    HF  = "Helvetica-Bold" if bold else "Helvetica"
+    BLK = "#000000"  # all inline text forced to pure black for print
 
     # Header
+    id_col = BLK if printable else "#6B7280"
     meta = Table([[
-        Paragraph(f"<font color='#6B7280'>#{qid}</font>",
-                  ParagraphStyle("mn", fontSize=10, fontName="Helvetica")),
-        diff_badge(q.get("difficulty","")),
-        Paragraph("", ParagraphStyle("sp", fontSize=10, fontName="Helvetica")),
+        Paragraph(f"<font color='{id_col}'>#{qid}</font>",
+                  ParagraphStyle("mn", fontSize=10, fontName=HF)),
+        diff_badge(q.get("difficulty",""), printable=printable),
+        Paragraph("", ParagraphStyle("sp", fontSize=10, fontName=HF)),
     ]], colWidths=[0.7*inch, 0.85*inch, 5.45*inch])
     meta.setStyle(TableStyle([
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
@@ -2413,25 +2433,36 @@ def build_question_block(q, styles, doocs_cache, sites_cache, lc_cache, pattern=
     story.append(meta)
     story.append(Paragraph(safe_xml(q["title"]), styles["q_title"]))
 
-    # Links
-    links = [
-        f'<a href="https://leetcode.doocs.org/en/lc/{qid}/" color="#10B981">LeetDoocs</a>',
-        f'<a href="https://www.simplyleet.com/{slug}" color="#A855F7">SimplyLeet</a>',
-        f'<a href="https://walkccc.me/LeetCode/problems/{qid}/" color="#3B82F6">WalkCC</a>',
-        f'<a href="https://leetcode.com/problems/{slug}/" color="#F97316">LeetCode</a>',
-        f'<a href="https://leetcode.com/problems/{slug}/editorial/" color="#6366F1">Editorial</a>',
-    ]
+    # Links — all black for print, coloured for screen
+    if printable:
+        links = [
+            f'<a href="https://leetcode.doocs.org/en/lc/{qid}/" color="{BLK}">LeetDoocs</a>',
+            f'<a href="https://www.simplyleet.com/{slug}" color="{BLK}">SimplyLeet</a>',
+            f'<a href="https://walkccc.me/LeetCode/problems/{qid}/" color="{BLK}">WalkCC</a>',
+            f'<a href="https://leetcode.com/problems/{slug}/" color="{BLK}">LeetCode</a>',
+            f'<a href="https://leetcode.com/problems/{slug}/editorial/" color="{BLK}">Editorial</a>',
+        ]
+    else:
+        links = [
+            f'<a href="https://leetcode.doocs.org/en/lc/{qid}/" color="#10B981">LeetDoocs</a>',
+            f'<a href="https://www.simplyleet.com/{slug}" color="#A855F7">SimplyLeet</a>',
+            f'<a href="https://walkccc.me/LeetCode/problems/{qid}/" color="#3B82F6">WalkCC</a>',
+            f'<a href="https://leetcode.com/problems/{slug}/" color="#F97316">LeetCode</a>',
+            f'<a href="https://leetcode.com/problems/{slug}/editorial/" color="#6366F1">Editorial</a>',
+        ]
     story.append(Paragraph("  ·  ".join(links),
-                           ParagraphStyle("lnk", fontSize=8, fontName="Helvetica", spaceAfter=4)))
+                           ParagraphStyle("lnk", fontSize=8, fontName=HF, spaceAfter=4)))
+    tag_col = BLK if printable else "#6366F1"
     if q.get("tags"):
         story.append(Paragraph(
-            f"<font color='#6366F1'>{'  ·  '.join(q['tags'][:10])}</font>",
-            ParagraphStyle("tg", fontSize=8, fontName="Helvetica", spaceAfter=3)
+            f"<font color='{tag_col}'>{'  ·  '.join(q['tags'][:10])}</font>",
+            ParagraphStyle("tg", fontSize=8, fontName=HF, spaceAfter=3)
         ))
+    src_col = BLK if printable else "#9CA3AF"
     if q.get("source"):
         story.append(Paragraph(
-            f"<font color='#9CA3AF'>Lists: {' | '.join(q['source'])}</font>",
-            ParagraphStyle("src", fontSize=8, fontName="Helvetica", spaceAfter=6)
+            f"<font color='{src_col}'>Lists: {' | '.join(q['source'])}</font>",
+            ParagraphStyle("src", fontSize=8, fontName=HF, spaceAfter=6)
         ))
 
     # ── Description (from Doocs with images) ─────────────────────────────────
@@ -2439,16 +2470,15 @@ def build_question_block(q, styles, doocs_cache, sites_cache, lc_cache, pattern=
     if desc_html:
         story.append(Paragraph("<b>Problem:</b>",
                                ParagraphStyle("ph", fontSize=10, fontName="Helvetica-Bold", spaceAfter=4)))
-        story += desc_to_flowables(desc_html, styles, printable)
+        story += desc_to_flowables(desc_html, styles, printable, bold)
         story.append(Spacer(1,4))
     else:
-        # Fallback: LC GraphQL description or stored text
         lc_desc = lc.get("desc_html")
         stored  = q.get("description","").strip()
         if lc_desc:
             story.append(Paragraph("<b>Problem:</b>",
                                    ParagraphStyle("ph", fontSize=10, fontName="Helvetica-Bold", spaceAfter=4)))
-            story += desc_to_flowables(lc_desc, styles, printable)
+            story += desc_to_flowables(lc_desc, styles, printable, bold)
         elif stored:
             story.append(Paragraph("<b>Problem:</b>",
                                    ParagraphStyle("ph", fontSize=10, fontName="Helvetica-Bold", spaceAfter=3)))
@@ -2482,7 +2512,6 @@ def build_question_block(q, styles, doocs_cache, sites_cache, lc_cache, pattern=
         story.append(site_banner(f"[*] {pattern_name} — Pattern Solution  (matched from community answers)", pattern_hex, printable))
         story += code_flowable(pat_block["code"], pat_block["lang"], styles, printable)
     else:
-        # Fall back to stored solution — curated per pattern
         stored_py  = q.get("python_solution","").strip()
         stored_cpp = q.get("cpp_solution","").strip()
         story.append(site_banner(f"[*] {pattern_name} — Pattern Solution  (stored optimal)", pattern_hex, printable))
@@ -2495,9 +2524,9 @@ def build_question_block(q, styles, doocs_cache, sites_cache, lc_cache, pattern=
     return story
 
 # ── PDF generator ──────────────────────────────────────────────────────────────
-def generate_pdf(questions, doocs_cache, sites_cache, lc_cache, output, printable=False):
+def generate_pdf(questions, doocs_cache, sites_cache, lc_cache, output, printable=False, code_size=None, bold=False):
     groups = build_groups(questions)
-    styles = build_styles(printable)
+    styles = build_styles(printable, code_size=code_size, bold=bold)
 
     doc = SimpleDocTemplate(
         str(output), pagesize=letter,
@@ -2584,13 +2613,28 @@ def generate_pdf(questions, doocs_cache, sites_cache, lc_cache, output, printabl
         story += [banner, Spacer(1,16)]
         for q in qs:
             story += build_question_block(
-                q, styles, doocs_cache, sites_cache, lc_cache, pattern=pat, printable=printable,
+                q, styles, doocs_cache, sites_cache, lc_cache, pattern=pat, printable=printable, bold=bold,
             )
             done += 1
         print(f"  [{done:3d}/{total}] {pat['name']} ✓")
 
+    # ── Page-number footer ────────────────────────────────────────────────────
+    _fn  = "Helvetica-Bold" if bold else "Helvetica"
+    _blk = HexColor("#000000") if printable else HexColor("#6B7280")
+
+    def _footer(canvas, doc):
+        canvas.saveState()
+        canvas.setFont(_fn, 7.5)
+        canvas.setFillColor(_blk)
+        w, h = doc.pagesize
+        pn = canvas.getPageNumber()
+        canvas.drawString(0.75 * inch, 0.38 * inch, "LeetMastery — By Pattern")
+        canvas.drawCentredString(w / 2, 0.38 * inch, f"— {pn} —")
+        canvas.drawRightString(w - 0.75 * inch, 0.38 * inch, "LeetMastery")
+        canvas.restoreState()
+
     print("  Writing PDF…")
-    doc.build(story)
+    doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
     kb = os.path.getsize(output)//1024
     print(f"\n✅  {output}")
     print(f"    {kb} KB ({kb//1024} MB)")
