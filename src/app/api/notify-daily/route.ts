@@ -19,6 +19,61 @@ function todayCT() {
   return new Date().toLocaleDateString('en-CA', { timeZone: TZ })
 }
 
+async function congratsAlreadySentToday(supabase: any, todayStr: string): Promise<boolean> {
+  // Reuse activity_log as a lightweight "sent marker" without schema changes.
+  // count >= 2 means we already sent the congrats email today.
+  const { data } = await supabase
+    .from('activity_log')
+    .select('count')
+    .eq('user_id', USER_ID)
+    .eq('date', todayStr)
+    .maybeSingle()
+  const c = Number((data as any)?.count ?? 0) || 0
+  return c >= 2
+}
+
+async function markCongratsSentToday(supabase: any, todayStr: string): Promise<void> {
+  await supabase
+    .from('activity_log')
+    .upsert({ user_id: USER_ID, date: todayStr, count: 2 }, { onConflict: 'user_id,date' })
+}
+
+function buildCongratsHtml(opts: {
+  appUrl: string
+  title: string
+  subtitle: string
+  badgeText: string
+  extra?: string
+}) {
+  const { appUrl, title, subtitle, badgeText, extra } = opts
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;margin:0;padding:24px;">
+  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#16a34a,#22c55e);padding:26px 30px;">
+      <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px;">✅ LeetMastery</div>
+      <div style="color:#dcfce7;font-size:14px;margin-top:4px;">${subtitle}</div>
+    </div>
+    <div style="padding:26px 30px;">
+      <h2 style="margin:0 0 10px;font-size:20px;color:#111827;">${title}</h2>
+      <div style="display:inline-block;background:#dcfce7;color:#166534;font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px;">${badgeText}</div>
+      ${extra ? `<div style="margin-top:14px;color:#4b5563;font-size:14px;line-height:1.6;">${extra}</div>` : ''}
+      <div style="margin-top:18px;text-align:center;">
+        <a href="${appUrl}"
+           style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;text-decoration:none;padding:12px 26px;border-radius:12px;font-size:14px;">
+          Open LeetMastery →
+        </a>
+      </div>
+    </div>
+    <div style="padding:14px 30px;background:#f9fafb;text-align:center;border-top:1px solid #f3f4f6;">
+      <p style="color:#9ca3af;font-size:12px;margin:0;">LeetMastery · Central Time</p>
+    </div>
+  </div>
+</body>
+</html>`
+}
+
 function isWeekendCT(dateISO: string): boolean {
   const weekday = new Date(dateISO + 'T12:00:00').toLocaleString('en-US', { timeZone: TZ, weekday: 'short' })
   return weekday === 'Sat' || weekday === 'Sun'
@@ -362,6 +417,32 @@ export async function GET(req: NextRequest) {
     const remaining = Math.max(0, perDay - solvedToday)
 
     if (remaining === 0 && reviewsSatisfied) {
+      // Send a one-time congrats email, then stop emailing for the day.
+      if (!(await congratsAlreadySentToday(supabase, todayStr))) {
+        const to = getNotificationRecipients()
+        if (to.length === 0) {
+          return NextResponse.json({ error: 'Missing NOTIFICATION_EMAIL' }, { status: 500 })
+        }
+        const htmlCongrats = buildCongratsHtml({
+          appUrl: appUrl + '/daily',
+          title: greetings[tod],
+          subtitle: `Random Mode · ${perDay} questions/day`,
+          badgeText: `You finished today · ${solvedToday}/${perDay}`,
+          extra: `Great work — you hit your daily quota and your reviews are clear. Enjoy the rest of your day.`,
+        })
+        const { data: emailData, error } = await resend.emails.send({
+          from: 'LeetMastery <onboarding@resend.dev>',
+          to,
+          subject: `✅ Done for today — ${solvedToday}/${perDay} solved`,
+          html: htmlCongrats,
+        })
+        if (error) {
+          console.error('[notify-daily] Resend error (random congrats):', error)
+          return NextResponse.json({ error }, { status: 500 })
+        }
+        await markCongratsSentToday(supabase, todayStr)
+        return NextResponse.json({ sent: true, mode: 'random-congrats', solvedToday, emailId: emailData?.id })
+      }
       return NextResponse.json({ skipped: 'All done for today! (random mode)' })
     }
 
@@ -488,6 +569,33 @@ export async function GET(req: NextRequest) {
   const remaining = dayIds.length - solvedToday
 
   if (remaining === 0 && reviewsSatisfied) {
+    // Send a one-time congrats email, then stop emailing for the day.
+    if (!(await congratsAlreadySentToday(supabase, todayStr))) {
+      const to = getNotificationRecipients()
+      if (to.length === 0) {
+        return NextResponse.json({ error: 'Missing NOTIFICATION_EMAIL' }, { status: 500 })
+      }
+      const dayNumber = activeDayIndex + 1
+      const htmlCongrats = buildCongratsHtml({
+        appUrl: appUrl + '/daily',
+        title: greetings[tod],
+        subtitle: `Strict Mode · Day ${dayNumber} of ${totalDays}`,
+        badgeText: `You finished today · ${solvedToday}/${dayIds.length}`,
+        extra: `Nice — today’s daily block is complete and your reviews are clear. Keep the streak alive.`,
+      })
+      const { data: emailData, error } = await resend.emails.send({
+        from: 'LeetMastery <onboarding@resend.dev>',
+        to,
+        subject: `✅ Done for today — Day ${dayNumber} complete`,
+        html: htmlCongrats,
+      })
+      if (error) {
+        console.error('[notify-daily] Resend error (strict congrats):', error)
+        return NextResponse.json({ error }, { status: 500 })
+      }
+      await markCongratsSentToday(supabase, todayStr)
+      return NextResponse.json({ sent: true, mode: 'strict-congrats', day: dayNumber, emailId: emailData?.id })
+    }
     return NextResponse.json({ skipped: 'All done for today!' })
   }
 
