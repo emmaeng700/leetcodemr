@@ -7,6 +7,7 @@ export interface StudyPlanForStreak {
   start_date: string
   per_day: number
   question_order: number[]
+  mode?: string
 }
 
 export function todayISOChicago() {
@@ -45,5 +46,6 @@ export function normalizeStudyPlanRow(raw: unknown): StudyPlanForStreak | null {
     start_date: startDate,
     per_day: perDay,
     question_order: qo.map(n => Number(n)),
+    mode: typeof p.mode === 'string' ? p.mode : undefined,
   }
 }
