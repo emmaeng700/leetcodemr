@@ -250,6 +250,12 @@ export default function DailyPage() {
       }
       setActivePlanMode(resolvedMode)
 
+      // Backfill DB mode for older plans created before `mode` existed.
+      // This keeps server-side features (emails/cron) aligned with the UI mode.
+      if (p && !dbMode && resolvedMode) {
+        void saveStudyPlan({ ...(p as any), mode: resolvedMode }).catch(() => {/* silent */})
+      }
+
       setAllQuestions(qs)
       setProgress(prog)
       setPlan(p)
