@@ -345,7 +345,131 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ skipped: 'Plan not started yet' })
   }
 
-  // ── Active plan window: daily + SR (original behavior) ────────────────────
+  const planMode: string = (plan as any).mode ?? 'strict'
+  const isRandomMode = planMode === 'random'
+
+  // ── RANDOM MODE: quota-based (any questions from pool) ────────────────────
+  if (isRandomMode) {
+    const { data: solvedLogRow } = await supabase
+      .from('solved_log')
+      .select('count')
+      .eq('user_id', USER_ID)
+      .eq('date', todayStr)
+      .single()
+
+    const solvedToday = (solvedLogRow as any)?.count ?? 0
+    const perDay = plan.per_day ?? 1
+    const remaining = Math.max(0, perDay - solvedToday)
+
+    if (remaining === 0 && reviewsSatisfied) {
+      return NextResponse.json({ skipped: 'All done for today! (random mode)' })
+    }
+
+    const urgencyRandom: Record<string, string> = {
+      morning: "Start your day strong — pick any questions and hit your quota.",
+      afternoon: "Afternoon check-in — knock out your remaining questions.",
+      evening: "Don't let the day slip by — finish your quota tonight.",
+      night: "Getting late! Hit your daily quota before midnight.",
+    }
+    const subjectsRandom: Record<string, string> = {
+      morning: `☀️ LeetCode Police — ${remaining} question${remaining !== 1 ? 's' : ''} left today`,
+      afternoon: `🌤 Still ${remaining} to go — wrap it up this afternoon!`,
+      evening: `🌆 ${remaining} question${remaining !== 1 ? 's' : ''} left — finish tonight!`,
+      night: `🌙 ${remaining} left and it's getting late — go finish!`,
+    }
+
+    let progressMsgRandom: string
+    if (solvedToday === 0) {
+      progressMsgRandom = `You haven't solved any questions today yet. Goal: ${perDay}.`
+    } else if (remaining === 1) {
+      progressMsgRandom = `Almost there — just 1 more question to hit your ${perDay}/day goal!`
+    } else if (remaining === 0) {
+      progressMsgRandom = `Daily quota complete — ${solvedToday}/${perDay} solved today! 🎉`
+    } else {
+      progressMsgRandom = `You've solved ${solvedToday}/${perDay} today — keep the momentum going.`
+    }
+
+    const srSectionRandom =
+      dueReviewsForEmail.length > 0
+        ? buildSrBlockHtml(dueReviewsForEmail, qMap, appUrl, { sectionMarginTop: '28px' })
+        : `
+      <div style="margin-top:28px;border-top:2px solid #f3f4f6;padding-top:24px;">
+        <div style="display:flex;align-items:center;">
+          <span style="font-size:18px;margin-right:8px;">🧠</span>
+          <span style="font-size:15px;font-weight:700;color:#111827;">Spaced Repetition</span>
+          <span style="margin-left:auto;color:#16a34a;font-size:13px;font-weight:600;">All caught up ✓</span>
+        </div>
+      </div>`
+
+    const progressBarPct = Math.min(100, Math.round((solvedToday / perDay) * 100))
+    const htmlRandom = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;margin:0;padding:24px;">
+  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+    <div style="background:linear-gradient(135deg,#7c3aed,#a78bfa);padding:28px 32px;">
+      <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px;">🎲 LeetMastery</div>
+      <div style="color:#ede9fe;font-size:14px;margin-top:4px;">Random Mode · ${perDay} questions/day</div>
+    </div>
+
+    <div style="padding:28px 32px;">
+      <h2 style="margin:0 0 6px;font-size:20px;color:#111827;">${greetings[tod]}</h2>
+      <p style="color:#374151;margin:0 0 6px;font-size:15px;">${urgencyRandom[tod]}</p>
+      <p style="color:#6b7280;margin:0 0 20px;font-size:14px;">${progressMsgRandom}</p>
+
+      <div style="background:#f5f3ff;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span style="font-weight:700;color:#7c3aed;font-size:15px;">Today's Progress</span>
+          <span style="font-size:14px;font-weight:600;color:#4b5563;">${solvedToday} / ${perDay}</span>
+        </div>
+        <div style="background:#ddd6fe;border-radius:99px;height:10px;overflow:hidden;">
+          <div style="background:#7c3aed;height:100%;border-radius:99px;width:${progressBarPct}%;transition:width 0.3s;"></div>
+        </div>
+        <div style="margin-top:8px;font-size:12px;color:#7c3aed;font-weight:600;">${progressBarPct}% complete</div>
+      </div>
+
+      ${remaining > 0 ? `
+      <div style="text-align:center;">
+        <a href="${appUrl}/daily"
+           style="display:inline-block;background:#7c3aed;color:#fff;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:12px;font-size:15px;">
+          Go Solve Now →
+        </a>
+      </div>` : `
+      <div style="padding:12px 16px;background:#f0fdf4;border-radius:10px;text-align:center;">
+        <span style="color:#16a34a;font-weight:700;font-size:14px;">✅ Daily quota complete!</span>
+      </div>`}
+      ${srSectionRandom}
+    </div>
+
+    <div style="padding:16px 32px;background:#f9fafb;text-align:center;border-top:1px solid #f3f4f6;">
+      <p style="color:#9ca3af;font-size:12px;margin:0;">LeetMastery · Central Time · Random Mode</p>
+    </div>
+  </div>
+</body>
+</html>`
+
+    const to = getNotificationRecipients()
+    if (to.length === 0) {
+      return NextResponse.json({ error: 'Missing NOTIFICATION_EMAIL' }, { status: 500 })
+    }
+
+    const { data: emailData, error } = await resend.emails.send({
+      from: 'LeetMastery <onboarding@resend.dev>',
+      to,
+      subject: subjectsRandom[tod],
+      html: htmlRandom,
+    })
+
+    if (error) {
+      console.error('[notify-daily] Resend error (random):', error)
+      return NextResponse.json({ error }, { status: 500 })
+    }
+
+    return NextResponse.json({ sent: true, mode: 'random', solvedToday, remaining, emailId: emailData?.id })
+  }
+
+  // ── STRICT MODE: fixed day-slice (original behavior) ──────────────────────
   let activeDayIndex = diffDays
   for (let i = 0; i <= diffDays; i++) {
     const ids: number[] = plan.question_order.slice(i * plan.per_day, i * plan.per_day + plan.per_day)
@@ -477,5 +601,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error }, { status: 500 })
   }
 
-  return NextResponse.json({ sent: true, mode: 'daily', remaining, day: dayNumber, emailId: emailData?.id })
+  return NextResponse.json({ sent: true, mode: 'strict', remaining, day: dayNumber, emailId: emailData?.id })
 }

@@ -278,6 +278,7 @@ export async function saveStudyPlan(plan: {
   per_day: number
   question_order: number[]
   lock_code: string
+  mode?: string
 }) {
   const { error } = await supabase.from('study_plan').upsert({
     user_id: USER_ID,
@@ -798,14 +799,17 @@ export async function rebalanceReviews(horizonDays = 60): Promise<void> {
   }
 }
 
-/** Same rules as notify-daily email: streak day counts only when today's active daily block is fully solved AND no SR reviews are due. */
-export async function syncStreakActivityFromGoals(): Promise<void> {
+/** Same rules as notify-daily email: streak day counts only when today's active daily block is fully solved AND no SR reviews are due.
+ *  @param modeOverride  Pass the plan mode explicitly when known (e.g. from daily page state).
+ *                       Falls back to localStorage → plan.mode → 'strict'. */
+export async function syncStreakActivityFromGoals(modeOverride?: string): Promise<void> {
   const today = todayISOChicago()
 
-  // Read mode synchronously before any awaits
-  const mode = typeof window !== 'undefined'
-    ? (localStorage.getItem('lm_plan_mode_v1') ?? 'strict')
-    : 'strict'
+  // Read mode synchronously before any awaits (localStorage available on client).
+  // modeOverride wins if provided by the caller (most reliable when on the daily page).
+  const localMode = typeof window !== 'undefined'
+    ? (localStorage.getItem('lm_plan_mode_v1') ?? null)
+    : null
 
   // Lightweight due-review count — plain SELECT count, no recalibrate/spread
   // side effects. getDueReviews() is too heavy here and can mis-report after
@@ -821,6 +825,9 @@ export async function syncStreakActivityFromGoals(): Promise<void> {
       .lte('next_review', today),
   ])
   const dueCount = rawDueCount ?? 0
+
+  // Priority: explicit override → localStorage → plan.mode from DB → 'strict'
+  const mode = modeOverride ?? localMode ?? (plan as any)?.mode ?? 'strict'
 
   const clearToday = async () => {
     await supabase.from('activity_log').delete().eq('user_id', USER_ID).eq('date', today)

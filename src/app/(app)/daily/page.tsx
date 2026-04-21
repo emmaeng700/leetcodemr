@@ -227,8 +227,6 @@ export default function DailyPage() {
         localStorage.setItem(REBALANCE_KEY, '1')
       }
 
-      const mode = (localStorage.getItem(PLAN_MODE_KEY) ?? 'strict') as PlanMode
-      setActivePlanMode(mode)
       const savedFocus = localStorage.getItem(FOCUS_PATTERN_KEY)
       if (savedFocus) setFocusPattern(savedFocus)
 
@@ -239,6 +237,19 @@ export default function DailyPage() {
         getDueReviews(),
         getTodaySolvedCount(),
       ])
+
+      // Resolve mode: localStorage wins; fall back to plan.mode from DB (once
+      // that column is populated), then to 'strict'. Write back to localStorage
+      // so every code-path that reads it gets the correct value.
+      const localMode = localStorage.getItem(PLAN_MODE_KEY) as PlanMode | null
+      const dbMode = ((p as any)?.mode ?? null) as PlanMode | null
+      const resolvedMode: PlanMode = localMode ?? dbMode ?? 'strict'
+      if (resolvedMode !== localMode) {
+        // DB has a mode that localStorage doesn't — persist it so future reads are consistent
+        localStorage.setItem(PLAN_MODE_KEY, resolvedMode)
+      }
+      setActivePlanMode(resolvedMode)
+
       setAllQuestions(qs)
       setProgress(prog)
       setPlan(p)
@@ -246,6 +257,9 @@ export default function DailyPage() {
       setTodaySolvedCount(solvedToday)
       setBreathers(getActiveBreathers())
       setLoading(false)
+
+      // Re-evaluate streak on every page load so any missed marks get caught.
+      void syncStreakActivityFromGoals(resolvedMode).catch(() => {/* silent */})
     }
     load()
   }, [])
@@ -261,7 +275,7 @@ export default function DailyPage() {
         void refreshProgress()
         void refreshDue()
         if (activePlanMode === 'random') {
-          void syncStreakActivityFromGoals().catch(() => {/* silent */})
+          void syncStreakActivityFromGoals(activePlanMode).catch(() => {/* silent */})
         }
       }
     } else {
@@ -276,7 +290,7 @@ export default function DailyPage() {
         void refreshProgress()
         void refreshDue()
         if (activePlanMode === 'random') {
-          void syncStreakActivityFromGoals().catch(() => {/* silent */})
+          void syncStreakActivityFromGoals(activePlanMode).catch(() => {/* silent */})
         }
       }
     }
@@ -285,7 +299,7 @@ export default function DailyPage() {
         void refreshProgress()
         void refreshDue()
         if (activePlanMode === 'random') {
-          void syncStreakActivityFromGoals().catch(() => {/* silent */})
+          void syncStreakActivityFromGoals(activePlanMode).catch(() => {/* silent */})
         }
       }
     }
@@ -310,7 +324,7 @@ export default function DailyPage() {
       question_order: order,
       lock_code: planCode.trim(),
     }
-    const ok = await saveStudyPlan(newPlan)
+    const ok = await saveStudyPlan({ ...newPlan, mode: setupMode })
     setGenerating(false)
     if (ok) {
       localStorage.setItem(PLAN_MODE_KEY, setupMode)
@@ -325,7 +339,7 @@ export default function DailyPage() {
   async function handleChangePace() {
     if (!plan || newPerDay < 1 || newPerDay > 50) return
     setSavingPace(true)
-    const ok = await saveStudyPlan({ ...plan, per_day: newPerDay })
+    const ok = await saveStudyPlan({ ...plan, per_day: newPerDay, mode: activePlanMode })
     if (ok) {
       setPlan({ ...plan, per_day: newPerDay })
       setShowChangePace(false)
