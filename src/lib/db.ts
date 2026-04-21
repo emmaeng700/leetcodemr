@@ -5,13 +5,12 @@ import { srInterval } from './utils'
 
 const USER_ID = 'emmanuel'
 
-function todayISO() {
-  const d = new Date()
+function localDateISO(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function localDateISO(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+function localTodayISO() {
+  return localDateISO(new Date())
 }
 
 // ─── Progress ─────────────────────────────────────────────────────────────────
@@ -152,18 +151,38 @@ export async function getMasteryRunsByQuestion(): Promise<Record<string, number>
 
 // ─── Activity & Solved Logs ───────────────────────────────────────────────────
 export async function logSolvedToday() {
-  const today = todayISO()
-  const { data } = await supabase
+  // IMPORTANT: solved_log is used for Random-mode daily quota + streak checks.
+  // It must be keyed by the same day definition as the rest of the app (Chicago),
+  // otherwise the UI can show "done" while streak stays unticked (or vice versa).
+  const today = todayISOChicago()
+  const localToday = localTodayISO()
+
+  const { data: ctRow } = await supabase
     .from('solved_log')
     .select('count')
     .eq('user_id', USER_ID)
     .eq('date', today)
     .single()
 
+  // Back-compat: if a device previously logged using local day, carry that forward
+  // into the Chicago-keyed row the first time we see it.
+  let base = ctRow?.count ?? 0
+  if (base === 0 && localToday !== today) {
+    const { data: localRow } = await supabase
+      .from('solved_log')
+      .select('count')
+      .eq('user_id', USER_ID)
+      .eq('date', localToday)
+      .maybeSingle()
+    if (typeof localRow?.count === 'number' && localRow.count > 0) {
+      base = localRow.count
+    }
+  }
+
   await supabase.from('solved_log').upsert({
     user_id: USER_ID,
     date: today,
-    count: (data?.count ?? 0) + 1,
+    count: base + 1,
   }, { onConflict: 'user_id,date' })
 }
 
@@ -194,14 +213,38 @@ export async function getSolvedLog(): Promise<Record<string, number>> {
 }
 
 export async function getTodaySolvedCount(): Promise<number> {
-  const today = todayISO()
-  const { data } = await supabase
+  const today = todayISOChicago()
+  const { data: ctRow } = await supabase
     .from('solved_log')
     .select('count')
     .eq('user_id', USER_ID)
     .eq('date', today)
-    .single()
-  return data?.count ?? 0
+    .maybeSingle()
+
+  if (typeof ctRow?.count === 'number') return ctRow.count
+
+  // Back-compat: if a device previously wrote solved_log using local date,
+  // read it once and migrate it forward so streak/quota reflect correctly.
+  const localToday = localTodayISO()
+  if (localToday === today) return 0
+
+  const { data: localRow } = await supabase
+    .from('solved_log')
+    .select('count')
+    .eq('user_id', USER_ID)
+    .eq('date', localToday)
+    .maybeSingle()
+
+  const localCount = (localRow?.count ?? 0) as number
+  if (localCount > 0) {
+    await supabase.from('solved_log').upsert({
+      user_id: USER_ID,
+      date: today,
+      count: localCount,
+    }, { onConflict: 'user_id,date' })
+  }
+
+  return localCount
 }
 
 // ─── Visited Sets ─────────────────────────────────────────────────────────────
@@ -887,7 +930,8 @@ export async function addPatternFcVisited(questionId: number) {
 
 // ─── FC Daily Log ─────────────────────────────────────────────────────────────
 export async function logFlashcardViewToday(questionId: number) {
-  const today = todayISO()
+  // Use the same "day" definition app-wide (Chicago).
+  const today = todayISOChicago()
   const { data } = await supabase
     .from('fc_daily_log')
     .select('question_ids')
@@ -907,7 +951,8 @@ export async function logFlashcardViewToday(questionId: number) {
 }
 
 export async function getTodayFcCount(): Promise<number> {
-  const today = todayISO()
+  // Use the same "day" definition app-wide (Chicago).
+  const today = todayISOChicago()
   const { data } = await supabase
     .from('fc_daily_log')
     .select('question_ids')
