@@ -28,6 +28,10 @@ const COOKIE_PATH =
   process.env.LC_CONNECTOR_COOKIE_PATH ||
   path.join(os.homedir(), '.leetcodemr-lc-connector.cookies.json')
 
+const PROFILE_PATH =
+  process.env.LC_CONNECTOR_PROFILE_PATH ||
+  path.join(os.homedir(), '.leetcodemr-lc-connector.profile')
+
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 
@@ -106,11 +110,27 @@ async function ensureAuthedCookieJar() {
 
 async function runAuthFlow() {
   console.log('[lc-connector] Launching browser for LeetCode login…')
-  const browser = await chromium.launch({ headless: false })
-  const context = await browser.newContext({
-    userAgent: UA,
-    viewport: { width: 1280, height: 800 },
-  })
+  console.log('[lc-connector] Tip: Cloudflare is stricter on automation browsers; using real Chrome + persistent profile helps.')
+
+  // Use a persistent context so Cloudflare challenges/cookies persist across retries.
+  // Prefer the system-installed Google Chrome (channel=chrome). Fall back to Playwright Chromium.
+  let context
+  try {
+    context = await chromium.launchPersistentContext(PROFILE_PATH, {
+      headless: false,
+      channel: 'chrome',
+      userAgent: UA,
+      viewport: { width: 1280, height: 800 },
+    })
+  } catch (e) {
+    console.log('[lc-connector] Could not launch system Chrome, falling back to Playwright Chromium.')
+    context = await chromium.launchPersistentContext(PROFILE_PATH, {
+      headless: false,
+      userAgent: UA,
+      viewport: { width: 1280, height: 800 },
+    })
+  }
+
   const page = await context.newPage()
   await page.goto('https://leetcode.com/accounts/login/', { waitUntil: 'domcontentloaded' })
   console.log('[lc-connector] Please login in the opened browser.')
@@ -124,13 +144,13 @@ async function runAuthFlow() {
     if (hasSession && hasCsrf) {
       saveCookieJar(cookies)
       console.log(`[lc-connector] Saved cookies to ${COOKIE_PATH}`)
-      await browser.close()
+      await context.close()
       return { ok: true }
     }
     await new Promise((r) => setTimeout(r, 1500))
   }
 
-  await browser.close()
+  await context.close()
   return { ok: false, error: 'Timed out waiting for login cookies.' }
 }
 
