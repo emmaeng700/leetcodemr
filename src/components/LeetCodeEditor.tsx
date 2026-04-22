@@ -60,6 +60,55 @@ const STATUS_CLS: Record<number, string> = {
 const LANG_LC: Record<string, string> = { python3: 'python3', cpp: 'cpp' }
 const LANG_LABEL: Record<string, string> = { python3: 'Python 3', cpp: 'C++' }
 
+/* ─── Pre-submit syntax checker ─────────────────────────── */
+/**
+ * Catch the most common Python mistakes before the code even leaves the
+ * browser, so you get an instant readable error instead of a cryptic
+ * LeetCode judge response.
+ */
+function checkPythonSyntax(code: string, lang: string): string | null {
+  if (lang !== 'python3') return null
+
+  // ── Double/repeated keywords ─────────────────────────────
+  const doubleKw: [RegExp, string][] = [
+    [/\band\s+and\b/,    'double `and` keyword on the same line'],
+    [/\bor\s+or\b/,      'double `or` keyword on the same line'],
+    [/\bnot\s+not\b/,    'double `not` — did you mean `!=`?'],
+    [/\bif\s+if\b/,      'double `if` keyword'],
+    [/\breturn\s+return\b/, 'double `return`'],
+    [/\bin\s+in\b/,      'double `in` keyword'],
+    [/\bis\s+is\b/,      'double `is` keyword — did you mean `==`?'],
+  ]
+  for (const [re, msg] of doubleKw) {
+    if (re.test(code)) return `Syntax error: ${msg}`
+  }
+
+  // ── Unbalanced brackets / parentheses ────────────────────
+  const open = new Map([[')', '('], [']', '['], ['}', '{']])
+  const stack: string[] = []
+  let inStr = false, strChar = ''
+  for (let i = 0; i < code.length; i++) {
+    const ch = code[i]
+    if (!inStr && (ch === '"' || ch === "'")) {
+      inStr = true; strChar = ch; continue
+    }
+    if (inStr && ch === strChar && code[i - 1] !== '\\') {
+      inStr = false; continue
+    }
+    if (inStr) continue
+    if ('([{'.includes(ch)) { stack.push(ch); continue }
+    if (')]}'.includes(ch)) {
+      if (!stack.length || stack[stack.length - 1] !== open.get(ch))
+        return `Syntax error: unexpected '${ch}' — mismatched bracket`
+      stack.pop()
+    }
+  }
+  if (stack.length)
+    return `Syntax error: unclosed '${stack[stack.length - 1]}' — add the closing bracket`
+
+  return null
+}
+
 /* ─── Props ──────────────────────────────────────────────── */
 interface Props {
   appQuestionId: number
@@ -541,6 +590,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     if (!lcQ || !sessionOK) return
     const now = Date.now()
     if (runCooldownUntil > now) return
+    const syntaxErr = checkPythonSyntax(code, lang)
+    if (syntaxErr) { setResultErr(syntaxErr); setBottomTab('result'); return }
     setRunning(true); setRunMode('test'); setResult(null); setResultErr(''); setSolvedStatus(null); setPollMsg('Sending…'); setBottomTab('result')
     try {
       const res = await fetch('/api/leetcode/test', {
@@ -581,6 +632,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   /* ── Submit ── */
   const runSubmit = async () => {
     if (!lcQ || !sessionOK) return
+    const syntaxErr = checkPythonSyntax(code, lang)
+    if (syntaxErr) { setResultErr(syntaxErr); setBottomTab('result'); return }
     setRunning(true); setRunMode('submit'); setResult(null); setResultErr(''); setSolvedStatus(null); setPollMsg('Submitting…'); setBottomTab('result')
     try {
       const res = await fetch('/api/leetcode/submit', {
@@ -952,10 +1005,22 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           {bottomTab === 'result' && (
             <div className="space-y-2 text-xs">
               {resultErr && (
-                <p className="text-red-400 flex items-start gap-1.5">
-                  <XCircle size={12} className="shrink-0 mt-0.5" />
-                  <span className="min-w-0 break-words">{resultErr}</span>
-                </p>
+                <div className="space-y-2">
+                  <p className="text-red-400 flex items-start gap-1.5">
+                    <XCircle size={12} className="shrink-0 mt-0.5" />
+                    <span className="min-w-0 break-words">{resultErr}</span>
+                  </p>
+                  {/* Session-expired shortcut — one tap to open the fix panel */}
+                  {(resultErr.includes('403') || resultErr.toLowerCase().includes('session') || resultErr.toLowerCase().includes('not authenticated')) && (
+                    <button
+                      onClick={() => { setShowSessionHint(true) }}
+                      style={{ touchAction: 'manipulation' }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white text-xs font-semibold rounded-lg hover:bg-orange-500 active:bg-orange-700 transition"
+                    >
+                      <Key size={11} /> Fix Session →
+                    </button>
+                  )}
+                </div>
               )}
               {!result && !resultErr && !pollMsg && <p className="text-gray-600">Run your code first.</p>}
               {result && (
