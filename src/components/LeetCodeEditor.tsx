@@ -703,6 +703,21 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
           <div className="flex-1" />
 
+          {/* Local connector badge */}
+          {localConnector?.ok && (
+            <span
+              title={localConnector.authed ? 'Local connector is active' : 'Local connector is running but not authenticated'}
+              className={`hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold border shrink-0 ${
+                localConnector.authed
+                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                  : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${localConnector.authed ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              Local connector {localConnector.authed ? 'ON' : 'Needs login'}
+            </span>
+          )}
+
           {/* Session warning */}
           {!sessionOK && (
             <button onClick={() => setShowSessionHint(h => !h)}
