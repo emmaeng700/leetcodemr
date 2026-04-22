@@ -1,20 +1,54 @@
 @import "tailwindcss";
 
 
-/* ── Color tokens ────────────────────────────────── */
+/* ── Game UI animations ──────────────────────────────────────────────────── */
+@keyframes xp-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+@keyframes badge-pop {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.13); }
+}
+@keyframes game-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-4px); }
+}
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 8px  rgba(124,58,237,0.35); }
+  50%       { box-shadow: 0 0 22px rgba(124,58,237,0.65); }
+}
+@keyframes streak-pulse {
+  0%, 100% { box-shadow: 0 0 6px  rgba(251,146,60,0.4); }
+  50%       { box-shadow: 0 0 18px rgba(251,146,60,0.8); }
+}
+
+
+/* ── Color tokens ────────────────────────────────────────────────────────── */
 :root {
-  /* Light mode — indigo-tinted, premium feel */
-  --bg:           #f0f2ff;   /* faint indigo wash on page bg   */
-  --bg-card:      #ffffff;   /* crisp white cards              */
-  --bg-input:     #f5f6ff;   /* very faint indigo inputs       */
-  --bg-muted:     #e8eaf6;   /* indigo-100-ish muted surfaces  */
-  --border:       rgba(99,102,241,0.18);  /* indigo-tinted borders */
-  --border-soft:  rgba(99,102,241,0.09);
-  --text:         #12132e;   /* deep navy-black                */
-  --text-muted:   #4b4f7a;   /* indigo-tinted mid-gray         */
-  --text-subtle:  #8b8fba;   /* soft indigo-gray               */
-  --shadow:       0 2px 20px rgba(99,102,241,0.10);
-  --accent-glow:  rgba(99,102,241,0.12);
+  /* Warm parchment game-world palette */
+  --bg:           #f7f3ed;   /* warm parchment page bg              */
+  --bg-card:      #fffdf8;   /* warm near-white cards               */
+  --bg-input:     #f5f0e8;   /* warm input surfaces                 */
+  --bg-muted:     #ede8de;   /* warm muted surfaces                 */
+  --border:       rgba(176,136,72,0.24);   /* gold-tinted borders    */
+  --border-soft:  rgba(176,136,72,0.11);
+  --text:         #1c1508;   /* near-black warm                     */
+  --text-muted:   #6b5a3a;   /* warm brown mid                      */
+  --text-subtle:  #a08870;   /* warm gray-brown                     */
+  --shadow:       0 4px 24px rgba(0,0,0,0.08);
+  --accent-glow:  rgba(124,58,237,0.16);   /* purple accent glow     */
+
+  /* ── Game-specific design tokens ───────────────────────────────────────── */
+  --game-gold:         #d97706;
+  --game-gold-light:   #fef3c7;
+  --game-purple:       #7c3aed;
+  --game-purple-light: #ede9fe;
+  --game-green:        #16a34a;
+  --game-card-shadow:  0 2px 16px rgba(0,0,0,0.07),
+                       0 0 0 1.5px rgba(176,136,72,0.16);
+  --nav-gradient:      linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  --xp-gradient:       linear-gradient(90deg, #7c3aed, #a855f7, #c084fc, #a855f7, #7c3aed);
 }
 
 
@@ -33,12 +67,41 @@ body {
   transition: background 0.25s, color 0.25s;
 }
 
-/* Light-mode card polish: subtle lift + indigo border glow */
+/* ── Game card surface ───────────────────────────────────────────────────── */
 :root .card-surface {
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(99,102,241,0.08);
+  box-shadow: var(--game-card-shadow);
 }
 
-/* ── LeetCode description styles ────────────────────────────────────────────
+/* ── XP / level progress bar ─────────────────────────────────────────────── */
+.xp-bar-fill {
+  background: var(--xp-gradient);
+  background-size: 200% 100%;
+  animation: xp-shimmer 2.5s ease-in-out infinite;
+  border-radius: 999px;
+}
+
+/* ── Floating game element ───────────────────────────────────────────────── */
+.game-float {
+  animation: game-float 3.2s ease-in-out infinite;
+}
+
+/* ── Glow ring on active / hovered game buttons ──────────────────────────── */
+.game-active-glow {
+  animation: glow-pulse 2.4s ease-in-out infinite;
+}
+
+/* ── Streak fire glow ────────────────────────────────────────────────────── */
+.streak-glow {
+  animation: streak-pulse 2s ease-in-out infinite;
+}
+
+/* ── Badge pop on mount ──────────────────────────────────────────────────── */
+.badge-pop {
+  animation: badge-pop 0.4s ease-out forwards;
+}
+
+
+/* ── LeetCode description styles ─────────────────────────────────────────────
    Single source of truth for all pages that render raw LeetCode HTML.
    Uses CSS variables + !important overrides so LeetCode's hardcoded inline
    styles and HTML attributes can't escape our theme.

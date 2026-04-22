@@ -44,8 +44,8 @@ function chicagoISO(d: Date) {
 function computeStreak(log: Record<string, number>) {
   let streak = 0
   const d = new Date()
-  // If today isn’t a “goals met” day yet, don’t zero the streak — count backward from
-  // yesterday so the number stays “14 days through yesterday” while you finish today.
+  // If today isn't a "goals met" day yet, don't zero the streak — count backward from
+  // yesterday so the number stays "14 days through yesterday" while you finish today.
   if (!log[chicagoISO(d)]) {
     d.setDate(d.getDate() - 1)
   }
@@ -92,6 +92,20 @@ function getStreakMessage(streak: number): string {
   return msgs[Math.abs(h) % msgs.length]
 }
 
+const STREAK_LEVELS = [
+  { min: 0,  max: 6,  level: 1, title: 'Rookie',   color: '#78716c' },
+  { min: 7,  max: 13, level: 2, title: 'Grinder',   color: '#16a34a' },
+  { min: 14, max: 20, level: 3, title: 'Warrior',   color: '#2563eb' },
+  { min: 21, max: 29, level: 4, title: 'Slayer',    color: '#7c3aed' },
+  { min: 30, max: Infinity, level: 5, title: 'Legend', color: '#d97706' },
+]
+function getStreakLevel(streak: number) {
+  const tier = STREAK_LEVELS.find(t => streak >= t.min && streak <= t.max) ?? STREAK_LEVELS[0]
+  const span = tier.max === Infinity ? 30 : tier.max - tier.min + 1
+  const xpPct = Math.min(100, Math.round(((streak - tier.min) / span) * 100))
+  return { ...tier, xpPct }
+}
+
 function StreakCard({
   streak,
   log,
@@ -99,7 +113,7 @@ function StreakCard({
 }: {
   streak: number
   log: Record<string, number>
-  /** Today’s dot uses live daily+SR rules; stale activity_log rows can’t show “done” early. */
+  /** Today's dot uses live daily+SR rules; stale activity_log rows can't show "done" early. */
   goalsMetToday: boolean
 }) {
   // Build Mon→Sun for the current ISO week
@@ -120,36 +134,84 @@ function StreakCard({
 
   const weekActive = weekDays.filter(d => d.active).length
   const message = getStreakMessage(streak)
+  const lvl = getStreakLevel(streak)
 
   return (
-    <div className="bg-gradient-to-br from-orange-50 to-amber-50   border border-orange-200  rounded-xl p-4 mb-3 shadow-lg shadow-orange-900/20">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <Flame size={18} className="text-orange-400" />
-            <span className="text-2xl font-black text-orange-500 ">{streak}</span>
-            <span className="text-sm font-bold text-orange-600 ">{streak === 1 ? 'day' : 'days'}</span>
+    <div className="relative overflow-hidden rounded-2xl mb-3"
+      style={{
+        background: 'linear-gradient(135deg, #431407 0%, #7c2d12 45%, #9a3412 100%)',
+        boxShadow: '0 4px 28px rgba(234,88,12,0.25), 0 0 0 1.5px rgba(251,146,60,0.3)',
+      }}>
+      {/* Subtle shimmer overlay */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: 'linear-gradient(135deg, rgba(251,191,36,0.08) 0%, transparent 60%)' }} />
+
+      <div className="relative p-4">
+        {/* Top row: streak count + level badge */}
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Flame size={20} className="text-orange-300 streak-glow" />
+              <span className="text-3xl font-black text-white leading-none">{streak}</span>
+              <span className="text-sm font-bold text-orange-300 leading-none">{streak === 1 ? 'day' : 'days'}</span>
+            </div>
+            <p className="text-xs text-orange-200 font-medium leading-snug max-w-[200px]">{message}</p>
           </div>
-          <p className="text-xs text-orange-600  font-medium leading-snug max-w-[200px]">{message}</p>
-        </div>
-        <div className="text-right shrink-0">
-          <p className="text-xs font-bold text-[var(--text-muted)] mb-0.5">This week</p>
-          <p className="text-lg font-black text-[var(--text)]">{weekActive}<span className="text-xs font-semibold text-[var(--text-subtle)]"> / 7</span></p>
-        </div>
-      </div>
-      {/* Week day dots */}
-      <div className="flex gap-1.5 justify-between">
-        {weekDays.map((d, i) => (
-          <div key={i} className="flex flex-col items-center gap-1 flex-1">
-            <div className={`w-full aspect-square rounded-full max-w-[28px] transition-colors ${
-              d.active   ? 'bg-orange-400 shadow-sm shadow-orange-500/40' :
-              d.isToday  ? 'bg-orange-100  border-2 border-orange-400 ' :
-              d.isFuture ? 'bg-[var(--bg-muted)]/60' :
-                           'bg-[var(--bg-muted)]'
-            }`} />
-            <span className={`text-[10px] font-semibold ${d.isToday ? 'text-orange-400' : 'text-[var(--text-subtle)]'}`}>{d.label}</span>
+
+          {/* Level + week badge */}
+          <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-orange-300/40"
+              style={{ background: 'rgba(0,0,0,0.3)' }}>
+              <span className="text-[11px] font-black text-orange-300">LVL {lvl.level}</span>
+              <span className="text-[11px] font-bold text-orange-400/80">{lvl.title}</span>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-orange-300/70 mb-0">This week</p>
+              <p className="text-lg font-black text-white leading-none">
+                {weekActive}<span className="text-xs font-semibold text-orange-300/80"> / 7</span>
+              </p>
+            </div>
           </div>
-        ))}
+        </div>
+
+        {/* XP bar */}
+        <div className="mb-3">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-[10px] font-bold text-orange-300/70 uppercase tracking-wide">XP to next level</span>
+            <span className="text-[10px] font-mono text-orange-300/70">{lvl.xpPct}%</span>
+          </div>
+          <div className="h-1.5 bg-black/30 rounded-full overflow-hidden">
+            <div
+              className="h-full xp-bar-fill rounded-full transition-all duration-700"
+              style={{ width: `${lvl.xpPct}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Week day dots */}
+        <div className="flex gap-1.5 justify-between">
+          {weekDays.map((d, i) => (
+            <div key={i} className="flex flex-col items-center gap-1 flex-1">
+              <div className={`w-full aspect-square rounded-full max-w-[28px] transition-all duration-300 ${
+                d.active
+                  ? 'shadow-[0_0_8px_rgba(251,146,60,0.7)]'
+                  : ''
+              }`}
+                style={{
+                  background: d.active
+                    ? 'linear-gradient(135deg,#fb923c,#f97316)'
+                    : d.isToday
+                      ? 'transparent'
+                      : d.isFuture
+                        ? 'rgba(255,255,255,0.08)'
+                        : 'rgba(255,255,255,0.12)',
+                  border: d.isToday && !d.active ? '2px solid rgba(251,146,60,0.7)' : 'none',
+                }}
+              />
+              <span className={`text-[10px] font-semibold ${d.isToday ? 'text-orange-300' : 'text-orange-200/50'}`}>{d.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -354,7 +416,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   const planMode = (studyPlan as any)?.mode ?? (planNorm as any)?.mode
   const isRandomPlan = planMode === 'random'
 
-  // Today’s dot uses live daily+SR rules (mode-aware).
+  // Today's dot uses live daily+SR rules (mode-aware).
   const goalsMetToday = isRandomPlan
     ? (solvedTodayCount >= (planNorm?.per_day ?? 1) && dueReviews.length === 0)
     : computeDailyGoalsMetToday(studyPlan, progress, dueReviews.length, reviewsCompletedToday)
@@ -745,7 +807,7 @@ function TodayPlanCard({ questions, progress }: { questions: Question[]; progres
                 </button>
               </div>
             )) : (
-              <div className="text-xs text-[var(--text-subtle)]">No reboot items yet. Add any “few days ago” question IDs below.</div>
+              <div className="text-xs text-[var(--text-subtle)]">No reboot items yet. Add any "few days ago" question IDs below.</div>
             )}
           </div>
         </div>
