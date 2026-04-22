@@ -9,6 +9,7 @@ import {
 import { getProgress, updateProgress, incrementAcSubmitCount } from '@/lib/db'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { normalizeLcCookieValue } from '@/lib/leetcodeHttp'
+import { lcFetch, getLocalConnectorStatus } from '@/lib/leetcodeLocalConnector'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import toast from 'react-hot-toast'
 
@@ -326,6 +327,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [resultErr,  setResultErr]  = useState('')
   const [solvedStatus, setSolvedStatus] = useState<'marked' | 'already' | 'not-in-library' | null>(null)
   const [showSessionHint, setShowSessionHint] = useState(false)
+  const [localConnector, setLocalConnector] = useState<{ ok: boolean; authed: boolean } | null>(null)
 
   /* ── My Solutions modal UX: ESC close + lock background scroll ── */
   useEffect(() => {
@@ -347,6 +349,9 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
   /* ── Load session — localStorage first, Supabase fallback ── */
   useEffect(() => {
+    // Detect local connector availability (best-effort).
+    getLocalConnectorStatus().then(setLocalConnector).catch(() => setLocalConnector({ ok: false, authed: false }))
+
     const ls = normalizeLcCookieValue(localStorage.getItem('lc_session') ?? '')
     const lc = normalizeLcCookieValue(localStorage.getItem('lc_csrf') ?? '')
     if (ls && lc) {
@@ -445,7 +450,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     if (!lcSlug || !sessionReady) return
     setLcLoad(true); setLcErr('')
 
-    fetch('/api/leetcode', {
+    lcFetch('/api/leetcode', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         session, csrfToken: csrf,
@@ -464,7 +469,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         if (!q && sessionOK) {
           try {
             const fallbackQuery = `query($s:String!){question(titleSlug:$s){questionId questionFrontendId titleSlug isPaidOnly codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`
-            const fb = await fetch('/api/leetcode', {
+            const fb = await lcFetch('/api/leetcode', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ query: fallbackQuery, variables: { s: lcSlug } }),
             }).then(r => r.json())
@@ -527,7 +532,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       let res!: Response
       let data: (LCResult & { error?: string }) | undefined
       for (let att = 0; att < 3; att++) {
-        res = await fetch('/api/leetcode/check', {
+        res = await lcFetch('/api/leetcode/check', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ checkId, titleSlug: lcSlug, session, csrfToken: csrf }),
         })
@@ -594,7 +599,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     if (syntaxErr) { setResultErr(syntaxErr); setBottomTab('result'); return }
     setRunning(true); setRunMode('test'); setResult(null); setResultErr(''); setSolvedStatus(null); setPollMsg('Sending…'); setBottomTab('result')
     try {
-      const res = await fetch('/api/leetcode/test', {
+      const res = await lcFetch('/api/leetcode/test', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ titleSlug: lcSlug, questionId: lcQ.questionId, lang: LANG_LC[lang], code, testInput: cases[activeCase]?.raw || testInput, session, csrfToken: csrf }),
       })
@@ -636,7 +641,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     if (syntaxErr) { setResultErr(syntaxErr); setBottomTab('result'); return }
     setRunning(true); setRunMode('submit'); setResult(null); setResultErr(''); setSolvedStatus(null); setPollMsg('Submitting…'); setBottomTab('result')
     try {
-      const res = await fetch('/api/leetcode/submit', {
+      const res = await lcFetch('/api/leetcode/submit', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ titleSlug: lcSlug, questionId: lcQ.questionId, lang: LANG_LC[lang], code, session, csrfToken: csrf }),
       })

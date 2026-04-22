@@ -16,6 +16,7 @@ import {
   Tag, ChevronRight, Star, BookOpen,
 } from 'lucide-react'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
+import { lcFetch } from '@/lib/leetcodeLocalConnector'
 
 hljs.registerLanguage('python', pythonLang)
 hljs.registerLanguage('cpp', cppLang)
@@ -84,7 +85,7 @@ const EDITORIAL_Q = `query($s:String!){question(titleSlug:$s){solution{content p
 const PLAYGROUND_Q = `query($u:String!){allPlaygroundCodes(uuid:$u){code langSlug}}`
 
 async function gql(query: string, variables?: Record<string, unknown>, creds?: { session: string; csrfToken: string }) {
-  const res = await fetch('/api/leetcode', {
+  const res = await lcFetch('/api/leetcode', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, variables, ...(creds ?? {}) }),
   })

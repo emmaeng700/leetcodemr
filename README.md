@@ -55,7 +55,26 @@ npm run dev    # Development server
 npm run build  # Production build
 npm run start  # Run production server
 npm run lint   # ESLint
+npm run lc:auth      # (Local) open browser to login to LeetCode
+npm run lc:connector # (Local) run the LeetCode connector on 127.0.0.1:8787
 ```
+
+## Local LeetCode Connector (recommended)
+
+LeetCode sometimes blocks serverless/Vercel requests with Cloudflare/WAF (HTTP 403 HTML),
+even with valid cookies. The **Local Connector** runs on your machine and makes the
+requests from your own IP/browser fingerprint (similar to the VSCode LeetCode extension).
+
+Steps:
+
+```bash
+npm install
+npm run lc:auth
+npm run lc:connector
+```
+
+Then use the app normally — it will automatically prefer the local connector when available,
+and fall back to the deployed API routes when it isn’t.
 
 ## Project layout
 

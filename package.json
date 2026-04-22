@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "lc:connector": "node scripts/leetcode-connector.js",
+    "lc:auth": "node scripts/leetcode-connector.js auth"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",
@@ -39,6 +41,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "playwright": "^1.54.2"
   }
 }
