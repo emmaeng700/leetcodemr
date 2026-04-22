@@ -88,6 +88,34 @@ function saveCookieJar(cookies) {
   fs.writeFileSync(COOKIE_PATH, JSON.stringify(cookies, null, 2), 'utf8')
 }
 
+function parseCookieHeader(cookieHeaderRaw) {
+  const raw = String(cookieHeaderRaw || '').trim()
+  if (!raw) return []
+  const cookieHeader = raw.replace(/^cookie:\s*/i, '').trim()
+  return cookieHeader
+    .split(';')
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const eq = part.indexOf('=')
+      if (eq <= 0) return null
+      const name = part.slice(0, eq).trim()
+      const value = part.slice(eq + 1).trim()
+      if (!name) return null
+      return {
+        name,
+        value,
+        domain: 'leetcode.com',
+        path: '/',
+        expires: -1,
+        httpOnly: false,
+        secure: true,
+        sameSite: 'Lax',
+      }
+    })
+    .filter(Boolean)
+}
+
 function cookieHeaderFromJar(cookies) {
   // Playwright cookies: { name, value, domain, path, expires, httpOnly, secure, sameSite }
   return cookies
@@ -106,6 +134,30 @@ async function ensureAuthedCookieJar() {
   // Basic sanity: require LEETCODE_SESSION and csrftoken
   if (!getCookie(jar, 'LEETCODE_SESSION') || !getCookie(jar, 'csrftoken')) return null
   return jar
+}
+
+async function importCookieHeaderFromStdin() {
+  console.log('[lc-connector] Paste the full Cookie header value now, then press Enter.')
+  console.log('[lc-connector] Example: LEETCODE_SESSION=...; csrftoken=...; __cf_bm=...; cf_clearance=...')
+
+  const input = await new Promise((resolve) => {
+    let buf = ''
+    process.stdin.setEncoding('utf8')
+    process.stdin.on('data', (d) => (buf += d))
+    process.stdin.on('end', () => resolve(buf))
+    process.stdin.resume()
+  })
+
+  const jar = parseCookieHeader(input)
+  if (!jar.length) return { ok: false, error: 'No cookies detected.' }
+  const hasSession = !!getCookie(jar, 'LEETCODE_SESSION')
+  const hasCsrf = !!getCookie(jar, 'csrftoken')
+  if (!hasSession || !hasCsrf) {
+    return { ok: false, error: 'Cookie header must include LEETCODE_SESSION and csrftoken.' }
+  }
+  saveCookieJar(jar)
+  console.log(`[lc-connector] Imported cookies to ${COOKIE_PATH}`)
+  return { ok: true }
 }
 
 async function runAuthFlow() {
@@ -287,6 +339,14 @@ async function main() {
   if (arg === 'auth') {
     const r = await runAuthFlow()
     if (!r.ok) process.exitCode = 1
+    return
+  }
+  if (arg === 'import') {
+    const r = await importCookieHeaderFromStdin()
+    if (!r.ok) {
+      console.error('[lc-connector] import failed:', r.error)
+      process.exitCode = 1
+    }
     return
   }
 

@@ -57,6 +57,7 @@ npm run start  # Run production server
 npm run lint   # ESLint
 npm run lc:auth      # (Local) open browser to login to LeetCode
 npm run lc:connector # (Local) run the LeetCode connector on 127.0.0.1:8787
+npm run lc:import    # (Local) paste Cookie header once (fallback if Cloudflare blocks automation)
 ```
 
 ## Local LeetCode Connector (recommended)
@@ -70,6 +71,13 @@ Steps:
 ```bash
 npm install
 npm run lc:auth
+npm run lc:connector
+```
+
+If Cloudflare blocks the automated login window, use the import fallback:
+
+```bash
+npm run lc:import
 npm run lc:connector
 ```
 

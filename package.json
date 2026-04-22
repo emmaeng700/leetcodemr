@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "lc:connector": "node scripts/leetcode-connector.js",
-    "lc:auth": "node scripts/leetcode-connector.js auth"
+    "lc:auth": "node scripts/leetcode-connector.js auth",
+    "lc:import": "node scripts/leetcode-connector.js import"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",
