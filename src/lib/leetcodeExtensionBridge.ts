@@ -38,7 +38,7 @@ export async function extBridgeRequest(kind: BridgeKind, body?: any): Promise<Br
     const timeout = window.setTimeout(() => {
       window.removeEventListener('message', onMsg)
       reject(new Error('Extension bridge timeout.'))
-    }, 1500)
+    }, 5000)
 
     function onMsg(e: MessageEvent) {
       const data = e.data as BridgeResponse

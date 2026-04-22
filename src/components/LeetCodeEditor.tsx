@@ -354,11 +354,22 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     // Detect local connector availability (best-effort).
     getLocalConnectorStatus().then(setLocalConnector).catch(() => setLocalConnector({ ok: false, authed: false }))
     // Detect extension bridge availability (best-effort).
-    if (hasLeetMasteryBridge()) {
-      extBridgeHealthy().then(setExtBridgeOn).catch(() => setExtBridgeOn(false))
-    } else {
-      setExtBridgeOn(false)
-    }
+    // MV3 service worker may be asleep; ping can take a moment to wake it.
+    let cancelled = false
+    ;(async () => {
+      if (!hasLeetMasteryBridge()) { setExtBridgeOn(false); return }
+      for (let i = 0; i < 3; i++) {
+        try {
+          const ok = await extBridgeHealthy()
+          if (cancelled) return
+          if (ok) { setExtBridgeOn(true); return }
+        } catch {
+          /* ignore */
+        }
+        await new Promise(r => setTimeout(r, 500 * (i + 1)))
+      }
+      if (!cancelled) setExtBridgeOn(false)
+    })()
 
     const ls = normalizeLcCookieValue(localStorage.getItem('lc_session') ?? '')
     const lc = normalizeLcCookieValue(localStorage.getItem('lc_csrf') ?? '')
@@ -392,6 +403,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
+    return () => { cancelled = true }
   }, [])
 
   /* ── Load CodeMirror extensions ── */

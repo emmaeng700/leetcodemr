@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Lets LeetMastery run/submit on LeetCode using your browser session (avoids serverless 403).",
   "permissions": ["cookies", "storage"],
-  "host_permissions": ["https://leetcode.com/*", "https://*.leetcode.com/*"],
+  "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "service_worker.js"
   },
