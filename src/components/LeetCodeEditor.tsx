@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 import {
   Play, Send, Loader2, CheckCircle, XCircle, Clock, Cpu,
   AlertCircle, Key, ChevronDown, ChevronUp, Star, Trophy,
-  Eye, EyeOff,
+  Eye, EyeOff, RotateCcw,
 } from 'lucide-react'
 import { getProgress, updateProgress, incrementAcSubmitCount } from '@/lib/db'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
@@ -657,8 +657,16 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
             </button>
           )}
 
-          {/* Run + Submit — desktop only (inline in toolbar) */}
+          {/* Run + Submit + Reset — desktop only (inline in toolbar) */}
           <div className="hidden sm:flex items-center gap-2">
+            <button onClick={resetToStarter}
+              disabled={running}
+              title="Reset to starter code"
+              style={{ touchAction: 'manipulation' }}
+              className="flex items-center gap-1.5 px-3 py-2 min-h-[36px] text-xs font-semibold rounded-lg transition cursor-pointer shrink-0 text-gray-400 hover:text-gray-200 hover:bg-gray-700/60 active:bg-gray-700 disabled:opacity-40">
+              <RotateCcw size={12} />
+              Reset
+            </button>
             <button onClick={!sessionOK ? () => setShowSessionHint(true) : runTest}
               disabled={running || (!sessionOK && false) || (sessionOK && !lcQ)}
               style={{ touchAction: 'manipulation' }}
