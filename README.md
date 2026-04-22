@@ -84,6 +84,22 @@ npm run lc:connector
 Then use the app normally — it will automatically prefer the local connector when available,
 and fall back to the deployed API routes when it isn’t.
 
+## Chrome Extension Bridge (no localhost)
+
+If you want the VSCode-extension style experience **without** running any local server,
+load the included Chrome extension (unpacked). It runs LeetCode requests from your
+browser session (cookies + CSRF automatically), which avoids serverless 403 blocks.
+
+Steps:
+
+1. Open Chrome → `chrome://extensions`
+2. Enable **Developer mode**
+3. Click **Load unpacked**
+4. Select the `extension/` folder in this repo
+5. Refresh the LeetMastery tab
+
+When installed, the app will automatically prefer the extension bridge for LeetCode Run/Submit/Check/GraphQL.
+
 ## Project layout
 
 - `src/app/(app)/` — Main UI routes (questions, daily, stats, flashcards, etc.)

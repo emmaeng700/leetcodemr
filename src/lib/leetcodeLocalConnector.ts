@@ -1,3 +1,5 @@
+import { extBridgeHealthy, extBridgeRequest } from './leetcodeExtensionBridge'
+
 type LcLocalHealth = { ok: boolean; authed?: boolean }
 
 const LOCAL_BASE = 'http://127.0.0.1:8787'
@@ -33,9 +35,41 @@ export async function getLocalConnectorStatus(): Promise<{ ok: boolean; authed: 
 }
 
 export async function lcFetch(path: string, init: RequestInit): Promise<Response> {
-  // Prefer local connector if available; otherwise fall back to app serverless routes.
+  // Prefer extension (best UX) ? local connector ? serverless routes.
   const isBrowser = typeof window !== 'undefined'
   if (!isBrowser) return fetch(path, init)
+
+  // Extension bridge
+  if (path === '/api/leetcode' || path.startsWith('/api/leetcode/')) {
+    const ok = await extBridgeHealthy()
+    if (ok) {
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined
+      const kind =
+        path === '/api/leetcode'
+          ? 'graphql'
+          : path.endsWith('/submit')
+            ? 'submit'
+            : path.endsWith('/test')
+              ? 'test'
+              : path.endsWith('/check')
+                ? 'check'
+                : null
+
+      if (kind) {
+        const resp = await extBridgeRequest(kind as any, body)
+        if (!resp.ok) {
+          return new Response(JSON.stringify({ error: resp.error ?? 'Extension bridge failed.', httpStatus: resp.httpStatus }), {
+            status: 502,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+        return new Response(resp.bodyText ?? '', {
+          status: resp.httpStatus ?? 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+    }
+  }
 
   const st = await getLocalConnectorStatus()
   if (!st.ok) return fetch(path, init)
