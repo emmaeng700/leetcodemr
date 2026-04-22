@@ -69,6 +69,7 @@ export function leetCodeProblemApiHeaders(
     base['sec-ch-ua'] = '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"'
     base['sec-ch-ua-mobile'] = '?0'
     base['sec-ch-ua-platform'] = '"macOS"'
+    base['Accept-Encoding'] = 'gzip, deflate, br, zstd'
   }
   return base
 }
@@ -117,6 +118,7 @@ export function leetCodeCheckHeaders(
     base['sec-ch-ua'] = '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"'
     base['sec-ch-ua-mobile'] = '?0'
     base['sec-ch-ua-platform'] = '"macOS"'
+    base['Accept-Encoding'] = 'gzip, deflate, br, zstd'
   }
   return base
 }
@@ -162,12 +164,16 @@ export async function fetchLeetCodeProblemPost(
     })
     const text = await res.text()
     last = { res, text }
-    // Hitting LeetCode repeatedly while rate-limited makes things worse (HTTP 429).
-    if ([401, 403, 429].includes(res.status)) return last
+    // 429 = rate-limited: retrying immediately makes it worse, bail now.
+    // 401 = definitely bad creds: no header strategy will fix it.
+    // 403 = might be anti-bot / wrong Referer: try remaining strategies.
+    if (res.status === 429 || res.status === 401) return last
     const isLast = i === POST_STRATEGIES.length - 1
-    if (!retryOnHtml || isLast || !isLeetCodeHtmlBody(text)) {
-      return last
-    }
+    if (isLast) return last
+    // Continue to next strategy if we got 403 or HTML (both indicate the
+    // current header set was rejected — a different Referer/Sec-Fetch
+    // fingerprint may get through).
+    if (res.status !== 403 && !isLeetCodeHtmlBody(text)) return last
     await new Promise(r => setTimeout(r, RETRY_MS))
   }
   return last!
@@ -187,11 +193,10 @@ export async function fetchLeetCodeCheckGet(
     const res = await fetch(fullUrl, { headers, ...lcFetchInit })
     const text = await res.text()
     last = { res, text }
-    if ([401, 403, 429].includes(res.status)) return last
+    if (res.status === 429 || res.status === 401) return last
     const isLast = i === CHECK_STRATEGIES.length - 1
-    if (isLast || !isLeetCodeHtmlBody(text)) {
-      return last
-    }
+    if (isLast) return last
+    if (res.status !== 403 && !isLeetCodeHtmlBody(text)) return last
     await new Promise(r => setTimeout(r, RETRY_MS))
   }
   return last!
