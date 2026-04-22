@@ -19,8 +19,49 @@ export function normalizeLcCookieValue(raw: unknown): string {
   }
   stripName('LEETCODE_SESSION')
   stripName('csrftoken')
+  // If user pasted a full Cookie header / cookie jar, keep it for the caller
+  // that expects value-only to handle separately.
   s = s.replace(/^["']|["']$/g, '').trim()
   return s
+}
+
+/** Extract a cookie value from a Cookie header string. */
+export function getCookieFromHeader(cookieHeaderRaw: string, name: string): string {
+  const cookieHeader = String(cookieHeaderRaw ?? '').trim()
+  if (!cookieHeader) return ''
+  const normalized = cookieHeader.replace(/^cookie:\s*/i, '')
+  const parts = normalized.split(';')
+  for (const part of parts) {
+    const [k, ...rest] = part.trim().split('=')
+    if (!k) continue
+    if (k.trim() === name) return rest.join('=').trim()
+  }
+  return ''
+}
+
+/**
+ * Normalize user input into a Cookie header string.
+ * Accepts either:
+ * - value-only LEETCODE_SESSION (and we’ll build the Cookie header)
+ * - full cookie jar / "Cookie: ..." string containing LEETCODE_SESSION=...
+ */
+export function normalizeLcCookieHeader(rawSessionOrCookieJar: unknown, csrfToken: unknown): { cookie: string; csrf: string } {
+  const raw = String(rawSessionOrCookieJar ?? '').trim()
+  const rawCsrf = String(csrfToken ?? '').trim()
+
+  const looksLikeCookieJar =
+    /LEETCODE_SESSION\s*=/.test(raw) && raw.includes(';')
+
+  if (looksLikeCookieJar) {
+    const cookie = raw.replace(/^cookie:\s*/i, '').trim()
+    const csrfFromJar = getCookieFromHeader(cookie, 'csrftoken')
+    const csrf = normalizeLcCookieValue(rawCsrf) || normalizeLcCookieValue(csrfFromJar)
+    return { cookie, csrf }
+  }
+
+  const sess = normalizeLcCookieValue(raw)
+  const csrf = normalizeLcCookieValue(rawCsrf)
+  return { cookie: `LEETCODE_SESSION=${sess}; csrftoken=${csrf}`, csrf }
 }
 
 const UA =
@@ -42,8 +83,7 @@ export function leetCodeProblemApiHeaders(
   csrfToken: string,
   opts?: LcPostStrategy,
 ): Record<string, string> {
-  const sess = normalizeLcCookieValue(session)
-  const csrf = normalizeLcCookieValue(csrfToken)
+  const { cookie, csrf } = normalizeLcCookieHeader(session, csrfToken)
   const slug = encodeURIComponent(titleSlug)
   const refPath =
     (opts?.referer ?? 'description') === 'description'
@@ -51,7 +91,7 @@ export function leetCodeProblemApiHeaders(
       : `${slug}/`
   const base: Record<string, string> = {
     'Content-Type': 'application/json',
-    Cookie: `LEETCODE_SESSION=${sess}; csrftoken=${csrf}`,
+    Cookie: cookie,
     'X-CSRFToken': csrf,
     Referer: `${LC}/problems/${refPath}`,
     Accept: 'application/json, text/plain, */*',
@@ -75,11 +115,10 @@ export function leetCodeProblemApiHeaders(
 }
 
 export function leetCodeGraphqlHeaders(session: string, csrfToken: string): Record<string, string> {
-  const sess = normalizeLcCookieValue(session)
-  const csrf = normalizeLcCookieValue(csrfToken)
+  const { cookie, csrf } = normalizeLcCookieHeader(session, csrfToken)
   return {
     'Content-Type': 'application/json',
-    Cookie: `LEETCODE_SESSION=${sess}; csrftoken=${csrf}`,
+    Cookie: cookie,
     'X-CSRFToken': csrf,
     Referer: `${LC}/problems/`,
     Origin: LC,
@@ -96,15 +135,14 @@ export function leetCodeCheckHeaders(
   csrfToken: string,
   opts?: { referer?: LcProblemReferer; chromeHeaders?: boolean },
 ): Record<string, string> {
-  const sess = normalizeLcCookieValue(session)
-  const csrf = normalizeLcCookieValue(csrfToken)
+  const { cookie } = normalizeLcCookieHeader(session, csrfToken)
   const slug = encodeURIComponent(titleSlug)
   const refPath =
     (opts?.referer ?? 'description') === 'description'
       ? `${slug}/description/`
       : `${slug}/`
   const base: Record<string, string> = {
-    Cookie: `LEETCODE_SESSION=${sess}; csrftoken=${csrf}`,
+    Cookie: cookie,
     Referer: `${LC}/problems/${refPath}`,
     Accept: 'application/json',
     'Accept-Language': 'en-US,en;q=0.9',
