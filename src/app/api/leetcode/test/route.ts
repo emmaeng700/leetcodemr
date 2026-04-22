@@ -70,8 +70,9 @@ export async function POST(req: NextRequest) {
         String(titleSlug),
         session,
         csrfToken,
-        // Caller controls outer retries; avoid multiplying requests inside this helper.
-        { retryOnHtml: false },
+        // Allow helper to retry alternate header strategies on 403/HTML.
+        // Without this, Cloudflare/WAF blocks are much more likely.
+        { retryOnHtml: true },
       )
       lastRes = res
       lastText = text
@@ -112,7 +113,7 @@ export async function POST(req: NextRequest) {
           hint =
             'LeetCode rate-limited this run (HTTP 429). Wait a bit and try again — repeated Run attempts can trigger temporary blocks.'
         } else {
-          hint = `LeetCode returned HTML instead of JSON (HTTP ${st}). Your session may be expired, blocked, or rate-limited. Refresh LEETCODE_SESSION + csrftoken and try again.`
+            hint = `LeetCode returned HTML instead of JSON (HTTP ${st}). This is usually Cloudflare/WAF blocking server-side requests.\n\nFix: paste your full leetcode.com Cookie header (including cf_clearance/__cf_bm if present) into the session field, then retry. If it still fails, LeetCode may be blocking your deployment’s IP/TLS fingerprint and server-side submit/run will not work reliably.`
         }
       } else {
         hint = parsed.error
