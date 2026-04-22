@@ -10,6 +10,7 @@ import { getProgress, updateProgress, incrementAcSubmitCount } from '@/lib/db'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { normalizeLcCookieValue } from '@/lib/leetcodeHttp'
 import { lcFetch, getLocalConnectorStatus } from '@/lib/leetcodeLocalConnector'
+import { extBridgeHealthy, hasLeetMasteryBridge } from '@/lib/leetcodeExtensionBridge'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import toast from 'react-hot-toast'
 
@@ -328,6 +329,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [solvedStatus, setSolvedStatus] = useState<'marked' | 'already' | 'not-in-library' | null>(null)
   const [showSessionHint, setShowSessionHint] = useState(false)
   const [localConnector, setLocalConnector] = useState<{ ok: boolean; authed: boolean } | null>(null)
+  const [extBridgeOn, setExtBridgeOn] = useState(false)
 
   /* ── My Solutions modal UX: ESC close + lock background scroll ── */
   useEffect(() => {
@@ -351,6 +353,12 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   useEffect(() => {
     // Detect local connector availability (best-effort).
     getLocalConnectorStatus().then(setLocalConnector).catch(() => setLocalConnector({ ok: false, authed: false }))
+    // Detect extension bridge availability (best-effort).
+    if (hasLeetMasteryBridge()) {
+      extBridgeHealthy().then(setExtBridgeOn).catch(() => setExtBridgeOn(false))
+    } else {
+      setExtBridgeOn(false)
+    }
 
     const ls = normalizeLcCookieValue(localStorage.getItem('lc_session') ?? '')
     const lc = normalizeLcCookieValue(localStorage.getItem('lc_csrf') ?? '')
@@ -702,6 +710,19 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           </div>
 
           <div className="flex-1" />
+
+          {/* Extension bridge badge */}
+          <span
+            title={extBridgeOn ? 'Chrome extension bridge is active' : 'Chrome extension bridge not detected'}
+            className={`hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold border shrink-0 ${
+              extBridgeOn
+                ? 'bg-sky-500/10 text-sky-300 border-sky-500/30'
+                : 'bg-gray-700/20 text-gray-400 border-gray-600/20'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${extBridgeOn ? 'bg-sky-400' : 'bg-gray-500'}`} />
+            Extension {extBridgeOn ? 'ON' : 'OFF'}
+          </span>
 
           {/* Local connector badge */}
           {localConnector?.ok && (

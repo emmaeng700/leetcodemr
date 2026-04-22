@@ -10,7 +10,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://localhost:*/*", "https://leetcodemr.vercel.app/*", "https://*.vercel.app/*"],
+      "matches": ["<all_urls>"],
       "js": ["content_script.js"],
       "run_at": "document_start"
     }
