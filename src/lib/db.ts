@@ -899,25 +899,8 @@ export async function syncStreakActivityFromGoals(modeOverride?: string): Promis
     await supabase.from('activity_log').delete().eq('user_id', USER_ID).eq('date', today)
   }
 
-  let goalsMet = false
-
-  if (mode === 'random' && plan) {
-    // Random mode: day done when solved_log[today] >= per_day AND reviews clear
-    const solvedToday = await getTodaySolvedCount()
-    goalsMet = solvedToday >= (plan.per_day ?? 1) && dueCount === 0
-  } else {
-    const { data: progressRows } = await supabase
-      .from('progress')
-      .select('question_id,solved')
-      .eq('user_id', USER_ID)
-
-    const progressMap: Record<string, { solved?: boolean }> = {}
-    for (const row of progressRows ?? []) {
-      const r = row as { question_id: number; solved: boolean }
-      progressMap[String(r.question_id)] = { solved: !!r.solved }
-    }
-    goalsMet = computeDailyGoalsMetToday(plan, progressMap, dueCount)
-  }
+  // Day is done when all due reviews are cleared
+  const goalsMet = dueCount === 0
 
   if (goalsMet) {
     const { error } = await supabase.from('activity_log').upsert({

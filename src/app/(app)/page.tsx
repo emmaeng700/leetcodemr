@@ -417,14 +417,10 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   const isRandomPlan = planMode === 'random'
 
   // Today's dot uses live daily+SR rules (mode-aware).
-  const goalsMetToday = isRandomPlan
-    ? (solvedTodayCount >= (planNorm?.per_day ?? 1) && dueReviews.length === 0)
-    : computeDailyGoalsMetToday(studyPlan, progress, dueReviews.length, reviewsCompletedToday)
+  const goalsMetToday = dueReviews.length === 0
 
   const streakDisplay = planNorm
-    ? (isRandomPlan
-        ? computeStreak(activityLog)
-        : (computePlanStreakDisplayNumber(studyPlan, progress, dueReviews.length, reviewsCompletedToday) ?? 0))
+    ? (computePlanStreakDisplayNumber(studyPlan, progress, dueReviews.length) ?? 0)
     : computeStreak(activityLog)
   // Only show activity log dots from the current plan's start date onwards.
   // Old plan entries shouldn't bleed into a freshly generated plan's week view.
@@ -469,46 +465,30 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     const today = todayISOChicago()
 
     if (planMode === 'random') {
-      const perDay = planNorm.per_day ?? 1
-      const done = Math.max(0, solvedTodayCount)
-      const goalMet = done >= perDay
-      const allDone = goalMet && dueReviews.length === 0
-
+      const allDone = dueReviews.length === 0
       return (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-bold text-[var(--text)] flex items-center gap-1.5">
-              <Calendar size={14} className="text-purple-500" /> Today — Random mode
+              <Calendar size={14} className="text-purple-500" /> Today
             </h2>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono text-[var(--text-subtle)] hidden sm:inline">
-                build {process.env.NEXT_PUBLIC_COMMIT_SHA}
-              </span>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                allDone ? 'bg-green-100  text-green-700 ' :
-                done > 0 ? 'bg-yellow-100  text-yellow-700 ' :
-                'bg-red-100  text-red-700 '
-              }`}>{Math.min(done, perDay)}/{perDay} done</span>
-            </div>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+              allDone ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+            }`}>{allDone ? '✓ Done' : `${dueReviews.length} reviews left`}</span>
           </div>
-
-          <p className="text-xs text-[var(--text-subtle)]">
-            Solve any {perDay} questions today{dueReviews.length ? ' and clear your reviews' : ''} to tick today.
-          </p>
-
-          {goalMet && dueReviews.length > 0 && (
-            <p className="mt-2 text-xs font-semibold text-amber-600">
-              Daily questions done — reviews still pending.
-            </p>
+          {allDone ? (
+            <p className="text-sm font-bold text-green-500">All reviews cleared — day done! 🎉</p>
+          ) : (
+            <>
+              <p className="text-xs text-[var(--text-subtle)] mb-2">Clear all your reviews to finish the day.</p>
+              <Link href="/review" className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:underline">
+                Open reviews <ChevronRight size={12} />
+              </Link>
+            </>
           )}
-
-          {allDone && <p className="mt-3 text-center text-sm font-bold text-green-500 ">All done for today! 🎉</p>}
-
-          {!allDone && (
-            <Link href="/daily" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-purple-600  hover:underline">
-              Go to daily plan <ChevronRight size={12} />
-            </Link>
-          )}
+          <div className="mt-3 pt-3 border-t border-[var(--border-soft)]">
+            <p className="text-xs text-[var(--text-subtle)]">Solve on LeetCode, then hit <span className="font-semibold text-indigo-500">LC Sync</span> above to mark problems solved.</p>
+          </div>
         </div>
       )
     }
@@ -528,65 +508,30 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     const dayQs = dayIds.map((id: number) => qMap[id]).filter(Boolean)
     if (!dayQs.length) return null
     const doneCnt = dayIds.filter((id: number) => progress[String(id)]?.solved).length
-    const allDone = doneCnt === dayIds.length
+    const allDone = dueReviews.length === 0
     return (
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-5">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold text-[var(--text)] flex items-center gap-1.5">
-            <Calendar size={14} className="text-indigo-500" /> Today — Day {activeDayIndex + 1}
+            <Calendar size={14} className="text-indigo-500" /> Today
           </h2>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono text-[var(--text-subtle)] hidden sm:inline">
-              build {process.env.NEXT_PUBLIC_COMMIT_SHA}
-            </span>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-            allDone ? 'bg-green-100  text-green-700 '
-            : doneCnt > 0 ? 'bg-yellow-100  text-yellow-700 '
-            : 'bg-red-100  text-red-700 '
-          }`}>{doneCnt}/{dayQs.length} done</span>
-          </div>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+            allDone ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+          }`}>{allDone ? '✓ Done' : `${dueReviews.length} reviews left`}</span>
         </div>
-        <div className="space-y-2">
-          {dayQs.map((q, idx) => {
-            const solved = !!progress[String(q.id)]?.solved
-            const topic = todayTopicMap[q.id] ?? 'Other'
-            const prev = idx > 0 ? dayQs[idx - 1] : null
-            const prevTopic = prev ? (todayTopicMap[prev.id] ?? 'Other') : null
-            const showTopic = idx === 0 || topic !== prevTopic
-            return (
-              <div key={q.id}>
-                {showTopic && (
-                  <div className="px-3 py-2 text-[11px] font-bold text-[var(--text-subtle)] bg-[var(--bg-muted)] rounded-xl border border-[var(--border)]">
-                    🧩 Topic: <span className="text-[var(--text)]">{topic}</span>
-                  </div>
-                )}
-                <div className={`flex items-center gap-3 p-3 rounded-xl border transition-colors mt-2 ${
-                  solved ? 'bg-green-50  border-green-200 '
-                  : 'bg-[var(--bg-muted)] border-[var(--border)] hover:border-indigo-400/50'
-                }`}>
-                  <div className="shrink-0">
-                    {solved ? <CheckCircle2 size={18} className="text-green-500" /> : <CheckCircle size={18} className="text-[var(--text-subtle)]" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
-                      <span className={`text-sm font-semibold truncate ${solved ? 'text-green-500  line-through' : 'text-[var(--text)]'}`}>{q.title}</span>
-                    </div>
-                    <div className="mt-0.5"><DifficultyBadge difficulty={q.difficulty} /></div>
-                  </div>
-                  <Link href={`/practice/${q.id}`}
-                    className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
-                      solved ? 'bg-green-50  text-green-600  border border-green-200 '
-                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                    }`}>
-                    {solved ? <><RotateCcw size={11} /> Revisit</> : <>Solve <ChevronRight size={12} /></>}
-                  </Link>
-                </div>
-              </div>
-            )
-          })}
+        {allDone ? (
+          <p className="text-sm font-bold text-green-500">All reviews cleared — day done! 🎉</p>
+        ) : (
+          <>
+            <p className="text-xs text-[var(--text-subtle)] mb-2">Clear all your reviews to finish the day.</p>
+            <Link href="/review" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
+              Open reviews <ChevronRight size={12} />
+            </Link>
+          </>
+        )}
+        <div className="mt-3 pt-3 border-t border-[var(--border-soft)]">
+          <p className="text-xs text-[var(--text-subtle)]">Solve on LeetCode, then hit <span className="font-semibold text-indigo-500">LC Sync</span> above to mark problems solved.</p>
         </div>
-        {allDone && <p className="mt-3 text-center text-sm font-bold text-green-500 ">All done for today! 🎉</p>}
       </div>
     )
   })()

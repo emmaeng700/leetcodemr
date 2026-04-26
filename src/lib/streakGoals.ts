@@ -13,50 +13,22 @@ function buildSolvedSet(progress: Record<string, { solved?: boolean } | undefine
   return solvedSet
 }
 
-/** goalsMet + streakNumber: full daily+SR days completed in plan order (day 13 incomplete → 12). */
+/** goalsMet: day is done when all due reviews are cleared. streakNumber counts consecutive done days. */
 function computePlanStreakCore(
   plan: StudyPlanForStreak,
-  progress: Record<string, { solved?: boolean } | undefined>,
+  _progress: Record<string, { solved?: boolean } | undefined>,
   dueReviewCount: number,
-  reviewsCompletedToday = 0,
+  _reviewsCompletedToday = 0,
 ): { goalsMet: boolean; streakNumber: number } {
-  const solvedSet = buildSolvedSet(progress)
-
   const diffDaysRaw = diffDaysSincePlanStart(plan.start_date)
   const diffDays = Number.isFinite(diffDaysRaw) ? diffDaysRaw : 0
-  const totalDays = Math.ceil(plan.question_order.length / plan.per_day)
 
   if (diffDays < 0) {
     return { goalsMet: false, streakNumber: 0 }
   }
 
-  if (diffDays >= totalDays) {
-    const allDone =
-      plan.question_order.every(id => solvedSet.has(id)) && dueReviewCount === 0
-    return {
-      goalsMet: false,
-      streakNumber: allDone ? totalDays : Math.max(0, totalDays - 1),
-    }
-  }
-
-  let activeDayIndex = diffDays
-  for (let i = 0; i <= diffDays; i++) {
-    const ids: number[] = plan.question_order.slice(i * plan.per_day, i * plan.per_day + plan.per_day)
-    if (!ids.every(id => solvedSet.has(id))) {
-      activeDayIndex = i
-      break
-    }
-  }
-
-  const dayIds = plan.question_order.slice(
-    activeDayIndex * plan.per_day,
-    activeDayIndex * plan.per_day + plan.per_day,
-  )
-  const remaining = dayIds.filter((id: number) => !solvedSet.has(id)).length
-  const reviewsDone = dueReviewCount === 0 || reviewsCompletedToday >= 5
-  const goalsMet = remaining === 0 && reviewsDone
-  const safeIdx = Number.isFinite(activeDayIndex) ? Math.max(0, activeDayIndex) : 0
-  const streakNumber = goalsMet ? safeIdx + 1 : safeIdx
+  const goalsMet = dueReviewCount === 0
+  const streakNumber = diffDays + (goalsMet ? 1 : 0)
 
   return { goalsMet, streakNumber }
 }
