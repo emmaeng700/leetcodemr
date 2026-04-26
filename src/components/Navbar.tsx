@@ -7,7 +7,7 @@ import {
   Menu, X, LogOut, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
   Calendar, Info, Timer, Code2, Zap, Gauge, Gamepad2, RefreshCw, Library,
-  BookOpen, Swords,
+  BookOpen, Swords, Rocket,
 } from 'lucide-react'
 
 const STUDY_LINKS = [
@@ -15,6 +15,7 @@ const STUDY_LINKS = [
   { href: '/daily',       label: 'Daily',       icon: Calendar },
   { href: '/speedster', label: 'Speedster', icon: Gauge },
   { href: '/learn/0', label: 'Learn', icon: BookOpen },
+  { href: '/neetcode', label: 'NeetCode 150', icon: Rocket },
   { href: '/leetcode-api', label: 'LeetCode',  icon: Zap },
   { href: '/answers',     label: 'Answers',   icon: Library },
 ]
