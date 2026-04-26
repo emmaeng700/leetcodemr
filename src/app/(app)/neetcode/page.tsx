@@ -57,7 +57,7 @@ export default function NeetCode150Page() {
   const [libraryIds, setLibraryIds] = useState<Set<number>>(new Set())
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [diffFilter, setDiffFilter] = useState<'All' | 'Easy' | 'Medium' | 'Hard'>('All')
+  const [diffFilter, setDiffFilter] = useState<'All' | 'Easy' | 'Medium' | 'Hard' | 'Not in 331'>('All')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -94,12 +94,13 @@ export default function NeetCode150Page() {
     return NEETCODE_150.map(cat => ({
       ...cat,
       questions: cat.questions.filter(p => {
-        if (diffFilter !== 'All' && p.difficulty !== diffFilter) return false
+        if (diffFilter === 'Not in 331' && libraryIds.size > 0 && libraryIds.has(p.id)) return false
+        if (diffFilter !== 'All' && diffFilter !== 'Not in 331' && p.difficulty !== diffFilter) return false
         if (q && !p.title.toLowerCase().includes(q) && !String(p.id).includes(q)) return false
         return true
       }),
     })).filter(cat => cat.questions.length > 0)
-  }, [search, diffFilter])
+  }, [search, diffFilter, libraryIds])
 
   const toggleCollapse = (name: string) =>
     setCollapsed(prev => {
@@ -161,17 +162,18 @@ export default function NeetCode150Page() {
               className="w-full bg-gray-800/60 border border-gray-700/50 rounded-xl pl-8 pr-3 py-2 text-sm text-gray-200 placeholder-gray-500 outline-none focus:border-indigo-500/60"
             />
           </div>
-          <div className="flex gap-1.5">
-            {(['All', 'Easy', 'Medium', 'Hard'] as const).map(d => (
+          <div className="flex gap-1.5 flex-wrap">
+            {(['All', 'Easy', 'Medium', 'Hard', 'Not in 331'] as const).map(d => (
               <button
                 key={d}
                 onClick={() => setDiffFilter(d)}
                 className={`px-3 py-2 rounded-xl text-xs font-semibold transition border ${
                   diffFilter === d
-                    ? d === 'All'    ? 'bg-indigo-600 border-indigo-500 text-white'
-                    : d === 'Easy'   ? 'bg-green-600/30 border-green-500 text-green-300'
-                    : d === 'Medium' ? 'bg-yellow-600/30 border-yellow-500 text-yellow-300'
-                                     : 'bg-red-600/30 border-red-500 text-red-300'
+                    ? d === 'All'        ? 'bg-indigo-600 border-indigo-500 text-white'
+                    : d === 'Easy'       ? 'bg-green-600/30 border-green-500 text-green-300'
+                    : d === 'Medium'     ? 'bg-yellow-600/30 border-yellow-500 text-yellow-300'
+                    : d === 'Hard'       ? 'bg-red-600/30 border-red-500 text-red-300'
+                                         : 'bg-gray-600/30 border-gray-500 text-gray-300'
                     : 'bg-gray-800/50 border-gray-700/50 text-gray-400 hover:text-gray-200'
                 }`}
               >
