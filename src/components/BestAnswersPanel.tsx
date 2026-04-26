@@ -90,7 +90,7 @@ export default function BestAnswersPanel({
   className = '',
 }: BestAnswersPanelProps) {
   const [states, setStates]     = useState<Record<SiteKey, SiteState>>(emptyStates)
-  const [viewMode, setViewMode] = useState<'grid' | 'flashcard'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'flashcard'>('flashcard')
   const [cardIdx, setCardIdx]   = useState(0)
 
   /* inject highlight.js stylesheet once */
