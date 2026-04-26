@@ -760,17 +760,15 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
             </span>
           )}
 
-          {/* Session warning */}
-          {!sessionOK && (
-            <button onClick={() => setShowSessionHint(h => !h)}
-              style={{ touchAction: 'manipulation' }}
-              className="flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition shrink-0">
-              <Key size={11} />
-              <span className="hidden sm:inline">Setup session</span>
-              <span className="sm:hidden text-[10px]">Session</span>
-              {showSessionHint ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
-            </button>
-          )}
+          {/* Session button — always visible so session can be updated any time */}
+          <button onClick={() => setShowSessionHint(h => !h)}
+            style={{ touchAction: 'manipulation' }}
+            className={`flex items-center gap-1 text-xs transition shrink-0 ${sessionOK ? 'text-gray-500 hover:text-gray-300' : 'text-orange-400 hover:text-orange-300'}`}>
+            <Key size={11} />
+            <span className="hidden sm:inline">{sessionOK ? 'Session' : 'Setup session'}</span>
+            <span className="sm:hidden text-[10px]">Session</span>
+            {showSessionHint ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+          </button>
 
           {/* Run + Submit + Reset — desktop only (inline in toolbar) */}
           <div className="hidden sm:flex items-center gap-2">
