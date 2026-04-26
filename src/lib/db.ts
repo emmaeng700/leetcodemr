@@ -5,6 +5,15 @@ import { srInterval } from './utils'
 
 const USER_ID = 'emmanuel'
 
+function isMissingTableError(message: string | undefined | null): boolean {
+  const m = (message ?? '').toLowerCase()
+  return (
+    m.includes("could not find the table") ||
+    m.includes('schema cache') ||
+    m.includes('relation') && m.includes('does not exist')
+  )
+}
+
 function localDateISO(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -37,12 +46,18 @@ export async function getProgress() {
 
 /** Increment count when user gets Accepted on a Submit (tracked per app question id). */
 export async function incrementAcSubmitCount(questionId: number) {
-  const { data: existing } = await supabase
+  const { data: existing, error: readErr } = await supabase
     .from('ac_submit_counts')
     .select('count')
     .eq('user_id', USER_ID)
     .eq('question_id', questionId)
     .maybeSingle()
+  if (readErr) {
+    // Local/dev DB may not have this optional table yet; treat as no-op.
+    if (isMissingTableError(readErr.message)) return
+    console.error('[db] incrementAcSubmitCount:', readErr.message)
+    return
+  }
   const next = (existing?.count ?? 0) + 1
   const { error } = await supabase.from('ac_submit_counts').upsert(
     {
@@ -53,7 +68,10 @@ export async function incrementAcSubmitCount(questionId: number) {
     },
     { onConflict: 'user_id,question_id' },
   )
-  if (error) console.error('[db] incrementAcSubmitCount:', error.message)
+  if (error) {
+    if (isMissingTableError(error.message)) return
+    console.error('[db] incrementAcSubmitCount:', error.message)
+  }
 }
 
 export async function getAcSubmitCounts(): Promise<Record<string, number>> {
@@ -62,6 +80,7 @@ export async function getAcSubmitCounts(): Promise<Record<string, number>> {
     .select('question_id, count')
     .eq('user_id', USER_ID)
   if (error) {
+    if (isMissingTableError(error.message)) return {}
     console.error('[db] getAcSubmitCounts:', error.message)
     return {}
   }
@@ -700,11 +719,15 @@ export async function spreadOverdueReviews(opts?: { maxPerDay?: number; horizonD
 
   // Mastery signal: how many accepted submissions you have for this question.
   // When we have to choose what stays "today" under a small cap, prioritize lower mastery first.
-  const { data: acRows } = await supabase
+  const { data: acRows, error: acErr } = await supabase
     .from('ac_submit_counts')
     .select('question_id,count')
     .eq('user_id', USER_ID)
     .in('question_id', rows.map(r => r.question_id))
+  // Optional table; proceed without mastery weighting if missing.
+  if (acErr && !isMissingTableError(acErr.message)) {
+    console.error('[db] spreadOverdueReviews(ac_submit_counts):', acErr.message)
+  }
 
   const acCountById: Record<string, number> = {}
   for (const r of acRows ?? []) {

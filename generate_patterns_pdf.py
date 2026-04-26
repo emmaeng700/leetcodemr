@@ -14,6 +14,10 @@ See docs/pattern-pdf.md for inputs/cache files.
 """
 
 import argparse, json, os, re, time, io
+try:
+    from quick_review_data import QUICK_REVIEW as _QR_DATA
+except ImportError:
+    _QR_DATA = {}
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.request import urlopen, Request
@@ -31,15 +35,34 @@ from reportlab.lib.colors import HexColor, white
 from reportlab.lib.units import inch
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, PageBreak,
-    Table, TableStyle, HRFlowable, Image as RLImage,
+    Table, TableStyle, HRFlowable, Image as RLImage, Flowable,
 )
 from reportlab.lib.enums import TA_CENTER
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
+# ── TrueType font registration (Unicode / searchable) ──────────────────────────
+# Built-in Helvetica uses WinAnsi (256 chars only) — special chars like →·—
+# become black boxes and are not searchable.  TrueType gets a /ToUnicode CMap
+# so every glyph is searchable and renders correctly.
+# LucidaGrande chosen as body font: covers → ← ≤ ≥ × ∞ π α β ·  — and all
+# Latin characters.  HelveticaNeue is kept only for italic (credits line).
+_LG_TTC  = "/System/Library/Fonts/LucidaGrande.ttc"
+_HN_TTC  = "/System/Library/Fonts/HelveticaNeue.ttc"
+_MN_TTC  = "/System/Library/Fonts/Menlo.ttc"
+pdfmetrics.registerFont(TTFont("LG",           _LG_TTC, subfontIndex=0))   # body regular
+pdfmetrics.registerFont(TTFont("LG-Bold",      _LG_TTC, subfontIndex=1))   # body bold
+pdfmetrics.registerFont(TTFont("HN-Italic",    _HN_TTC, subfontIndex=2))   # italic (credits only)
+pdfmetrics.registerFont(TTFont("Menlo",        _MN_TTC, subfontIndex=0))   # code regular
+pdfmetrics.registerFont(TTFont("Menlo-Bold",   _MN_TTC, subfontIndex=1))   # code bold
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 SCRIPT_DIR   = Path(__file__).parent
 QUESTIONS    = SCRIPT_DIR / "public" / "questions_full.json"
 OUTPUT_PDF   = SCRIPT_DIR / "LeetMastery_By_Pattern.pdf"
 OUTPUT_PDF_PRINT = SCRIPT_DIR / "LeetMastery_By_Pattern_Print.pdf"
+OUTPUT_PDF_PRINT_COLORED = SCRIPT_DIR / "LeetMastery_By_Pattern_Print_Colored.pdf"
+OUTPUT_PDF_PRINT_COLORED_DARK = SCRIPT_DIR / "LeetMastery_By_Pattern_Print_Colored_DarkCode.pdf"
 # Printable: light gray code boxes, monochrome tokens (better on B&W / home printers)
 PRINT_CODE_FG = "#000000"       # pure black — crisp on any printer
 PRINT_INLINE_CODE = "#000000"
@@ -61,6 +84,9 @@ CODE_BG    = HexColor("#282C34")
 EXAMPLE_BG = HexColor("#F9FAFB")
 PRINT_CODE_BG = HexColor("#FFFFFF")   # pure white — no grey wash on printer
 PRINT_BANNER_BG = HexColor("#F3F4F6") # very light grey banner
+# Eye-friendly dark panels for "print layout + colored code"
+DARK_CODE_BG = HexColor("#111827")     # slate-900 (less harsh than pure black)
+DARK_CODE_BORDER = HexColor("#334155") # slate-700
 
 DIFF_COLORS = {
     "easy":   (HexColor("#D1FAE5"), HexColor("#065F46")),
@@ -2100,14 +2126,14 @@ def build_groups(questions):
     return groups
 
 # ── Syntax highlighting ────────────────────────────────────────────────────────
-def hl_xml(code, lang, printable=False):
+def hl_xml(code, lang, mono=False):
     try: lexer = get_lexer_by_name(lang, stripnl=False)
     except ClassNotFound: lexer = PythonLexer(stripnl=False)
     orig = code.split("\n")[:80]
     tokens = list(lex("\n".join(orig), lexer))
     xml_lines, cur = [], []
     for ttype, value in tokens:
-        color = PRINT_CODE_FG if printable else tok_color(ttype)
+        color = PRINT_CODE_FG if mono else tok_color(ttype)
         safe = value.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
         parts = safe.split("\n")
         for i, part in enumerate(parts):
@@ -2123,21 +2149,22 @@ def hl_xml(code, lang, printable=False):
     return "<br/>".join(final)
 
 # ── PDF styles ─────────────────────────────────────────────────────────────────
-def build_styles(printable=False, code_size=None, bold=False):
-    code_fg    = HexColor(PRINT_CODE_FG) if printable else HexColor("#ABB2BF")
+def build_styles(printable=False, code_size=None, bold=False, dark_code_panels=False):
+    # For print layouts we default to black code (mono) unless we explicitly enable dark panels.
+    code_fg = HexColor("#ABB2BF") if (printable and dark_code_panels) else (HexColor(PRINT_CODE_FG) if printable else HexColor("#ABB2BF"))
     text_col   = HexColor("#000000") if printable else GRAY_700
     default_cs = 8.5 if printable else 7.5
     cs         = code_size if code_size is not None else default_cs
     leading    = round(cs * 1.47, 1)
-    body_font  = "Helvetica-Bold" if bold else "Helvetica"
-    code_font  = "Courier-Bold"   if bold else "Courier"
+    body_font  = "LG-Bold" if bold else "LG"
+    code_font  = "Menlo-Bold"   if bold else "Menlo"
     return {
         "cover_title": ParagraphStyle("ct", fontSize=36, textColor=text_col,
-            alignment=TA_CENTER, spaceAfter=12, fontName="Helvetica-Bold"),
+            alignment=TA_CENTER, spaceAfter=28, fontName="LG-Bold"),
         "cover_sub":   ParagraphStyle("cs", fontSize=13, textColor=text_col,
             alignment=TA_CENTER, spaceAfter=6, fontName=body_font),
         "q_title":     ParagraphStyle("qt", fontSize=14, textColor=text_col,
-            fontName="Helvetica-Bold", spaceAfter=4),
+            fontName="LG-Bold", spaceAfter=4),
         "body":        ParagraphStyle("bd", fontSize=9.5, textColor=text_col,
             fontName=body_font, leading=15, spaceAfter=4),
         "code":        ParagraphStyle("cd", fontSize=cs, textColor=code_fg,
@@ -2149,14 +2176,14 @@ def build_styles(printable=False, code_size=None, bold=False):
     }
 
 # ── PDF helpers ────────────────────────────────────────────────────────────────
-def diff_badge(difficulty="", printable=False):
+def diff_badge(difficulty="", printable=False, color_meta=False):
     key = difficulty.lower() if difficulty else "easy"
-    if printable:
+    if printable and not color_meta:
         bg, fg = HexColor("#E5E7EB"), HexColor("#000000")
     else:
         bg, fg = DIFF_COLORS.get(key,(GRAY_100,GRAY_700))
     tbl = Table([[Paragraph(difficulty.upper() or "—",
-                            ParagraphStyle("b", fontSize=8, fontName="Helvetica-Bold", textColor=fg))]],
+                            ParagraphStyle("b", fontSize=8, fontName="LG-Bold", textColor=fg))]],
                 colWidths=[0.7*inch])
     tbl.setStyle(TableStyle([
         ("BACKGROUND",(0,0),(-1,-1),bg),("ALIGN",(0,0),(-1,-1),"CENTER"),
@@ -2170,7 +2197,7 @@ def site_banner(label, hex_color, printable=False):
         fg = HexColor(PRINT_CODE_FG)
         tbl = Table([[Paragraph(
             f'<font color="{PRINT_CODE_FG}"><b>{label}</b></font>',
-            ParagraphStyle("slbl", fontSize=10, fontName="Helvetica-Bold", textColor=fg)
+            ParagraphStyle("slbl", fontSize=10, fontName="LG-Bold", textColor=fg)
         )]], colWidths=[MAX_W])
         tbl.setStyle(TableStyle([
             ("BACKGROUND",(0,0),(-1,-1), PRINT_BANNER_BG),
@@ -2180,7 +2207,7 @@ def site_banner(label, hex_color, printable=False):
         return tbl
     tbl = Table([[Paragraph(
         f'<font color="white"><b>{label}</b></font>',
-        ParagraphStyle("slbl", fontSize=10, fontName="Helvetica-Bold", textColor=white)
+        ParagraphStyle("slbl", fontSize=10, fontName="LG-Bold", textColor=white)
     )]], colWidths=[MAX_W])
     tbl.setStyle(TableStyle([
         ("BACKGROUND",(0,0),(-1,-1),HexColor(hex_color)),
@@ -2189,19 +2216,19 @@ def site_banner(label, hex_color, printable=False):
     ]))
     return tbl
 
-def code_flowable(code, lang, styles, printable=False):
+def code_flowable(code, lang, styles, printable=False, mono_code=None, dark_code_panels=False):
     if not code or not code.strip(): return []
-    if printable:
-        accent = HexColor(PRINT_CODE_FG)
-    else:
-        accent = HexColor(LANG_COLOR.get(lang, DEFAULT_LANG_COLOR))
+    if mono_code is None:
+        mono_code = printable
+    accent = HexColor(PRINT_CODE_FG) if (printable and mono_code) else HexColor(LANG_COLOR.get(lang, DEFAULT_LANG_COLOR))
     lbl    = LANG_LABEL.get(lang, lang.upper())
     label  = Paragraph(f"◼ {lbl}",
-                       ParagraphStyle("lbl", fontSize=9, fontName="Helvetica-Bold", textColor=accent))
-    xml   = hl_xml(code, lang, printable=printable)
+                       ParagraphStyle("lbl", fontSize=9, fontName="LG-Bold", textColor=accent))
+    xml   = hl_xml(code, lang, mono=(printable and mono_code))
     lines = xml.split("<br/>")
     result = [label]
-    bg = PRINT_CODE_BG if printable else CODE_BG
+    bg = (DARK_CODE_BG if (printable and dark_code_panels) else PRINT_CODE_BG) if printable else CODE_BG
+    box_col = (DARK_CODE_BORDER if (printable and dark_code_panels) else HexColor("#000000")) if printable else GRAY_700
     for i in range(0, len(lines), 25):
         cell = Paragraph("<br/>".join(lines[i:i+25]), styles["code"])
         tbl  = Table([[cell]], colWidths=[MAX_W])
@@ -2209,7 +2236,7 @@ def code_flowable(code, lang, styles, printable=False):
             ("BACKGROUND",(0,0),(-1,-1), bg),
             ("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7),
             ("LEFTPADDING",(0,0),(-1,-1),10),("RIGHTPADDING",(0,0),(-1,-1),10),
-            ("BOX",(0,0),(-1,-1), 0.5 if printable else 0.25, HexColor("#000000") if printable else GRAY_700),
+            ("BOX",(0,0),(-1,-1), 0.5 if printable else 0.25, box_col),
         ]))
         result.append(tbl)
     result.append(Spacer(1,5))
@@ -2218,11 +2245,26 @@ def code_flowable(code, lang, styles, printable=False):
 def safe_xml(t):
     return t.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
 
+
+class PatternMarker(Flowable):
+    """Sets the current pattern name on the doc for the footer."""
+
+    def __init__(self, pattern_name: str):
+        super().__init__()
+        self.pattern_name = pattern_name
+
+    def wrap(self, availWidth, availHeight):
+        return 0, 0
+
+    def draw(self):
+        # Record on the canvas so the footer for this page can read it.
+        setattr(self.canv, "_lm_pattern_name", self.pattern_name)
+
 # ── HTML description → flowables ───────────────────────────────────────────────
 def _inline(html, printable=False, bold=False):
     """Convert inline HTML to ReportLab XML."""
     code_col  = PRINT_INLINE_CODE if printable else "#E06C75"
-    code_font = "Courier-Bold" if bold else "Courier"
+    code_font = "Menlo-Bold" if bold else "Menlo"
     html = re.sub(r"<strong[^>]*>(.*?)</strong>", r"<b>\1</b>", html, flags=re.S|re.I)
     html = re.sub(r"<b[^>]*>(.*?)</b>",           r"<b>\1</b>", html, flags=re.S|re.I)
     html = re.sub(r"<em[^>]*>(.*?)</em>",          r"<i>\1</i>", html, flags=re.S|re.I)
@@ -2246,8 +2288,8 @@ def _inline(html, printable=False, bold=False):
 def desc_to_flowables(desc_html, styles, printable=False, bold=False):
     """Parse Doocs description HTML (between markers) into ReportLab flowables."""
     if not desc_html: return []
-    HF  = "Helvetica-Bold" if bold else "Helvetica"
-    CF  = "Courier-Bold"   if bold else "Courier"
+    HF  = "LG-Bold" if bold else "LG"
+    CF  = "Menlo-Bold"   if bold else "Menlo"
     flowables = []
     desc_html = desc_html.replace("\r\n","\n").replace("\r","\n")
 
@@ -2357,7 +2399,7 @@ def desc_to_flowables(desc_html, styles, printable=False, bold=False):
             text = _inline(m.group(16) or "", printable, bold).strip()
             if text:
                 flowables.append(Paragraph(f"<b>{safe_xml(text)}</b>",
-                    ParagraphStyle("hdr", fontName="Helvetica-Bold", fontSize=11,
+                    ParagraphStyle("hdr", fontName="LG-Bold", fontSize=11,
                                    textColor=GRAY_700, leading=16, spaceAfter=3, spaceBefore=6)))
             continue
 
@@ -2375,7 +2417,7 @@ def editorial_to_flowables(content, styles, printable=False, bold=False):
     content = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", content)
     content = re.sub(r"\*(.+?)\*",     r"<i>\1</i>", content)
     _cc  = PRINT_INLINE_CODE if printable else "#E06C75"
-    _cfn = "Courier-Bold" if bold else "Courier"
+    _cfn = "Menlo-Bold" if bold else "Menlo"
     content = re.sub(
         r"`([^`]+)`",
         lambda m: f'<font name="{_cfn}" size="9" color="{_cc}">{safe_xml(m.group(1))}</font>',
@@ -2393,7 +2435,7 @@ def editorial_to_flowables(content, styles, printable=False, bold=False):
             hdr_col = HexColor("#000000") if printable else INDIGO
             if text:
                 flowables.append(Paragraph(f"<b>{safe_xml(text)}</b>",
-                    ParagraphStyle("eh", fontName="Helvetica-Bold", fontSize=11,
+                    ParagraphStyle("eh", fontName="LG-Bold", fontSize=11,
                                    textColor=hdr_col, leading=16, spaceAfter=3, spaceBefore=8)))
         else:
             block = re.sub(r"<(?!b>|/b>|i>|/i>|br/>|font|/font|super|/super|sub>|/sub>)[^>]+>","",block)
@@ -2406,7 +2448,11 @@ def editorial_to_flowables(content, styles, printable=False, bold=False):
     return flowables
 
 # ── Per-question PDF block ─────────────────────────────────────────────────────
-def build_question_block(q, styles, doocs_cache, sites_cache, lc_cache, pattern=None, printable=False, bold=False):
+def build_question_block(
+    q, styles, doocs_cache, sites_cache, lc_cache,
+    pattern=None, printable=False, bold=False, mono_code=None, dark_code_panels=False,
+    color_meta=False, python_only=False,
+):
     story = []
     slug  = q.get("slug","")
     qid   = q["id"]
@@ -2415,15 +2461,15 @@ def build_question_block(q, styles, doocs_cache, sites_cache, lc_cache, pattern=
     lc    = lc_cache.get(slug, {})
     pattern_name = pattern["name"] if pattern else ""
     pattern_hex  = pattern.get("hex","#6366F1") if pattern else "#6366F1"
-    HF  = "Helvetica-Bold" if bold else "Helvetica"
+    HF  = "LG-Bold" if bold else "LG"
     BLK = "#000000"  # all inline text forced to pure black for print
 
     # Header
-    id_col = BLK if printable else "#6B7280"
+    id_col = BLK if (printable and not color_meta) else "#6B7280"
     meta = Table([[
         Paragraph(f"<font color='{id_col}'>#{qid}</font>",
                   ParagraphStyle("mn", fontSize=10, fontName=HF)),
-        diff_badge(q.get("difficulty",""), printable=printable),
+        diff_badge(q.get("difficulty",""), printable=printable, color_meta=color_meta),
         Paragraph("", ParagraphStyle("sp", fontSize=10, fontName=HF)),
     ]], colWidths=[0.7*inch, 0.85*inch, 5.45*inch])
     meta.setStyle(TableStyle([
@@ -2431,10 +2477,16 @@ def build_question_block(q, styles, doocs_cache, sites_cache, lc_cache, pattern=
         ("TOPPADDING",(0,0),(-1,-1),0),("BOTTOMPADDING",(0,0),(-1,-1),3),
     ]))
     story.append(meta)
-    story.append(Paragraph(safe_xml(q["title"]), styles["q_title"]))
+    # Title color: keep print layout but allow colored meta for this mode.
+    if printable and color_meta and pattern is not None:
+        title_col = pattern.get("hex", "#6366F1")
+        title_style = ParagraphStyle("qt_col", parent=styles["q_title"], textColor=HexColor(title_col))
+        story.append(Paragraph(safe_xml(q["title"]), title_style))
+    else:
+        story.append(Paragraph(safe_xml(q["title"]), styles["q_title"]))
 
     # Links — all black for print, coloured for screen
-    if printable:
+    if printable and not color_meta:
         links = [
             f'<a href="https://leetcode.doocs.org/en/lc/{qid}/" color="{BLK}">LeetDoocs</a>',
             f'<a href="https://www.simplyleet.com/{slug}" color="{BLK}">SimplyLeet</a>',
@@ -2448,17 +2500,17 @@ def build_question_block(q, styles, doocs_cache, sites_cache, lc_cache, pattern=
             f'<a href="https://www.simplyleet.com/{slug}" color="#A855F7">SimplyLeet</a>',
             f'<a href="https://walkccc.me/LeetCode/problems/{qid}/" color="#3B82F6">WalkCC</a>',
             f'<a href="https://leetcode.com/problems/{slug}/" color="#F97316">LeetCode</a>',
-            f'<a href="https://leetcode.com/problems/{slug}/editorial/" color="#6366F1">Editorial</a>',
+            f'<a href="https://leetcode.com/problems/{slug}/editorial/" color="#EF4444">Editorial</a>',
         ]
     story.append(Paragraph("  ·  ".join(links),
                            ParagraphStyle("lnk", fontSize=8, fontName=HF, spaceAfter=4)))
-    tag_col = BLK if printable else "#6366F1"
+    tag_col = BLK if (printable and not color_meta) else "#6366F1"
     if q.get("tags"):
         story.append(Paragraph(
             f"<font color='{tag_col}'>{'  ·  '.join(q['tags'][:10])}</font>",
             ParagraphStyle("tg", fontSize=8, fontName=HF, spaceAfter=3)
         ))
-    src_col = BLK if printable else "#9CA3AF"
+    src_col = BLK if (printable and not color_meta) else "#9CA3AF"
     if q.get("source"):
         story.append(Paragraph(
             f"<font color='{src_col}'>Lists: {' | '.join(q['source'])}</font>",
@@ -2469,7 +2521,7 @@ def build_question_block(q, styles, doocs_cache, sites_cache, lc_cache, pattern=
     desc_html = doocs.get("desc_html")
     if desc_html:
         story.append(Paragraph("<b>Problem:</b>",
-                               ParagraphStyle("ph", fontSize=10, fontName="Helvetica-Bold", spaceAfter=4)))
+                               ParagraphStyle("ph", fontSize=10, fontName="LG-Bold", spaceAfter=4)))
         story += desc_to_flowables(desc_html, styles, printable, bold)
         story.append(Spacer(1,4))
     else:
@@ -2477,11 +2529,11 @@ def build_question_block(q, styles, doocs_cache, sites_cache, lc_cache, pattern=
         stored  = q.get("description","").strip()
         if lc_desc:
             story.append(Paragraph("<b>Problem:</b>",
-                                   ParagraphStyle("ph", fontSize=10, fontName="Helvetica-Bold", spaceAfter=4)))
+                                   ParagraphStyle("ph", fontSize=10, fontName="LG-Bold", spaceAfter=4)))
             story += desc_to_flowables(lc_desc, styles, printable, bold)
         elif stored:
             story.append(Paragraph("<b>Problem:</b>",
-                                   ParagraphStyle("ph", fontSize=10, fontName="Helvetica-Bold", spaceAfter=3)))
+                                   ParagraphStyle("ph", fontSize=10, fontName="LG-Bold", spaceAfter=3)))
             clean = re.sub(r"\n"," ", stored)
             story.append(Paragraph(safe_xml(clean), styles["body"]))
 
@@ -2489,44 +2541,204 @@ def build_question_block(q, styles, doocs_cache, sites_cache, lc_cache, pattern=
     bf = gen_brute_force_python(q, pattern_name)
     if bf:
         story.append(site_banner(f">> Brute Force  [{pattern_name}]  Interview Prep", "#DC2626", printable))
-        story += code_flowable(bf, "python", styles, printable)
+        story += code_flowable(bf, "python", styles, printable, mono_code=mono_code, dark_code_panels=dark_code_panels)
 
     # ── Community solutions from all 4 sites (all languages) ─────────────────
     merged = dict(sites)
     merged["doocs"] = doocs.get("blocks", [])
 
+    # ── Collect all blocks from all sites ────────────────────────────────────
     all_blocks: list = []
     for site_cfg in SITES:
-        sk     = site_cfg["key"]
-        blocks = merged.get(sk, [])
-        if not blocks: continue
-        all_blocks.extend(blocks)
-        story.append(site_banner(site_cfg["label"], site_cfg["color"], printable))
-        for b in blocks:
-            story += code_flowable(b["code"], b["lang"], styles, printable)
+        all_blocks.extend(merged.get(site_cfg["key"], []))
+
+    # ── Group by language — all Python together, then C++, Java, etc. ────────
+    _LANG_ORDER = ["python", "cpp", "java", "javascript", "typescript",
+                   "go", "rust", "kotlin", "swift", "ruby", "scala", "csharp", "php", "c"]
+    lang_groups: dict = {}
+    for b in all_blocks:
+        lang_groups.setdefault(b.get("lang", "unknown"), []).append(b)
+
+    _langs_to_show = ["python"] if python_only else _LANG_ORDER + sorted(set(lang_groups) - set(_LANG_ORDER))
+    for _lang in _langs_to_show:
+        _lang_blocks = lang_groups.get(_lang)
+        if not _lang_blocks:
+            continue
+        _label = LANG_LABEL.get(_lang, _lang.title())
+        _color = LANG_COLOR.get(_lang, DEFAULT_LANG_COLOR)
+        story.append(site_banner(f"── {_label}", _color, printable))
+        for b in _lang_blocks:
+            story += code_flowable(b["code"], _lang, styles, printable,
+                                   mono_code=mono_code, dark_code_panels=dark_code_panels)
 
     # ── Pattern Solution (highlighted) — scraped match or stored fallback ────
-    score, pat_block = best_pattern_block(all_blocks, pattern_name)
+    py_blocks = [b for b in all_blocks if b.get("lang") == "python"]
+    score, pat_block = best_pattern_block(all_blocks if not python_only else py_blocks, pattern_name)
     story.append(Spacer(1, 4))
-    if score > 0 and pat_block:
+    if score > 0 and pat_block and (not python_only or pat_block.get("lang") == "python"):
         story.append(site_banner(f"[*] {pattern_name} — Pattern Solution  (matched from community answers)", pattern_hex, printable))
-        story += code_flowable(pat_block["code"], pat_block["lang"], styles, printable)
+        story += code_flowable(pat_block["code"], pat_block["lang"], styles, printable, mono_code=mono_code, dark_code_panels=dark_code_panels)
     else:
         stored_py  = q.get("python_solution","").strip()
         stored_cpp = q.get("cpp_solution","").strip()
         story.append(site_banner(f"[*] {pattern_name} — Pattern Solution  (stored optimal)", pattern_hex, printable))
         if stored_py:
-            story += code_flowable(stored_py,  "python", styles, printable)
-        if stored_cpp:
-            story += code_flowable(stored_cpp, "cpp",    styles, printable)
+            story += code_flowable(stored_py,  "python", styles, printable, mono_code=mono_code, dark_code_panels=dark_code_panels)
+        if stored_cpp and not python_only:
+            story += code_flowable(stored_cpp, "cpp",    styles, printable, mono_code=mono_code, dark_code_panels=dark_code_panels)
 
     story += [Spacer(1,8), HRFlowable(width="100%", thickness=0.5, color=GRAY_100), Spacer(1,10)]
     return story
 
+# ── Quick-Review helpers ───────────────────────────────────────────────────────
+def extract_trick(code: str, lang: str = "python") -> str:
+    """Return the first meaningful algorithmic comment from a solution block."""
+    if not code:
+        return ""
+    prefix = "#" if lang in ("python", "ruby") else "//"
+    skip   = {"todo", "fixme", "hack", "copyright", "license", "noqa", "pylint",
+               "type:", "type ignore", "coding:", "author"}
+    tricks = []
+    for line in (code or "").split("\n")[:40]:
+        s = line.strip()
+        if not s.startswith(prefix):
+            continue
+        text = s[len(prefix):].strip()
+        if len(text) < 8:
+            continue
+        if any(kw in text.lower() for kw in skip):
+            continue
+        tricks.append(text)
+        if len(tricks) == 2:
+            break
+    return "  ·  ".join(tricks)
+
+
+def build_quick_review_section(pat, qs, doocs_cache, sites_cache, lc_cache,
+                                styles, printable, bold):
+    """After each pattern: Key Insights · Space & Time · Solution for every question."""
+    HF  = "LG-Bold" if bold else "LG"
+    LF  = "LG"
+    dc_map = {"Easy": "#16A34A", "Medium": "#D97706", "Hard": "#DC2626"}
+
+    story = [PageBreak()]
+    qr_color = pat.get("hex", "#4F46E5")
+    id_col   = "#000000" if printable else "#9CA3AF"
+    body_col = "#000000" if printable else "#1F2937"
+    label_col = "#000000" if printable else qr_color
+
+    # ── Section banner ────────────────────────────────────────────────────────
+    if printable:
+        hdr = Table([[Paragraph(
+            f"<b>⚡ Quick Review — {pat['name']}</b>"
+            f"  <font size='11'>{len(qs)} questions  ·  insights · complexity · solution</font>",
+            ParagraphStyle("qrh", fontSize=17, fontName="LG-Bold", textColor=HexColor("#000000")),
+        )]], colWidths=[MAX_W])
+        hdr.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0),(-1,-1), PRINT_BANNER_BG),
+            ("TOPPADDING",    (0,0),(-1,-1), 12),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 12),
+            ("LEFTPADDING",   (0,0),(-1,-1), 16),
+            ("LINEBEFORE",    (0,0),(-1,-1), 5, HexColor("#000000")),
+        ]))
+    else:
+        hdr = Table([[Paragraph(
+            f"<font color='white'><b>⚡ Quick Review — {pat['name']}</b>"
+            f"  <font size='11'>{len(qs)} questions  ·  insights · complexity · solution</font></font>",
+            ParagraphStyle("qrh", fontSize=17, fontName="LG-Bold", textColor=white),
+        )]], colWidths=[MAX_W])
+        hdr.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0),(-1,-1), HexColor(qr_color)),
+            ("TOPPADDING",    (0,0),(-1,-1), 12),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 12),
+            ("LEFTPADDING",   (0,0),(-1,-1), 16),
+        ]))
+    story += [hdr, Spacer(1, 8)]
+
+    # Styles reused per question
+    title_st = ParagraphStyle("qrt", fontSize=10.5, fontName="LG-Bold",
+                               spaceBefore=10, spaceAfter=2,
+                               textColor=HexColor(body_col))
+    label_st = ParagraphStyle("qrl", fontSize=8, fontName="LG-Bold",
+                               spaceBefore=3, spaceAfter=1,
+                               textColor=HexColor(label_col))
+    body_st  = ParagraphStyle("qrb", fontSize=8.5, fontName=LF,
+                               spaceBefore=0, spaceAfter=2,
+                               leftIndent=10, leading=13,
+                               textColor=HexColor(body_col))
+
+    for q in qs:
+        slug = q.get("slug", "")
+        qid  = q["id"]
+        diff = q.get("difficulty", "")
+        dc   = dc_map.get(diff, "#6B7280")
+        info = _QR_DATA.get(slug, {})
+
+        # ── Title ─────────────────────────────────────────────────────────────
+        story.append(Paragraph(
+            f"<font color='{id_col}'>#{qid}</font>  "
+            f"<b>{safe_xml(q['title'])}</b>  "
+            f"<font color='{dc if not printable else id_col}'>[{diff}]</font>",
+            title_st,
+        ))
+
+        if info:
+            # ── Key Insights ──────────────────────────────────────────────────
+            ki = info.get("key_insights", "")
+            if ki:
+                story.append(Paragraph("Key Insights", label_st))
+                for line in ki.split("\n"):
+                    line = line.strip().lstrip("-• ").strip()
+                    if line:
+                        story.append(Paragraph(
+                            f"<font color='{label_col}'>•</font>  {safe_xml(line)}",
+                            body_st,
+                        ))
+
+            # ── Space & Time ──────────────────────────────────────────────────
+            cx = info.get("complexity", "")
+            if cx:
+                story.append(Paragraph("Space &amp; Time", label_st))
+                for line in cx.split("\n"):
+                    line = line.strip()
+                    if line:
+                        story.append(Paragraph(safe_xml(line), body_st))
+
+            # ── Solution ──────────────────────────────────────────────────────
+            sol = info.get("solution", "")
+            if sol:
+                story.append(Paragraph("Solution", label_st))
+                for para in sol.split("\n\n"):
+                    para = para.strip()
+                    if para:
+                        para = re.sub(r'\s*\n\s*', ' ', para)
+                        story.append(Paragraph(safe_xml(para), body_st))
+        else:
+            story.append(Paragraph(
+                "<i>No quick-review data available for this question.</i>",
+                body_st,
+            ))
+
+        story.append(HRFlowable(width="100%", thickness=0.3,
+                                color=HexColor("#E5E7EB"), spaceAfter=3))
+
+    story.append(Spacer(1, 10))
+    return story
+
+
 # ── PDF generator ──────────────────────────────────────────────────────────────
-def generate_pdf(questions, doocs_cache, sites_cache, lc_cache, output, printable=False, code_size=None, bold=False):
+def generate_pdf(
+    questions, doocs_cache, sites_cache, lc_cache, output,
+    printable=False, code_size=None, bold=False, mono_code=None,
+    dark_code_panels=False,
+    show_footer=True,
+    sort_asc=False,
+    python_only=False,
+):
     groups = build_groups(questions)
-    styles = build_styles(printable, code_size=code_size, bold=bold)
+    if sort_asc:
+        groups.sort(key=lambda g: len(g[1]))   # ascending question count
+    styles = build_styles(printable, code_size=code_size, bold=bold, dark_code_panels=dark_code_panels)
 
     doc = SimpleDocTemplate(
         str(output), pagesize=letter,
@@ -2538,13 +2750,19 @@ def generate_pdf(questions, doocs_cache, sites_cache, lc_cache, output, printabl
     free_ed   = sum(1 for v in lc_cache.values() if v.get("editorial"))
     desc_doocs = sum(1 for v in doocs_cache.values() if v.get("desc_html"))
     img_count  = len(list(IMG_DIR.glob("*")))
+    # Build cover pattern list — reflect current sort order
+    _cover_pat_list = "  ·  ".join(p["name"] for p, _ in groups if _)  if groups else \
+                      "  ·  ".join(p["name"] for p in QUICK_PATTERNS)
+    _sort_label = "  ·  ranked fewest → most questions" if sort_asc else ""
     story = [
+        PatternMarker("Cover"),
         Spacer(1, 2*inch),
         Paragraph("LeetMastery", styles["cover_title"]),
-        Paragraph("Study Guide — Organised by Pattern", styles["cover_sub"]),
-        Paragraph("  ·  ".join(p["name"] for p in QUICK_PATTERNS),
+        Paragraph(f"Study Guide — Organised by Pattern{_sort_label}", styles["cover_sub"]),
+        Paragraph(_cover_pat_list,
                   ParagraphStyle("pl", fontSize=9, textColor=GRAY_500,
-                                 alignment=TA_CENTER, fontName="Helvetica", leading=16, spaceAfter=6)),
+                                 alignment=TA_CENTER, fontName="LG", leading=16,
+                                 spaceBefore=14, spaceAfter=6)),
         Spacer(1, 0.3*inch),
         Paragraph("LeetDoocs  ·  SimplyLeet  ·  WalkCC  ·  LeetCode.ca", styles["cover_sub"]),
         Paragraph(f"All languages  ·  {desc_doocs} Doocs descriptions  ·  {img_count} embedded images",
@@ -2557,42 +2775,63 @@ def generate_pdf(questions, doocs_cache, sites_cache, lc_cache, output, printabl
             "Print edition — light code panels, monochrome syntax (better on B/W home printers)",
             ParagraphStyle(
                 "pe", fontSize=10, textColor=GRAY_700, alignment=TA_CENTER,
-                spaceAfter=10, fontName="Helvetica-Oblique",
+                spaceAfter=10, fontName="HN-Italic",
             ),
         ))
     story.append(PageBreak())
 
     # TOC
+    story.append(PatternMarker("Table of Contents"))
+    _toc_header_col = HexColor("#000000") if printable else INDIGO
     story.append(Paragraph("<b>Table of Contents</b>",
-                           ParagraphStyle("th", fontSize=16, fontName="Helvetica-Bold",
-                                          textColor=INDIGO, spaceAfter=12)))
+                           ParagraphStyle("th", fontSize=16, fontName="LG-Bold",
+                                          textColor=_toc_header_col, spaceAfter=12)))
     dc_map = {"Easy":"#16A34A","Medium":"#D97706","Hard":"#DC2626"}
-    for pat, qs in groups:
-        if not qs: continue
-        story.append(Paragraph(
-            f"<font color='{pat['hex']}'><b>{pat['name']}</b></font>  "
-            f"<font color='#9CA3AF'>({len(qs)} questions)</font>",
-            ParagraphStyle("ts", fontSize=11, fontName="Helvetica-Bold", spaceAfter=2, spaceBefore=6)
-        ))
+    _visible = [(i+1, pat, qs) for i, (pat, qs) in enumerate(groups) if qs]
+    for _rank, pat, qs in _visible:
+        if printable:
+            _rank_tag = f"<b>#{_rank}</b>  " if sort_asc else ""
+            story.append(Paragraph(
+                f"{_rank_tag}<b>{pat['name']}</b>  ({len(qs)} questions)",
+                ParagraphStyle("ts", fontSize=11, fontName="LG-Bold", spaceAfter=2, spaceBefore=6,
+                               textColor=HexColor("#000000"))
+            ))
+        else:
+            _rank_tag = f"<font color='#9CA3AF'><b>#{_rank}</b></font>  " if sort_asc else ""
+            story.append(Paragraph(
+                f"{_rank_tag}<font color='{pat['hex']}'><b>{pat['name']}</b></font>  "
+                f"<font color='#9CA3AF'>({len(qs)} questions)</font>",
+                ParagraphStyle("ts", fontSize=11, fontName="LG-Bold", spaceAfter=2, spaceBefore=6)
+            ))
         for q in qs:
             dc = dc_map.get(q.get("difficulty",""),"#6B7280")
             diff_tag = q.get("difficulty","")
-            story.append(Paragraph(
-                f"<font color='#9CA3AF'>#{q['id']}</font>  {safe_xml(q['title'])}  "
-                f"<font color='{dc}'>[{diff_tag}]</font>",
-                styles["toc_entry"]
-            ))
+            if printable:
+                story.append(Paragraph(
+                    f"#{q['id']}  {safe_xml(q['title'])}  [{diff_tag}]",
+                    styles["toc_entry"]
+                ))
+            else:
+                story.append(Paragraph(
+                    f"<font color='#9CA3AF'>#{q['id']}</font>  {safe_xml(q['title'])}  "
+                    f"<font color='{dc}'>[{diff_tag}]</font>",
+                    styles["toc_entry"]
+                ))
     story.append(PageBreak())
 
     # Pattern sections
     total = sum(len(qs) for _,qs in groups); done = 0
-    for pat, qs in groups:
-        if not qs: continue
+    _section_groups = [(i+1, pat, qs) for i, (pat, qs) in enumerate(groups) if qs]
+    for _rank, pat, qs in _section_groups:
+        _rank_prefix  = f"#{_rank}  " if sort_asc else ""
+        _rank_suffix  = f"  · #{_rank} of 21" if sort_asc else ""
         story.append(PageBreak())
+        story.append(PatternMarker(pat["name"]))
         if printable:
             banner = Table([[Paragraph(
-                f"<font color='#111827'><b>{pat['name']}</b>  <font size='11'>— {len(qs)} questions</font></font>",
-                ParagraphStyle("bshp", fontSize=20, fontName="Helvetica-Bold", textColor=HexColor("#111827")),
+                f"<font color='#111827'><b>{_rank_prefix}{pat['name']}</b>"
+                f"  <font size='11'>— {len(qs)} questions{_rank_suffix}</font></font>",
+                ParagraphStyle("bshp", fontSize=20, fontName="LG-Bold", textColor=HexColor("#111827")),
             )]], colWidths=[MAX_W])
             banner.setStyle(TableStyle([
                 ("BACKGROUND",(0,0),(-1,-1), PRINT_BANNER_BG),
@@ -2602,8 +2841,9 @@ def generate_pdf(questions, doocs_cache, sites_cache, lc_cache, output, printabl
             ]))
         else:
             banner = Table([[Paragraph(
-                f"<font color='white'><b>{pat['name']}</b>  <font size='11'>— {len(qs)} questions</font></font>",
-                ParagraphStyle("bsh", fontSize=20, fontName="Helvetica-Bold", textColor=white),
+                f"<font color='white'><b>{_rank_prefix}{pat['name']}</b>"
+                f"  <font size='11'>— {len(qs)} questions{_rank_suffix}</font></font>",
+                ParagraphStyle("bsh", fontSize=20, fontName="LG-Bold", textColor=white),
             )]], colWidths=[MAX_W])
             banner.setStyle(TableStyle([
                 ("BACKGROUND",(0,0),(-1,-1),pat["color"]),
@@ -2613,28 +2853,42 @@ def generate_pdf(questions, doocs_cache, sites_cache, lc_cache, output, printabl
         story += [banner, Spacer(1,16)]
         for q in qs:
             story += build_question_block(
-                q, styles, doocs_cache, sites_cache, lc_cache, pattern=pat, printable=printable, bold=bold,
+                q, styles, doocs_cache, sites_cache, lc_cache,
+                pattern=pat, printable=printable, bold=bold, mono_code=mono_code,
+                dark_code_panels=dark_code_panels, python_only=python_only,
             )
             done += 1
-        print(f"  [{done:3d}/{total}] {pat['name']} ✓")
+        # ── Quick Review recap after every pattern's questions ────────────────
+        story += build_quick_review_section(
+            pat, qs, doocs_cache, sites_cache, lc_cache,
+            styles, printable, bold,
+        )
+        print(f"  [{done:3d}/{total}] #{_rank} {pat['name']} ✓")
 
     # ── Page-number footer ────────────────────────────────────────────────────
-    _fn  = "Helvetica-Bold" if bold else "Helvetica"
+    _fn  = "LG-Bold" if bold else "LG"
     _blk = HexColor("#000000") if printable else HexColor("#6B7280")
 
     def _footer(canvas, doc):
+        if not show_footer:
+            return
         canvas.saveState()
         canvas.setFont(_fn, 7.5)
         canvas.setFillColor(_blk)
         w, h = doc.pagesize
         pn = canvas.getPageNumber()
-        canvas.drawString(0.75 * inch, 0.38 * inch, "LeetMastery — By Pattern")
+        pat = getattr(canvas, "_lm_pattern_name", "")
+        left = f"{pat}  ·  LeetMastery — By Pattern" if pat else "LeetMastery — By Pattern"
+        canvas.drawString(0.75 * inch, 0.38 * inch, left)
         canvas.drawCentredString(w / 2, 0.38 * inch, f"— {pn} —")
         canvas.drawRightString(w - 0.75 * inch, 0.38 * inch, "LeetMastery")
         canvas.restoreState()
 
     print("  Writing PDF…")
-    doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
+    if show_footer:
+        doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
+    else:
+        doc.build(story)
     kb = os.path.getsize(output)//1024
     print(f"\n✅  {output}")
     print(f"    {kb} KB ({kb//1024} MB)")
@@ -2675,15 +2929,45 @@ if __name__ == "__main__":
         help=f"Only build print-friendly PDF → {OUTPUT_PDF_PRINT.name}",
     )
     ap.add_argument(
+        "--print-colored",
+        action="store_true",
+        help=f"Print layout + colored syntax + bold code → {OUTPUT_PDF_PRINT_COLORED.name}",
+    )
+    ap.add_argument(
+        "--print-colored-dark",
+        action="store_true",
+        help=f"Print layout + colored syntax + DARK code panels (eye-friendly) → {OUTPUT_PDF_PRINT_COLORED_DARK.name}",
+    )
+    ap.add_argument(
         "--both", "-b",
         action="store_true",
         help=f"Build screen + print PDFs → {OUTPUT_PDF.name} and {OUTPUT_PDF_PRINT.name}",
+    )
+    ap.add_argument(
+        "--build-only",
+        action="store_true",
+        help="Skip all fetching/scraping; build using local cache files only",
+    )
+    ap.add_argument(
+        "--bold",
+        action="store_true",
+        help="Force Helvetica-Bold body + Courier-Bold code throughout (works with any mode)",
+    )
+    ap.add_argument(
+        "--sort-asc",
+        action="store_true",
+        help="Order patterns by ascending question count (fewest first)",
     )
     ap.add_argument(
         "--output", "-o",
         type=Path,
         default=None,
         help="Override output path (single-PDF modes only; ignored with --both)",
+    )
+    ap.add_argument(
+        "--python-only",
+        action="store_true",
+        help="Include only Python solutions (omit all other languages)",
     )
     args = ap.parse_args()
 
@@ -2692,23 +2976,56 @@ if __name__ == "__main__":
     with open(QUESTIONS) as f: questions = json.load(f)
     print(f"Loaded {len(questions)} questions.\n")
 
-    print("Step 1/3 — Doocs (descriptions + solutions)…")
-    doocs_cache = fetch_doocs(questions)
+    if args.build_only:
+        missing = [p for p in (DOOCS_CACHE, SITES_CACHE, LC_CACHE) if not p.exists()]
+        if missing:
+            raise SystemExit(
+                "✗ --build-only requested but cache file(s) missing:\n"
+                + "\n".join(f"  - {p}" for p in missing)
+            )
+        print("Build-only: loading local caches (no network)…")
+        doocs_cache = _load(DOOCS_CACHE)
+        sites_cache = _load(SITES_CACHE)
+        lc_cache    = _load(LC_CACHE)
+        print("\nBuilding PDF…")
+    else:
+        print("Step 1/3 — Doocs (descriptions + solutions)…")
+        doocs_cache = fetch_doocs(questions)
 
-    print("\nStep 2/3 — SimplyLeet, WalkCC, LeetCode.ca…")
-    sites_cache = fetch_all_sites(questions, doocs_cache)
+        print("\nStep 2/3 — SimplyLeet, WalkCC, LeetCode.ca…")
+        sites_cache = fetch_all_sites(questions, doocs_cache)
 
-    print("\nStep 3/3 — Building PDF…")
-    lc_cache = _load(LC_CACHE)
+        print("\nStep 3/3 — Building PDF…")
+        lc_cache = _load(LC_CACHE)
 
     if args.both:
         print("\n  (screen / syntax colors)")
         generate_pdf(questions, doocs_cache, sites_cache, lc_cache, OUTPUT_PDF, printable=False)
         print("\n  (print-friendly)")
         generate_pdf(questions, doocs_cache, sites_cache, lc_cache, OUTPUT_PDF_PRINT, printable=True)
+    elif args.print_colored:
+        out = args.output or OUTPUT_PDF_PRINT_COLORED
+        # printable=True gives light backgrounds + black body text, but we keep code colors
+        # (mono_code=False) and force bold code font (bold=True).
+        generate_pdf(
+            questions, doocs_cache, sites_cache, lc_cache, out,
+            printable=True, bold=True, mono_code=False, show_footer=True,
+            sort_asc=args.sort_asc,
+        )
+    elif args.print_colored_dark:
+        out = args.output or OUTPUT_PDF_PRINT_COLORED_DARK
+        generate_pdf(
+            questions, doocs_cache, sites_cache, lc_cache, out,
+            printable=True, bold=True, mono_code=False, dark_code_panels=True, show_footer=True,
+            sort_asc=args.sort_asc,
+        )
     elif args.printable:
         out = args.output or OUTPUT_PDF_PRINT
-        generate_pdf(questions, doocs_cache, sites_cache, lc_cache, out, printable=True)
+        generate_pdf(questions, doocs_cache, sites_cache, lc_cache, out,
+                     printable=True, bold=args.bold, sort_asc=args.sort_asc,
+                     python_only=args.python_only)
     else:
         out = args.output or OUTPUT_PDF
-        generate_pdf(questions, doocs_cache, sites_cache, lc_cache, out, printable=False)
+        generate_pdf(questions, doocs_cache, sites_cache, lc_cache, out,
+                     printable=False, bold=args.bold, sort_asc=args.sort_asc,
+                     python_only=args.python_only)

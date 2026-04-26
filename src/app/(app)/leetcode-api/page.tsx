@@ -146,6 +146,13 @@ export default function LeetCodePage() {
   const [showPwd,    setShowPwd]    = useState(false)
   const [sessionPanelOpen, setSPO]  = useState(false)
   const sessionOK = !!(session && csrfToken)
+  /* LC login form */
+  const [loginTab,    setLoginTab]    = useState<'login' | 'cookies'>('login')
+  const [lcUsername,  setLcUsername]  = useState('')
+  const [lcPassword,  setLcPassword]  = useState('')
+  const [lcLoginErr,  setLcLoginErr]  = useState('')
+  const [lcLogging,   setLcLogging]   = useState(false)
+  const [showLcPwd,   setShowLcPwd]   = useState(false)
 
   /* Question state */
   const [slugInput, setSlugInput]   = useState('')
@@ -324,6 +331,43 @@ export default function LeetCodePage() {
         body: JSON.stringify({ lc_session: '', lc_csrf: '' }),
       })
     } catch { /* silent */ }
+  }
+
+  const lcLogin = async () => {
+    setLcLoginErr('')
+    setLcLogging(true)
+    try {
+      const res = await fetch('/api/lc-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: lcUsername, password: lcPassword }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setLcLoginErr(data.error ?? 'Login failed.')
+        return
+      }
+      const { lc_session, lc_csrf } = data
+      setSession(lc_session)
+      setCsrfToken(lc_csrf)
+      localStorage.setItem('lc_session', lc_session)
+      localStorage.setItem('lc_csrf', lc_csrf)
+      try {
+        await fetch('/api/lc-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lc_session, lc_csrf }),
+        })
+      } catch { /* silent */ }
+      setSPO(false)
+      setLcUsername('')
+      setLcPassword('')
+      fetchDailyInternal({ session: lc_session, csrfToken: lc_csrf })
+    } catch (e) {
+      setLcLoginErr(`Network error: ${String(e)}`)
+    } finally {
+      setLcLogging(false)
+    }
   }
 
   /* ── Fetch daily ── */
@@ -578,43 +622,108 @@ export default function LeetCodePage() {
       {/* ── Session panel overlay ─────────────────────────── */}
       {sessionPanelOpen && (
         <div className="absolute top-[96px] right-0 sm:right-3 z-50 w-full sm:w-80 bg-[#16213e] border border-gray-700 sm:rounded-2xl shadow-2xl p-4 space-y-3">
+          {/* Header */}
           <div className="flex items-center justify-between">
-            <p className="text-sm font-bold text-gray-200">LeetCode Session</p>
+            <p className="text-sm font-bold text-gray-200">LeetCode Account</p>
             <button onClick={() => setSPO(false)} className="text-gray-500 hover:text-gray-300"><XCircle size={16} /></button>
           </div>
-          <div className="flex gap-1.5 bg-blue-500/10 rounded-xl p-3 text-xs text-blue-300 border border-blue-500/20">
-            <Info size={12} className="shrink-0 mt-0.5 text-blue-400" />
-            <div className="space-y-1">
-              <p>Go to <strong>leetcode.com</strong> → DevTools → Application → Cookies</p>
-              <p>Copy <code className="bg-blue-900/50 px-1 rounded">LEETCODE_SESSION</code> and <code className="bg-blue-900/50 px-1 rounded">csrftoken</code></p>
-            </div>
+
+          {/* Tabs */}
+          <div className="flex rounded-lg bg-gray-800/60 p-0.5 gap-0.5">
+            {(['login', 'cookies'] as const).map(tab => (
+              <button key={tab} onClick={() => { setLoginTab(tab); setLcLoginErr('') }}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition ${loginTab === tab ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}>
+                {tab === 'login' ? '🔑 Login' : '🍪 Cookies'}
+              </button>
+            ))}
           </div>
-          <div className="space-y-2">
-            <label className="block text-xs text-gray-400 font-medium">LEETCODE_SESSION</label>
-            <div className="relative">
-              <input type={showPwd ? 'text' : 'password'} value={session} onChange={e => setSession(e.target.value)}
+
+          {/* Login tab */}
+          {loginTab === 'login' && (
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={lcUsername}
+                onChange={e => setLcUsername(e.target.value)}
+                placeholder="Username or email"
+                autoComplete="username"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-indigo-500 placeholder-gray-500"
+              />
+              <div className="relative">
+                <input
+                  type={showLcPwd ? 'text' : 'password'}
+                  value={lcPassword}
+                  onChange={e => setLcPassword(e.target.value)}
+                  placeholder="Password"
+                  autoComplete="current-password"
+                  onKeyDown={e => e.key === 'Enter' && lcLogin()}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-indigo-500 placeholder-gray-500 pr-8"
+                />
+                <button onClick={() => setShowLcPwd(s => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500">
+                  {showLcPwd ? <EyeOff size={12} /> : <Eye size={12} />}
+                </button>
+              </div>
+              {lcLoginErr && (
+                <p className="text-xs text-red-400 flex items-start gap-1">
+                  <XCircle size={11} className="shrink-0 mt-0.5" /> {lcLoginErr}
+                </p>
+              )}
+              <button
+                onClick={lcLogin}
+                disabled={lcLogging || !lcUsername.trim() || !lcPassword.trim()}
+                className="w-full py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-500 disabled:opacity-40 transition flex items-center justify-center gap-1.5"
+              >
+                {lcLogging ? <><Loader2 size={12} className="animate-spin" /> Signing in…</> : 'Sign in to LeetCode'}
+              </button>
+              {lcLoginErr?.includes('CAPTCHA') && (
+                <p className="text-xs text-yellow-400/80">
+                  Tip: LeetCode is blocking automated login. Switch to the Cookies tab and paste your session manually.
+                </p>
+              )}
+              {sessionOK && (
+                <button onClick={clearSession} className="w-full py-1.5 text-xs text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition">
+                  Disconnect
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Cookies tab */}
+          {loginTab === 'cookies' && (
+            <div className="space-y-2">
+              <div className="flex gap-1.5 bg-blue-500/10 rounded-xl p-3 text-xs text-blue-300 border border-blue-500/20">
+                <Info size={12} className="shrink-0 mt-0.5 text-blue-400" />
+                <div className="space-y-1">
+                  <p>Go to <strong>leetcode.com</strong> → DevTools → Application → Cookies</p>
+                  <p>Copy <code className="bg-blue-900/50 px-1 rounded">LEETCODE_SESSION</code> and <code className="bg-blue-900/50 px-1 rounded">csrftoken</code></p>
+                </div>
+              </div>
+              <label className="block text-xs text-gray-400 font-medium">LEETCODE_SESSION</label>
+              <div className="relative">
+                <input type={showPwd ? 'text' : 'password'} value={session} onChange={e => setSession(e.target.value)}
+                  placeholder="Paste cookie value…"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-indigo-500 pr-8" />
+                <button onClick={() => setShowPwd(s => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500">
+                  {showPwd ? <EyeOff size={12} /> : <Eye size={12} />}
+                </button>
+              </div>
+              <label className="block text-xs text-gray-400 font-medium">csrftoken</label>
+              <input type="password" value={csrfToken} onChange={e => setCsrfToken(e.target.value)}
                 placeholder="Paste cookie value…"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-indigo-500 pr-8" />
-              <button onClick={() => setShowPwd(s => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500">
-                {showPwd ? <EyeOff size={12} /> : <Eye size={12} />}
-              </button>
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-indigo-500" />
+              <div className="flex gap-2">
+                <button onClick={saveSession} disabled={!session.trim() || !csrfToken.trim()}
+                  className="flex-1 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-500 disabled:opacity-40 transition">
+                  Save Session
+                </button>
+                {sessionOK && (
+                  <button onClick={clearSession} className="px-3 py-2 text-xs text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition">
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
-            <label className="block text-xs text-gray-400 font-medium">csrftoken</label>
-            <input type="password" value={csrfToken} onChange={e => setCsrfToken(e.target.value)}
-              placeholder="Paste cookie value…"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-indigo-500" />
-          </div>
-          <div className="flex gap-2">
-            <button onClick={saveSession} disabled={!session.trim() || !csrfToken.trim()}
-              className="flex-1 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-500 disabled:opacity-40 transition">
-              Save Session
-            </button>
-            {sessionOK && (
-              <button onClick={clearSession} className="px-3 py-2 text-xs text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition">
-                Clear
-              </button>
-            )}
-          </div>
+          )}
         </div>
       )}
 
