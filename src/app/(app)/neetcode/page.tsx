@@ -233,9 +233,14 @@ export default function NeetCode150Page() {
                           {/* Title */}
                           <Link
                             href={questionHref(q.id, q.slug, libraryIds)}
-                            className="flex-1 text-sm text-gray-200 hover:text-indigo-300 transition font-medium truncate"
+                            className="flex-1 flex items-center gap-1.5 min-w-0 hover:text-indigo-300 transition"
                           >
-                            {q.title}
+                            <span className="text-sm text-gray-200 hover:text-indigo-300 font-medium truncate">{q.title}</span>
+                            {libraryIds.size > 0 && !libraryIds.has(q.id) && (
+                              <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-gray-700/80 text-gray-500 border border-gray-600/50 whitespace-nowrap">
+                                not in 331
+                              </span>
+                            )}
                           </Link>
 
                           {/* Acceptance */}
