@@ -11,6 +11,11 @@ const supabase = createClient(
 )
 const USER_ID = 'emmanuel'
 
+function questionHref(id: number, slug: string, libraryIds: Set<number>): string {
+  if (libraryIds.has(id)) return `/practice/${id}`
+  return `/leetcode-api?slug=${encodeURIComponent(slug)}`
+}
+
 const DIFF_COLOR: Record<string, string> = {
   Easy:   'text-green-400',
   Medium: 'text-yellow-400',
@@ -49,12 +54,18 @@ const CAT_BAR: Record<string, string> = {
 
 export default function NeetCode150Page() {
   const [solved, setSolved] = useState<Set<number>>(new Set())
+  const [libraryIds, setLibraryIds] = useState<Set<number>>(new Set())
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [diffFilter, setDiffFilter] = useState<'All' | 'Easy' | 'Medium' | 'Hard'>('All')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
   useEffect(() => {
+    fetch('/questions_full.json')
+      .then(r => r.json())
+      .then((qs: { id: number }[]) => setLibraryIds(new Set(qs.map(q => q.id))))
+      .catch(() => {})
+
     supabase
       .from('progress')
       .select('question_id')
@@ -221,7 +232,7 @@ export default function NeetCode150Page() {
 
                           {/* Title */}
                           <Link
-                            href={`/practice/${q.id}`}
+                            href={questionHref(q.id, q.slug, libraryIds)}
                             className="flex-1 text-sm text-gray-200 hover:text-indigo-300 transition font-medium truncate"
                           >
                             {q.title}
