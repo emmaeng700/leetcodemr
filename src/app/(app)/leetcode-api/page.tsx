@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import { lcFetch } from '@/lib/leetcodeLocalConnector'
+import { getCookieFromHeader, normalizeLcCookieValue } from '@/lib/leetcodeHttp'
 
 hljs.registerLanguage('python', pythonLang)
 hljs.registerLanguage('cpp', cppLang)
@@ -145,7 +146,7 @@ export default function LeetCodePage() {
   const [csrfToken,  setCsrfToken]  = useState('')
   const [showPwd,    setShowPwd]    = useState(false)
   const [sessionPanelOpen, setSPO]  = useState(false)
-  const sessionOK = !!(session && csrfToken)
+  const sessionOK = !!(session)
   /* LC login form */
   const [loginTab,    setLoginTab]    = useState<'login' | 'cookies'>('login')
   const [lcUsername,  setLcUsername]  = useState('')
@@ -306,20 +307,20 @@ export default function LeetCodePage() {
   }, [])
 
   const saveSession = async () => {
-    const s = session.trim()
-    const c = csrfToken.trim()
-    // Save to localStorage immediately
+    const raw = session.trim()
+    const isJar = /LEETCODE_SESSION\s*=/.test(raw) && raw.includes(';')
+    const s = raw
+    const c = isJar ? getCookieFromHeader(raw, 'csrftoken') : normalizeLcCookieValue(csrfToken)
     localStorage.setItem('lc_session', s)
     localStorage.setItem('lc_csrf',    c)
     setSPO(false)
-    // Also persist to Supabase so it survives browser clears + works on any device
     try {
       await fetch('/api/lc-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lc_session: s, lc_csrf: c }),
       })
-    } catch { /* silent — localStorage still has it */ }
+    } catch { /* silent */ }
   }
   const clearSession = async () => {
     localStorage.removeItem('lc_session'); localStorage.removeItem('lc_csrf')
@@ -694,25 +695,23 @@ export default function LeetCodePage() {
               <div className="flex gap-1.5 bg-blue-500/10 rounded-xl p-3 text-xs text-blue-300 border border-blue-500/20">
                 <Info size={12} className="shrink-0 mt-0.5 text-blue-400" />
                 <div className="space-y-1">
-                  <p>Go to <strong>leetcode.com</strong> → DevTools → Application → Cookies</p>
-                  <p>Copy <code className="bg-blue-900/50 px-1 rounded">LEETCODE_SESSION</code> and <code className="bg-blue-900/50 px-1 rounded">csrftoken</code></p>
+                  <p><strong>Best:</strong> leetcode.com → F12 → Network tab → click any request → Request Headers → copy the full <code className="bg-blue-900/50 px-1 rounded">Cookie</code> header value</p>
+                  <p className="text-blue-400/70">Includes cf_clearance needed for Run/Submit.</p>
                 </div>
               </div>
-              <label className="block text-xs text-gray-400 font-medium">LEETCODE_SESSION</label>
+              {/LEETCODE_SESSION\s*=/.test(session) && session.includes(';') && (
+                <p className="text-[11px] text-green-400 font-semibold">✓ Full cookie header detected — cf_clearance included</p>
+              )}
               <div className="relative">
                 <input type={showPwd ? 'text' : 'password'} value={session} onChange={e => setSession(e.target.value)}
-                  placeholder="Paste cookie value…"
+                  placeholder="Paste full Cookie header or LEETCODE_SESSION value…"
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-indigo-500 pr-8" />
                 <button onClick={() => setShowPwd(s => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500">
                   {showPwd ? <EyeOff size={12} /> : <Eye size={12} />}
                 </button>
               </div>
-              <label className="block text-xs text-gray-400 font-medium">csrftoken</label>
-              <input type="password" value={csrfToken} onChange={e => setCsrfToken(e.target.value)}
-                placeholder="Paste cookie value…"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-indigo-500" />
               <div className="flex gap-2">
-                <button onClick={saveSession} disabled={!session.trim() || !csrfToken.trim()}
+                <button onClick={saveSession} disabled={!session.trim()}
                   className="flex-1 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-500 disabled:opacity-40 transition">
                   Save Session
                 </button>
