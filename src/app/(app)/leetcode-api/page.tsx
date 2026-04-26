@@ -574,11 +574,10 @@ export default function LeetCodePage() {
             {sessionOK ? 'Connected' : 'Setup'}
           </button>
         </div>
-      </div>
 
-      {/* ── Session panel overlay ─────────────────────────── */}
+      {/* ── Session panel overlay — inside relative top bar so top-full works ── */}
       {sessionPanelOpen && (
-        <div className="absolute top-[96px] right-0 sm:right-3 z-50 w-full sm:w-80 bg-[#16213e] border border-gray-700 sm:rounded-2xl shadow-2xl p-4 space-y-3">
+        <div className="absolute top-full right-0 sm:right-3 z-50 w-full sm:w-80 bg-[#16213e] border border-gray-700 sm:rounded-2xl shadow-2xl p-4 space-y-3">
           {/* Header */}
           <div className="flex items-center justify-between">
             <p className="text-sm font-bold text-gray-200">LeetCode Account</p>
@@ -618,6 +617,7 @@ export default function LeetCodePage() {
             </div>
         </div>
       )}
+      </div>{/* end top bar */}
 
       {/* ── Error banner ─────────────────────────────────── */}
       {qErr && (
