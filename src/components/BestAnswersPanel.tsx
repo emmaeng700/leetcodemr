@@ -245,7 +245,7 @@ export default function BestAnswersPanel({
                       {s.url && <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-400 hover:underline">Open on site →</a>}
                     </div>
                   )}
-                  {s.status === 'done' && s.blocks.map((b, i) => (
+                  {s.status === 'done' && [...s.blocks].sort((a, b) => a.lang === b.lang ? 0 : a.lang === 'python' ? -1 : 1).map((b, i) => (
                     <div key={i} className="mb-3 last:mb-0">
                       <HighlightedCode code={b.code} lang={b.lang} />
                     </div>
