@@ -13,7 +13,7 @@ const USER_ID = 'emmanuel'
 
 function questionHref(id: number, slug: string, libraryIds: Set<number>): string {
   if (libraryIds.has(id)) return `/practice/${id}`
-  return `/leetcode-api?slug=${encodeURIComponent(slug)}`
+  return `/neetcode/${slug}`
 }
 
 const DIFF_COLOR: Record<string, string> = {
