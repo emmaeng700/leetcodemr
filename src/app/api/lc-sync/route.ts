@@ -138,8 +138,28 @@ export async function POST() {
     }
   }
 
+  // 5. Backfill: questions already marked solved in the app but missing next_review
+  //    (synced before this fix). Set them due today so they enter the SR queue now.
+  const toBackfill = matchedIds.filter(id => {
+    const ex = existingMap[id]
+    return ex?.solved === true && !ex?.next_review
+  })
+
+  let backfilled = 0
+  if (toBackfill.length) {
+    const { error } = await supabase
+      .from('progress')
+      .update({ next_review: today, last_reviewed: today, updated_at: new Date().toISOString() })
+      .eq('user_id', USER_ID)
+      .in('question_id', toBackfill)
+      .is('next_review', null)
+
+    if (!error) backfilled = toBackfill.length
+  }
+
   return NextResponse.json({
     synced: toUpsert.length,
+    backfilled,
     total_ac: acSlugs.length,
     total_matched: matchedIds.length,
   })

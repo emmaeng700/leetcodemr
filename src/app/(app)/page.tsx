@@ -1050,10 +1050,15 @@ function HomeInner() {
         toast.error(data.error || 'Sync failed')
         return
       }
-      if (data.synced === 0) {
+      const newlySynced = data.synced ?? 0
+      const backfilled = data.backfilled ?? 0
+      if (newlySynced === 0 && backfilled === 0) {
         toast.success('Already up to date — nothing new to sync')
       } else {
-        toast.success(`Synced ${data.synced} newly solved problem${data.synced !== 1 ? 's' : ''} from LeetCode!`)
+        const parts: string[] = []
+        if (newlySynced > 0) parts.push(`${newlySynced} newly solved problem${newlySynced !== 1 ? 's' : ''}`)
+        if (backfilled > 0) parts.push(`${backfilled} older solve${backfilled !== 1 ? 's' : ''} added to review queue`)
+        toast.success(parts.join(' · ') + ' ✓')
         const prog = await getProgress()
         setProgress(prog)
       }
