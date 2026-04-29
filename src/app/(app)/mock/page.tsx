@@ -151,23 +151,31 @@ export default function MockInterviewPage() {
     return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
   }, [question?.id, question?.slug])
 
-  const pickQuestion = useCallback((): Question | null => {
+  const getPatternPool = useCallback(() => {
     const exclusiveMap = buildExclusivePatternMap(allQuestions)
-    let pool = allQuestions
-    if (difficulty !== 'All') pool = pool.filter(q => q.difficulty === difficulty)
-    if (selectedPattern) pool = pool.filter(q => exclusiveMap[q.id] === selectedPattern)
-    if (unseenOnly) pool = pool.filter(q => !progress[String(q.id)]?.solved)
-    // Fallback: drop unseen filter, keep diff + pattern
-    if (!pool.length) {
-      pool = allQuestions.filter(q =>
-        (difficulty === 'All' || q.difficulty === difficulty) &&
-        (!selectedPattern || exclusiveMap[q.id] === selectedPattern)
-      )
+    const basePool = allQuestions.filter(q =>
+      (difficulty === 'All' || q.difficulty === difficulty) &&
+      (!selectedPattern || exclusiveMap[q.id] === selectedPattern)
+    )
+    const strictPool = unseenOnly
+      ? basePool.filter(q => !progress[String(q.id)]?.solved)
+      : basePool
+
+    return {
+      strictPool,
+      fallbackPool: basePool,
+      usedFallback: unseenOnly && strictPool.length === 0 && basePool.length > 0,
     }
-    if (!pool.length) pool = allQuestions
+  }, [allQuestions, difficulty, unseenOnly, progress, selectedPattern])
+
+  const pickQuestion = useCallback((): Question | null => {
+    const { strictPool, fallbackPool } = getPatternPool()
+    const pool = strictPool.length ? strictPool : fallbackPool
     if (!pool.length) return null
     return pool[Math.floor(Math.random() * pool.length)]
-  }, [allQuestions, difficulty, unseenOnly, progress, selectedPattern])
+  }, [getPatternPool])
+
+  const { strictPool, fallbackPool, usedFallback } = getPatternPool()
 
   const endInterview = useCallback(async (outcome: Outcome, q?: Question) => {
     if (intervalRef.current) clearInterval(intervalRef.current)
@@ -277,6 +285,13 @@ export default function MockInterviewPage() {
           {selectedPattern && (
             <p className="text-xs text-indigo-600 mt-2 font-medium">✓ Questions filtered to <strong>{selectedPattern}</strong> pattern</p>
           )}
+          <p className="text-xs text-[var(--text-subtle)] mt-2">
+            {strictPool.length > 0
+              ? `${strictPool.length} question${strictPool.length !== 1 ? 's' : ''} match your current filters`
+              : fallbackPool.length > 0
+                ? `0 unseen matches. Start Interview will reuse ${fallbackPool.length} seen question${fallbackPool.length !== 1 ? 's' : ''} from this filter set.`
+                : 'No questions match this pattern + difficulty combination.'}
+          </p>
         </div>
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" checked={unseenOnly} onChange={e => setUnseenOnly(e.target.checked)}
@@ -284,8 +299,9 @@ export default function MockInterviewPage() {
           <span className="text-sm text-[var(--text)] font-medium">Unseen (unsolved) questions only</span>
         </label>
         <button onClick={startInterview}
+          disabled={!strictPool.length && !fallbackPool.length}
           className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors text-sm flex items-center justify-center gap-2">
-          <Zap size={16} /> Start Interview
+          <Zap size={16} /> {usedFallback ? 'Start Interview (reuse seen)' : 'Start Interview'}
         </button>
         {sessions.length > 0 && (
           <div>
