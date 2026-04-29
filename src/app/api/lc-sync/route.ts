@@ -138,7 +138,7 @@ export async function POST() {
   }
 
   // 5. Backfill: questions already marked solved in the app but missing next_review
-  //    (synced before this fix). Set them due today so they enter the SR queue now.
+  //    (synced before this fix). Give them the same 7-day first-review delay.
   const toBackfill = matchedIds.filter(id => {
     const ex = existingMap[id]
     return ex?.solved === true && !ex?.next_review
