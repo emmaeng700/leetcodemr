@@ -1,7 +1,20 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { normalizeLcCookieHeader } from '@/lib/leetcodeHttp'
+import { srInterval } from '@/lib/utils'
 import questionsRaw from '../../../../public/questions_full.json'
+
+/** Chicago date string — keeps SR dates consistent with the rest of the app. */
+function todayChicago() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
+}
+
+/** Add `days` to an ISO date string and return a new ISO date string. */
+function addDaysISO(base: string, days: number) {
+  const d = new Date(base + 'T12:00:00')
+  d.setDate(d.getDate() + days)
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -92,10 +105,15 @@ export async function POST() {
   }
 
   // Only upsert questions not yet marked solved in the app
+  const today = todayChicago()
   const toUpsert = matchedIds
     .filter(id => !existingMap[id]?.solved)
     .map(id => {
       const ex = existingMap[id] ?? {}
+      const reviewCount = (ex.review_count as number) ?? 0
+      // If next_review isn't already set, schedule first SR review for tomorrow —
+      // same logic as marking solved manually in the practice page.
+      const nextReview = (ex.next_review as string | null) ?? addDaysISO(today, srInterval(reviewCount))
       return {
         user_id: USER_ID,
         question_id: id,
@@ -103,9 +121,9 @@ export async function POST() {
         starred: ex.starred ?? false,
         notes: ex.notes ?? '',
         status: ex.status ?? null,
-        review_count: ex.review_count ?? 0,
-        next_review: ex.next_review ?? null,
-        last_reviewed: ex.last_reviewed ?? null,
+        review_count: reviewCount,
+        next_review: nextReview,
+        last_reviewed: (ex.last_reviewed as string | null) ?? today,
         updated_at: new Date().toISOString(),
       }
     })
