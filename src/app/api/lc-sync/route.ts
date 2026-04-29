@@ -15,6 +15,51 @@ function addDaysISO(base: string, days: number) {
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
 }
 
+function isWeekendChicago(dateISOChicago: string) {
+  const weekday = new Date(dateISOChicago + 'T12:00:00').toLocaleString('en-US', {
+    timeZone: 'America/Chicago',
+    weekday: 'short',
+  })
+  return weekday === 'Sat' || weekday === 'Sun'
+}
+
+function getDailyReviewCapChicago(dateISOChicago: string) {
+  return isWeekendChicago(dateISOChicago) ? 60 : 35
+}
+
+function spreadFirstReviewDates(
+  today: string,
+  existingCounts: Record<string, number>,
+  count: number,
+  startOffset = 7,
+  horizonDays = 120,
+) {
+  const counts = existingCounts
+  const dates: string[] = []
+
+  for (let i = 0; i < count; i++) {
+    let assigned: string | null = null
+    for (let offset = startOffset; offset <= horizonDays; offset++) {
+      const day = addDaysISO(today, offset)
+      const cap = getDailyReviewCapChicago(day)
+      if ((counts[day] ?? 0) < cap) {
+        counts[day] = (counts[day] ?? 0) + 1
+        assigned = day
+        break
+      }
+    }
+
+    if (!assigned) {
+      assigned = addDaysISO(today, horizonDays + 1 + i)
+      counts[assigned] = (counts[assigned] ?? 0) + 1
+    }
+
+    dates.push(assigned)
+  }
+
+  return dates
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -103,16 +148,32 @@ export async function POST() {
     existingMap[row.question_id] = row
   }
 
+  const { data: scheduledRows } = await supabase
+    .from('progress')
+    .select('question_id,next_review')
+    .eq('user_id', USER_ID)
+    .eq('solved', true)
+    .not('next_review', 'is', null)
+
+  const scheduledCounts: Record<string, number> = {}
+  for (const row of scheduledRows ?? []) {
+    if (matchedIds.includes(row.question_id)) continue
+    const day = row.next_review as string | null
+    if (!day) continue
+    scheduledCounts[day] = (scheduledCounts[day] ?? 0) + 1
+  }
+
   // Only upsert questions not yet marked solved in the app
   const today = todayChicago()
-  const toUpsert = matchedIds
-    .filter(id => !existingMap[id]?.solved)
-    .map(id => {
+  const idsToUpsert = matchedIds.filter(id => !existingMap[id]?.solved)
+  const firstReviewDates = spreadFirstReviewDates(today, scheduledCounts, idsToUpsert.length, 7)
+
+  const toUpsert = idsToUpsert.map((id, index) => {
       const ex = existingMap[id] ?? {}
       const reviewCount = (ex.review_count as number) ?? 0
-      // Schedule first SR review 7 days out — synced solves already happened on LC,
-      // so a 1-day turnaround would be overwhelming. 7 days gives breathing room.
-      const nextReview = (ex.next_review as string | null) ?? addDaysISO(today, 7)
+      // Schedule first SR review starting 7 days out, then spread across future days
+      // so a large sync doesn't dump everything onto one date.
+      const nextReview = (ex.next_review as string | null) ?? firstReviewDates[index]
       return {
         user_id: USER_ID,
         question_id: id,
@@ -146,14 +207,26 @@ export async function POST() {
 
   let backfilled = 0
   if (toBackfill.length) {
-    const { error } = await supabase
-      .from('progress')
-      .update({ next_review: addDaysISO(today, 7), last_reviewed: today, updated_at: new Date().toISOString() })
-      .eq('user_id', USER_ID)
-      .in('question_id', toBackfill)
-      .is('next_review', null)
+    const backfillDates = spreadFirstReviewDates(today, scheduledCounts, toBackfill.length, 7)
+    let errorFound = false
+    for (const [index, questionId] of toBackfill.entries()) {
+      const { error } = await supabase
+        .from('progress')
+        .update({
+          next_review: backfillDates[index],
+          last_reviewed: today,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', USER_ID)
+        .eq('question_id', questionId)
+        .is('next_review', null)
+      if (error) {
+        errorFound = true
+        break
+      }
+    }
 
-    if (!error) backfilled = toBackfill.length
+    if (!errorFound) backfilled = toBackfill.length
   }
 
   return NextResponse.json({
