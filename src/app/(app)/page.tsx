@@ -539,7 +539,22 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   const today = todayISOChicago()
   const overdueReviews = dueReviews.filter(q => q.next_review < today)
 
-  if (!loaded) return null
+  if (!loaded) return (
+    <div className="animate-pulse px-4 py-6 space-y-4 max-w-2xl mx-auto">
+      {/* Streak card skeleton */}
+      <div className="h-28 rounded-2xl bg-[var(--bg-muted)]" />
+      {/* Today card skeleton */}
+      <div className="h-20 rounded-xl bg-[var(--bg-muted)]" />
+      {/* Reviews skeleton */}
+      <div className="h-16 rounded-xl bg-[var(--bg-muted)]" />
+      {/* Pattern coverage skeleton */}
+      <div className="h-10 rounded-xl bg-[var(--bg-muted)]" />
+      {/* Question list skeletons */}
+      {[1,2,3].map(i => (
+        <div key={i} className="h-14 rounded-xl bg-[var(--bg-muted)]" />
+      ))}
+    </div>
+  )
   return (
     <>
       {overdueReviews.length > 0 && (

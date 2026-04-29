@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Brain, ChevronRight, Loader2, Calendar, Clock } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Brain, ChevronRight, Loader2, Calendar, Clock, Play } from 'lucide-react'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import { getSrScheduleWindow } from '@/lib/db'
 
@@ -13,6 +14,7 @@ function todayISOChicago() {
 }
 
 export default function PileupPage() {
+  const router = useRouter()
   const [questions, setQuestions] = useState<Question[]>([])
   const [rows, setRows] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
   const [loading, setLoading] = useState(true)
@@ -54,12 +56,23 @@ export default function PileupPage() {
         <div className="w-9 h-9 rounded-xl bg-indigo-50  border border-indigo-200  flex items-center justify-center shrink-0">
           <Brain size={18} className="text-indigo-600 " />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="text-lg font-black text-[var(--text)]">Pileup</h1>
           <p className="text-xs text-[var(--text-subtle)]">
             Extra SR reviews (due + upcoming). Reviewing early moves them forward in the spaced-rep cycle.
           </p>
         </div>
+        {due.length > 0 && (
+          <button
+            onClick={() => {
+              sessionStorage.setItem('lm_review_queue', JSON.stringify(due.map(r => r.id)))
+              router.push(`/practice/${due[0].id}?from=review`)
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors shrink-0"
+          >
+            <Play size={12} /> Start Reviewing
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

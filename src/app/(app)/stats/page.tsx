@@ -27,6 +27,7 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(true)
   const [importStatus, setImportStatus] = useState<'ok' | 'err' | null>(null)
   const [resetConfirm, setResetConfirm] = useState(false)
+  const [resetText, setResetText] = useState('')
   const [resetting, setResetting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -379,24 +380,37 @@ export default function StatsPage() {
         </p>
         {!resetConfirm ? (
           <button
-            onClick={() => setResetConfirm(true)}
+            onClick={() => { setResetConfirm(true); setResetText('') }}
             className="px-4 py-2 rounded-lg border border-red-500/50 text-red-500 text-sm font-semibold hover:bg-red-500/10 transition-colors"
           >
             Reset all progress
           </button>
         ) : (
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <p className="text-sm font-bold text-red-400">Are you sure? This clears all {Object.values(progress).filter((p: any) => p?.solved).length} solved questions.</p>
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-bold text-red-400">
+              ⚠️ This permanently clears all {Object.values(progress).filter((p: any) => p?.solved).length} solved questions and all SR data. Cannot be undone.
+            </p>
+            <div>
+              <label className="block text-xs text-red-400 mb-1 font-semibold">Type <span className="font-mono font-black">RESET</span> to confirm</label>
+              <input
+                type="text"
+                value={resetText}
+                onChange={e => setResetText(e.target.value)}
+                placeholder="RESET"
+                autoFocus
+                className="px-3 py-2 rounded-lg border border-red-500/50 bg-red-500/5 text-red-400 text-sm font-mono focus:outline-none focus:border-red-500 w-40"
+              />
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={handleResetAll}
-                disabled={resetting}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-50"
+                disabled={resetting || resetText !== 'RESET'}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {resetting ? 'Resetting…' : 'Yes, reset everything'}
+                {resetting ? 'Resetting…' : '🗑 Yes, reset everything'}
               </button>
               <button
-                onClick={() => setResetConfirm(false)}
+                onClick={() => { setResetConfirm(false); setResetText('') }}
                 className="px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--text-muted)] text-sm font-semibold hover:border-[var(--border-soft)] transition-colors"
               >
                 Cancel

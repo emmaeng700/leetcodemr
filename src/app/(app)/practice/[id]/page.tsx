@@ -81,6 +81,7 @@ export default function PracticePage() {
   const [lcContent, setLcContent] = useState<string | null>(null)
   const [lcLoading, setLcLoading] = useState(false)
   const [lcFailed, setLcFailed] = useState(false)
+  const [lcFromCache, setLcFromCache] = useState(false)
   const [isPremium, setIsPremium] = useState(false)
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -132,6 +133,7 @@ export default function PracticePage() {
     let cancelled = false
     setLcLoading(true)
     setLcFailed(false)
+    setLcFromCache(false)
     setIsPremium(false)
 
     async function doFetch() {
@@ -174,9 +176,10 @@ export default function PracticePage() {
           setLcContent(q.content)
         } else {
           setLcFailed(true)
+          if (!cancelled && question?.description) setLcFromCache(true)
         }
       } catch {
-        if (!cancelled) setLcFailed(true)
+        if (!cancelled) { setLcFailed(true); if (question?.description) setLcFromCache(true) }
       } finally {
         clearTimeout(timeout)
         if (!cancelled) setLcLoading(false)
@@ -304,7 +307,7 @@ export default function PracticePage() {
             return (
               <div className="flex items-center gap-1">
                 {isReviewMode && (
-                  <span className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-orange-50 border border-orange-200 text-orange-600 text-xs font-bold shrink-0">
+                  <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-orange-50 border border-orange-200 text-orange-600 text-xs font-bold shrink-0">
                     🔁 Review
                   </span>
                 )}
@@ -401,6 +404,7 @@ export default function PracticePage() {
           className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
           <BookOpen size={12} /> Description
           {lcLoading && <Loader2 size={10} className="animate-spin text-[var(--text-muted)]" />}
+          {lcFromCache && !lcLoading && <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-600 border border-amber-200 font-bold">Cached</span>}
         </button>
         {question && (
           <button onClick={() => setActiveTab('best')}

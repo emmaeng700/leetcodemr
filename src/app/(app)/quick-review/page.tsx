@@ -171,6 +171,25 @@ export default function QuickReviewPage() {
 
   useEffect(() => () => stopTimer(), [])
 
+  // Pause when user switches tabs, resume when they come back
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (!pausedRef.current) {
+          setPaused(true); pausedRef.current = true
+        }
+      } else {
+        if (pausedRef.current && startedAtRef.current !== null) {
+          // Shift the start reference so elapsed time doesn't count hidden time
+          startedAtRef.current = Date.now()
+          setPaused(false); pausedRef.current = false
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [])
+
   // Fetch live LeetCode description when question changes
   useEffect(() => {
     const slug = deck[idx]?.slug

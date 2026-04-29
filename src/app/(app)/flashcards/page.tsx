@@ -48,6 +48,7 @@ function FlashcardsInner() {
   )
   const [isShuffled, setIsShuffled] = useState(false)
   const [visited, setVisited] = useState<Set<number>>(new Set())
+  const [sessionSeen, setSessionSeen] = useState<Set<number>>(new Set())
   const filterNavKeyRef = useRef<string | null>(null)
   const [lcContent, setLcContent] = useState<string | null>(null)
   const [lcLoading, setLcLoading] = useState(false)
@@ -129,6 +130,11 @@ function FlashcardsInner() {
     return () => window.removeEventListener('keydown', handler)
   }, [go, handleFlip])
 
+  // Track current card as seen this session
+  useEffect(() => {
+    if (q?.id != null) setSessionSeen(prev => new Set([...prev, q.id]))
+  }, [q?.id])
+
   // Reset description when card changes
   useEffect(() => {
     if (!q?.slug) return
@@ -199,7 +205,7 @@ function FlashcardsInner() {
             {deck.length === 0 ? '0 / 0' : `${idx + 1} / ${deck.length}`}
           </span>
           <span className="bg-green-50  text-green-600  border border-green-200  px-3 py-1.5 rounded-full flex items-center gap-1">
-            <CheckCircle size={11} /> {visited.size} visited
+            <CheckCircle size={11} /> {sessionSeen.size}/{deck.length} seen
           </span>
           <button
             onClick={() => setIsShuffled(s => !s)}
@@ -362,6 +368,9 @@ function FlashcardsInner() {
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
+                    {sessionSeen.has(q.id) && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-400 border border-indigo-200 font-semibold shrink-0">seen</span>
+                    )}
                     <button
                       onClick={e => {
                         e.stopPropagation()

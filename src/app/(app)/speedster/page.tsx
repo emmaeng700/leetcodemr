@@ -447,9 +447,15 @@ export default function SpeedsterPage() {
               className="flex items-center gap-1 px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-600 hover:border-yellow-300 hover:text-yellow-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
               <ChevronLeft size={16} /> Prev
             </button>
-            <div className="text-center">
+            <div className="text-center min-w-0 flex-1">
               <p className="text-base font-black text-gray-800">Day {dayIdx + 1}</p>
-              <p className="text-xs text-gray-400">{daySolved}/{currentDay.length} solved · {dayIdx + 1} of {totalDays} days</p>
+              <p className="text-xs text-gray-400 mb-1">{daySolved}/{currentDay.length} solved · {dayIdx + 1} of {totalDays} days</p>
+              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden w-32 mx-auto">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${daySolved === currentDay.length ? 'bg-green-500' : 'bg-yellow-400'}`}
+                  style={{ width: currentDay.length ? `${(daySolved / currentDay.length) * 100}%` : '0%' }}
+                />
+              </div>
             </div>
             <button onClick={() => setDayIdx(i => Math.min(totalDays - 1, i + 1))} disabled={dayIdx === totalDays - 1}
               className="flex items-center gap-1 px-4 py-2 rounded-xl bg-yellow-500 text-white text-sm font-semibold hover:bg-yellow-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
