@@ -712,7 +712,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
           )}
         </div>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+      <div className={`grid gap-3 mb-5 ${planNorm ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-bold text-[var(--text-muted)] flex items-center gap-1"><Target size={13} /> Interview Countdown</span>
@@ -748,20 +748,23 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
           </div>
         )}
       </div>
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg p-4">
-        <div className="text-xs font-bold text-[var(--text-muted)] mb-3 flex items-center gap-1">⭐ Today's Question</div>
-        {dailyQ ? (
-          <div>
-            <div className="flex items-start gap-2 mb-2">
-              <span className={'text-xs font-bold px-2 py-0.5 rounded-full border shrink-0 mt-0.5 ' + (diffColor[dailyQ.difficulty] || 'bg-slate-700 text-slate-400 border-white/10')}>{dailyQ.difficulty}</span>
-              <span className="text-sm font-semibold text-[var(--text)] leading-snug">{dailyQ.title}</span>
+      {/* Only show random daily question when no study plan is active — plan already answers "what should I do today" */}
+      {!planNorm && (
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg p-4">
+          <div className="text-xs font-bold text-[var(--text-muted)] mb-3 flex items-center gap-1">⭐ Today's Question</div>
+          {dailyQ ? (
+            <div>
+              <div className="flex items-start gap-2 mb-2">
+                <span className={'text-xs font-bold px-2 py-0.5 rounded-full border shrink-0 mt-0.5 ' + (diffColor[dailyQ.difficulty] || 'bg-slate-700 text-slate-400 border-white/10')}>{dailyQ.difficulty}</span>
+                <span className="text-sm font-semibold text-[var(--text)] leading-snug">{dailyQ.title}</span>
+              </div>
+              <button onClick={() => router.push('/practice/' + dailyQ.id)} className="flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">
+                Solve now <ChevronRight size={13} />
+              </button>
             </div>
-            <button onClick={() => router.push('/practice/' + dailyQ.id)} className="flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">
-              Solve now <ChevronRight size={13} />
-            </button>
-          </div>
-        ) : <p className="text-xs text-[var(--text-subtle)]">Loading…</p>}
-      </div>
+          ) : <p className="text-xs text-[var(--text-subtle)]">Loading…</p>}
+        </div>
+      )}
     </div>
     </>
   )
