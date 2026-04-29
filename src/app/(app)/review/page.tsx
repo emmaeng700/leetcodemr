@@ -269,7 +269,10 @@ export default function ReviewPage() {
             {due.map(q => (
               <div
                 key={q.id}
-                onClick={() => router.push(`/practice/${q.id}`)}
+                onClick={() => {
+                  sessionStorage.setItem('lm_review_queue', JSON.stringify(due.map(d => d.id)))
+                  router.push(`/practice/${q.id}?from=review`)
+                }}
                 className="flex items-center justify-between gap-2 flex-wrap bg-indigo-50  border border-indigo-200  rounded-xl px-4 py-3 cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all group"
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">

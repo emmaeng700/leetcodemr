@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useClickOutside } from '@/hooks/useClickOutside'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan } from '@/lib/db'
@@ -56,6 +56,8 @@ function PremiumBlock({ slug }: { slug?: string }) {
 export default function PracticePage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isReviewMode = searchParams.get('from') === 'review'
   const id = Number(params.id)
 
   const [question, setQuestion] = useState<Question | null>(null)
@@ -97,7 +99,16 @@ export default function PracticePage() {
       if (!q) return
       setQuestion(q)
       setAllQuestions(qs as Question[])
-      if (plan?.question_order?.length) setPlanOrder(plan.question_order)
+      // In review mode, use the stored due queue so prev/next stays within the review session
+      let reviewQueue: number[] | null = null
+      if (isReviewMode) {
+        try {
+          const stored = sessionStorage.getItem('lm_review_queue')
+          if (stored) reviewQueue = JSON.parse(stored)
+        } catch { /* ignore */ }
+      }
+      if (reviewQueue) setPlanOrder(reviewQueue)
+      else if (plan?.question_order?.length) setPlanOrder(plan.question_order)
       else setPlanOrder((qs as Question[]).map((q: Question) => q.id))
       setSolved(!!prog[String(id)]?.solved)
       setStarred(!!prog[String(id)]?.starred)
@@ -269,6 +280,7 @@ export default function PracticePage() {
             const currentIdx = planOrder.indexOf(id)
             const prevId = currentIdx > 0 ? planOrder[currentIdx - 1] : null
             const nextId = currentIdx < planOrder.length - 1 ? planOrder[currentIdx + 1] : null
+            const navSuffix = isReviewMode ? '?from=review' : ''
             const practiceListItems = planOrder.map((qid) => {
               const lq = qMap[qid]
               if (!lq) return null
@@ -276,7 +288,7 @@ export default function PracticePage() {
                 <button
                   key={qid}
                   type="button"
-                  onClick={() => { router.push(`/practice/${qid}`); setShowList(false) }}
+                  onClick={() => { router.push(`/practice/${qid}${navSuffix}`); setShowList(false) }}
                   className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-indigo-600/10 border-b border-[var(--border-soft)] ${qid === id ? 'bg-indigo-600/15' : ''}`}
                 >
                   <span className="shrink-0 tabular-nums text-xs font-mono text-[var(--text-subtle)]">#{lq.id}</span>
@@ -291,7 +303,12 @@ export default function PracticePage() {
             })
             return (
               <div className="flex items-center gap-1">
-                <button onClick={() => prevId && router.push(`/practice/${prevId}`)} disabled={!prevId}
+                {isReviewMode && (
+                  <span className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-orange-50 border border-orange-200 text-orange-600 text-xs font-bold shrink-0">
+                    🔁 Review
+                  </span>
+                )}
+                <button onClick={() => prevId && router.push(`/practice/${prevId}${navSuffix}`)} disabled={!prevId}
                   className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-500/50 hover:text-indigo-300 disabled:opacity-30 transition-colors bg-[var(--bg-muted)]">
                   <ArrowLeft size={13} />
                 </button>
@@ -308,7 +325,7 @@ export default function PracticePage() {
                     </>
                   )}
                 </div>
-                <button onClick={() => nextId && router.push(`/practice/${nextId}`)} disabled={!nextId}
+                <button onClick={() => nextId && router.push(`/practice/${nextId}${navSuffix}`)} disabled={!nextId}
                   className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-500/50 hover:text-indigo-300 disabled:opacity-30 transition-colors bg-[var(--bg-muted)]">
                   <ArrowLeft size={13} className="rotate-180" />
                 </button>
