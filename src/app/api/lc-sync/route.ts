@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { normalizeLcCookieHeader } from '@/lib/leetcodeHttp'
-import { srInterval } from '@/lib/utils'
 import questionsRaw from '../../../../public/questions_full.json'
 
 /** Chicago date string — keeps SR dates consistent with the rest of the app. */
@@ -111,9 +110,9 @@ export async function POST() {
     .map(id => {
       const ex = existingMap[id] ?? {}
       const reviewCount = (ex.review_count as number) ?? 0
-      // If next_review isn't already set, schedule first SR review for tomorrow —
-      // same logic as marking solved manually in the practice page.
-      const nextReview = (ex.next_review as string | null) ?? addDaysISO(today, srInterval(reviewCount))
+      // Schedule first SR review 7 days out — synced solves already happened on LC,
+      // so a 1-day turnaround would be overwhelming. 7 days gives breathing room.
+      const nextReview = (ex.next_review as string | null) ?? addDaysISO(today, 7)
       return {
         user_id: USER_ID,
         question_id: id,
@@ -149,7 +148,7 @@ export async function POST() {
   if (toBackfill.length) {
     const { error } = await supabase
       .from('progress')
-      .update({ next_review: today, last_reviewed: today, updated_at: new Date().toISOString() })
+      .update({ next_review: addDaysISO(today, 7), last_reviewed: today, updated_at: new Date().toISOString() })
       .eq('user_id', USER_ID)
       .in('question_id', toBackfill)
       .is('next_review', null)
