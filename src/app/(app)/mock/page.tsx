@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Timer, Zap, CheckCircle, XCircle, RotateCcw, Trophy,
@@ -152,8 +152,9 @@ export default function MockInterviewPage() {
     return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
   }, [question?.id, question?.slug])
 
+  const exclusiveMap = useMemo(() => buildExclusivePatternMap(allQuestions), [allQuestions])
+
   const getPatternPool = useCallback(() => {
-    const exclusiveMap = buildExclusivePatternMap(allQuestions)
     const basePool = allQuestions.filter(q =>
       (difficulty === 'All' || q.difficulty === difficulty) &&
       (!selectedPattern || exclusiveMap[q.id] === selectedPattern)
@@ -167,7 +168,7 @@ export default function MockInterviewPage() {
       fallbackPool: basePool,
       usedFallback: unseenOnly && strictPool.length === 0 && basePool.length > 0,
     }
-  }, [allQuestions, difficulty, unseenOnly, progress, selectedPattern])
+  }, [allQuestions, exclusiveMap, difficulty, unseenOnly, progress, selectedPattern])
 
   const pickQuestion = useCallback((): Question | null => {
     const { strictPool, fallbackPool } = getPatternPool()
