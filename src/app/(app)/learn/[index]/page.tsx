@@ -241,6 +241,17 @@ function LearnInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const exclusiveMap = useMemo(() => buildExclusivePatternMap(questions), [questions])
 
+  /** Solved/total counts per pattern — drives the progress fractions on filter buttons */
+  const patternProgressMap = useMemo(() => {
+    const map: Record<string, { solved: number; total: number }> = {}
+    for (const p of QUICK_PATTERNS) {
+      const qs = questions.filter(q => exclusiveMap[q.id] === p.name)
+      const solved = qs.filter(q => (progress[String(q.id)] as any)?.solved).length
+      map[p.name] = { solved, total: qs.length }
+    }
+    return map
+  }, [questions, exclusiveMap, progress])
+
   const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
   const ordered = planOrder.length
     ? planOrder.map(id => qMap[id]).filter(Boolean) as Question[]
@@ -717,18 +728,27 @@ function LearnInner() {
               className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${!filterPattern ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'}`}>
               All Patterns
             </button>
-            {QUICK_PATTERNS.map(p => (
-              <button key={p.name}
-                onClick={() => {
-                  const next = filterPattern === p.name ? null : p.name
-                  setFilterPattern(next)
-                  const q = buildLearnQuery({ pattern: next })
-                  router.push(`/learn/0${q ? `?${q}` : ''}`, { scroll: false })
-                }}
-                className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${filterPattern === p.name ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'}`}>
-                {p.name}
-              </button>
-            ))}
+            {QUICK_PATTERNS.map(p => {
+              const pp = patternProgressMap[p.name] || { solved: 0, total: 0 }
+              const isActive = filterPattern === p.name
+              return (
+                <button key={p.name}
+                  onClick={() => {
+                    const next = filterPattern === p.name ? null : p.name
+                    setFilterPattern(next)
+                    const q = buildLearnQuery({ pattern: next })
+                    router.push(`/learn/0${q ? `?${q}` : ''}`, { scroll: false })
+                  }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${isActive ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'}`}>
+                  <span>{p.name}</span>
+                  {pp.total > 0 && (
+                    <span className={`font-mono text-[10px] ${isActive ? 'text-white/70' : 'text-gray-400'}`}>
+                      {pp.solved}/{pp.total}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </div>
       )}

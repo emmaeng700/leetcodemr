@@ -63,6 +63,15 @@ function seededRandom(seed: string) {
   return Math.abs(h)
 }
 
+/** Returns the Monday (Chicago) of the current week as an ISO date string — used as the weekly freeze key. */
+function currentWeekKey(): string {
+  const d = new Date()
+  const day = d.getDay() // 0 = Sun
+  const monday = new Date(d)
+  monday.setDate(d.getDate() - ((day + 6) % 7))
+  return monday.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
+}
+
 const STREAK_MESSAGES: Record<string, string[]> = {
   '0':  ['Start your streak today!', 'Day 1 begins with a single problem 💡', 'Every expert was once a beginner 🌱', 'Your future self will thank you 🙏'],
   '1':  ['First step taken — keep going! 🚶', 'One day in, momentum is building 💪', 'You showed up. That\'s everything. ✅'],
@@ -110,11 +119,13 @@ function StreakCard({
   streak,
   log,
   goalsMetToday,
+  frozenDate,
 }: {
   streak: number
   log: Record<string, number>
   /** Today's dot uses live daily+SR rules; stale activity_log rows can't show "done" early. */
   goalsMetToday: boolean
+  frozenDate?: string | null
 }) {
   // Build Mon→Sun for the current ISO week
   const today = new Date()
@@ -128,8 +139,9 @@ function StreakCard({
     const key = chicagoISO(d)
     const isToday = key === todayISOChicago()
     const isFuture = d > today && !isToday
-    const active = isToday ? goalsMetToday : !!log[key]
-    return { label: ['M','T','W','T','F','S','S'][i], key, active, isToday, isFuture }
+    const frozen = key === frozenDate
+    const active = isToday ? goalsMetToday : (!!log[key] || frozen)
+    return { label: ['M','T','W','T','F','S','S'][i], key, active, isToday, isFuture, frozen }
   })
 
   const weekActive = weekDays.filter(d => d.active).length
@@ -150,10 +162,13 @@ function StreakCard({
         {/* Top row: streak count + level badge */}
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <Flame size={20} className="text-orange-300 streak-glow" />
               <span className="text-3xl font-black text-white leading-none">{streak}</span>
               <span className="text-sm font-bold text-orange-300 leading-none">{streak === 1 ? 'day' : 'days'}</span>
+              {frozenDate && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/40 text-blue-200 font-bold shrink-0">❄️ Freeze</span>
+              )}
             </div>
             <p className="text-xs text-orange-200 font-medium leading-snug max-w-[200px]">{message}</p>
           </div>
@@ -194,12 +209,12 @@ function StreakCard({
             <div key={i} className="flex flex-col items-center gap-1 flex-1">
               <div className={`w-full aspect-square rounded-full max-w-[28px] transition-all duration-300 ${
                 d.active
-                  ? 'shadow-[0_0_8px_rgba(251,146,60,0.7)]'
+                  ? (d.frozen ? 'shadow-[0_0_8px_rgba(96,165,250,0.7)]' : 'shadow-[0_0_8px_rgba(251,146,60,0.7)]')
                   : ''
               }`}
                 style={{
                   background: d.active
-                    ? 'linear-gradient(135deg,#fb923c,#f97316)'
+                    ? (d.frozen ? 'linear-gradient(135deg,#60a5fa,#3b82f6)' : 'linear-gradient(135deg,#fb923c,#f97316)')
                     : d.isToday
                       ? 'transparent'
                       : d.isFuture
@@ -364,6 +379,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   const [solvedTodayCount, setSolvedTodayCount] = useState(0)
   const [dailyQ, setDailyQ] = useState<Question | null>(null)
   const [loaded, setLoaded] = useState(false)
+  const [frozenDate, setFrozenDate] = useState<string | null>(null)
   const streakHydratedRef = useRef(false)
   useEffect(() => {
     let cancelled = false
@@ -411,6 +427,38 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     return () => { cancelled = true }
   }, [progress, loaded])
 
+  // Streak freeze — one per week, auto-activates when the previous day was missed
+  useEffect(() => {
+    if (!loaded) return
+    try {
+      const weekKey = currentWeekKey()
+      const raw = localStorage.getItem('lm_streak_freeze_v1')
+      let freeze: { grantedWeek: string; usedDate: string | null } =
+        raw ? JSON.parse(raw) : { grantedWeek: '', usedDate: null }
+      if (freeze.grantedWeek !== weekKey) {
+        freeze = { grantedWeek: weekKey, usedDate: null }
+      }
+      if (freeze.usedDate) {
+        setFrozenDate(freeze.usedDate)
+        localStorage.setItem('lm_streak_freeze_v1', JSON.stringify(freeze))
+        return
+      }
+      const yest = new Date(); yest.setDate(yest.getDate() - 1)
+      const dby  = new Date(); dby.setDate(dby.getDate()  - 2)
+      const yKey = chicagoISO(yest)
+      const dKey = chicagoISO(dby)
+      const startDate = (studyPlan as any)?.start_date as string | undefined
+      const logRef = startDate
+        ? Object.fromEntries(Object.entries(activityLog).filter(([d]) => d >= startDate))
+        : activityLog
+      if (!logRef[yKey] && logRef[dKey]) {
+        freeze = { grantedWeek: weekKey, usedDate: yKey }
+        setFrozenDate(yKey)
+      }
+      localStorage.setItem('lm_streak_freeze_v1', JSON.stringify(freeze))
+    } catch { /* ignore */ }
+  }, [loaded, activityLog, studyPlan])
+
   const planNorm = normalizeStudyPlanRow(studyPlan)
   // Avoid type drift issues (mode may not exist in older StudyPlanForStreak typings).
   const planMode = (studyPlan as any)?.mode ?? (planNorm as any)?.mode
@@ -419,14 +467,16 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   // Today's dot uses live daily+SR rules (mode-aware).
   const goalsMetToday = dueReviews.length === 0
 
-  const streakDisplay = planNorm
-    ? (computePlanStreakDisplayNumber(studyPlan, progress, dueReviews.length) ?? 0)
-    : computeStreak(activityLog)
   // Only show activity log dots from the current plan's start date onwards.
   // Old plan entries shouldn't bleed into a freshly generated plan's week view.
   const planFilteredLog = planNorm?.start_date
     ? Object.fromEntries(Object.entries(activityLog).filter(([date]) => date >= planNorm.start_date))
     : activityLog
+  // If freeze is active for a past day, include it in the virtual log so the streak is preserved.
+  const virtualLog = frozenDate ? { ...planFilteredLog, [frozenDate]: 1 } : planFilteredLog
+  const streakDisplay = planNorm
+    ? (computePlanStreakDisplayNumber(studyPlan, progress, dueReviews.length) ?? 0)
+    : computeStreak(virtualLog)
   useEffect(() => {
     if (!questions.length) return
     const todayKey = 'daily_q_' + todayISOChicago()
@@ -555,8 +605,61 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
       ))}
     </div>
   )
+  // ── "What should I do now?" smart CTA ──────────────────────────────────
+  const smartAction = (() => {
+    if (dueReviews.length > 0) {
+      return {
+        label: `🧠 Clear your ${dueReviews.length} review${dueReviews.length !== 1 ? 's' : ''} →`,
+        sub: 'Spaced repetition due now',
+        color: 'from-indigo-600 to-purple-600',
+        action: () => {
+          sessionStorage.setItem('lm_review_queue', JSON.stringify(dueReviews.map(d => d.id)))
+          router.push(`/practice/${dueReviews[0].id}?from=review`)
+        },
+      }
+    }
+    if (planNorm) {
+      const diffDays = Math.round((new Date(todayISOChicago() + 'T12:00:00').getTime() - new Date(planNorm.start_date + 'T12:00:00').getTime()) / 86400000)
+      const dayIds: number[] = planNorm.question_order.slice(diffDays * planNorm.per_day, (diffDays + 1) * planNorm.per_day)
+      const nextUnsolved = dayIds.find(id => !progress[String(id)]?.solved)
+      if (nextUnsolved) {
+        const q = questions.find(x => x.id === nextUnsolved)
+        return {
+          label: `📅 Start today's question →`,
+          sub: q ? q.title : `#${nextUnsolved}`,
+          color: 'from-emerald-600 to-teal-600',
+          action: () => router.push(`/practice/${nextUnsolved}`),
+        }
+      }
+    }
+    const nextQ = questions.find(q => !progress[String(q.id)]?.solved)
+    if (nextQ) {
+      return {
+        label: `🚀 Next question →`,
+        sub: nextQ.title,
+        color: 'from-orange-500 to-amber-500',
+        action: () => router.push(`/practice/${nextQ.id}`),
+      }
+    }
+    return null
+  })()
+
   return (
     <>
+      {/* Smart action button */}
+      {smartAction && (
+        <button
+          onClick={smartAction.action}
+          className={`w-full mb-4 bg-gradient-to-r ${smartAction.color} text-white rounded-2xl px-5 py-4 flex items-center justify-between gap-3 shadow-lg hover:brightness-110 active:scale-[0.98] transition-all`}
+        >
+          <div className="text-left min-w-0">
+            <p className="font-black text-base leading-tight">{smartAction.label}</p>
+            <p className="text-xs text-white/70 mt-0.5 truncate">{smartAction.sub}</p>
+          </div>
+          <ChevronRight size={22} className="shrink-0 text-white/80" />
+        </button>
+      )}
+
       {overdueReviews.length > 0 && (
         <Link href="/review" className="flex items-center gap-3 mb-4 px-4 py-3 rounded-xl bg-red-500 hover:bg-red-600 transition-colors shadow-lg">
           <span className="text-xl shrink-0">⚠️</span>
@@ -569,7 +672,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
           <ChevronRight size={18} className="text-white shrink-0" />
         </Link>
       )}
-      <StreakCard streak={streakDisplay} log={planFilteredLog} goalsMetToday={goalsMetToday} />
+      <StreakCard streak={streakDisplay} log={planFilteredLog} goalsMetToday={goalsMetToday} frozenDate={frozenDate} />
       {todayDailyCard}
       {planNorm && (
         <div className="bg-indigo-50  border border-indigo-200  rounded-xl mb-5 overflow-hidden">
