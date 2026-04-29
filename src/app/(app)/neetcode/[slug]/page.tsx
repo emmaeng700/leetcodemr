@@ -1,9 +1,8 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, Sparkles, StickyNote } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, Sparkles } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
-import WhiteboardNotes from '@/components/WhiteboardNotes'
 import { formatTime, stripScripts, leetCodeUrl } from '@/lib/utils'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
@@ -37,7 +36,7 @@ export default function NeetCodeQuestionPage() {
   const [contentFailed, setContentFailed] = useState(false)
   const [isPremium, setIsPremium] = useState(false)
   const [solved, setSolved] = useState(false)
-  const [activeTab, setActiveTab] = useState<'description' | 'best' | 'notes' | 'accepted' | 'editor'>('description')
+  const [activeTab, setActiveTab] = useState<'description' | 'best' | 'accepted' | 'editor'>('description')
   const [timer, setTimer] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startRef = useRef(Date.now())
@@ -185,10 +184,6 @@ export default function NeetCodeQuestionPage() {
           className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
           <Sparkles size={12} /> Best answers
         </button>
-        <button onClick={() => setActiveTab('notes')}
-          className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'notes' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-          <StickyNote size={12} /> Notes
-        </button>
         <button onClick={() => setActiveTab('accepted')}
           className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
           <Trophy size={12} /> My Solutions
@@ -249,10 +244,6 @@ export default function NeetCodeQuestionPage() {
                   </div>
                 )}
               </>
-            )}
-
-            {activeTab === 'notes' && (
-              <WhiteboardNotes storageKey={`lm_whiteboard:${q?.id ?? 0}:${slug}`} />
             )}
 
             {activeTab === 'best' && q && (

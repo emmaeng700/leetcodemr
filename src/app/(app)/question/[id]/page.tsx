@@ -36,7 +36,6 @@ interface Question {
 interface ProgressData {
   solved: boolean
   starred: boolean
-  notes: string
   status?: string | null
 }
 
@@ -46,10 +45,8 @@ export default function QuestionPage() {
   const id = Number(params.id)
 
   const [question, setQuestion] = useState<Question | null>(null)
-  const [progress, setProgress] = useState<ProgressData>({ solved: false, starred: false, notes: '' })
-  const [notes, setNotes] = useState('')
+  const [progress, setProgress] = useState<ProgressData>({ solved: false, starred: false })
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [imageError, setImageError] = useState(false)
   const [showSolution, setShowSolution] = useState(false)
   const allQuestionsRef = useRef<Array<{ id: number; tags: string[] }>>([])
@@ -66,9 +63,8 @@ export default function QuestionPage() {
       setQuestion(q)
       allQuestionsRef.current = qs as Question[]
       fullProgressRef.current = prog
-      const p = prog[String(id)] || { solved: false, starred: false, notes: '' }
+      const p = prog[String(id)] || { solved: false, starred: false }
       setProgress(p)
-      setNotes(p.notes || '')
       setLoading(false)
     }
     load()
@@ -80,8 +76,7 @@ export default function QuestionPage() {
   }, [question])
 
   async function save(patch: Partial<ProgressData> = {}) {
-    setSaving(true)
-    const updated = { ...progress, notes, ...patch }
+    const updated = { ...progress, ...patch }
     setProgress(updated)
     fullProgressRef.current = { ...fullProgressRef.current, [String(id)]: updated }
     await updateProgress(id, updated)
@@ -91,14 +86,6 @@ export default function QuestionPage() {
         toast.success(`🎉 ${completed} pattern complete! Take 2 days to revise before moving on.`, { duration: 5000 })
       }
     }
-    setSaving(false)
-  }
-
-  async function saveNotes() {
-    setSaving(true)
-    await updateProgress(id, { ...progress, notes })
-    setSaving(false)
-    toast.success('Notes saved!')
   }
 
   if (loading) return <div className="text-center py-32 text-gray-400 animate-pulse text-sm">Loading...</div>
@@ -256,26 +243,6 @@ export default function QuestionPage() {
           )}
         </div>
       )}
-
-      {/* Notes */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
-        <h2 className="text-sm font-bold text-gray-700 mb-2">My Notes</h2>
-        <textarea
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-          onBlur={saveNotes}
-          rows={4}
-          placeholder="Write your notes, intuition, edge cases..."
-          className="w-full text-sm text-gray-900 border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
-        />
-        <button
-          onClick={saveNotes}
-          disabled={saving}
-          className="mt-2 px-4 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-        >
-          {saving ? 'Saving...' : 'Save Notes'}
-        </button>
-      </div>
 
       {/* Practice Editor */}
       <div className="mb-5">

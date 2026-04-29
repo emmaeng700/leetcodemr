@@ -2,9 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, StickyNote, Star } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
-import WhiteboardNotes from '@/components/WhiteboardNotes'
 import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan } from '@/lib/db'
 import { formatTime, isDue, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
@@ -67,7 +66,7 @@ export default function PracticePage() {
   const [starred, setStarred] = useState(false)
   const [nextReview, setNextReview] = useState<string | null>(null)
   const [reviewDone, setReviewDone] = useState(false)
-  const [activeTab, setActiveTab] = useState<'description' | 'best' | 'notes' | 'accepted' | 'editor'>('description')
+  const [activeTab, setActiveTab] = useState<'description' | 'best' | 'accepted' | 'editor'>('description')
 
   const lcTitleSlug = question ? resolveLeetCodeSlug(question.id, question.slug) : undefined
 
@@ -393,12 +392,6 @@ export default function PracticePage() {
           </button>
         )}
         {question && (
-          <button onClick={() => setActiveTab('notes')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'notes' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-            <StickyNote size={12} /> Notes
-          </button>
-        )}
-        {question && (
           <button onClick={() => setActiveTab('accepted')}
             className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
             <Trophy size={12} /> My Solutions
@@ -466,10 +459,6 @@ export default function PracticePage() {
                   </div>
                 )}
               </>
-            )}
-
-            {activeTab === 'notes' && question && (
-              <WhiteboardNotes storageKey={`lm_whiteboard:${question.id}:${question.slug}`} />
             )}
 
             {activeTab === 'best' && question && (

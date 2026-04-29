@@ -11,7 +11,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Brain, CheckCircle, Star,
   BookOpen, List, ExternalLink, Loader2, FileText,
-  Copy, Check, Sparkles, StickyNote,
+  Copy, Check, Sparkles,
 } from 'lucide-react'
 import { getProgress, updateProgress, completeReview, failReview, getStudyPlan } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
@@ -23,7 +23,6 @@ import DifficultyBadge from '@/components/DifficultyBadge'
 import StatusRadio from '@/components/StatusRadio'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
-import WhiteboardNotes from '@/components/WhiteboardNotes'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import LearnAcSubmitTable from '@/components/learn/LearnAcSubmitTable'
 import { CODE_HIGHLIGHT_TOKEN_CSS } from '@/lib/codeHighlightTheme'
@@ -120,11 +119,9 @@ function LearnInner() {
   const [questions, setQuestions]   = useState<Question[]>([])
   const [planOrder, setPlanOrder]   = useState<number[]>([])
   const [progress, setProgress]     = useState<Record<string, any>>({})
-  const [notes, setNotes]           = useState('')
-  const [saving, setSaving]         = useState(false)
   const [showList, setShowList]     = useState(false)
   const [reviewDone, setReviewDone] = useState(false)
-  const [activeTab, setActiveTab]   = useState<'description' | 'editorial' | 'best' | 'notes' | 'accepted' | 'editor'>('description')
+  const [activeTab, setActiveTab]   = useState<'description' | 'editorial' | 'best' | 'accepted' | 'editor'>('description')
   // IMPORTANT: don't read localStorage during render (causes hydration mismatch).
   const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(null)
   const [filterDiff, setFilterDiff]         = useState(initDiff)
@@ -296,7 +293,6 @@ function LearnInner() {
 
   // Reset per question
   useEffect(() => {
-    if (q) setNotes(progress[String(q.id)]?.notes || '')
     setReviewDone(false)
     setLcContent(null)
     setIsPremium(false)
@@ -450,11 +446,9 @@ function LearnInner() {
 
   const save = async (patch: any = {}) => {
     if (!q) return
-    setSaving(true)
-    const updated = { solved, starred, notes, status, ...patch, question_id: q.id }
+    const updated = { solved, starred, status, ...patch, question_id: q.id }
     await updateProgress(q.id, updated)
     setProgress(prev => ({ ...prev, [String(q.id)]: { ...prev[String(q.id)], ...updated } }))
-    setSaving(false)
   }
 
   const handleCompleteReview = async () => {
@@ -762,10 +756,6 @@ function LearnInner() {
               <Sparkles size={12} /> Best answers
             </button>
           )}
-          <button onClick={() => setActiveTab('notes')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'notes' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-            <StickyNote size={12} /> Notes
-          </button>
           {studyMode !== 'hide' && (
             <button onClick={() => setActiveTab('accepted')}
               className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
@@ -989,11 +979,6 @@ function LearnInner() {
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-              {activeTab === 'notes' && (
-                <div className="p-4 h-full">
-                  <WhiteboardNotes storageKey={`lm_whiteboard:${q.id}:${q.slug}`} />
                 </div>
               )}
               {activeTab === 'accepted' && (

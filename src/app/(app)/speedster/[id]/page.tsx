@@ -7,9 +7,8 @@ import { useParams, useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
-import { ArrowLeft, ArrowRight, BookOpen, ExternalLink, Loader2, Trophy, Gauge, List, Sparkles, StickyNote, Star } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, ExternalLink, Loader2, Trophy, Gauge, List, Sparkles, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
-import WhiteboardNotes from '@/components/WhiteboardNotes'
 import { addMasteryRunEvent, getStudyPlan, getProgress, updateProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
@@ -53,7 +52,7 @@ export default function SpeedsterQuestionPage() {
   const [planOrder, setPlanOrder] = useState<number[]>([])
   const [showList, setShowList] = useState(false)
   const [starred, setStarred] = useState(false)
-  const [activeTab, setActiveTab] = useState<'description' | 'best' | 'notes' | 'accepted' | 'editor'>('description')
+  const [activeTab, setActiveTab] = useState<'description' | 'best' | 'accepted' | 'editor'>('description')
 
   const [lcContent, setLcContent] = useState<string | null>(null)
   const [lcLoading, setLcLoading] = useState(false)
@@ -247,12 +246,6 @@ export default function SpeedsterQuestionPage() {
           </button>
         )}
         {question && (
-          <button onClick={() => setActiveTab('notes')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'notes' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-            <StickyNote size={12} /> Notes
-          </button>
-        )}
-        {question && (
           <button onClick={() => setActiveTab('accepted')}
             className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
             <Trophy size={12} /> My Solutions
@@ -308,9 +301,6 @@ export default function SpeedsterQuestionPage() {
                   </div>
                 )}
               </>
-            )}
-            {activeTab === 'notes' && question && (
-              <WhiteboardNotes storageKey={`lm_whiteboard:${question.id}:${question.slug}`} />
             )}
             {activeTab === 'best' && question && (
               <BestAnswersPanel questionId={question.id} slug={lcTitleSlug ?? question.slug} active={activeTab === 'best'} />
