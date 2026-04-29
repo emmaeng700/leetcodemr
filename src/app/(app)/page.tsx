@@ -368,7 +368,7 @@ function PatternCoverageGrid({ questions, progress }: { questions: Question[]; p
   )
 }
 
-function InterviewCountdownWidget({ questions, progress }: { questions: Question[]; progress: Record<string, ProgressData> }) {
+function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { questions: Question[]; progress: Record<string, ProgressData>; onSync: () => void; syncing: boolean }) {
   const router = useRouter()
   const [date, setDate] = useState('')
   const [editing, setEditing] = useState(false)
@@ -537,7 +537,15 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
             </>
           )}
           <div className="mt-3 pt-3 border-t border-[var(--border-soft)]">
-            <p className="text-xs text-[var(--text-subtle)]">Solve on LeetCode, then hit <span className="font-semibold text-indigo-500">LC Sync</span> above to mark problems solved.</p>
+            <p className="text-xs text-[var(--text-subtle)]">Solve on LeetCode, then{' '}
+            <button
+              onClick={onSync}
+              disabled={syncing}
+              className="font-semibold text-indigo-500 hover:text-indigo-400 underline underline-offset-2 transition-colors disabled:opacity-50"
+            >
+              {syncing ? 'Syncing…' : 'LC Sync'}
+            </button>
+            {' '}to mark problems solved.</p>
           </div>
         </div>
       )
@@ -580,7 +588,15 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
           </>
         )}
         <div className="mt-3 pt-3 border-t border-[var(--border-soft)]">
-          <p className="text-xs text-[var(--text-subtle)]">Solve on LeetCode, then hit <span className="font-semibold text-indigo-500">LC Sync</span> above to mark problems solved.</p>
+          <p className="text-xs text-[var(--text-subtle)]">Solve on LeetCode, then{' '}
+            <button
+              onClick={onSync}
+              disabled={syncing}
+              className="font-semibold text-indigo-500 hover:text-indigo-400 underline underline-offset-2 transition-colors disabled:opacity-50"
+            >
+              {syncing ? 'Syncing…' : 'LC Sync'}
+            </button>
+            {' '}to mark problems solved.</p>
         </div>
       </div>
     )
@@ -1089,7 +1105,7 @@ function HomeInner() {
         </button>
       </div>
 
-      {!loading && <InterviewCountdownWidget questions={questions} progress={progress} />}
+      {!loading && <InterviewCountdownWidget questions={questions} progress={progress} onSync={syncFromLeetCode} syncing={syncing} />}
       {!loading && <TodayPlanCard questions={questions} progress={progress} />}
       <DueReviewBanner />
       {!loading && <PatternCoverageGrid questions={questions} progress={progress} />}
