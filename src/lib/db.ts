@@ -4,6 +4,7 @@ import { todayISOChicago } from './studyPlanDay'
 import { srInterval } from './utils'
 
 const USER_ID = 'emmanuel'
+const MOCK_SESSIONS_LOCAL_KEY = 'leetcodemr_mock_sessions'
 
 function isMissingTableError(message: string | undefined | null): boolean {
   const m = (message ?? '').toLowerCase()
@@ -12,6 +13,30 @@ function isMissingTableError(message: string | undefined | null): boolean {
     m.includes('schema cache') ||
     m.includes('relation') && m.includes('does not exist')
   )
+}
+
+function isFetchTransportError(message: string | undefined | null): boolean {
+  const m = (message ?? '').toLowerCase()
+  return m.includes('failed to fetch') || m.includes('fetch failed') || m.includes('networkerror')
+}
+
+function readLocalMockSessions(): MockSessionRecord[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(MOCK_SESSIONS_LOCAL_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed as MockSessionRecord[] : []
+  } catch {
+    return []
+  }
+}
+
+function writeLocalMockSessions(rows: MockSessionRecord[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(MOCK_SESSIONS_LOCAL_KEY, JSON.stringify(rows.slice(0, 50)))
+  } catch {}
 }
 
 function localDateISO(d: Date) {
@@ -420,7 +445,12 @@ export async function getMockSessions(limit = 20): Promise<MockSessionRecord[]> 
     .eq('user_id', USER_ID)
     .order('created_at', { ascending: false })
     .limit(limit)
-  if (error) console.error('[db] getMockSessions:', error.message)
+  if (error) {
+    if (isMissingTableError(error.message) || isFetchTransportError(error.message)) {
+      return readLocalMockSessions().slice(0, limit)
+    }
+    console.error('[db] getMockSessions:', error.message)
+  }
   return (data ?? []).map((r: any) => ({
     id: r.id,
     date: r.date || (r.created_at ? String(r.created_at).split('T')[0] : '') || '',
@@ -434,17 +464,34 @@ export async function getMockSessions(limit = 20): Promise<MockSessionRecord[]> 
 }
 
 export async function saveMockSession(session: Omit<MockSessionRecord, 'id'>) {
-  const { error } = await supabase.from('mock_sessions').insert({
-    user_id: USER_ID,
+  const localSession: MockSessionRecord = {
+    date: session.date,
     question_id: session.question_id ?? null,
     question_title: session.question_title ?? null,
     difficulty: session.difficulty ?? null,
     outcome: session.outcome,
     elapsed_seconds: session.elapsed_seconds,
-    duration_seconds: session.duration_seconds ?? null,
+    duration_seconds: session.duration_seconds,
+    created_at: session.created_at ?? new Date().toISOString(),
+  }
+  const { error } = await supabase.from('mock_sessions').insert({
+    user_id: USER_ID,
+    question_id: session.question_id ?? null,
+    outcome: session.outcome,
+    duration_minutes: session.duration_seconds != null
+      ? Math.max(1, Math.round(session.duration_seconds / 60))
+      : null,
+    code: null,
+    language: null,
     created_at: session.created_at ?? new Date().toISOString(),
   })
-  if (error) console.error('[db] saveMockSession:', error.message)
+  if (error) {
+    if (isMissingTableError(error.message) || isFetchTransportError(error.message)) {
+      writeLocalMockSessions([localSession, ...readLocalMockSessions()])
+      return true
+    }
+    console.error('[db] saveMockSession:', error.message)
+  }
   return !error
 }
 

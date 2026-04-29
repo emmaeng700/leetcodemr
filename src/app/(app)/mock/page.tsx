@@ -219,7 +219,7 @@ export default function MockInterviewPage() {
     }
   }, [question, progress, duration])
 
-  const handleEndInterview = useCallback((outcome: Outcome) => (e: React.MouseEvent | React.PointerEvent) => {
+  const handleEndInterview = useCallback((outcome: Outcome) => (e: React.MouseEvent | React.PointerEvent | React.TouchEvent) => {
     e.preventDefault()
     e.stopPropagation()
     void endInterview(outcome)
@@ -341,9 +341,8 @@ export default function MockInterviewPage() {
   /* ── ACTIVE ── */
   if (phase === 'active' && question) return (
     <div className="flex flex-col h-[calc(100dvh-56px)]">
-
       {/* Timer top bar */}
-      <div className={`relative z-20 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 border-b shrink-0 ${urgent ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-200'}`}>
+      <div className={`relative z-[80] flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 md:pr-44 lg:pr-48 border-b shrink-0 ${urgent ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-200'}`}>
         {/* Countdown */}
         <div className={`text-lg sm:text-2xl font-black font-mono shrink-0 tabular-nums ${urgent ? 'text-red-600 animate-pulse' : 'text-indigo-600 '}`}>
           {formatTime(timeLeft)}
@@ -371,15 +370,36 @@ export default function MockInterviewPage() {
             className="text-[var(--text-subtle)] hover:text-orange-400 transition-colors"><ExternalLink size={12} /></a>
         </div>
 
+        <div className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 z-[90] items-center gap-2 pointer-events-none">
+          <button
+            type="button"
+            onClick={handleEndInterview('solved')}
+            style={{ touchAction: 'manipulation' }}
+            className="pointer-events-auto cursor-pointer select-none flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors text-xs shadow-sm">
+            <CheckCircle size={13} /> Solved ✓
+          </button>
+          <button
+            type="button"
+            onClick={handleEndInterview('gave_up')}
+            style={{ touchAction: 'manipulation' }}
+            className="pointer-events-auto cursor-pointer select-none flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-card)] border-2 border-[var(--border)] text-[var(--text-muted)] font-semibold rounded-lg hover:border-red-300 hover:text-red-500 transition-colors text-xs shadow-sm">
+            <XCircle size={13} /> Give Up
+          </button>
+        </div>
+
         {/* Action buttons */}
-        <button type="button" onClick={handleEndInterview('solved')} onPointerUp={handleEndInterview('solved')}
+        <button
+          type="button"
+          onClick={handleEndInterview('solved')}
           style={{ touchAction: 'manipulation' }}
-          className="relative z-30 pointer-events-auto cursor-pointer select-none flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors text-xs shrink-0">
+          className="relative z-30 pointer-events-auto cursor-pointer select-none flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors text-xs shrink-0 md:hidden">
           <CheckCircle size={13} /> <span className="hidden xs:inline sm:inline">Solved</span> ✓
         </button>
-        <button type="button" onClick={handleEndInterview('gave_up')} onPointerUp={handleEndInterview('gave_up')}
+        <button
+          type="button"
+          onClick={handleEndInterview('gave_up')}
           style={{ touchAction: 'manipulation' }}
-          className="relative z-30 pointer-events-auto cursor-pointer select-none flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-[var(--bg-card)] border-2 border-[var(--border)] text-[var(--text-muted)] font-semibold rounded-lg hover:border-red-300 hover:text-red-500 transition-colors text-xs shrink-0">
+          className="relative z-30 pointer-events-auto cursor-pointer select-none flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-[var(--bg-card)] border-2 border-[var(--border)] text-[var(--text-muted)] font-semibold rounded-lg hover:border-red-300 hover:text-red-500 transition-colors text-xs shrink-0 md:hidden">
           <XCircle size={13} /> <span className="hidden sm:inline">Give Up</span><span className="sm:hidden">Quit</span>
         </button>
       </div>
