@@ -80,6 +80,7 @@ export default function MockInterviewPage() {
   const [mobilePanel, setMobilePanel] = useState<'description' | 'editor'>('description')
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef<number | null>(null)
+  const endingRef = useRef(false)
 
   // Live LeetCode description
   const [lcContent, setLcContent] = useState<string | null>(null)
@@ -178,43 +179,56 @@ export default function MockInterviewPage() {
   const { strictPool, fallbackPool, usedFallback } = getPatternPool()
 
   const endInterview = useCallback(async (outcome: Outcome, q?: Question) => {
-    if (intervalRef.current) clearInterval(intervalRef.current)
-    setResult(outcome)
-    setPhase('done')
-    const elapsedSec = Math.round((Date.now() - (startTimeRef.current ?? Date.now())) / 1000)
-    const activeQ = q || question
-    const session: SessionRecord = {
-      date: new Date().toISOString().split('T')[0],
-      questionId: activeQ?.id,
-      questionTitle: activeQ?.title,
-      difficulty: activeQ?.difficulty,
-      outcome,
-      elapsedSeconds: elapsedSec,
-    }
-    await saveMockSession({
-      date: session.date,
-      question_id: activeQ?.id ?? null,
-      question_title: activeQ?.title ?? null,
-      difficulty: activeQ?.difficulty ?? null,
-      outcome,
-      elapsed_seconds: elapsedSec,
-      duration_seconds: duration,
-      created_at: new Date().toISOString(),
-    })
-    setSessions(prev => [session, ...prev].slice(0, 20))
-    if (outcome === 'solved' && activeQ) {
-      await updateProgress(activeQ.id, {
-        solved: true,
-        starred: progress[String(activeQ.id)]?.starred ?? false,
-        notes: progress[String(activeQ.id)]?.notes ?? '',
-        status: progress[String(activeQ.id)]?.status ?? null,
+    if (endingRef.current) return
+    endingRef.current = true
+    try {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      setResult(outcome)
+      setPhase('done')
+      const elapsedSec = Math.round((Date.now() - (startTimeRef.current ?? Date.now())) / 1000)
+      const activeQ = q || question
+      const session: SessionRecord = {
+        date: new Date().toISOString().split('T')[0],
+        questionId: activeQ?.id,
+        questionTitle: activeQ?.title,
+        difficulty: activeQ?.difficulty,
+        outcome,
+        elapsedSeconds: elapsedSec,
+      }
+      await saveMockSession({
+        date: session.date,
+        question_id: activeQ?.id ?? null,
+        question_title: activeQ?.title ?? null,
+        difficulty: activeQ?.difficulty ?? null,
+        outcome,
+        elapsed_seconds: elapsedSec,
+        duration_seconds: duration,
+        created_at: new Date().toISOString(),
       })
+      setSessions(prev => [session, ...prev].slice(0, 20))
+      if (outcome === 'solved' && activeQ) {
+        await updateProgress(activeQ.id, {
+          solved: true,
+          starred: progress[String(activeQ.id)]?.starred ?? false,
+          notes: progress[String(activeQ.id)]?.notes ?? '',
+          status: progress[String(activeQ.id)]?.status ?? null,
+        })
+      }
+    } finally {
+      endingRef.current = false
     }
   }, [question, progress, duration])
+
+  const handleEndInterview = useCallback((outcome: Outcome) => (e: React.MouseEvent | React.PointerEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    void endInterview(outcome)
+  }, [endInterview])
 
   const startInterview = () => {
     const q = pickQuestion()
     if (!q) return
+    endingRef.current = false
     setQuestion(q)
     setTimeLeft(duration)
     setResult(null)
@@ -358,14 +372,14 @@ export default function MockInterviewPage() {
         </div>
 
         {/* Action buttons */}
-        <button type="button" onClick={() => endInterview('solved')}
+        <button type="button" onClick={handleEndInterview('solved')} onPointerUp={handleEndInterview('solved')}
           style={{ touchAction: 'manipulation' }}
-          className="relative z-30 pointer-events-auto flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors text-xs shrink-0">
+          className="relative z-30 pointer-events-auto cursor-pointer select-none flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors text-xs shrink-0">
           <CheckCircle size={13} /> <span className="hidden xs:inline sm:inline">Solved</span> ✓
         </button>
-        <button type="button" onClick={() => endInterview('gave_up')}
+        <button type="button" onClick={handleEndInterview('gave_up')} onPointerUp={handleEndInterview('gave_up')}
           style={{ touchAction: 'manipulation' }}
-          className="relative z-30 pointer-events-auto flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-[var(--bg-card)] border-2 border-[var(--border)] text-[var(--text-muted)] font-semibold rounded-lg hover:border-red-300 hover:text-red-500 transition-colors text-xs shrink-0">
+          className="relative z-30 pointer-events-auto cursor-pointer select-none flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-[var(--bg-card)] border-2 border-[var(--border)] text-[var(--text-muted)] font-semibold rounded-lg hover:border-red-300 hover:text-red-500 transition-colors text-xs shrink-0">
           <XCircle size={13} /> <span className="hidden sm:inline">Give Up</span><span className="sm:hidden">Quit</span>
         </button>
       </div>
