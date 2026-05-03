@@ -14,7 +14,7 @@ import {
   BookOpen, List, ExternalLink, Loader2, FileText,
   Copy, Check, Sparkles,
 } from 'lucide-react'
-import { getProgress, updateProgress, completeReview, failReview, getMasteryRunsByQuestion, addMasteryRunEvent } from '@/lib/db'
+import { getProgress, updateProgress, completeReview, failReview, getMasteryRunsByQuestion, addMasteryRunEvent, resetMasteryRuns } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
@@ -122,6 +122,7 @@ function LearnInner() {
   const [planOrder, setPlanOrder]   = useState<number[]>([])
   const [progress, setProgress]     = useState<Record<string, any>>({})
   const [runs, setRuns]             = useState<Record<string, number>>({})
+  const [resettingRuns, setResettingRuns] = useState(false)
   const [showList, setShowList]     = useState(false)
   const [reviewDone, setReviewDone] = useState(false)
   const [activeTab, setActiveTab]   = useState<'description' | 'editorial' | 'best' | 'accepted' | 'editor'>('description')
@@ -470,6 +471,27 @@ function LearnInner() {
     }
   }
 
+  const handleResetRuns = async () => {
+    if (resettingRuns || filtered.length === 0) return
+    const ok = window.confirm('Reset the current Learn /3 progress for the questions in this lane/filter?')
+    if (!ok) return
+    setResettingRuns(true)
+    const ids = filtered.map(item => item.id)
+    const res = await resetMasteryRuns(ids)
+    if (!res.ok) {
+      toast.error(`Couldn't reset Learn /3 progress: ${res.error ?? 'unknown error'}`)
+      setResettingRuns(false)
+      return
+    }
+    setRuns(prev => {
+      const next = { ...prev }
+      for (const id of ids) delete next[String(id)]
+      return next
+    })
+    toast.success('Learn /3 progress reset for this lane')
+    setResettingRuns(false)
+  }
+
   /** Open a question in this Learn view (editor). Resets URL filters if the question is hidden by current filters. */
   const openQuestionInLearn = useCallback(
     (questionId: number) => {
@@ -659,6 +681,14 @@ function LearnInner() {
         <button type="button" data-learn-filter onClick={() => setShowFilters(v => !v)}
           className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${showFilters ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-500 hover:border-indigo-300'}`}>
           Filter {filterDiff !== 'All' || filterSource !== 'All' || filterPattern ? '•' : ''}
+        </button>
+        <button
+          type="button"
+          onClick={handleResetRuns}
+          disabled={resettingRuns || filtered.length === 0}
+          className="px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs font-semibold transition-colors hover:bg-rose-100 disabled:opacity-40"
+        >
+          {resettingRuns ? 'Resetting…' : 'Reset /3'}
         </button>
 
         {q && (
