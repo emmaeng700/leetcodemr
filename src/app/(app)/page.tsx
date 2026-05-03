@@ -612,6 +612,14 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
 
   const today = todayISOChicago()
   const overdueReviews = dueReviews.filter(q => q.next_review < today)
+  const randomImbibePattern = useMemo(() => {
+    const solvedPatterns = ORDERED_QUICK_PATTERNS.filter(pat =>
+      questions.some(q => todayTopicMap[q.id] === pat.name && !!progress[String(q.id)]?.solved)
+    )
+    if (!solvedPatterns.length) return null
+    const idx = seededRandom(`${todayISOChicago()}-imbibition`) % solvedPatterns.length
+    return solvedPatterns[idx]
+  }, [questions, progress, todayTopicMap])
 
   if (!loaded) return (
     <div className="animate-pulse px-4 py-6 space-y-4 max-w-2xl mx-auto">
@@ -667,15 +675,6 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
     }
     return null
   })()
-
-  const randomImbibePattern = useMemo(() => {
-    const solvedPatterns = ORDERED_QUICK_PATTERNS.filter(pat =>
-      questions.some(q => todayTopicMap[q.id] === pat.name && !!progress[String(q.id)]?.solved)
-    )
-    if (!solvedPatterns.length) return null
-    const idx = seededRandom(`${todayISOChicago()}-imbibition`) % solvedPatterns.length
-    return solvedPatterns[idx]
-  }, [questions, progress, todayTopicMap])
 
   return (
     <>
