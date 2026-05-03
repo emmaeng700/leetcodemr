@@ -769,10 +769,10 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
   /* ══ RENDER ══════════════════════════════════════════════ */
   return (
-    <div className="relative flex flex-col overflow-x-hidden rounded-none sm:rounded-xl border-0 sm:border border-gray-700/50 bg-[#1a1a2e] flex-1 min-h-0 w-full">
+    <div className="relative flex flex-col overflow-x-hidden rounded-none sm:rounded-xl border-0 sm:border border-gray-700/50 bg-[#1a1a2e] flex-1 min-h-[34rem] sm:min-h-0 w-full">
       <style>{`
         /* Responsive CodeMirror font sizing (phone → desktop) */
-        .cm-editor { font-size: clamp(8.5px, 2.2vw, 12px); line-height: 1.45; }
+        .cm-editor { font-size: clamp(10.5px, 2.4vw, 12.5px); line-height: 1.55; }
         /* Indentation markers: slightly higher contrast on dark theme */
         .cm-editor {
           --indent-marker-bg-color: rgba(120, 140, 190, 0.35);
@@ -783,7 +783,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         .cm-editor { touch-action: none; }
         .cm-editor, .cm-content { max-width: 100%; }
         @media (max-width: 639px) {
-          .cm-editor { font-size: 8.5px; }
+          .cm-editor { font-size: 11.5px; line-height: 1.6; }
           .cm-scroller { overflow-x: hidden !important; }
           .cm-content, .cm-line { white-space: pre-wrap; word-break: break-all; }
         }
@@ -1010,7 +1010,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
       {/* ── CodeMirror ── */}
       {!lcLoad && !lcErr && (
-        <div className="flex-1 overflow-hidden min-h-0 w-full">
+        <div className="flex-1 overflow-hidden min-h-[50svh] sm:min-h-0 w-full">
           <CodeMirror
             key={`${lang}-${editorResetKey}`}
             value={code}
@@ -1035,7 +1035,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       )}
 
       {/* ── Bottom panel ── */}
-      <div className="h-44 sm:h-52 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
+      <div className="h-32 sm:h-52 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
         {/* Tabs */}
         <div className="flex items-center border-b border-gray-700/50 shrink-0 overflow-x-auto scrollbar-none">
           {(['testcase', 'result', 'solutions'] as const).map(tab => {
