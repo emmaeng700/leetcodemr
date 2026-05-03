@@ -657,6 +657,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         /* Sync to app on Accepted Submit */
         if (mode === 'submit' && data.status_code === 10) {
           resetToStarter()
+          toast.success('Accepted — reset to starter code')
           if (!syncToApp) {
             setSolvedStatus('not-in-library')
             onAcceptedRef.current?.()
@@ -688,7 +689,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       }
     }
     setResultErr('Timed out.'); setRunning(false); setPollMsg('')
-  }, [session, csrf, lcSlug, appQuestionId])
+  }, [session, csrf, lcSlug, appQuestionId, resetToStarter, syncToApp])
 
   /* ── Run test ── */
   const runTest = async () => {
