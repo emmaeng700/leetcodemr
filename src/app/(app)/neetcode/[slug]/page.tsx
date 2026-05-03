@@ -264,7 +264,11 @@ export default function NeetCodeQuestionPage() {
 
         {/* Editor panel */}
         <div className="relative z-0 flex flex-col w-full md:w-[58%] flex-1 min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
-          <LeetCodeEditor appQuestionId={q?.id ?? 0} slug={slug} syncToApp={false} />
+          <LeetCodeEditor
+            appQuestionId={q?.id ?? 0}
+            slug={slug}
+            syncToApp={false}
+          />
         </div>
       </div>
     </div>

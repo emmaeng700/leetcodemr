@@ -251,7 +251,11 @@ export default function QuestionPage() {
           <span className="text-xs font-bold text-gray-400 uppercase tracking-widest px-2">🧠 Practice</span>
           <div className="h-px flex-1 bg-gray-200" />
         </div>
-        <LeetCodeEditor appQuestionId={question.id} slug={question.slug} />
+        <LeetCodeEditor
+          appQuestionId={question.id}
+          slug={question.slug}
+          preferredLangs={question.tags?.includes('JavaScript') ? ['javascript', 'python3', 'cpp'] : undefined}
+        />
       </div>
 
     </div>

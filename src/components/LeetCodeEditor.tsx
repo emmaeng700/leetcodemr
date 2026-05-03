@@ -120,6 +120,7 @@ interface Props {
   onAccepted?: () => void
   /** If false, runs/submits to LeetCode but won't sync progress or AC counts to the app DB. */
   syncToApp?: boolean
+  preferredLangs?: SupportedLang[]
 }
 
 /* ── Mobile keyboard toolbar ───────────────────────────── */
@@ -299,7 +300,7 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
 }
 
 /* ══════════════════════════════════════════════════════════ */
-export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncToApp = true }: Props) {
+export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncToApp = true, preferredLangs }: Props) {
   const lcSlug = resolveLeetCodeSlug(appQuestionId, slug)
   const onAcceptedRef = useRef(onAccepted)
   useEffect(() => { onAcceptedRef.current = onAccepted }, [onAccepted])
@@ -342,12 +343,13 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [localConnector, setLocalConnector] = useState<{ ok: boolean; authed: boolean } | null>(null)
   const [extBridgeOn, setExtBridgeOn] = useState(false)
   const availableLangs = useMemo<SupportedLang[]>(() => {
+    const hinted = (preferredLangs ?? []).filter((slug): slug is SupportedLang => SUPPORTED_LANGS.includes(slug))
     const langs = (lcQ?.codeSnippets ?? [])
       .map(s => s.langSlug)
       .filter((slug): slug is SupportedLang => SUPPORTED_LANGS.includes(slug as SupportedLang))
-    const unique = Array.from(new Set(langs))
+    const unique = Array.from(new Set([...hinted, ...langs]))
     return unique.length ? unique : ['python3', 'cpp']
-  }, [lcQ])
+  }, [lcQ, preferredLangs])
 
   const fetchQuestionPayload = useCallback(async (body: object) => {
     const viaLcFetch = await lcFetch('/api/leetcode', {

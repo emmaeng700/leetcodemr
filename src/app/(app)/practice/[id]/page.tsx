@@ -521,6 +521,7 @@ export default function PracticePage() {
             <LeetCodeEditor
               appQuestionId={question.id}
               slug={question.slug}
+              preferredLangs={question.tags?.includes('JavaScript') ? ['javascript', 'python3', 'cpp'] : undefined}
               onAccepted={async () => {
                 await handleAcceptedRun()
                 if (due && !reviewDone) await handleCompleteReview()

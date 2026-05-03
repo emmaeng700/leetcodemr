@@ -1022,6 +1022,7 @@ function LearnInner() {
             <LeetCodeEditor
               appQuestionId={q.id}
               slug={q.slug}
+              preferredLangs={q.tags?.includes('JavaScript') ? ['javascript', 'python3', 'cpp'] : undefined}
               onAccepted={async () => {
                 await handleAcceptedRun()
                 if (due && !reviewDone) await handleCompleteReview()
