@@ -76,7 +76,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-[var(--bg-card)]/96 backdrop-blur-xl border-b border-[var(--border)] shadow-[0_2px_24px_rgba(0,0,0,0.07),0_0_0_0.5px_rgba(176,136,72,0.18)]">
+    <nav className="sticky top-0 z-[90] bg-[var(--bg-card)]/96 backdrop-blur-xl border-b border-[var(--border)] shadow-[0_2px_24px_rgba(0,0,0,0.07),0_0_0_0.5px_rgba(176,136,72,0.18)]">
       <div className="max-w-7xl mx-auto px-4">
 
         {/* ── Top row ────────────────────────────────────────────── */}
@@ -154,12 +154,12 @@ export default function Navbar() {
           <button
             type="button"
             aria-label="Close menu"
-            className="md:hidden fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]"
+            className="md:hidden fixed inset-0 z-[95] bg-black/30 backdrop-blur-[2px]"
             onClick={() => setOpen(false)}
           />
 
           {/* Menu panel */}
-          <div className="md:hidden absolute top-full left-0 right-0 z-50 border-t border-[var(--border)] bg-[var(--bg-card)] shadow-[0_8px_40px_rgba(0,0,0,0.14)] px-4 py-3 space-y-1 max-h-[min(85dvh,32rem)] overflow-y-auto overscroll-contain pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="md:hidden absolute top-full left-0 right-0 z-[100] border-t border-[var(--border)] bg-[var(--bg-card)] shadow-[0_8px_40px_rgba(0,0,0,0.14)] px-4 py-3 space-y-1 max-h-[min(85dvh,32rem)] overflow-y-auto overscroll-contain pb-[max(0.75rem,env(safe-area-inset-bottom))]">
 
             {MOBILE_SECTIONS.map(({ emoji, label, group }, gi) => (
               <React.Fragment key={gi}>
