@@ -300,7 +300,12 @@ export default function SpeedsterQuestionPage() {
               </>
             )}
             {leftPanelTab === 'best' && question && (
-              <BestAnswersPanel questionId={question.id} slug={lcTitleSlug ?? question.slug} active={leftPanelTab === 'best'} />
+              <BestAnswersPanel
+                questionId={question.id}
+                slug={lcTitleSlug ?? question.slug}
+                active={leftPanelTab === 'best'}
+                preferredLangs={question.tags?.includes('JavaScript') ? ['javascript', 'python', 'cpp'] : ['python', 'cpp', 'javascript']}
+              />
             )}
             {leftPanelTab === 'accepted' && (
               <AcceptedSolutions

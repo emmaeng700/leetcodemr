@@ -244,7 +244,12 @@ export default function NeetCodeQuestionPage() {
             )}
 
             {leftPanelTab === 'best' && q && (
-              <BestAnswersPanel questionId={q.id} slug={slug} active={leftPanelTab === 'best'} />
+              <BestAnswersPanel
+                questionId={q.id}
+                slug={slug}
+                active={leftPanelTab === 'best'}
+                preferredLangs={tags.includes('JavaScript') ? ['javascript', 'python', 'cpp'] : ['python', 'cpp', 'javascript']}
+              />
             )}
 
             {leftPanelTab === 'accepted' && (

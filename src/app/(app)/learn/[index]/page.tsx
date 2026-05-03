@@ -937,7 +937,12 @@ function LearnInner() {
 
               {leftPanelTab === 'best' && (
                 <div className="p-4 h-full">
-                  <BestAnswersPanel questionId={q.id} slug={lcTitleSlug ?? q.slug} active={leftPanelTab === 'best'} />
+                  <BestAnswersPanel
+                    questionId={q.id}
+                    slug={lcTitleSlug ?? q.slug}
+                    active={leftPanelTab === 'best'}
+                    preferredLangs={q.tags?.includes('JavaScript') ? ['javascript', 'python', 'cpp'] : ['python', 'cpp', 'javascript']}
+                  />
                 </div>
               )}
               {leftPanelTab === 'editorial' && (

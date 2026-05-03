@@ -95,6 +95,7 @@ export type BestAnswersPanelProps = {
   questionId: number
   slug: string
   active: boolean
+  preferredLangs?: string[]
   theme?: 'default' | 'dark'
   layout?: 'compact' | 'full'
   className?: string
@@ -104,6 +105,7 @@ export default function BestAnswersPanel({
   questionId,
   slug,
   active,
+  preferredLangs,
   theme = 'default',
   layout = 'compact',
   className = '',
@@ -162,6 +164,11 @@ export default function BestAnswersPanel({
     lang: string
   }
 
+  const normalizedPreferredLangs = useMemo(
+    () => (preferredLangs ?? []).map(lang => lang.toLowerCase().trim()),
+    [preferredLangs]
+  )
+
   const deck = useMemo((): DeckCard[] => {
     const cards: DeckCard[] = []
     for (const site of BEST_ANSWER_SITES) {
@@ -178,9 +185,18 @@ export default function BestAnswersPanel({
         })
       }
     }
-    cards.sort((a, b) => compareDisplayLang(a.lang, b.lang))
+    cards.sort((a, b) => {
+      const ai = normalizedPreferredLangs.indexOf(a.lang)
+      const bi = normalizedPreferredLangs.indexOf(b.lang)
+      if (ai !== -1 || bi !== -1) {
+        const av = ai === -1 ? Number.MAX_SAFE_INTEGER : ai
+        const bv = bi === -1 ? Number.MAX_SAFE_INTEGER : bi
+        if (av !== bv) return av - bv
+      }
+      return compareDisplayLang(a.lang, b.lang)
+    })
     return cards
-  }, [states])
+  }, [states, normalizedPreferredLangs])
 
   useEffect(() => {
     // Reset deck navigation when question changes / answers refetch.
@@ -269,7 +285,16 @@ export default function BestAnswersPanel({
                       {s.url && <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-400 hover:underline">Open on site →</a>}
                     </div>
                   )}
-                  {s.status === 'done' && [...s.blocks].sort((a, b) => compareDisplayLang(a.lang, b.lang)).map((b, i) => (
+                  {s.status === 'done' && [...s.blocks].sort((a, b) => {
+                    const ai = normalizedPreferredLangs.indexOf(a.lang)
+                    const bi = normalizedPreferredLangs.indexOf(b.lang)
+                    if (ai !== -1 || bi !== -1) {
+                      const av = ai === -1 ? Number.MAX_SAFE_INTEGER : ai
+                      const bv = bi === -1 ? Number.MAX_SAFE_INTEGER : bi
+                      if (av !== bv) return av - bv
+                    }
+                    return compareDisplayLang(a.lang, b.lang)
+                  }).map((b, i) => (
                     <div key={i} className="mb-3 last:mb-0">
                       <HighlightedCode code={b.code} lang={b.lang} />
                     </div>

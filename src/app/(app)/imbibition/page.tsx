@@ -84,8 +84,8 @@ export default function ImbibitionPage() {
   const activeCount = rows.filter(row => row.questions[row.unlockedThrough] && (runs[String(row.questions[row.unlockedThrough].id)] ?? 0) < 3).length
 
   const openQuestion = (row: { questions: Question[]; unlockedThrough: number }, idx: number) => {
-    const visibleIds = row.questions.slice(0, row.unlockedThrough + 1).map(q => q.id)
-    sessionStorage.setItem('lm_imbibition_queue', JSON.stringify(visibleIds))
+    const laneIds = row.questions.map(q => q.id)
+    sessionStorage.setItem('lm_imbibition_queue', JSON.stringify(laneIds))
     router.push(`/practice/${row.questions[idx].id}?from=imbibition`)
   }
 
