@@ -600,7 +600,17 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const resetToStarter = useCallback(() => {
     if (!lcQ) return
     const raw = lcQ.codeSnippets?.find(s => s.langSlug === lang)?.code ?? ''
-    setCode(normalizeCode(raw))
+    const starter = normalizeCode(raw)
+    setCode(starter)
+    const view = editorViewRef.current
+    if (view) {
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: starter },
+        selection: { anchor: 0 },
+      })
+      cursorPosRef.current = { from: 0, to: 0 }
+      view.focus()
+    }
     setResult(null)
     setResultErr('')
   }, [lcQ, lang])
