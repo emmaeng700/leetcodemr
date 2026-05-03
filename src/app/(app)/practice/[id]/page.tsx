@@ -148,11 +148,6 @@ export default function PracticePage() {
   }, [id])
 
   useEffect(() => {
-    if (!isImbibitionMode) return
-    if (activeTab === 'best' || activeTab === 'accepted') setActiveTab('description')
-  }, [activeTab, isImbibitionMode])
-
-  useEffect(() => {
     if (!usesThreeSolveGate || planOrder.length === 0) return
     const currentIdx = planOrder.indexOf(id)
     if (currentIdx < 0) return
@@ -540,13 +535,13 @@ export default function PracticePage() {
           {lcLoading && <Loader2 size={10} className="animate-spin text-[var(--text-muted)]" />}
           {lcFromCache && !lcLoading && <span className="text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-600 border border-amber-200 font-bold">Cached</span>}
         </button>
-        {question && !isImbibitionMode && (
+        {question && (
           <button onClick={() => setActiveTab('best')}
             className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'best' ? 'border-amber-500 text-amber-600 ' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
             <Sparkles size={12} /> Best answers
           </button>
         )}
-        {question && !isImbibitionMode && (
+        {question && (
           <button onClick={() => setActiveTab('accepted')}
             className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
             <Trophy size={12} /> My Solutions
