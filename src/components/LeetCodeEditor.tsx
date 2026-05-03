@@ -37,6 +37,7 @@ interface LCResult {
   full_compile_error?: string; full_runtime_error?: string
 }
 interface TestCase { params: { name: string; value: string }[]; raw: string }
+const SEARCH_BY_ID_Q = `query($q:String!){problemsetQuestionListV2(categorySlug:"",limit:1,skip:0,searchKeyword:$q,filters:{filterCombineType:ALL}){questions{titleSlug}}}`
 
 /* ─── Helpers ────────────────────────────────────────────── */
 function parseCases(exampleTestcases: string, metaData: string): TestCase[] {
@@ -450,9 +451,10 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   /* ── Load CodeMirror extensions ── */
   useEffect(() => {
     async function loadExts() {
-      const [{ python }, { cpp }, { oneDark }, viewMod, stateMod, cmdMod] = await Promise.all([
+      const [{ python }, { cpp }, { javascript }, { oneDark }, viewMod, stateMod, cmdMod] = await Promise.all([
         import('@codemirror/lang-python'),
         import('@codemirror/lang-cpp'),
+        import('@codemirror/lang-javascript'),
         import('@codemirror/theme-one-dark'),
         import('@codemirror/view'),
         import('@codemirror/state'),
@@ -495,7 +497,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           cursorPosRef.current = { from: sel.from, to: sel.to }
         }
       })
-      const languageExtension = lang === 'python3' ? python() : lang === 'cpp' ? cpp() : []
+      const languageExtension = lang === 'python3' ? python() : lang === 'cpp' ? cpp() : javascript()
       setExtensions([
         languageExtension,
         keys,
@@ -531,6 +533,28 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
             const fallbackQuery = `query($s:String!){question(titleSlug:$s){questionId questionFrontendId titleSlug isPaidOnly codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`
             const fb = await fetchQuestionPayload({ query: fallbackQuery, variables: { s: lcSlug } })
             q = fb.data?.question ?? null
+          } catch { /* ignore — show error below */ }
+        }
+
+        // ── If slug is stale in our app data, search by frontend id and retry ──
+        if (!q && appQuestionId > 0) {
+          try {
+            const search = await fetchQuestionPayload({
+              session,
+              csrfToken: effectiveCsrf,
+              query: SEARCH_BY_ID_Q,
+              variables: { q: String(appQuestionId) },
+            })
+            const resolvedSlug = search?.data?.problemsetQuestionListV2?.questions?.[0]?.titleSlug
+            if (resolvedSlug) {
+              const retry = await fetchQuestionPayload({
+                session,
+                csrfToken: effectiveCsrf,
+                query: `query($s:String!){question(titleSlug:$s){questionId questionFrontendId titleSlug isPaidOnly codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`,
+                variables: { s: resolvedSlug },
+              })
+              q = retry?.data?.question ?? null
+            }
           } catch { /* ignore — show error below */ }
         }
 
