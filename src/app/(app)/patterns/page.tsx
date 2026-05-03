@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { getProgress, getPatternFcVisited, addPatternFcVisited } from '@/lib/db'
 import { shuffle, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
-import { QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
@@ -23,7 +23,15 @@ interface Question {
   cpp_solution?: string
 }
 
-// One icon per QUICK_PATTERNS entry — order matches QUICK_PATTERNS in constants.ts
+const ORDERED_QUICK_PATTERNS = QUICK_PATTERNS
+  .slice()
+  .sort(
+    (a, b) =>
+      DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
+      DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
+  )
+
+// One icon per pattern name; render order comes from DISPLAY_PATTERN_ORDER.
 const PATTERN_ICONS: Record<string, string> = {
   'Bit Manipulation':    '⚡',
   'Trie':                '🌐',
@@ -325,7 +333,7 @@ export default function PatternsPage() {
   const exclusiveMap = useMemo(() => buildExclusivePatternMap(questions), [questions])
 
   const patternData = useMemo(() =>
-    QUICK_PATTERNS.map((p, i) => {
+    ORDERED_QUICK_PATTERNS.map((p, i) => {
       const qs = questions
         .filter(q => exclusiveMap[q.id] === p.name)
         .sort((a, b) => ({ Easy: 0, Medium: 1, Hard: 2 }[a.difficulty] ?? 1) - ({ Easy: 0, Medium: 1, Hard: 2 }[b.difficulty] ?? 1))

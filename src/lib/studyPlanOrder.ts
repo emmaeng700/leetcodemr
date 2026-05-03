@@ -1,14 +1,14 @@
+import { patternBasedStudyOrder } from './patternUtils'
+
 /**
- * Default question order when creating a Daily study plan (Easy → Medium → Hard).
- * Keep in sync with Daily page behavior — used by Line Game for the same sequence.
+ * Default question order for the app's study flow.
+ * Questions progress pattern-by-pattern in the shared display order, with
+ * Easy → Medium → Hard inside each pattern.
  */
-export function defaultStudyQuestionOrder<T extends { id: number; difficulty: string }>(
+export function defaultStudyQuestionOrder<T extends { id: number; difficulty: string; tags: string[] }>(
   questions: T[]
 ): number[] {
-  const easy = questions.filter((q) => q.difficulty === 'Easy').map((q) => q.id)
-  const medium = questions.filter((q) => q.difficulty === 'Medium').map((q) => q.id)
-  const hard = questions.filter((q) => q.difficulty === 'Hard').map((q) => q.id)
-  return [...easy, ...medium, ...hard]
+  return patternBasedStudyOrder(questions)
 }
 
 export { patternBasedStudyOrder } from './patternUtils'

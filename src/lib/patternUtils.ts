@@ -1,4 +1,4 @@
-import { QUICK_PATTERNS } from './constants'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from './constants'
 
 export type PatternStat = {
   name: string
@@ -79,8 +79,13 @@ export function patternBasedStudyOrder(
   const result: number[] = []
   const used = new Set<number>()
 
-  // Reorder QUICK_PATTERNS so the chosen start pattern comes first
-  const patterns = [...QUICK_PATTERNS]
+  // Use the human-facing display order for study flow, while preserving the
+  // exclusive-assignment logic elsewhere that still relies on QUICK_PATTERNS order.
+  const patterns = [...QUICK_PATTERNS].sort(
+    (a, b) =>
+      DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
+      DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
+  )
   if (startPatternName) {
     const startIdx = patterns.findIndex(p => p.name === startPatternName)
     if (startIdx > 0) {

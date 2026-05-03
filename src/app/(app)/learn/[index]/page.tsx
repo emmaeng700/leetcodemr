@@ -14,10 +14,11 @@ import {
   BookOpen, List, ExternalLink, Loader2, FileText,
   Copy, Check, Sparkles,
 } from 'lucide-react'
-import { getProgress, updateProgress, completeReview, failReview, getStudyPlan, addMasteryRunEvent } from '@/lib/db'
+import { getProgress, updateProgress, completeReview, failReview, addMasteryRunEvent } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import { isDue, formatLocalDate, nextIntervalDays, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -227,15 +228,10 @@ function LearnInner() {
     Promise.all([
       fetch('/questions_full.json').then(r => r.json()),
       getProgress(),
-      getStudyPlan(),
-    ]).then(([qs, prog, plan]) => {
+    ]).then(([qs, prog]) => {
       setQuestions(qs)
       setProgress(prog)
-      if (plan?.question_order?.length) {
-        setPlanOrder(plan.question_order)
-      } else {
-        setPlanOrder((qs as Question[]).map((q: Question) => q.id))
-      }
+      setPlanOrder(defaultStudyQuestionOrder(qs as Question[]))
     })
   }, [])
 

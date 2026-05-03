@@ -18,7 +18,7 @@ import {
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
-import { getStudyPlan, getProgress } from '@/lib/db'
+import { getProgress } from '@/lib/db'
 import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import { CODE_HIGHLIGHT_TOKEN_CSS } from '@/lib/codeHighlightTheme'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
@@ -381,7 +381,6 @@ export default function LineGamePage() {
   const online = useOnlineStatus()
   const [all, setAll] = useState<Question[]>([])
   const [loading, setLoading] = useState(true)
-  const [planOrder, setPlanOrder] = useState<number[] | null>(null)
   const [starredIds, setStarredIds] = useState<Set<number>>(new Set())
   const [starredPage, setStarredPage] = useState(0)
   const [idx, setIdx] = useState(0)
@@ -398,13 +397,11 @@ export default function LineGamePage() {
 
   useEffect(() => {
     async function load() {
-      const [qs, plan, prog] = await Promise.all([
+      const [qs, prog] = await Promise.all([
         fetch('/questions_full.json').then((r) => r.json()),
-        getStudyPlan(),
         getProgress(),
       ])
       setAll(qs)
-      setPlanOrder(plan?.question_order ?? null)
       const starred = new Set<number>(
         Object.entries(prog)
           .filter(([, v]) => v.starred)
@@ -464,9 +461,9 @@ export default function LineGamePage() {
   }, [all])
 
   const ordered = useMemo(() => {
-    const order = planOrder?.length ? planOrder : defaultStudyQuestionOrder(all)
+    const order = defaultStudyQuestionOrder(all)
     return order.map((id) => byId.get(id)).filter(Boolean) as Question[]
-  }, [all, byId, planOrder])
+  }, [all, byId])
 
   const playable = useMemo(() => {
     return ordered.filter((q) => {
