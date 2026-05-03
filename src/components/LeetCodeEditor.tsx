@@ -644,6 +644,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
         /* Sync to app on Accepted Submit */
         if (mode === 'submit' && data.status_code === 10) {
+          resetToStarter()
           if (!syncToApp) {
             setSolvedStatus('not-in-library')
             onAcceptedRef.current?.()
