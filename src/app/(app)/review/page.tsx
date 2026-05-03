@@ -167,6 +167,22 @@ export default function ReviewPage() {
     })
   }, [])
 
+  useEffect(() => {
+    if (!dueList.length) return
+    const syncedDone = dueList
+      .filter(d => {
+        const next = progress[String(d.id)]?.next_review
+        return next && !isDue(next)
+      })
+      .map(d => d.id)
+    if (!syncedDone.length) return
+    setLocalDoneIds(prev => {
+      const next = new Set(prev)
+      for (const id of syncedDone) next.add(id)
+      return next
+    })
+  }, [dueList, progress])
+
   const handleCompleteReview = async (qId: number, e: React.MouseEvent) => {
     e.stopPropagation()
     setCompleting(qId)
@@ -285,6 +301,8 @@ export default function ReviewPage() {
             <div className="space-y-2">
               {due.map(q => {
                 const isDone = localDoneIds.has(q.id)
+                const reps = Math.min(runs[String(q.id)] ?? 0, 3)
+                const canFinishFromHere = reps >= 3
                 return (
                   <div
                     key={q.id}
@@ -308,16 +326,25 @@ export default function ReviewPage() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {!isDone && <span className="text-xs text-indigo-500 hidden sm:inline">Review #{(q.p.review_count || 0) + 1}</span>}
+                      {!isDone && <span className="text-xs font-bold text-cyan-600">{reps}/3</span>}
                       {isDone ? (
                         <span className="text-xs text-green-600 font-semibold">✓ Done</span>
                       ) : (
                         <button
-                          onClick={e => handleCompleteReview(q.id, e)}
+                          onClick={e => {
+                            if (!canFinishFromHere) {
+                              e.stopPropagation()
+                              sessionStorage.setItem('lm_review_queue', JSON.stringify(due.filter(d => !localDoneIds.has(d.id)).map(d => d.id)))
+                              router.push(`/practice/${q.id}?from=review`)
+                              return
+                            }
+                            handleCompleteReview(q.id, e)
+                          }}
                           disabled={completing === q.id}
                           className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                         >
                           <CalendarCheck size={12} />
-                          {completing === q.id ? 'Saving…' : 'Done'}
+                          {completing === q.id ? 'Saving…' : canFinishFromHere ? 'Done' : 'Open'}
                         </button>
                       )}
                     </div>
