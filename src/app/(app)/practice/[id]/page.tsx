@@ -281,7 +281,13 @@ export default function PracticePage() {
     const modeLabel = isImbibitionMode ? 'Imbibition' : 'Review'
 
     if (after >= 3) {
-      setQueuedNextId(nextQuestionId ?? null)
+      if (isImbibitionMode) {
+        const remainingQueue = planOrder.filter(qid => qid !== question.id)
+        sessionStorage.setItem('lm_imbibition_queue', JSON.stringify(remainingQueue))
+        setQueuedNextId(remainingQueue[0] ?? null)
+      } else {
+        setQueuedNextId(nextQuestionId ?? null)
+      }
       toast.success(
         nextQuestion
           ? `${modeLabel} complete: 3/3. ${nextQuestion.title} is now unlocked.`
