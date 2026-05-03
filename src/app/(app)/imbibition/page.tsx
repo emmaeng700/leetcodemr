@@ -1,6 +1,6 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Brain, CheckCircle2, ChevronRight, Lock, Trophy } from 'lucide-react'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
@@ -33,11 +33,14 @@ const ORDERED_PATTERNS = QUICK_PATTERNS
 
 export default function ImbibitionPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const targetPattern = searchParams.get('pattern')
   const [questions, setQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, { solved?: boolean }>>({})
   const [runs, setRuns] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [resetting, setResetting] = useState(false)
+  const sectionRefs = useRef<Record<string, HTMLElement | null>>({})
 
   useEffect(() => {
     Promise.all([
@@ -84,6 +87,15 @@ export default function ImbibitionPage() {
   const totalSolved = rows.reduce((sum, row) => sum + row.questions.length, 0)
   const fullyImbibed = rows.reduce((sum, row) => sum + row.completed, 0)
   const activeCount = rows.filter(row => row.questions[row.unlockedThrough] && (runs[String(row.questions[row.unlockedThrough].id)] ?? 0) < 3).length
+
+  useEffect(() => {
+    if (loading || !targetPattern) return
+    const el = sectionRefs.current[targetPattern]
+    if (!el) return
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [loading, targetPattern, rows])
 
   const openQuestion = (row: { questions: Question[]; unlockedThrough: number }, idx: number) => {
     const laneIds = row.questions.map(q => q.id)
@@ -152,7 +164,11 @@ export default function ImbibitionPage() {
       ) : (
         <div className="space-y-6">
           {rows.map(row => (
-            <section key={row.pattern} className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] p-4 sm:p-5 shadow-sm">
+            <section
+              key={row.pattern}
+              ref={(el) => { sectionRefs.current[row.pattern] = el }}
+              className={`bg-[var(--bg-card)] rounded-2xl border p-4 sm:p-5 shadow-sm ${targetPattern === row.pattern ? 'border-cyan-300 ring-2 ring-cyan-100' : 'border-[var(--border)]'}`}
+            >
               <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
                 <div>
                   <h2 className="text-sm sm:text-base font-bold text-[var(--text)]">{row.pattern}</h2>

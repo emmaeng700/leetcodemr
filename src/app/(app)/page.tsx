@@ -694,7 +694,7 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
 
       {randomImbibePattern && (
         <button
-          onClick={() => router.push('/imbibition')}
+          onClick={() => router.push(`/imbibition?pattern=${encodeURIComponent(randomImbibePattern.name)}`)}
           className="w-full mb-4 rounded-2xl border border-cyan-200 bg-gradient-to-r from-cyan-50 to-sky-50 px-5 py-4 flex items-center justify-between gap-3 shadow-sm hover:brightness-[1.02] active:scale-[0.98] transition-all"
         >
           <div className="text-left min-w-0">
