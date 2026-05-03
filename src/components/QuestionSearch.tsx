@@ -82,7 +82,7 @@ export default function QuestionSearch({ className = '' }: { className?: string 
   }
 
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
+    <div ref={containerRef} className={`relative z-50 isolate ${className}`}>
       <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-subtle)] pointer-events-none" />
       <input
         value={query}
@@ -107,7 +107,7 @@ export default function QuestionSearch({ className = '' }: { className?: string 
       />
 
       {open && query.trim().length > 0 && (
-        <div className="absolute z-40 mt-1.5 w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl">
+        <div className="absolute z-[140] mt-1.5 w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)] opacity-100 shadow-2xl ring-1 ring-black/5">
           {matches.length === 0 ? (
             <div className="px-4 py-3 text-sm text-[var(--text-subtle)]">No matches</div>
           ) : (

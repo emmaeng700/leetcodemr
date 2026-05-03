@@ -567,7 +567,7 @@ function LearnInner() {
       )}
 
       {/* ── Top bar (above editor toolbar, below navbar mobile menu) ── */}
-      <div className="relative z-30 flex flex-wrap items-center gap-2 overflow-visible border-b border-gray-100 bg-white px-3 py-2 shrink-0">
+      <div className="relative z-30 isolate flex flex-wrap items-center gap-2 overflow-visible border-b border-gray-100 bg-white px-3 py-2 shrink-0">
 
         {/* Back to home */}
         <button onClick={() => router.push('/')}
@@ -584,7 +584,7 @@ function LearnInner() {
           <ChevronLeft size={15} />
         </button>
 
-        <div ref={listWrapRef} className="relative z-0">
+        <div ref={listWrapRef} className="relative z-40">
           <button
             type="button"
             onClick={() => setShowList(v => !v)}
