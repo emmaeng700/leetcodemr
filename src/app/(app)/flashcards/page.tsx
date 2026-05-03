@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Shuffle, RotateCcw, Layers, CheckCircle, Circle } from 'lucide-react'
 import { getFcVisited, addFcVisited, getProgress } from '@/lib/db'
 import { shuffle, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
-import { DIFFICULTY_LEVELS, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
+import { DIFFICULTY_LEVELS, DISPLAY_PATTERN_ORDER, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
@@ -22,6 +22,12 @@ interface Question {
   cpp_solution?: string
   description?: string
 }
+
+const DISPLAY_PATTERNS = [...QUICK_PATTERNS].sort(
+  (a, b) =>
+    DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
+    DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
+)
 
 function FlashcardsInner() {
   const searchParams = useSearchParams()
@@ -333,7 +339,7 @@ function FlashcardsInner() {
             }`}>
             All Patterns
           </button>
-          {QUICK_PATTERNS.map(p => (
+          {DISPLAY_PATTERNS.map(p => (
             <button key={p.name} onClick={() => setFilterPattern(filterPattern === p.name ? null : p.name)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
                 filterPattern === p.name ? 'bg-cyan-700 text-white border-cyan-500' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:border-cyan-500/50'
