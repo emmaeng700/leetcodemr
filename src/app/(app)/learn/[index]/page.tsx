@@ -466,7 +466,7 @@ function LearnInner() {
       toast.success(`Learn progress: ${after}/3`, { duration: 3000 })
     }
 
-    if (before >= 3 && nextQuestion) {
+    if (after >= 3 && nextQuestion) {
       router.push(`/learn/${gatedIdx + 1}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
     }
   }

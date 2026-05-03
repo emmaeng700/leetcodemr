@@ -270,7 +270,6 @@ export default function PracticePage() {
     const currentIdx = planOrder.indexOf(question.id)
     const nextQuestionId = currentIdx >= 0 ? planOrder[currentIdx + 1] : null
     const navSuffix = isReviewMode ? '?from=review' : '?from=imbibition'
-    const autoAdvanceId = before >= 3 ? (queuedNextId ?? nextQuestionId) : null
     const res = await addMasteryRunEvent(question.id, 1)
     if (!res.ok) {
       toast.error(`Couldn't save mastery run: ${res.error ?? 'unknown error'}`)
@@ -281,14 +280,21 @@ export default function PracticePage() {
 
     const nextQuestion = nextQuestionId ? allQuestions.find(q => q.id === nextQuestionId) ?? null : null
     const modeLabel = isImbibitionMode ? 'Imbibition' : 'Review'
+    let autoAdvanceId: number | null = null
 
     if (after >= 3) {
       if (isImbibitionMode) {
         const remainingQueue = planOrder.filter(qid => qid !== question.id)
         sessionStorage.setItem('lm_imbibition_queue', JSON.stringify(remainingQueue))
-        setQueuedNextId(remainingQueue[0] ?? null)
+        autoAdvanceId = remainingQueue[0] ?? null
+        setQueuedNextId(autoAdvanceId)
+      } else if (isReviewMode) {
+        const remainingQueue = planOrder.filter(qid => qid !== question.id)
+        autoAdvanceId = remainingQueue[0] ?? null
+        setQueuedNextId(autoAdvanceId)
       } else {
-        setQueuedNextId(nextQuestionId ?? null)
+        autoAdvanceId = nextQuestionId ?? null
+        setQueuedNextId(autoAdvanceId)
       }
       toast.success(
         nextQuestion
