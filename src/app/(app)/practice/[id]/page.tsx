@@ -230,7 +230,20 @@ export default function PracticePage() {
 
   const due = isDue(nextReview) && solved
 
+  async function forceCurrentRunsComplete() {
+    if (!question || !usesThreeSolveGate) return
+    const current = modeRuns[String(question.id)] ?? 0
+    if (current >= 3) return
+    const missing = 3 - current
+    setModeRuns(prev => ({ ...prev, [String(question.id)]: 3 }))
+    const res = await addMasteryRunEvent(question.id, missing)
+    if (!res.ok) {
+      toast.error(`Couldn't fully sync ${isImbibitionMode ? 'imbibition' : 'review'} reps: ${res.error ?? 'unknown error'}`)
+    }
+  }
+
   async function handleCompleteReview() {
+    if (isReviewMode) await forceCurrentRunsComplete()
     if (reviewDone) return
     setReviewDone(true)
     const result = await completeReview(id)
@@ -271,6 +284,7 @@ export default function PracticePage() {
   }
 
   async function handleFailReview() {
+    if (isReviewMode) await forceCurrentRunsComplete()
     if (reviewDone) return
     setReviewDone(true)
     const result = await failReview(id)
