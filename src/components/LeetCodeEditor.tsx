@@ -349,6 +349,23 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     return unique.length ? unique : ['python3', 'cpp']
   }, [lcQ])
 
+  const fetchQuestionPayload = useCallback(async (body: object) => {
+    const viaLcFetch = await lcFetch('/api/leetcode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(r => r.json()).catch(() => null)
+
+    const questionViaLcFetch = viaLcFetch?.data?.question
+    if (!viaLcFetch?.errors && questionViaLcFetch) return viaLcFetch
+
+    return fetch('/api/leetcode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(r => r.json())
+  }, [])
+
   /* ── My Solutions modal UX: ESC close + lock background scroll ── */
   useEffect(() => {
     if (!showSolutionsModal) return
@@ -489,15 +506,13 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     if (!lcSlug || !sessionReady) return
     setLcLoad(true); setLcErr('')
 
-    lcFetch('/api/leetcode', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        session, csrfToken: csrf,
-        query: `query($s:String!){question(titleSlug:$s){questionId questionFrontendId titleSlug isPaidOnly codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`,
-        variables: { s: lcSlug },
-      }),
-    })
-      .then(r => r.json())
+    const requestBody = {
+      session, csrfToken: csrf,
+      query: `query($s:String!){question(titleSlug:$s){questionId questionFrontendId titleSlug isPaidOnly codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`,
+      variables: { s: lcSlug },
+    }
+
+    fetchQuestionPayload(requestBody)
       .then(async json => {
         if (json.errors) throw new Error(json.errors[0]?.message)
         let q: (LCQuestion & { isPaidOnly?: boolean }) | null = json.data?.question ?? null
@@ -508,10 +523,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         if (!q && sessionOK) {
           try {
             const fallbackQuery = `query($s:String!){question(titleSlug:$s){questionId questionFrontendId titleSlug isPaidOnly codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`
-            const fb = await lcFetch('/api/leetcode', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ query: fallbackQuery, variables: { s: lcSlug } }),
-            }).then(r => r.json())
+            const fb = await fetchQuestionPayload({ query: fallbackQuery, variables: { s: lcSlug } })
             q = fb.data?.question ?? null
           } catch { /* ignore — show error below */ }
         }
@@ -545,7 +557,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       .catch(e => setLcErr(String(e)))
       .finally(() => setLcLoad(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lcSlug, retryKey, sessionReady, session, csrf])
+  }, [lcSlug, retryKey, sessionReady, session, csrf, fetchQuestionPayload])
 
   const handleCodeChange = (val: string) => setCode(val)
 
