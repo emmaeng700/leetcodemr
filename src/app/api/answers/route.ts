@@ -50,6 +50,11 @@ function detectLangFromCode(code: string): string {
   if (/\bdef\s+\w+\s*\([^)]*self/.test(code)) return 'python'
   if (/^\s*from\s+\w+\s+import\b/m.test(code)) return 'python'
 
+  // JavaScript / TypeScript
+  if (/\b(?:const|let|var)\s+\w+\s*=/.test(code) && /\bfunction\b|\=\>\s*\{?/.test(code)) return 'javascript'
+  if (/\bmodule\.exports\b|\bexports\.\w+\b/.test(code)) return 'javascript'
+  if (/\binterface\s+\w+\b|\btype\s+\w+\s*=/.test(code)) return 'typescript'
+
   // Go
   if (/^package\s+\w+/m.test(code) || /\bfunc\s+\w+\(/.test(code)) return 'go'
 
@@ -65,23 +70,25 @@ function detectLangFromCode(code: string): string {
   return 'text'
 }
 
-/** Merge HTML-declared lang + content heuristics so Py/C++ survive mis-detection. */
-function resolvePyCppLang(code: string, declared: string): 'python' | 'cpp' | 'other' {
+/** Merge HTML-declared lang + content heuristics so common interview langs survive mis-detection. */
+function resolveSupportedLang(code: string, declared: string): 'python' | 'cpp' | 'javascript' | 'other' {
   const meta = normalizeLang(declared)
-  if (meta === 'python' || meta === 'cpp') return meta
+  if (meta === 'python' || meta === 'cpp' || meta === 'javascript') return meta
 
   let inferred = detectLangFromCode(code)
   // Java vs C++: LeetCode C++ uses Map in comments rarely; prefer symbols
   if (inferred === 'java') {
     if (/#include|std::|vector\s*<|unordered_map|unordered_set|public\s*:\s*$/m.test(code)) return 'cpp'
     if (/class Solution\s*:/.test(code) || /^\s*def \w/m.test(code) || /^\s*from typing/m.test(code)) return 'python'
+    if (/\b(?:const|let|var)\s+\w+\s*=/.test(code) || /\=\>\s*\{?/.test(code)) return 'javascript'
   }
   if (inferred === 'text') {
-    if (meta === 'python' || meta === 'cpp') return meta
+    if (meta === 'python' || meta === 'cpp' || meta === 'javascript') return meta
     if (/class Solution\s*:/.test(code)) return 'python'
     if (/class\s+Solution\s*\{/.test(code) && /vector\s*<|std::|#include/.test(code)) return 'cpp'
+    if (/\b(?:const|let|var)\s+\w+\s*=/.test(code) || /\=\>\s*\{?/.test(code) || /\bsetTimeout\s*\(/.test(code)) return 'javascript'
   }
-  if (inferred === 'python' || inferred === 'cpp') return inferred
+  if (inferred === 'python' || inferred === 'cpp' || inferred === 'javascript') return inferred
   return 'other'
 }
 
@@ -247,11 +254,11 @@ export async function GET(req: NextRequest) {
       blocks = extractGeneric(html)
     }
 
-    // Python and C++ only — use declared + content so tabbed HTML still resolves
+    // Keep the interview-friendly languages we surface in the app.
     const filtered: Array<{ code: string; lang: string }> = []
     const seen = new Set<string>()
     for (const b of blocks) {
-      const kind = resolvePyCppLang(b.code, b.lang)
+      const kind = resolveSupportedLang(b.code, b.lang)
       if (kind === 'other') continue
       const key = b.code.slice(0, 200)
       if (seen.has(key)) continue

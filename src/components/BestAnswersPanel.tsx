@@ -23,6 +23,23 @@ interface SiteState {
   error?: string
 }
 
+const DISPLAY_LANG_ORDER = ['python', 'cpp', 'javascript'] as const
+
+function compareDisplayLang(a: string, b: string) {
+  const ai = DISPLAY_LANG_ORDER.indexOf(a as (typeof DISPLAY_LANG_ORDER)[number])
+  const bi = DISPLAY_LANG_ORDER.indexOf(b as (typeof DISPLAY_LANG_ORDER)[number])
+  const av = ai === -1 ? Number.MAX_SAFE_INTEGER : ai
+  const bv = bi === -1 ? Number.MAX_SAFE_INTEGER : bi
+  if (av !== bv) return av - bv
+  return a.localeCompare(b)
+}
+
+function labelForLang(lang: string) {
+  if (lang === 'cpp') return 'C++'
+  if (lang === 'javascript') return 'JavaScript'
+  return lang
+}
+
 const emptyStates = (): Record<SiteKey, SiteState> => ({
   walkccc:    { status: 'idle', blocks: [], url: '' },
   doocs:      { status: 'idle', blocks: [], url: '' },
@@ -38,12 +55,14 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
     if (!ref.current) return
     ref.current.textContent = code
     import('highlight.js/lib/core').then(async ({ default: hljs }) => {
-      const [py, cpp] = await Promise.all([
+      const [py, cpp, js] = await Promise.all([
         import('highlight.js/lib/languages/python'),
         import('highlight.js/lib/languages/cpp'),
+        import('highlight.js/lib/languages/javascript'),
       ])
       if (!hljs.getLanguage('python')) hljs.registerLanguage('python', py.default)
       if (!hljs.getLanguage('cpp'))    hljs.registerLanguage('cpp',    cpp.default)
+      if (!hljs.getLanguage('javascript')) hljs.registerLanguage('javascript', js.default)
       if (!ref.current) return
       const validLang = hljs.getLanguage(lang) ? lang : 'python'
       ref.current.innerHTML = hljs.highlight(code, { language: validLang }).value
@@ -159,8 +178,7 @@ export default function BestAnswersPanel({
         })
       }
     }
-    // Prefer Python cards first, then C++.
-    cards.sort((a, b) => (a.lang === b.lang ? 0 : a.lang === 'python' ? -1 : 1))
+    cards.sort((a, b) => compareDisplayLang(a.lang, b.lang))
     return cards
   }, [states])
 
@@ -247,11 +265,11 @@ export default function BestAnswersPanel({
                   )}
                   {s.status === 'done' && s.blocks.length === 0 && (
                     <div className="flex flex-col items-center gap-2 py-8 text-center">
-                      <p className={`text-xs ${subtle}`}>No Python / C++ solution found</p>
+                      <p className={`text-xs ${subtle}`}>No Python, C++, or JavaScript solution found</p>
                       {s.url && <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-400 hover:underline">Open on site →</a>}
                     </div>
                   )}
-                  {s.status === 'done' && [...s.blocks].sort((a, b) => a.lang === b.lang ? 0 : a.lang === 'python' ? -1 : 1).map((b, i) => (
+                  {s.status === 'done' && [...s.blocks].sort((a, b) => compareDisplayLang(a.lang, b.lang)).map((b, i) => (
                     <div key={i} className="mb-3 last:mb-0">
                       <HighlightedCode code={b.code} lang={b.lang} />
                     </div>
@@ -333,7 +351,7 @@ export default function BestAnswersPanel({
                         <span className="mx-2 text-gray-600">·</span>
                         <span className={`font-bold ${card.siteColor}`}>{card.siteLabel}</span>
                         <span className="mx-2 text-gray-600">·</span>
-                        <span className="font-semibold text-gray-300">{card.lang === 'cpp' ? 'C++' : card.lang}</span>
+                        <span className="font-semibold text-gray-300">{labelForLang(card.lang)}</span>
                       </>
                     ) : null}
                   </div>
