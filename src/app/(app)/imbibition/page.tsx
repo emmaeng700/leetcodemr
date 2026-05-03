@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Brain, CheckCircle2, ChevronRight, Lock, Trophy } from 'lucide-react'
-import { QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { getMasteryRunsByQuestion, getProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -16,6 +16,9 @@ type Question = {
 }
 
 const DIFF_RANK: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
+const IMBIBITION_PATTERN_RANK = Object.fromEntries(
+  DISPLAY_PATTERN_ORDER.map((pattern, idx) => [pattern, idx])
+) as Record<string, number>
 
 export default function ImbibitionPage() {
   const router = useRouter()
@@ -62,7 +65,11 @@ export default function ImbibitionPage() {
         unlockedThrough,
         completed,
       }
-    }).filter(Boolean) as Array<{
+    }).filter(Boolean).sort((a, b) => {
+      const aRank = IMBIBITION_PATTERN_RANK[a.pattern] ?? Number.MAX_SAFE_INTEGER
+      const bRank = IMBIBITION_PATTERN_RANK[b.pattern] ?? Number.MAX_SAFE_INTEGER
+      return aRank - bRank
+    }) as Array<{
       pattern: string
       questions: Question[]
       unlockedThrough: number

@@ -3,8 +3,16 @@ import { useState, useEffect, useRef, useMemo, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp, RotateCcw, RefreshCw } from 'lucide-react'
-import { QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
+
+const ORDERED_QUICK_PATTERNS = QUICK_PATTERNS
+  .slice()
+  .sort(
+    (a, b) =>
+      DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
+      DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
+  )
 import { getProgress, updateProgress, getActivityLog, getDueReviews, getReviewsCompletedToday, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getDailyReviewCapChicago, getTodaySolvedCount } from '@/lib/db'
 import { computeDailyGoalsMetToday, computePlanStreakDisplayNumber, normalizeStudyPlanRow } from '@/lib/streakGoals'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -236,7 +244,7 @@ function PatternCoverageGrid({ questions, progress }: { questions: Question[]; p
   const [collapsed, setCollapsed] = useState(false)
 
   const exclusiveMap = useMemo(() => buildExclusivePatternMap(questions), [questions])
-  const patternStats = useMemo(() => QUICK_PATTERNS.map(p => {
+  const patternStats = useMemo(() => ORDERED_QUICK_PATTERNS.map(p => {
     const qs = questions.filter(q => exclusiveMap[q.id] === p.name)
     const solved = qs.filter(q => progress[String(q.id)]?.solved).length
     const mastered = qs.filter(q => progress[String(q.id)]?.status === 'mastered').length
@@ -1147,7 +1155,7 @@ function HomeInner() {
               ✕ Clear
             </button>
           )}
-          {QUICK_PATTERNS.map(pat => {
+          {ORDERED_QUICK_PATTERNS.map(pat => {
             const count = questions.filter(q => exclusiveMapHome[q.id] === pat.name).length
             const active = activePattern === pat.name
             return (
@@ -1286,4 +1294,3 @@ export default function HomePage() {
     </Suspense>
   )
 }
-

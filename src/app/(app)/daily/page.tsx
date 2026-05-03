@@ -9,7 +9,7 @@ import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, Che
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount, syncStreakActivityFromGoals } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
 import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
-import { QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
@@ -33,6 +33,13 @@ interface ProgressData {
 type PlanMode = 'strict' | 'random'
 const PLAN_MODE_KEY    = 'lm_plan_mode_v1'
 const FOCUS_PATTERN_KEY = 'lm_focus_pattern_v1'
+const ORDERED_QUICK_PATTERNS = QUICK_PATTERNS
+  .slice()
+  .sort(
+    (a, b) =>
+      DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
+      DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
+  )
 
 interface StudyPlan {
   start_date: string
@@ -826,7 +833,7 @@ export default function DailyPage() {
           {/* Pattern focus tabs */}
           <p className="text-xs font-semibold text-[var(--text-muted)] mb-2">Focus on a pattern:</p>
           <div className="flex gap-1.5 flex-wrap mb-4">
-            {QUICK_PATTERNS.map(p => {
+            {ORDERED_QUICK_PATTERNS.map(p => {
               const unsolved = unsolvedByPattern[p.name] ?? 0
               const active = focusPattern === p.name
               return (

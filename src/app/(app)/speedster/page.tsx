@@ -9,7 +9,7 @@ import LeetCodeEditor from '@/components/LeetCodeEditor'
 import QuestionImage from '@/components/QuestionImage'
 import BestAnswersDeck from '@/components/BestAnswersDeck'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdropDense, listDropdownMobilePanelViewportOnly } from '@/lib/listDropdownUi'
@@ -126,6 +126,15 @@ export default function SpeedsterPage() {
   const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
   // Exclusive pattern map — each question belongs to exactly one pattern
   const patternMap = useMemo(() => buildExclusivePatternMap(questions), [questions])
+  const orderedPatterns = useMemo(() => (
+    QUICK_PATTERNS
+      .slice()
+      .sort(
+        (a, b) =>
+          DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
+          DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
+      )
+  ), [])
 
   const srItems = planOrder
     .map(id => {
@@ -362,7 +371,7 @@ export default function SpeedsterPage() {
           }`}>
           All Patterns
         </button>
-        {QUICK_PATTERNS.map(p => (
+        {orderedPatterns.map(p => (
           <button key={p.name} onClick={() => setFilterPattern(filterPattern === p.name ? null : p.name)} style={{ touchAction: 'manipulation' }}
             className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
               filterPattern === p.name ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'

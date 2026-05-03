@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { getProgress, updateProgress, completeReview, failReview, getStudyPlan, addMasteryRunEvent } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
-import { QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { isDue, formatLocalDate, nextIntervalDays, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
@@ -737,7 +737,10 @@ function LearnInner() {
               className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${!filterPattern ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'}`}>
               All Patterns
             </button>
-            {QUICK_PATTERNS.map(p => {
+            {QUICK_PATTERNS
+              .slice()
+              .sort((a, b) => DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) - DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number]))
+              .map(p => {
               const pp = patternProgressMap[p.name] || { solved: 0, total: 0 }
               const isActive = filterPattern === p.name
               return (

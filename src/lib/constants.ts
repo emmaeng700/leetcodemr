@@ -39,3 +39,27 @@ export const QUICK_PATTERNS = [
   // Arrays & Hashing is intentionally LAST — catch-all for any remaining Array/Hash Table questions
   { name: 'Arrays & Hashing',     tags: ['Array', 'Hash Table', 'Prefix Sum'] },
 ] as const
+
+export const DISPLAY_PATTERN_ORDER = [
+  'Graphs',
+  'Greedy',
+  'JavaScript',
+  'String',
+  'Sliding Window',
+  'Sorting',
+  'Backtracking',
+  'BFS',
+  'Bit Manipulation',
+  'Math',
+  'Trie',
+  'Arrays & Hashing',
+  'Two Pointers',
+  'Heap',
+  'Matrix',
+  'DFS',
+  'Linked List',
+  'Binary Search',
+  'Dynamic Programming',
+  'Stack',
+  'Trees & BST',
+] as const
