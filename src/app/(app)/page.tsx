@@ -668,6 +668,15 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
     return null
   })()
 
+  const randomImbibePattern = useMemo(() => {
+    const solvedPatterns = ORDERED_QUICK_PATTERNS.filter(pat =>
+      questions.some(q => todayTopicMap[q.id] === pat.name && !!progress[String(q.id)]?.solved)
+    )
+    if (!solvedPatterns.length) return null
+    const idx = seededRandom(`${todayISOChicago()}-imbibition`) % solvedPatterns.length
+    return solvedPatterns[idx]
+  }, [questions, progress, todayTopicMap])
+
   return (
     <>
       {/* Smart action button */}
@@ -681,6 +690,23 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
             <p className="text-xs text-white/70 mt-0.5 truncate">{smartAction.sub}</p>
           </div>
           <ChevronRight size={22} className="shrink-0 text-white/80" />
+        </button>
+      )}
+
+      {randomImbibePattern && (
+        <button
+          onClick={() => router.push('/imbibition')}
+          className="w-full mb-4 rounded-2xl border border-cyan-200 bg-gradient-to-r from-cyan-50 to-sky-50 px-5 py-4 flex items-center justify-between gap-3 shadow-sm hover:brightness-[1.02] active:scale-[0.98] transition-all"
+        >
+          <div className="text-left min-w-0">
+            <p className="font-black text-base leading-tight text-cyan-800">
+              🧠 Go imbibe: {randomImbibePattern.name} →
+            </p>
+            <p className="text-xs text-cyan-700/80 mt-0.5 truncate">
+              Random Imbibition topic from your solved-question lanes
+            </p>
+          </div>
+          <ChevronRight size={22} className="shrink-0 text-cyan-700/80" />
         </button>
       )}
 
