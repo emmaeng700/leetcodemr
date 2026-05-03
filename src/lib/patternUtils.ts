@@ -77,7 +77,7 @@ export function patternBasedStudyOrder(
 ): number[] {
   const diffRank: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
   const result: number[] = []
-  const used = new Set<number>()
+  const exclusiveMap = buildExclusivePatternMap(questions)
 
   // Use the human-facing display order for study flow, while preserving the
   // exclusive-assignment logic elsewhere that still relies on QUICK_PATTERNS order.
@@ -96,16 +96,18 @@ export function patternBasedStudyOrder(
 
   for (const pattern of patterns) {
     const patternQs = questions
-      .filter(q => !used.has(q.id) && (q.tags || []).some(t => (pattern.tags as readonly string[]).includes(t)))
-      .sort((a, b) => (diffRank[a.difficulty] ?? 1) - (diffRank[b.difficulty] ?? 1))
+      .filter(q => exclusiveMap[q.id] === pattern.name)
+      .sort((a, b) => {
+        const diff = (diffRank[a.difficulty] ?? 1) - (diffRank[b.difficulty] ?? 1)
+        return diff !== 0 ? diff : a.id - b.id
+      })
     for (const q of patternQs) {
       result.push(q.id)
-      used.add(q.id)
     }
   }
   // Any unmatched questions (no recognized tags) go at the end
   for (const q of questions) {
-    if (!used.has(q.id)) result.push(q.id)
+    if (!exclusiveMap[q.id]) result.push(q.id)
   }
   return result
 }
