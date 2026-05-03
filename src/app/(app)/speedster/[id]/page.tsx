@@ -9,7 +9,7 @@ import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/li
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import { ArrowLeft, ArrowRight, BookOpen, ExternalLink, Loader2, Trophy, Gauge, List, Sparkles, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
-import { addMasteryRunEvent, getStudyPlan, getProgress, updateProgress } from '@/lib/db'
+import { getStudyPlan, getProgress, updateProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
@@ -325,14 +325,6 @@ export default function SpeedsterQuestionPage() {
               appQuestionId={question.id}
               slug={question.slug}
               preferredLangs={question.tags?.includes('JavaScript') ? ['javascript', 'python3', 'cpp'] : undefined}
-              onAccepted={async () => {
-                const res = await addMasteryRunEvent(question.id, 1)
-                if (!res.ok) {
-                  toast.error(`Failed to save mastery run — ${res.error ?? 'check Supabase RLS'}`)
-                  return
-                }
-                toast.success('Mastery run saved')
-              }}
             />
           ) : (
             <div className="flex items-center justify-center h-full text-[var(--text-subtle)] text-sm gap-2">

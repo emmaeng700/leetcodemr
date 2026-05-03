@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2, WifiOff, Brain } from 'lucide-react'
-import { addMasteryRunEvent, getMasteryRunsByQuestion, getProgress, getStudyPlan, getFcVisited, addFcVisited } from '@/lib/db'
+import { getMasteryRunsByQuestion, getProgress, getStudyPlan, getFcVisited, addFcVisited } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
@@ -837,15 +837,6 @@ export default function SpeedsterPage() {
         key={currentQ.slug}
         appQuestionId={currentQ.id}
         slug={currentQ.slug}
-        onAccepted={async () => {
-          const res = await addMasteryRunEvent(currentQ.id, 1)
-          if (!res.ok) {
-            toast.error(`Failed to save mastery run — ${res.error ?? 'check Supabase RLS'}`)
-            return
-          }
-          setRuns(prev => ({ ...prev, [String(currentQ.id)]: (prev[String(currentQ.id)] ?? 0) + 1 }))
-          toast.success('Mastery run saved')
-        }}
       />
     ) : (
       /* Offline fallback — show cached solution instead of broken editor */
@@ -1192,15 +1183,6 @@ export default function SpeedsterPage() {
                   key={currentQ.slug}
                   appQuestionId={currentQ.id}
                   slug={currentQ.slug}
-                  onAccepted={async () => {
-                    const res = await addMasteryRunEvent(currentQ.id, 1)
-                    if (!res.ok) {
-                      toast.error(`Failed to save mastery run — ${res.error ?? 'check Supabase RLS'}`)
-                      return
-                    }
-                    setRuns(prev => ({ ...prev, [String(currentQ.id)]: (prev[String(currentQ.id)] ?? 0) + 1 }))
-                    toast.success('Mastery run saved')
-                  }}
                 />
               </div>
             ) : (

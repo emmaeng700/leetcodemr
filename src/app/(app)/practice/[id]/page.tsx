@@ -4,7 +4,7 @@ import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
-import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan, addMasteryRunEvent } from '@/lib/db'
+import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan, addMasteryRunEvent, getMasteryRunsByQuestion } from '@/lib/db'
 import { formatTime, isDue, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import { getPatternForQuestion } from '@/lib/patternUtils'
@@ -71,6 +71,7 @@ export default function PracticePage() {
   const [nextReview, setNextReview] = useState<string | null>(null)
   const [reviewDone, setReviewDone] = useState(false)
   const [activeTab, setActiveTab] = useState<'description' | 'best' | 'accepted' | 'editor'>('description')
+  const [imbibitionRuns, setImbibitionRuns] = useState<Record<string, number>>({})
 
   const lcTitleSlug = question ? resolveLeetCodeSlug(question.id, question.slug) : undefined
 
@@ -119,6 +120,10 @@ export default function PracticePage() {
       setStarred(!!prog[String(id)]?.starred)
       setNextReview(prog[String(id)]?.next_review ?? null)
       progressRef.current = prog
+      if (isImbibitionMode) {
+        const masteryRuns = await getMasteryRunsByQuestion()
+        setImbibitionRuns(masteryRuns)
+      }
     }
     load()
   }, [id, isImbibitionMode, isReviewMode])
@@ -216,12 +221,13 @@ export default function PracticePage() {
   }
 
   async function handleAcceptedRun() {
-    if (!question) return
+    if (!question || !isImbibitionMode) return
     const res = await addMasteryRunEvent(question.id, 1)
     if (!res.ok) {
       toast.error(`Couldn't save mastery run: ${res.error ?? 'unknown error'}`)
       return
     }
+    setImbibitionRuns(prev => ({ ...prev, [String(question.id)]: (prev[String(question.id)] ?? 0) + 1 }))
   }
 
   async function handleFailReview() {
@@ -294,18 +300,33 @@ export default function PracticePage() {
           {planOrder.length > 0 && (() => {
             const qMap = Object.fromEntries(allQuestions.map(q => [q.id, q]))
             const currentIdx = planOrder.indexOf(id)
+            const firstIncompleteIdx = isImbibitionMode
+              ? planOrder.findIndex(qid => (imbibitionRuns[String(qid)] ?? 0) < 3)
+              : -1
+            const unlockedThrough = !isImbibitionMode
+              ? planOrder.length - 1
+              : firstIncompleteIdx === -1
+                ? planOrder.length - 1
+                : firstIncompleteIdx
             const prevId = currentIdx > 0 ? planOrder[currentIdx - 1] : null
-            const nextId = currentIdx < planOrder.length - 1 ? planOrder[currentIdx + 1] : null
+            const nextId = currentIdx < unlockedThrough ? planOrder[currentIdx + 1] : null
             const navSuffix = isReviewMode ? '?from=review' : isImbibitionMode ? '?from=imbibition' : ''
             const practiceListItems = planOrder.map((qid) => {
               const lq = qMap[qid]
               if (!lq) return null
+              const listIdx = planOrder.indexOf(qid)
+              const unlocked = !isImbibitionMode || listIdx <= unlockedThrough
               return (
                 <button
                   key={qid}
                   type="button"
-                  onClick={() => { router.push(`/practice/${qid}${navSuffix}`); setShowList(false) }}
-                  className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-indigo-600/10 border-b border-[var(--border-soft)] ${qid === id ? 'bg-indigo-600/15' : ''}`}
+                  disabled={!unlocked}
+                  onClick={() => {
+                    if (!unlocked) return
+                    router.push(`/practice/${qid}${navSuffix}`)
+                    setShowList(false)
+                  }}
+                  className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors border-b border-[var(--border-soft)] ${unlocked ? 'hover:bg-indigo-600/10' : 'opacity-50 cursor-not-allowed'} ${qid === id ? 'bg-indigo-600/15' : ''}`}
                 >
                   <span className="shrink-0 tabular-nums text-xs font-mono text-[var(--text-subtle)]">#{lq.id}</span>
                   <span className="min-w-0 flex-1 truncate text-[var(--text)]">{lq.title}</span>
@@ -314,6 +335,11 @@ export default function PracticePage() {
                   >
                     {lq.difficulty[0]}
                   </span>
+                  {isImbibitionMode && (
+                    <span className="shrink-0 text-[10px] font-bold text-cyan-600">
+                      {Math.min(imbibitionRuns[String(qid)] ?? 0, 3)}/3
+                    </span>
+                  )}
                 </button>
               )
             })

@@ -14,7 +14,7 @@ import {
   BookOpen, List, ExternalLink, Loader2, FileText,
   Copy, Check, Sparkles,
 } from 'lucide-react'
-import { getProgress, updateProgress, completeReview, failReview, addMasteryRunEvent } from '@/lib/db'
+import { getProgress, updateProgress, completeReview, failReview } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
@@ -478,13 +478,6 @@ function LearnInner() {
       [String(q.id)]: { ...prev[String(q.id)], review_count: result.review_count, next_review: result.next_review },
     }))
     setReviewDone(true)
-  }
-
-  const handleAcceptedRun = async () => {
-    const res = await addMasteryRunEvent(q.id, 1)
-    if (!res.ok) {
-      toast.error(`Couldn't save mastery run: ${res.error ?? 'unknown error'}`)
-    }
   }
 
   const solvedCount = filtered.filter(fq => progress[String(fq.id)]?.solved).length
@@ -1029,7 +1022,6 @@ function LearnInner() {
               slug={q.slug}
               preferredLangs={q.tags?.includes('JavaScript') ? ['javascript', 'python3', 'cpp'] : undefined}
               onAccepted={async () => {
-                await handleAcceptedRun()
                 if (due && !reviewDone) await handleCompleteReview()
               }}
             />
