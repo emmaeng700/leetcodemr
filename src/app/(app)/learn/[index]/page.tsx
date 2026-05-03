@@ -14,7 +14,7 @@ import {
   BookOpen, List, ExternalLink, Loader2, FileText,
   Copy, Check, Sparkles,
 } from 'lucide-react'
-import { getProgress, updateProgress, completeReview, failReview } from '@/lib/db'
+import { getProgress, updateProgress, completeReview, failReview, getMasteryRunsByQuestion, addMasteryRunEvent } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
@@ -121,6 +121,7 @@ function LearnInner() {
   const [questions, setQuestions]   = useState<Question[]>([])
   const [planOrder, setPlanOrder]   = useState<number[]>([])
   const [progress, setProgress]     = useState<Record<string, any>>({})
+  const [runs, setRuns]             = useState<Record<string, number>>({})
   const [showList, setShowList]     = useState(false)
   const [reviewDone, setReviewDone] = useState(false)
   const [activeTab, setActiveTab]   = useState<'description' | 'editorial' | 'best' | 'accepted' | 'editor'>('description')
@@ -228,9 +229,11 @@ function LearnInner() {
     Promise.all([
       fetch('/questions_full.json').then(r => r.json()),
       getProgress(),
-    ]).then(([qs, prog]) => {
+      getMasteryRunsByQuestion(),
+    ]).then(([qs, prog, masteryRuns]) => {
       setQuestions(qs)
       setProgress(prog)
+      setRuns(masteryRuns)
       setPlanOrder(defaultStudyQuestionOrder(qs as Question[]))
     })
   }, [])
@@ -269,8 +272,12 @@ function LearnInner() {
     return true
   })
 
+  const firstIncompleteIdx = filtered.findIndex(fq => (runs[String(fq.id)] ?? 0) < 3)
+  const unlockedThrough = firstIncompleteIdx === -1 ? filtered.length - 1 : firstIncompleteIdx
   const safeIdx = Math.min(routeIndex, Math.max(filtered.length - 1, 0))
-  const q         = filtered[safeIdx] || null
+  const gatedIdx = filtered.length ? Math.min(safeIdx, Math.max(unlockedThrough, 0)) : safeIdx
+  const q         = filtered[gatedIdx] || null
+  const currentRuns = q ? Math.min(runs[String(q.id)] ?? 0, 3) : 0
   const lcTitleSlug = q ? resolveLeetCodeSlug(q.id, q.slug) : undefined
   const p         = q ? (progress[String(q.id)] || {}) : {}
   const solved    = p.solved    || false
@@ -283,10 +290,10 @@ function LearnInner() {
 
   useEffect(() => {
     if (filtered.length === 0) return
-    if (routeIndex !== safeIdx) {
-      router.replace(`/learn/${safeIdx}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
+    if (routeIndex !== gatedIdx) {
+      router.replace(`/learn/${gatedIdx}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
     }
-  }, [filtered.length, routeIndex, safeIdx, learnQs, router])
+  }, [filtered.length, routeIndex, gatedIdx, learnQs, router])
 
   // Persist study mode to localStorage
   useEffect(() => {
@@ -418,20 +425,45 @@ function LearnInner() {
   }, [activeTab, q?.id, q?.slug, lcSession, lcCsrf])
 
   const goNext = () => {
-    if (safeIdx < filtered.length - 1) {
-      const ni = safeIdx + 1
+    if (gatedIdx < Math.min(filtered.length - 1, unlockedThrough)) {
+      const ni = gatedIdx + 1
       router.push(`/learn/${ni}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
     }
   }
   const goPrev = () => {
-    if (safeIdx > 0) {
-      const ni = safeIdx - 1
+    if (gatedIdx > 0) {
+      const ni = gatedIdx - 1
       router.push(`/learn/${ni}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
     }
   }
   const goTo = (i: number) => {
+    if (i > unlockedThrough) return
     router.push(`/learn/${i}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
     setShowList(false)
+  }
+
+  const handleAcceptedRun = async () => {
+    if (!q) return
+    const before = runs[String(q.id)] ?? 0
+    const res = await addMasteryRunEvent(q.id, 1)
+    if (!res.ok) {
+      toast.error(`Couldn't save mastery run: ${res.error ?? 'unknown error'}`)
+      return
+    }
+    const rawAfter = before + 1
+    const after = Math.min(rawAfter, 3)
+    setRuns(prev => ({ ...prev, [String(q.id)]: rawAfter }))
+    const nextQuestion = gatedIdx < filtered.length - 1 ? filtered[gatedIdx + 1] : null
+    if (after >= 3) {
+      toast.success(
+        nextQuestion
+          ? `Learn complete: 3/3. ${nextQuestion.title} is now unlocked.`
+          : 'Learn complete: 3/3. This lane is fully unlocked.',
+        { duration: 4500 }
+      )
+    } else {
+      toast.success(`Learn progress: ${after}/3`, { duration: 3000 })
+    }
   }
 
   /** Open a question in this Learn view (editor). Resets URL filters if the question is hidden by current filters. */
@@ -495,12 +527,14 @@ function LearnInner() {
     <>
       {filtered.map((fq, i) => {
         const fp = progress[String(fq.id)] || {}
+        const unlocked = i <= unlockedThrough
         return (
           <button
             key={fq.id}
             type="button"
+            disabled={!unlocked}
             onClick={() => goTo(i)}
-            className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-indigo-50 border-b border-gray-50 ${i === safeIdx ? 'bg-indigo-50' : ''}`}
+            className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors border-b border-gray-50 ${unlocked ? 'hover:bg-indigo-50' : 'opacity-50 cursor-not-allowed'} ${i === gatedIdx ? 'bg-indigo-50' : ''}`}
           >
             <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{fq.id}</span>
             <span className="min-w-0 flex-1 truncate text-gray-700">{fq.title}</span>
@@ -508,6 +542,9 @@ function LearnInner() {
               className={`text-xs font-semibold shrink-0 ${fq.difficulty === 'Easy' ? 'text-green-600' : fq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}
             >
               {fq.difficulty[0]}
+            </span>
+            <span className="shrink-0 text-[10px] font-bold text-cyan-600">
+              {Math.min(runs[String(fq.id)] ?? 0, 3)}/3
             </span>
             {fp.solved && <CheckCircle size={11} className="text-green-500 shrink-0" />}
           </button>
@@ -572,7 +609,7 @@ function LearnInner() {
         <span className="w-px h-4 bg-gray-200 hidden sm:inline-block" />
 
         {/* Prev / counter / Next */}
-        <button onClick={goPrev} disabled={safeIdx === 0}
+        <button onClick={goPrev} disabled={gatedIdx === 0}
           className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 transition-colors">
           <ChevronLeft size={15} />
         </button>
@@ -584,9 +621,10 @@ function LearnInner() {
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-indigo-300 transition-colors"
           >
             <List size={12} />
-            <span className="font-mono">{safeIdx + 1}/{filtered.length}</span>
+            <span className="font-mono">{gatedIdx + 1}/{filtered.length}</span>
             <span className="hidden sm:inline text-gray-400">·</span>
             <span className="hidden sm:inline text-green-600">{solvedCount} solved</span>
+            {q && <span className="hidden sm:inline text-cyan-600">· {currentRuns}/3</span>}
           </button>
 
           {/* Question list: mobile = fixed, centered on viewport; sm+ = under button */}
@@ -602,7 +640,7 @@ function LearnInner() {
           )}
         </div>
 
-        <button onClick={goNext} disabled={safeIdx === filtered.length - 1}
+        <button onClick={goNext} disabled={gatedIdx >= Math.min(filtered.length - 1, unlockedThrough)}
           className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 transition-colors">
           <ChevronRight size={15} />
         </button>
@@ -610,7 +648,7 @@ function LearnInner() {
         {/* Progress bar */}
         <div className="flex-1 bg-gray-100 rounded-full h-1.5 min-w-[60px]">
           <div className="bg-indigo-500 h-1.5 rounded-full transition-all"
-            style={{ width: filtered.length ? `${((safeIdx + 1) / filtered.length) * 100}%` : '0%' }} />
+            style={{ width: filtered.length ? `${((gatedIdx + 1) / filtered.length) * 100}%` : '0%' }} />
         </div>
 
         {/* Filters toggle */}
@@ -656,6 +694,7 @@ function LearnInner() {
           {patternPct >= 50 && patternPct < 80 && <span className="text-[10px] font-bold text-indigo-500  shrink-0">💪 Solid progress</span>}
           {patternPct > 0 && patternPct < 50 && <span className="text-[10px] font-semibold text-amber-500 shrink-0">📈 Building momentum</span>}
           {patternPct === 0 && <span className="text-[10px] font-semibold text-[var(--text-subtle)] shrink-0">🧩 Fresh territory</span>}
+          <span className="text-[11px] font-bold text-cyan-700 shrink-0">{currentRuns}/3</span>
           <div className="flex items-center gap-1.5 ml-auto shrink-0">
             <div className="w-16 sm:w-24 h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
               <div
@@ -1022,6 +1061,7 @@ function LearnInner() {
               slug={q.slug}
               preferredLangs={q.tags?.includes('JavaScript') ? ['javascript', 'python3', 'cpp'] : undefined}
               onAccepted={async () => {
+                await handleAcceptedRun()
                 if (due && !reviewDone) await handleCompleteReview()
               }}
             />

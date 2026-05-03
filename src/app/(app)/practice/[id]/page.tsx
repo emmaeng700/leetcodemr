@@ -60,6 +60,7 @@ export default function PracticePage() {
   const flowMode = searchParams.get('from')
   const isReviewMode = flowMode === 'review'
   const isImbibitionMode = flowMode === 'imbibition'
+  const usesThreeSolveGate = isReviewMode || isImbibitionMode
   const id = Number(params.id)
 
   const [question, setQuestion] = useState<Question | null>(null)
@@ -71,7 +72,7 @@ export default function PracticePage() {
   const [nextReview, setNextReview] = useState<string | null>(null)
   const [reviewDone, setReviewDone] = useState(false)
   const [activeTab, setActiveTab] = useState<'description' | 'best' | 'accepted' | 'editor'>('description')
-  const [imbibitionRuns, setImbibitionRuns] = useState<Record<string, number>>({})
+  const [modeRuns, setModeRuns] = useState<Record<string, number>>({})
 
   const lcTitleSlug = question ? resolveLeetCodeSlug(question.id, question.slug) : undefined
 
@@ -120,18 +121,30 @@ export default function PracticePage() {
       setStarred(!!prog[String(id)]?.starred)
       setNextReview(prog[String(id)]?.next_review ?? null)
       progressRef.current = prog
-      if (isImbibitionMode) {
+      if (usesThreeSolveGate) {
         const masteryRuns = await getMasteryRunsByQuestion()
-        setImbibitionRuns(masteryRuns)
+        setModeRuns(masteryRuns)
       }
     }
     load()
-  }, [id, isImbibitionMode, isReviewMode])
+  }, [id, usesThreeSolveGate, isReviewMode])
 
   useEffect(() => {
     if (!question) return
     setOpenQuestionContext({ id: question.id, slug: question.slug, title: question.title })
   }, [question])
+
+  useEffect(() => {
+    if (!usesThreeSolveGate || planOrder.length === 0) return
+    const currentIdx = planOrder.indexOf(id)
+    if (currentIdx < 0) return
+    const firstIncompleteIdx = planOrder.findIndex(qid => (modeRuns[String(qid)] ?? 0) < 3)
+    const unlockedThrough = firstIncompleteIdx === -1 ? planOrder.length - 1 : firstIncompleteIdx
+    if (currentIdx <= unlockedThrough) return
+    const fallbackId = planOrder[unlockedThrough]
+    const navSuffix = isReviewMode ? '?from=review' : '?from=imbibition'
+    router.replace(`/practice/${fallbackId}${navSuffix}`)
+  }, [id, isReviewMode, modeRuns, planOrder, router, usesThreeSolveGate])
 
   // Fetch real LeetCode description in the background once we have the slug.
   // Reads session from localStorage first; if empty falls back to Supabase
@@ -221,29 +234,30 @@ export default function PracticePage() {
   }
 
   async function handleAcceptedRun() {
-    if (!question || !isImbibitionMode) return
-    const before = imbibitionRuns[String(question.id)] ?? 0
+    if (!question || !usesThreeSolveGate) return
+    const before = modeRuns[String(question.id)] ?? 0
     const res = await addMasteryRunEvent(question.id, 1)
     if (!res.ok) {
       toast.error(`Couldn't save mastery run: ${res.error ?? 'unknown error'}`)
       return
     }
     const after = Math.min(before + 1, 3)
-    setImbibitionRuns(prev => ({ ...prev, [String(question.id)]: (prev[String(question.id)] ?? 0) + 1 }))
+    setModeRuns(prev => ({ ...prev, [String(question.id)]: (prev[String(question.id)] ?? 0) + 1 }))
 
     const currentIdx = planOrder.indexOf(question.id)
     const nextQuestionId = currentIdx >= 0 ? planOrder[currentIdx + 1] : null
     const nextQuestion = nextQuestionId ? allQuestions.find(q => q.id === nextQuestionId) ?? null : null
+    const modeLabel = isImbibitionMode ? 'Imbibition' : 'Review'
 
     if (after >= 3) {
       toast.success(
         nextQuestion
-          ? `Imbibition complete: 3/3. ${nextQuestion.title} is now unlocked.`
-          : 'Imbibition complete: 3/3. This lane is fully unlocked.',
+          ? `${modeLabel} complete: 3/3. ${nextQuestion.title} is now unlocked.`
+          : `${modeLabel} complete: 3/3. This lane is fully unlocked.`,
         { duration: 4500 }
       )
     } else {
-      toast.success(`Imbibition progress: ${after}/3`, { duration: 3000 })
+      toast.success(`${modeLabel} progress: ${after}/3`, { duration: 3000 })
     }
   }
 
@@ -317,10 +331,10 @@ export default function PracticePage() {
           {planOrder.length > 0 && (() => {
             const qMap = Object.fromEntries(allQuestions.map(q => [q.id, q]))
             const currentIdx = planOrder.indexOf(id)
-            const firstIncompleteIdx = isImbibitionMode
-              ? planOrder.findIndex(qid => (imbibitionRuns[String(qid)] ?? 0) < 3)
+            const firstIncompleteIdx = usesThreeSolveGate
+              ? planOrder.findIndex(qid => (modeRuns[String(qid)] ?? 0) < 3)
               : -1
-            const unlockedThrough = !isImbibitionMode
+            const unlockedThrough = !usesThreeSolveGate
               ? planOrder.length - 1
               : firstIncompleteIdx === -1
                 ? planOrder.length - 1
@@ -332,7 +346,7 @@ export default function PracticePage() {
               const lq = qMap[qid]
               if (!lq) return null
               const listIdx = planOrder.indexOf(qid)
-              const unlocked = !isImbibitionMode || listIdx <= unlockedThrough
+              const unlocked = !usesThreeSolveGate || listIdx <= unlockedThrough
               return (
                 <button
                   key={qid}
@@ -352,9 +366,9 @@ export default function PracticePage() {
                   >
                     {lq.difficulty[0]}
                   </span>
-                  {isImbibitionMode && (
+                  {usesThreeSolveGate && (
                     <span className="shrink-0 text-[10px] font-bold text-cyan-600">
-                      {Math.min(imbibitionRuns[String(qid)] ?? 0, 3)}/3
+                      {Math.min(modeRuns[String(qid)] ?? 0, 3)}/3
                     </span>
                   )}
                 </button>
@@ -396,10 +410,10 @@ export default function PracticePage() {
               </div>
             )
           })()}
-          {isImbibitionMode && question && (
+          {usesThreeSolveGate && question && (
             <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 text-xs font-bold shrink-0">
               <Trophy size={12} />
-              <span>{Math.min(imbibitionRuns[String(question.id)] ?? 0, 3)}/3</span>
+              <span>{Math.min(modeRuns[String(question.id)] ?? 0, 3)}/3</span>
             </div>
           )}
           <div className="hidden sm:flex items-center gap-1.5 bg-[var(--bg-muted)] border border-[var(--border)] px-3 py-1.5 rounded-lg text-sm font-mono font-semibold text-[var(--text-muted)]">
@@ -462,9 +476,9 @@ export default function PracticePage() {
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
           <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🧩</span>
           <span className="text-xs font-semibold text-[var(--text)]">{p}</span>
-          {isImbibitionMode && (
+          {usesThreeSolveGate && (
             <span className="ml-auto text-[11px] font-bold text-cyan-700 shrink-0">
-              Imbibition {Math.min(imbibitionRuns[String(question.id)] ?? 0, 3)}/3
+              {isImbibitionMode ? 'Imbibition' : 'Review'} {Math.min(modeRuns[String(question.id)] ?? 0, 3)}/3
             </span>
           )}
         </div>
