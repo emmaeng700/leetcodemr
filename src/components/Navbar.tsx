@@ -12,9 +12,9 @@ import {
 
 const STUDY_LINKS = [
   { href: '/',        label: 'Questions', icon: Home,     also: ['/practice', '/question'] },
-  { href: '/daily',       label: 'Daily',       icon: Calendar },
+  { href: '/daily',       label: '★ Daily',       icon: Calendar },
   { href: '/speedster', label: 'Speedster', icon: Gauge },
-  { href: '/learn/0', label: 'Learn', icon: BookOpen },
+  { href: '/learn/0', label: '★ Learn', icon: BookOpen },
   { href: '/neetcode', label: 'NeetCode 150', icon: Rocket },
   { href: '/leetcode-api', label: 'LeetCode',  icon: Zap },
   { href: '/answers',     label: 'Answers',   icon: Library },
@@ -37,8 +37,8 @@ const TOPIC_LINKS = [
 ]
 const META_LINKS = [
   { href: '/sr-queue', label: 'SR Queue', icon: RefreshCw },
-  { href: '/review',  label: 'Reviews',  icon: Brain },
-  { href: '/imbibition', label: 'Imbibition', icon: BookOpen },
+  { href: '/review',  label: '★ Reviews',  icon: Brain },
+  { href: '/imbibition', label: '★ Imbibition', icon: BookOpen },
   { href: '/pileup', label: 'Pileup', icon: Layers },
   { href: '/stats',  label: 'Stats',   icon: BarChart2 },
   { href: '/about',  label: 'About',   icon: Info },
