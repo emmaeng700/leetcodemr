@@ -598,7 +598,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const normalizeCode = (raw: string) =>
     raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\t/g, '    ')
 
-  const resetToStarter = useCallback(() => {
+  const resetToStarter = useCallback((opts?: { preserveResult?: boolean }) => {
     if (!lcQ) return
     const raw = lcQ.codeSnippets?.find(s => s.langSlug === lang)?.code ?? ''
     const starter = normalizeCode(raw)
@@ -613,8 +613,10 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       cursorPosRef.current = { from: 0, to: 0 }
       view.focus()
     }
-    setResult(null)
-    setResultErr('')
+    if (!opts?.preserveResult) {
+      setResult(null)
+      setResultErr('')
+    }
   }, [lcQ, lang])
 
   const switchLang = (l: SupportedLang) => {
@@ -656,7 +658,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
         /* Sync to app on Accepted Submit */
         if (mode === 'submit' && data.status_code === 10) {
-          resetToStarter()
+          resetToStarter({ preserveResult: true })
           toast.success('Accepted — reset to starter code')
           if (!syncToApp) {
             setSolvedStatus('not-in-library')
@@ -817,7 +819,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
           {/* Run + Submit + Reset — desktop only (inline in toolbar) */}
           <div className="hidden sm:flex items-center gap-2">
-            <button onClick={resetToStarter}
+            <button onClick={() => resetToStarter()}
               disabled={running}
               title="Reset to starter code"
               style={{ touchAction: 'manipulation' }}
