@@ -692,23 +692,6 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
         </button>
       )}
 
-      {randomImbibePattern && (
-        <button
-          onClick={() => router.push(`/imbibition?pattern=${encodeURIComponent(randomImbibePattern.name)}`)}
-          className="w-full mb-4 rounded-2xl border border-cyan-200 bg-gradient-to-r from-cyan-50 to-sky-50 px-5 py-4 flex items-center justify-between gap-3 shadow-sm hover:brightness-[1.02] active:scale-[0.98] transition-all"
-        >
-          <div className="text-left min-w-0">
-            <p className="font-black text-base leading-tight text-cyan-800">
-              🧠 Go imbibe: {randomImbibePattern.name} →
-            </p>
-            <p className="text-xs text-cyan-700/80 mt-0.5 truncate">
-              Random Imbibition topic from your solved-question lanes
-            </p>
-          </div>
-          <ChevronRight size={22} className="shrink-0 text-cyan-700/80" />
-        </button>
-      )}
-
       {overdueReviews.length > 0 && (
         <Link href="/review" className="flex items-center gap-3 mb-4 px-4 py-3 rounded-xl bg-red-500 hover:bg-red-600 transition-colors shadow-lg">
           <span className="text-xl shrink-0">⚠️</span>
