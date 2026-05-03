@@ -71,6 +71,7 @@ export default function PracticePage() {
   const [starred, setStarred] = useState(false)
   const [nextReview, setNextReview] = useState<string | null>(null)
   const [reviewDone, setReviewDone] = useState(false)
+  const [reviewNextId, setReviewNextId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<'description' | 'best' | 'accepted' | 'editor'>('description')
   const [modeRuns, setModeRuns] = useState<Record<string, number>>({})
 
@@ -111,7 +112,15 @@ export default function PracticePage() {
       if (queueKey) {
         try {
           const stored = sessionStorage.getItem(queueKey)
-          if (stored) modeQueue = JSON.parse(stored)
+          if (stored) {
+            const parsed = JSON.parse(stored) as number[]
+            modeQueue = isReviewMode
+              ? parsed.filter(qid => {
+                  const next = prog[String(qid)]?.next_review
+                  return !!next && isDue(next)
+                })
+              : parsed
+          }
         } catch { /* ignore */ }
       }
       if (modeQueue) setPlanOrder(modeQueue)
@@ -133,6 +142,10 @@ export default function PracticePage() {
     if (!question) return
     setOpenQuestionContext({ id: question.id, slug: question.slug, title: question.title })
   }, [question])
+
+  useEffect(() => {
+    setReviewNextId(null)
+  }, [id])
 
   useEffect(() => {
     if (!isImbibitionMode) return
@@ -245,6 +258,11 @@ export default function PracticePage() {
   async function handleCompleteReview() {
     if (isReviewMode) await forceCurrentRunsComplete()
     if (reviewDone) return
+    if (isReviewMode) {
+      const remainingQueue = planOrder.filter(qid => qid !== id)
+      sessionStorage.setItem('lm_review_queue', JSON.stringify(remainingQueue))
+      setReviewNextId(remainingQueue[0] ?? null)
+    }
     setReviewDone(true)
     const result = await completeReview(id)
     setNextReview(result.next_review)
@@ -286,6 +304,11 @@ export default function PracticePage() {
   async function handleFailReview() {
     if (isReviewMode) await forceCurrentRunsComplete()
     if (reviewDone) return
+    if (isReviewMode) {
+      const remainingQueue = planOrder.filter(qid => qid !== id)
+      sessionStorage.setItem('lm_review_queue', JSON.stringify(remainingQueue))
+      setReviewNextId(remainingQueue[0] ?? null)
+    }
     setReviewDone(true)
     const result = await failReview(id)
     setNextReview(result.next_review)
@@ -363,7 +386,9 @@ export default function PracticePage() {
                 ? planOrder.length - 1
                 : firstIncompleteIdx
             const prevId = currentIdx > 0 ? planOrder[currentIdx - 1] : null
-            const nextId = currentIdx < unlockedThrough ? planOrder[currentIdx + 1] : null
+            const nextId = isReviewMode && reviewDone
+              ? reviewNextId
+              : currentIdx < unlockedThrough ? planOrder[currentIdx + 1] : null
             const navSuffix = isReviewMode ? '?from=review' : isImbibitionMode ? '?from=imbibition' : ''
             const practiceListItems = planOrder.map((qid) => {
               const lq = qMap[qid]
