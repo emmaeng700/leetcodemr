@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { getProgress, updateProgress, getMockSessions, saveMockSession, type MockSessionRecord } from '@/lib/db'
 import { formatTime, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
-import { QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -40,6 +40,12 @@ interface SessionRecord {
   outcome: Outcome
   elapsedSeconds: number
 }
+
+const DISPLAY_PATTERNS = [...QUICK_PATTERNS].sort(
+  (a, b) =>
+    DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
+    DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
+)
 
 function PremiumBlock({ slug }: { slug?: string }) {
   return (
@@ -290,7 +296,7 @@ export default function MockInterviewPage() {
               className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${!selectedPattern ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-300'}`}>
               Any Pattern
             </button>
-            {QUICK_PATTERNS.map(p => (
+            {DISPLAY_PATTERNS.map(p => (
               <button key={p.name} onClick={() => setSelectedPattern(selectedPattern === p.name ? null : p.name)}
                 className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${selectedPattern === p.name ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-300'}`}>
                 {p.name}
