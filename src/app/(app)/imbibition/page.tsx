@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Brain, CheckCircle2, ChevronRight, Lock, Trophy } from 'lucide-react'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
@@ -33,14 +33,19 @@ const ORDERED_PATTERNS = QUICK_PATTERNS
 
 export default function ImbibitionPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const targetPattern = searchParams.get('pattern')
   const [questions, setQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, { solved?: boolean }>>({})
   const [runs, setRuns] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [resetting, setResetting] = useState(false)
+  const [targetPattern, setTargetPattern] = useState<string | null>(null)
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({})
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    setTargetPattern(params.get('pattern'))
+  }, [])
 
   useEffect(() => {
     Promise.all([
