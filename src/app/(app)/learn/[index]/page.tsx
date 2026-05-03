@@ -798,7 +798,7 @@ function LearnInner() {
         <div className="relative z-0 flex flex-col md:flex-row min-h-0 flex-1 overflow-hidden">
 
           {/* ── Content panel (all non-editor tabs) ── */}
-          <div className="flex flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-hidden text-[var(--text)] border-r border-[var(--border)]">
+          <div className="relative z-10 flex flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-hidden text-[var(--text)] border-r border-[var(--border)]">
 
             {/* Panel content */}
             <div className="flex-1 overflow-y-auto">

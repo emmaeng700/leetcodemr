@@ -177,14 +177,18 @@ export default function BestAnswersPanel({
   const subtle    = theme === 'dark' ? 'text-gray-500' : 'text-[var(--text-subtle,#6b7280)]'
   const grid      = layout === 'full' ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'grid grid-cols-1 gap-3'
   const panelMaxH = layout === 'full' ? 'max-h-[22rem]' : 'max-h-[18rem]'
+  const unavailableCount = BEST_ANSWER_SITES.filter(site => states[site.key].status === 'error').length
+  const pendingCount = BEST_ANSWER_SITES.filter(site => states[site.key].status === 'loading' || states[site.key].status === 'idle').length
 
   return (
-    <div className={className}>
+    <div className={`relative z-20 pointer-events-auto ${className}`}>
 
       {/* ── View mode toggle ──────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="relative z-20 flex items-center gap-2 mb-4 pointer-events-auto">
         <button
+          type="button"
           onClick={() => setViewMode('grid')}
+          style={{ touchAction: 'manipulation' }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
             viewMode === 'grid'
               ? 'bg-indigo-600 border-indigo-500 text-white shadow'
@@ -194,7 +198,9 @@ export default function BestAnswersPanel({
           <LayoutGrid size={12} /> Grid
         </button>
         <button
+          type="button"
           onClick={() => setViewMode('flashcard')}
+          style={{ touchAction: 'manipulation' }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
             viewMode === 'flashcard'
               ? 'bg-indigo-600 border-indigo-500 text-white shadow'
@@ -266,11 +272,12 @@ export default function BestAnswersPanel({
         <div className="flex flex-col gap-3">
 
           {/* deck controls */}
-          <div className="flex items-center justify-between gap-3">
+          <div className="relative z-30 flex items-center justify-between gap-3 pointer-events-auto">
             <button
               type="button"
               onClick={() => setCardIdx(i => (deck.length ? (i - 1 + deck.length) % deck.length : 0))}
               disabled={deck.length <= 1}
+              style={{ touchAction: 'manipulation' }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                 deck.length <= 1
                   ? 'bg-gray-800/30 border-gray-800/30 text-gray-600 cursor-not-allowed'
@@ -294,6 +301,7 @@ export default function BestAnswersPanel({
               type="button"
               onClick={() => setCardIdx(i => (deck.length ? (i + 1) % deck.length : 0))}
               disabled={deck.length <= 1}
+              style={{ touchAction: 'manipulation' }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                 deck.length <= 1
                   ? 'bg-gray-800/30 border-gray-800/30 text-gray-600 cursor-not-allowed'
@@ -304,11 +312,19 @@ export default function BestAnswersPanel({
             </button>
           </div>
 
+          {(pendingCount > 0 || unavailableCount > 0) && (
+            <div className="text-[11px] text-gray-500">
+              {pendingCount > 0 && <span>{pendingCount} site{pendingCount !== 1 ? 's' : ''} still loading.</span>}
+              {pendingCount > 0 && unavailableCount > 0 && <span className="mx-1.5">·</span>}
+              {unavailableCount > 0 && <span>{unavailableCount} site{unavailableCount !== 1 ? 's' : ''} unavailable for this question.</span>}
+            </div>
+          )}
+
           {/* Answer-only card (no flip / recall prompt) */}
           {(() => {
             const card = deck[cardIdx]
             return (
-              <div className="rounded-2xl border-2 border-indigo-500/30 bg-gradient-to-br from-[#0f1729] to-gray-900 overflow-hidden">
+              <div className="relative z-10 rounded-2xl border-2 border-indigo-500/30 bg-gradient-to-br from-[#0f1729] to-gray-900 overflow-hidden pointer-events-auto">
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-indigo-500/20 bg-indigo-600/10">
                   <div className="text-[11px] text-gray-500">
                     <span className="font-semibold text-gray-300">★ Best Answer</span>

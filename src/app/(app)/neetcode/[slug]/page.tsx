@@ -195,7 +195,7 @@ export default function NeetCodeQuestionPage() {
       <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
 
         {/* Non-editor tabs */}
-        <div className="flex flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-hidden text-[var(--text)] border-r border-[var(--border)]">
+        <div className="relative z-10 flex flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-hidden text-[var(--text)] border-r border-[var(--border)]">
           <div className="flex-1 overflow-y-auto p-4">
 
             {leftPanelTab === 'description' && (
@@ -263,7 +263,7 @@ export default function NeetCodeQuestionPage() {
         </div>
 
         {/* Editor panel */}
-        <div className="flex flex-col w-full md:w-[58%] flex-1 min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
+        <div className="relative z-0 flex flex-col w-full md:w-[58%] flex-1 min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
           <LeetCodeEditor appQuestionId={q?.id ?? 0} slug={slug} syncToApp={false} />
         </div>
       </div>
