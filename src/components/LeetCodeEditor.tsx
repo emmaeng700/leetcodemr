@@ -321,6 +321,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   /* Editor */
   const [lang,        setLang]       = useState<SupportedLang>('python3')
   const [code,        setCode]       = useState('')
+  const [editorResetKey, setEditorResetKey] = useState(0)
   const [retryKey,    setRetryKey]   = useState(0)
   const [extensions,  setExtensions] = useState<any[]>([])
   const [editorTheme, setTheme]      = useState<any>(null)
@@ -602,6 +603,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     const raw = lcQ.codeSnippets?.find(s => s.langSlug === lang)?.code ?? ''
     const starter = normalizeCode(raw)
     setCode(starter)
+    setEditorResetKey(k => k + 1)
     const view = editorViewRef.current
     if (view) {
       view.dispatch({
@@ -1007,6 +1009,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       {!lcLoad && !lcErr && (
         <div className="flex-1 overflow-hidden min-h-0 w-full">
           <CodeMirror
+            key={`${lang}-${editorResetKey}`}
             value={code}
             onChange={handleCodeChange}
             onCreateEditor={(view) => { editorViewRef.current = view }}
