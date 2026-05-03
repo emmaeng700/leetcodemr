@@ -222,12 +222,29 @@ export default function PracticePage() {
 
   async function handleAcceptedRun() {
     if (!question || !isImbibitionMode) return
+    const before = imbibitionRuns[String(question.id)] ?? 0
     const res = await addMasteryRunEvent(question.id, 1)
     if (!res.ok) {
       toast.error(`Couldn't save mastery run: ${res.error ?? 'unknown error'}`)
       return
     }
+    const after = Math.min(before + 1, 3)
     setImbibitionRuns(prev => ({ ...prev, [String(question.id)]: (prev[String(question.id)] ?? 0) + 1 }))
+
+    const currentIdx = planOrder.indexOf(question.id)
+    const nextQuestionId = currentIdx >= 0 ? planOrder[currentIdx + 1] : null
+    const nextQuestion = nextQuestionId ? allQuestions.find(q => q.id === nextQuestionId) ?? null : null
+
+    if (after >= 3) {
+      toast.success(
+        nextQuestion
+          ? `Imbibition complete: 3/3. ${nextQuestion.title} is now unlocked.`
+          : 'Imbibition complete: 3/3. This lane is fully unlocked.',
+        { duration: 4500 }
+      )
+    } else {
+      toast.success(`Imbibition progress: ${after}/3`, { duration: 3000 })
+    }
   }
 
   async function handleFailReview() {
@@ -379,6 +396,12 @@ export default function PracticePage() {
               </div>
             )
           })()}
+          {isImbibitionMode && question && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 text-xs font-bold shrink-0">
+              <Trophy size={12} />
+              <span>{Math.min(imbibitionRuns[String(question.id)] ?? 0, 3)}/3</span>
+            </div>
+          )}
           <div className="hidden sm:flex items-center gap-1.5 bg-[var(--bg-muted)] border border-[var(--border)] px-3 py-1.5 rounded-lg text-sm font-mono font-semibold text-[var(--text-muted)]">
             <Clock size={13} />
             {formatTime(timer)}
@@ -439,6 +462,11 @@ export default function PracticePage() {
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
           <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🧩</span>
           <span className="text-xs font-semibold text-[var(--text)]">{p}</span>
+          {isImbibitionMode && (
+            <span className="ml-auto text-[11px] font-bold text-cyan-700 shrink-0">
+              Imbibition {Math.min(imbibitionRuns[String(question.id)] ?? 0, 3)}/3
+            </span>
+          )}
         </div>
       ) : null })()}
 
