@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { computeDailyGoalsMetToday } from './streakGoals'
 import { todayISOChicago } from './studyPlanDay'
 import { srInterval } from './utils'
+import { deriveMasteryStatus } from './masteryStatus'
 
 const USER_ID = 'emmanuel'
 const MOCK_SESSIONS_LOCAL_KEY = 'leetcodemr_mock_sessions'
@@ -49,13 +50,17 @@ function localTodayISO() {
 
 // ─── Progress ─────────────────────────────────────────────────────────────────
 export async function getProgress() {
-  const { data } = await supabase
-    .from('progress')
-    .select('*')
-    .eq('user_id', USER_ID)
+  const [{ data }, masteryRuns] = await Promise.all([
+    supabase
+      .from('progress')
+      .select('*')
+      .eq('user_id', USER_ID),
+    getMasteryRunsByQuestion(),
+  ])
 
   const result: Record<string, any> = {}
   for (const row of data || []) {
+    const runs = masteryRuns[String(row.question_id)] ?? 0
     result[String(row.question_id)] = {
       solved: row.solved,
       starred: row.starred,
@@ -63,7 +68,7 @@ export async function getProgress() {
       review_count: row.review_count,
       next_review: row.next_review,
       last_reviewed: row.last_reviewed,
-      status: row.status,
+      status: deriveMasteryStatus(!!row.solved, runs),
     }
   }
   return result

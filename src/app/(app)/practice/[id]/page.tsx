@@ -4,7 +4,7 @@ import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
-import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan } from '@/lib/db'
+import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan, addMasteryRunEvent } from '@/lib/db'
 import { formatTime, isDue, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import { getPatternForQuestion } from '@/lib/patternUtils'
@@ -57,7 +57,9 @@ export default function PracticePage() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const isReviewMode = searchParams.get('from') === 'review'
+  const flowMode = searchParams.get('from')
+  const isReviewMode = flowMode === 'review'
+  const isImbibitionMode = flowMode === 'imbibition'
   const id = Number(params.id)
 
   const [question, setQuestion] = useState<Question | null>(null)
@@ -102,14 +104,15 @@ export default function PracticePage() {
       setQuestion(q)
       setAllQuestions(qs as Question[])
       // In review mode, use the stored due queue so prev/next stays within the review session
-      let reviewQueue: number[] | null = null
-      if (isReviewMode) {
+      let modeQueue: number[] | null = null
+      const queueKey = isReviewMode ? 'lm_review_queue' : isImbibitionMode ? 'lm_imbibition_queue' : null
+      if (queueKey) {
         try {
-          const stored = sessionStorage.getItem('lm_review_queue')
-          if (stored) reviewQueue = JSON.parse(stored)
+          const stored = sessionStorage.getItem(queueKey)
+          if (stored) modeQueue = JSON.parse(stored)
         } catch { /* ignore */ }
       }
-      if (reviewQueue) setPlanOrder(reviewQueue)
+      if (modeQueue) setPlanOrder(modeQueue)
       else if (plan?.question_order?.length) setPlanOrder(plan.question_order)
       else setPlanOrder((qs as Question[]).map((q: Question) => q.id))
       setSolved(!!prog[String(id)]?.solved)
@@ -118,7 +121,7 @@ export default function PracticePage() {
       progressRef.current = prog
     }
     load()
-  }, [id])
+  }, [id, isImbibitionMode, isReviewMode])
 
   useEffect(() => {
     if (!question) return
@@ -212,6 +215,15 @@ export default function PracticePage() {
     toast.success(`✓ Review done! Next review: ${result.next_review}`)
   }
 
+  async function handleAcceptedRun() {
+    if (!question) return
+    const res = await addMasteryRunEvent(question.id, 1)
+    if (!res.ok) {
+      toast.error(`Couldn't save mastery run: ${res.error ?? 'unknown error'}`)
+      return
+    }
+  }
+
   async function handleFailReview() {
     if (reviewDone) return
     setReviewDone(true)
@@ -284,7 +296,7 @@ export default function PracticePage() {
             const currentIdx = planOrder.indexOf(id)
             const prevId = currentIdx > 0 ? planOrder[currentIdx - 1] : null
             const nextId = currentIdx < planOrder.length - 1 ? planOrder[currentIdx + 1] : null
-            const navSuffix = isReviewMode ? '?from=review' : ''
+            const navSuffix = isReviewMode ? '?from=review' : isImbibitionMode ? '?from=imbibition' : ''
             const practiceListItems = planOrder.map((qid) => {
               const lq = qMap[qid]
               if (!lq) return null
@@ -310,6 +322,11 @@ export default function PracticePage() {
                 {isReviewMode && (
                   <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-orange-50 border border-orange-200 text-orange-600 text-xs font-bold shrink-0">
                     🔁 Review
+                  </span>
+                )}
+                {isImbibitionMode && (
+                  <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 text-xs font-bold shrink-0">
+                    🧠 Imbibition
                   </span>
                 )}
                 <button onClick={() => prevId && router.push(`/practice/${prevId}${navSuffix}`)} disabled={!prevId}
@@ -501,7 +518,14 @@ export default function PracticePage() {
         {/* Editor panel */}
         <div className="flex flex-col w-full md:w-[58%] flex-1 min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
           {question ? (
-            <LeetCodeEditor appQuestionId={question.id} slug={question.slug} onAccepted={due && !reviewDone ? handleCompleteReview : undefined} />
+            <LeetCodeEditor
+              appQuestionId={question.id}
+              slug={question.slug}
+              onAccepted={async () => {
+                await handleAcceptedRun()
+                if (due && !reviewDone) await handleCompleteReview()
+              }}
+            />
           ) : (
             <div className="flex items-center justify-center h-full text-[var(--text-muted)] text-sm gap-2">
               <Loader2 size={16} className="animate-spin" /> Loading editor...

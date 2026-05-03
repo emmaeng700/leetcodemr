@@ -13,7 +13,7 @@ import {
   BookOpen, List, ExternalLink, Loader2, FileText,
   Copy, Check, Sparkles,
 } from 'lucide-react'
-import { getProgress, updateProgress, completeReview, failReview, getStudyPlan } from '@/lib/db'
+import { getProgress, updateProgress, completeReview, failReview, getStudyPlan, addMasteryRunEvent } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
@@ -481,6 +481,13 @@ function LearnInner() {
       [String(q.id)]: { ...prev[String(q.id)], review_count: result.review_count, next_review: result.next_review },
     }))
     setReviewDone(true)
+  }
+
+  const handleAcceptedRun = async () => {
+    const res = await addMasteryRunEvent(q.id, 1)
+    if (!res.ok) {
+      toast.error(`Couldn't save mastery run: ${res.error ?? 'unknown error'}`)
+    }
   }
 
   const solvedCount = filtered.filter(fq => progress[String(fq.id)]?.solved).length
@@ -1012,7 +1019,14 @@ function LearnInner() {
 
           {/* ── Editor panel ── */}
           <div className="flex flex-col w-full md:w-[58%] flex-1 min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
-            <LeetCodeEditor appQuestionId={q.id} slug={q.slug} onAccepted={due && !reviewDone ? handleCompleteReview : undefined} />
+            <LeetCodeEditor
+              appQuestionId={q.id}
+              slug={q.slug}
+              onAccepted={async () => {
+                await handleAcceptedRun()
+                if (due && !reviewDone) await handleCompleteReview()
+              }}
+            />
           </div>
         </div>
         </>
