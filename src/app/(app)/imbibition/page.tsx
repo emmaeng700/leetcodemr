@@ -16,15 +16,19 @@ type Question = {
 }
 
 const DIFF_RANK: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
-const IMBIBITION_PATTERN_RANK = Object.fromEntries(
-  DISPLAY_PATTERN_ORDER.map((pattern, idx) => [pattern, idx])
-) as Record<string, number>
 type ImbibitionRow = {
   pattern: (typeof QUICK_PATTERNS)[number]['name']
   questions: Question[]
   unlockedThrough: number
   completed: number
 }
+const ORDERED_PATTERNS = QUICK_PATTERNS
+  .slice()
+  .sort(
+    (a, b) =>
+      DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
+      DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
+  )
 
 export default function ImbibitionPage() {
   const router = useRouter()
@@ -52,7 +56,7 @@ export default function ImbibitionPage() {
   const rows = useMemo(() => {
     const exclusiveMap = buildExclusivePatternMap(questions)
     const builtRows: ImbibitionRow[] = []
-    for (const pattern of QUICK_PATTERNS) {
+    for (const pattern of ORDERED_PATTERNS) {
       const solvedQs = questions
         .filter(q => exclusiveMap[q.id] === pattern.name && !!progress[String(q.id)]?.solved)
         .sort((a, b) => {
@@ -60,10 +64,8 @@ export default function ImbibitionPage() {
           return diff !== 0 ? diff : a.id - b.id
         })
 
-      if (!solvedQs.length) continue
-
       const firstIncomplete = solvedQs.findIndex(q => (runs[String(q.id)] ?? 0) < 3)
-      const unlockedThrough = firstIncomplete === -1 ? solvedQs.length - 1 : firstIncomplete
+      const unlockedThrough = solvedQs.length === 0 ? -1 : firstIncomplete === -1 ? solvedQs.length - 1 : firstIncomplete
       const completed = solvedQs.filter(q => (runs[String(q.id)] ?? 0) >= 3).length
 
       builtRows.push({
@@ -74,11 +76,7 @@ export default function ImbibitionPage() {
       })
     }
 
-    return builtRows.sort((a, b) => {
-      const aRank = IMBIBITION_PATTERN_RANK[a.pattern] ?? Number.MAX_SAFE_INTEGER
-      const bRank = IMBIBITION_PATTERN_RANK[b.pattern] ?? Number.MAX_SAFE_INTEGER
-      return aRank - bRank
-    })
+    return builtRows
   }, [questions, progress, runs])
 
   const totalSolved = rows.reduce((sum, row) => sum + row.questions.length, 0)
@@ -141,8 +139,13 @@ export default function ImbibitionPage() {
                 </div>
               </div>
 
-              <div className="flex gap-3 overflow-x-auto pb-2">
-                {row.questions.map((q, idx) => {
+              {row.questions.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-muted)]/40 px-4 py-6 text-sm text-[var(--text-subtle)]">
+                  No solved questions here yet. Once you solve one in this pattern, it will enter the imbibition lane here.
+                </div>
+              ) : (
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {row.questions.map((q, idx) => {
                   const questionRuns = runs[String(q.id)] ?? 0
                   const unlocked = idx <= row.unlockedThrough
                   const complete = questionRuns >= 3
@@ -201,8 +204,9 @@ export default function ImbibitionPage() {
                       )}
                     </button>
                   )
-                })}
-              </div>
+                  })}
+                </div>
+              )}
             </section>
           ))}
         </div>
