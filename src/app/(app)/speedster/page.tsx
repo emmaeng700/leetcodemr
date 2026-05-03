@@ -406,7 +406,7 @@ export default function SpeedsterPage() {
         <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{q.id}</span>
         <span className="min-w-0 flex-1 truncate text-gray-700">{q.title}</span>
         <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
-          {runs[String(q.id)] ?? 0}/4
+          {Math.min(runs[String(q.id)] ?? 0, 3)}/3
         </span>
         <span className={`text-xs font-semibold shrink-0 ${q.difficulty === 'Easy' ? 'text-green-600' : q.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
           {q.difficulty[0]}
@@ -542,7 +542,7 @@ export default function SpeedsterPage() {
                     <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
                     <span className={`flex-1 text-sm font-semibold truncate ${solved ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
                     <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
-                      Runs {runs[String(q.id)] ?? 0}/4
+                      Runs {Math.min(runs[String(q.id)] ?? 0, 3)}/3
                     </span>
                     <DifficultyBadge difficulty={q.difficulty} />
                     <ChevronRight size={14} className="text-gray-300 group-hover:text-yellow-400 shrink-0 transition-colors" />
@@ -747,7 +747,7 @@ export default function SpeedsterPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-[var(--text-subtle)] bg-[var(--bg-muted)] border border-[var(--border)] px-2 py-0.5 rounded-full">
-                        Mastery runs: {currentRuns}/4
+                        Mastery runs: {Math.min(currentRuns, 3)}/3
                       </span>
                       <button
                         onClick={e => {

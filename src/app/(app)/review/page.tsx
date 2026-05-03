@@ -93,7 +93,7 @@ function StatusBucket({
                 {meta.label}
               </span>
               <span className="text-xs text-[var(--text-subtle)] hidden sm:inline">
-                Runs {runs[String(q.id)] ?? 0}/4
+                Runs {Math.min(runs[String(q.id)] ?? 0, 3)}/3
               </span>
               {q.p.solved && q.p.next_review && (
                 <span className="text-xs text-[var(--text-subtle)] hidden sm:inline">
@@ -211,7 +211,7 @@ export default function ReviewPage() {
     .sort((a, b) => a.p.next_review.localeCompare(b.p.next_review))
 
   const masteryBucket = (n: number) =>
-    n >= 4 ? 'mastered' : n >= 3 ? 'revised' : n >= 2 ? 'reviewed' : 'learnt'
+    n >= 3 ? 'mastered' : n >= 2 ? 'revised' : n >= 1 ? 'reviewed' : 'learnt'
 
   const statusCounts = Object.keys(STATUS_META).reduce((acc: Record<string, number>, k) => {
     acc[k] = 0; return acc
