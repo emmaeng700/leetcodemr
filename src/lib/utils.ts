@@ -12,6 +12,7 @@ export function shuffle<T>(arr: T[]): T[] {
 /** Slug fixes for outdated entries in bundled question data (LeetCode titleSlug is canonical). */
 const LEETCODE_SLUG_FIX_BY_QUESTION_ID: Record<number, string> = {
   787: 'cheapest-flights-within-k-stops',
+  2675: 'array-of-objects-to-matrix',
 }
 
 export function resolveLeetCodeSlug(questionId: number, slug: string | null | undefined): string {
