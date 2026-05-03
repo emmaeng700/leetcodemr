@@ -19,6 +19,12 @@ const DIFF_RANK: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
 const IMBIBITION_PATTERN_RANK = Object.fromEntries(
   DISPLAY_PATTERN_ORDER.map((pattern, idx) => [pattern, idx])
 ) as Record<string, number>
+type ImbibitionRow = {
+  pattern: (typeof QUICK_PATTERNS)[number]['name']
+  questions: Question[]
+  unlockedThrough: number
+  completed: number
+}
 
 export default function ImbibitionPage() {
   const router = useRouter()
@@ -45,7 +51,8 @@ export default function ImbibitionPage() {
 
   const rows = useMemo(() => {
     const exclusiveMap = buildExclusivePatternMap(questions)
-    return QUICK_PATTERNS.map(pattern => {
+    const builtRows: ImbibitionRow[] = []
+    for (const pattern of QUICK_PATTERNS) {
       const solvedQs = questions
         .filter(q => exclusiveMap[q.id] === pattern.name && !!progress[String(q.id)]?.solved)
         .sort((a, b) => {
@@ -53,28 +60,25 @@ export default function ImbibitionPage() {
           return diff !== 0 ? diff : a.id - b.id
         })
 
-      if (!solvedQs.length) return null
+      if (!solvedQs.length) continue
 
       const firstIncomplete = solvedQs.findIndex(q => (runs[String(q.id)] ?? 0) < 3)
       const unlockedThrough = firstIncomplete === -1 ? solvedQs.length - 1 : firstIncomplete
       const completed = solvedQs.filter(q => (runs[String(q.id)] ?? 0) >= 3).length
 
-      return {
+      builtRows.push({
         pattern: pattern.name,
         questions: solvedQs,
         unlockedThrough,
         completed,
-      }
-    }).filter(Boolean).sort((a, b) => {
+      })
+    }
+
+    return builtRows.sort((a, b) => {
       const aRank = IMBIBITION_PATTERN_RANK[a.pattern] ?? Number.MAX_SAFE_INTEGER
       const bRank = IMBIBITION_PATTERN_RANK[b.pattern] ?? Number.MAX_SAFE_INTEGER
       return aRank - bRank
-    }) as Array<{
-      pattern: string
-      questions: Question[]
-      unlockedThrough: number
-      completed: number
-    }>
+    })
   }, [questions, progress, runs])
 
   const totalSolved = rows.reduce((sum, row) => sum + row.questions.length, 0)
