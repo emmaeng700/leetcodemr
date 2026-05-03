@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const { session, csrfToken, ...graphqlBody } = body
 
     const headers: Record<string, string> =
-      session && csrfToken
+      session
         ? leetCodeGraphqlHeaders(session, csrfToken)
         : {
             'Content-Type': 'application/json',

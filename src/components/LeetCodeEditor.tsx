@@ -309,7 +309,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [session,      setSession]      = useState('')
   const [csrf,         setCsrf]         = useState('')
   const [sessionReady, setSessionReady] = useState(false)
-  const sessionOK = !!(session && csrf)
+  const effectiveCsrf = csrf || getCookieFromHeader(session, 'csrftoken')
+  const sessionOK = !!(session && effectiveCsrf)
 
   /* LeetCode question data */
   const [lcQ,     setLcQ]     = useState<LCQuestion | null>(null)
@@ -343,11 +344,12 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [localConnector, setLocalConnector] = useState<{ ok: boolean; authed: boolean } | null>(null)
   const [extBridgeOn, setExtBridgeOn] = useState(false)
   const availableLangs = useMemo<SupportedLang[]>(() => {
-    const hinted = (preferredLangs ?? []).filter((slug): slug is SupportedLang => SUPPORTED_LANGS.includes(slug))
+    const hinted = new Set((preferredLangs ?? []).filter((slug): slug is SupportedLang => SUPPORTED_LANGS.includes(slug)))
     const langs = (lcQ?.codeSnippets ?? [])
       .map(s => s.langSlug)
       .filter((slug): slug is SupportedLang => SUPPORTED_LANGS.includes(slug as SupportedLang))
-    const unique = Array.from(new Set([...hinted, ...langs]))
+    const found = new Set(langs)
+    const unique = SUPPORTED_LANGS.filter(slug => hinted.has(slug) || found.has(slug))
     return unique.length ? unique : ['python3', 'cpp']
   }, [lcQ, preferredLangs])
 
@@ -410,16 +412,18 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
     const ls = normalizeLcCookieValue(localStorage.getItem('lc_session') ?? '')
     const lc = normalizeLcCookieValue(localStorage.getItem('lc_csrf') ?? '')
-    if (ls && lc) {
-      setSession(ls); setCsrf(lc); setSessionReady(true)
+    const localDerivedCsrf = lc || getCookieFromHeader(ls, 'csrftoken')
+    if (ls && localDerivedCsrf) {
+      setSession(ls); setCsrf(localDerivedCsrf); setSessionReady(true)
+      localStorage.setItem('lc_csrf', localDerivedCsrf)
     } else {
       // localStorage empty — fetch from Supabase and sync back
       fetch('/api/lc-session')
         .then(r => r.json())
         .then(d => {
-          if (d.lc_session && d.lc_csrf) {
-            const s = normalizeLcCookieValue(d.lc_session)
-            const t = normalizeLcCookieValue(d.lc_csrf)
+          const s = normalizeLcCookieValue(d.lc_session)
+          const t = normalizeLcCookieValue(d.lc_csrf) || getCookieFromHeader(s, 'csrftoken')
+          if (s && t) {
             setSession(s); setCsrf(t)
             localStorage.setItem('lc_session', s)
             localStorage.setItem('lc_csrf', t)
@@ -435,7 +439,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     // the component stays mounted but needs the fresh session to retry.
     const onFocus = () => {
       const s = normalizeLcCookieValue(localStorage.getItem('lc_session') ?? '')
-      const c = normalizeLcCookieValue(localStorage.getItem('lc_csrf') ?? '')
+      const c = normalizeLcCookieValue(localStorage.getItem('lc_csrf') ?? '') || getCookieFromHeader(s, 'csrftoken')
       if (s && c) { setSession(s); setCsrf(c) }
     }
     window.addEventListener('focus', onFocus)
@@ -509,7 +513,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     setLcLoad(true); setLcErr('')
 
     const requestBody = {
-      session, csrfToken: csrf,
+      session, csrfToken: effectiveCsrf,
       query: `query($s:String!){question(titleSlug:$s){questionId questionFrontendId titleSlug isPaidOnly codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`,
       variables: { s: lcSlug },
     }
@@ -559,7 +563,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       .catch(e => setLcErr(String(e)))
       .finally(() => setLcLoad(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lcSlug, retryKey, sessionReady, session, csrf, fetchQuestionPayload])
+  }, [lcSlug, retryKey, sessionReady, session, effectiveCsrf, fetchQuestionPayload])
 
   const handleCodeChange = (val: string) => setCode(val)
 
