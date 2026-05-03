@@ -58,6 +58,7 @@ export default function SpeedsterQuestionPage() {
   const [lcLoading, setLcLoading] = useState(false)
   const [lcFailed, setLcFailed] = useState(false)
   const [isPremium, setIsPremium] = useState(false)
+  const leftPanelTab = activeTab === 'editor' ? 'description' : activeTab
 
   const lcTitleSlug = question ? resolveLeetCodeSlug(question.id, question.slug) : undefined
 
@@ -235,35 +236,31 @@ export default function SpeedsterQuestionPage() {
       {/* Unified tab bar */}
       <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
         <button onClick={() => setActiveTab('description')}
-          className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'description' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+          className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'description' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
           <BookOpen size={12} /> Description
           {lcLoading && <Loader2 size={10} className="animate-spin text-[var(--text-muted)]" />}
         </button>
         {question && (
           <button onClick={() => setActiveTab('best')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
             <Sparkles size={12} /> Best answers
           </button>
         )}
         {question && (
           <button onClick={() => setActiveTab('accepted')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
             <Trophy size={12} /> My Solutions
           </button>
         )}
-        <button onClick={() => setActiveTab('editor')}
-          className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'editor' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-          💻 Editor
-        </button>
       </div>
 
       {/* Content */}
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
 
         {/* Description panel */}
-        <div className={`${activeTab !== 'editor' ? 'flex' : 'hidden'} flex-col w-full flex-1 bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
+        <div className="flex flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-hidden text-[var(--text)] border-r border-[var(--border)]">
           <div className="flex-1 overflow-y-auto p-4">
-            {activeTab === 'description' && (
+            {leftPanelTab === 'description' && (
               <>
                 {question && (question.tags || []).length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-4">
@@ -302,10 +299,10 @@ export default function SpeedsterQuestionPage() {
                 )}
               </>
             )}
-            {activeTab === 'best' && question && (
-              <BestAnswersPanel questionId={question.id} slug={lcTitleSlug ?? question.slug} active={activeTab === 'best'} />
+            {leftPanelTab === 'best' && question && (
+              <BestAnswersPanel questionId={question.id} slug={lcTitleSlug ?? question.slug} active={leftPanelTab === 'best'} />
             )}
-            {activeTab === 'accepted' && (
+            {leftPanelTab === 'accepted' && (
               <AcceptedSolutions
                 submissions={submissions} loading={subsLoading} selectedSub={selectedSub}
                 subCodeLoading={subCodeLoading} copied={copiedSub}
@@ -317,7 +314,7 @@ export default function SpeedsterQuestionPage() {
         </div>
 
         {/* Editor panel */}
-        <div className={`${activeTab === 'editor' ? 'flex' : 'hidden'} w-full flex-1 min-h-0 overflow-x-hidden`}>
+        <div className="flex flex-col w-full md:w-[58%] flex-1 min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
           {question ? (
             <LeetCodeEditor
               appQuestionId={question.id}

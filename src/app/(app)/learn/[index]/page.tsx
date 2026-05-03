@@ -139,6 +139,7 @@ function LearnInner() {
   const [editorialLoad, setEditorialLoad] = useState(false)
   const [lcSession, setLcSession]       = useState('')
   const [lcCsrf, setLcCsrf]            = useState('')
+  const leftPanelTab = activeTab === 'editor' ? 'description' : activeTab
 
   const rawParamIndex = params.index
   const indexSegment = Array.isArray(rawParamIndex) ? rawParamIndex[0] : rawParamIndex
@@ -760,47 +761,43 @@ function LearnInner() {
         {/* Unified tab bar */}
         <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
           <button onClick={() => setActiveTab('description')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
             <BookOpen size={12} /> Description
             {lcLoading && <Loader2 size={10} className="animate-spin text-[var(--text-muted)]" />}
           </button>
           {studyMode !== 'hide' && (
             <button onClick={() => setActiveTab('editorial')}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'editorial' ? 'border-purple-500 text-purple-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'editorial' ? 'border-purple-500 text-purple-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
               <FileText size={12} /> Editorial
             </button>
           )}
           {studyMode !== 'hide' && (
             <button onClick={() => setActiveTab('best')}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
               <Sparkles size={12} /> Best answers
             </button>
           )}
           {studyMode !== 'hide' && (
             <button onClick={() => setActiveTab('accepted')}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
               🏆 My Solutions
             </button>
           )}
-          <button onClick={() => setActiveTab('editor')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${activeTab === 'editor' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-            💻 Editor
-          </button>
           <button onClick={() => setStudyMode(prev => prev === 'hide' ? 'show' : 'hide')}
             className={`ml-auto flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors shrink-0 ${studyMode === 'hide' ? 'text-orange-500 hover:text-orange-600' : 'text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
             🧠 {studyMode === 'hide' ? 'Challenge Mode' : 'Review Mode'}
           </button>
         </div>
-        <div className="relative z-0 flex flex-col min-h-0 flex-1 overflow-hidden">
+        <div className="relative z-0 flex flex-col md:flex-row min-h-0 flex-1 overflow-hidden">
 
           {/* ── Content panel (all non-editor tabs) ── */}
-          <div className={`${activeTab !== 'editor' ? 'flex' : 'hidden'} flex-col w-full flex-1 bg-[var(--bg-card)] overflow-hidden text-[var(--text)]`}>
+          <div className="flex flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-hidden text-[var(--text)] border-r border-[var(--border)]">
 
             {/* Panel content */}
             <div className="flex-1 overflow-y-auto">
 
               {/* ── Description tab ── */}
-              {activeTab === 'description' && (
+              {leftPanelTab === 'description' && (
                 <div className="p-4 space-y-4">
 
                   {/* Title + meta */}
@@ -931,12 +928,12 @@ function LearnInner() {
                 </div>
               )}
 
-              {activeTab === 'best' && (
+              {leftPanelTab === 'best' && (
                 <div className="p-4 h-full">
-                  <BestAnswersPanel questionId={q.id} slug={lcTitleSlug ?? q.slug} active={activeTab === 'best'} />
+                  <BestAnswersPanel questionId={q.id} slug={lcTitleSlug ?? q.slug} active={leftPanelTab === 'best'} />
                 </div>
               )}
-              {activeTab === 'editorial' && (
+              {leftPanelTab === 'editorial' && (
                 <div className="p-4 space-y-4">
                   <div className="rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                     <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-indigo-50 to-white border-b border-gray-200">
@@ -1001,7 +998,7 @@ function LearnInner() {
                   </div>
                 </div>
               )}
-              {activeTab === 'accepted' && (
+              {leftPanelTab === 'accepted' && (
                 <div className="p-4 h-full">
                   <AcceptedSolutions
                     submissions={submissions} loading={subsLoading}
@@ -1014,7 +1011,7 @@ function LearnInner() {
           </div>
 
           {/* ── Editor panel ── */}
-          <div className={`${activeTab === 'editor' ? 'flex flex-col' : 'hidden'} w-full flex-1 min-h-0 overflow-x-hidden`}>
+          <div className="flex flex-col w-full md:w-[58%] flex-1 min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
             <LeetCodeEditor appQuestionId={q.id} slug={q.slug} onAccepted={due && !reviewDone ? handleCompleteReview : undefined} />
           </div>
         </div>
