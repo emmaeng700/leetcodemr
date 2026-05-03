@@ -4,8 +4,9 @@ import { useRouter } from 'next/navigation'
 import { Brain, CheckCircle2, ChevronRight, Lock, Trophy } from 'lucide-react'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
-import { getMasteryRunsByQuestion, getProgress } from '@/lib/db'
+import { getMasteryRunsByQuestion, getProgress, resetMasteryRuns } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import toast from 'react-hot-toast'
 
 type Question = {
   id: number
@@ -36,6 +37,7 @@ export default function ImbibitionPage() {
   const [progress, setProgress] = useState<Record<string, { solved?: boolean }>>({})
   const [runs, setRuns] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
+  const [resetting, setResetting] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -89,6 +91,22 @@ export default function ImbibitionPage() {
     router.push(`/practice/${row.questions[idx].id}?from=imbibition`)
   }
 
+  const handleResetAllRuns = async () => {
+    if (resetting) return
+    const ok = window.confirm('Reset all Imbibition /3 counters back to 0/3? Solved questions will stay solved.')
+    if (!ok) return
+    setResetting(true)
+    const res = await resetMasteryRuns()
+    if (!res.ok) {
+      toast.error(`Couldn't reset Imbibition counters: ${res.error ?? 'unknown error'}`)
+      setResetting(false)
+      return
+    }
+    setRuns({})
+    toast.success('All Imbibition counters reset to 0/3')
+    setResetting(false)
+  }
+
   if (loading) {
     return <div className="text-center py-32 text-[var(--text-subtle)] animate-pulse text-sm">Loading imbibition…</div>
   }
@@ -98,9 +116,19 @@ export default function ImbibitionPage() {
       <h1 className="text-2xl font-bold text-[var(--text)] mb-1 flex items-center gap-2">
         <Brain className="text-cyan-600" /> Imbibition
       </h1>
-      <p className="text-sm text-[var(--text-subtle)] mb-6">
-        Reinforce solved questions by topic. Each question must be solved <strong className="text-[var(--text-muted)]">3 times</strong> before the next one in that lane unlocks.
-      </p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-[var(--text-subtle)]">
+          Reinforce solved questions by topic. Each question must be solved <strong className="text-[var(--text-muted)]">3 times</strong> before the next one in that lane unlocks.
+        </p>
+        <button
+          type="button"
+          onClick={handleResetAllRuns}
+          disabled={resetting}
+          className="shrink-0 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
+        >
+          {resetting ? 'Resetting…' : 'Reset all /3 counters'}
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 text-center">

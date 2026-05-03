@@ -198,6 +198,21 @@ export async function getMasteryRunsByQuestion(): Promise<Record<string, number>
   return out
 }
 
+export async function resetMasteryRuns(questionIds?: number[]) {
+  let query = supabase
+    .from('mastery_run_events')
+    .delete()
+    .eq('user_id', USER_ID)
+
+  if (questionIds && questionIds.length > 0) {
+    query = query.in('question_id', questionIds)
+  }
+
+  const { error } = await query
+  if (error) console.error('[db] resetMasteryRuns:', error.message)
+  return { ok: !error, error: error?.message ?? null }
+}
+
 // ─── Activity & Solved Logs ───────────────────────────────────────────────────
 export async function logSolvedToday() {
   // IMPORTANT: solved_log is used for Random-mode daily quota + streak checks.
