@@ -267,6 +267,10 @@ export default function PracticePage() {
   async function handleAcceptedRun() {
     if (!question || !usesThreeSolveGate) return
     const before = modeRuns[String(question.id)] ?? 0
+    const currentIdx = planOrder.indexOf(question.id)
+    const nextQuestionId = currentIdx >= 0 ? planOrder[currentIdx + 1] : null
+    const navSuffix = isReviewMode ? '?from=review' : '?from=imbibition'
+    const autoAdvanceId = before >= 3 ? (queuedNextId ?? nextQuestionId) : null
     const res = await addMasteryRunEvent(question.id, 1)
     if (!res.ok) {
       toast.error(`Couldn't save mastery run: ${res.error ?? 'unknown error'}`)
@@ -275,8 +279,6 @@ export default function PracticePage() {
     const after = Math.min(before + 1, 3)
     setModeRuns(prev => ({ ...prev, [String(question.id)]: (prev[String(question.id)] ?? 0) + 1 }))
 
-    const currentIdx = planOrder.indexOf(question.id)
-    const nextQuestionId = currentIdx >= 0 ? planOrder[currentIdx + 1] : null
     const nextQuestion = nextQuestionId ? allQuestions.find(q => q.id === nextQuestionId) ?? null : null
     const modeLabel = isImbibitionMode ? 'Imbibition' : 'Review'
 
@@ -300,6 +302,10 @@ export default function PracticePage() {
 
     if (isReviewMode && due && !reviewDone && after >= 3) {
       await handleCompleteReview()
+    }
+
+    if (autoAdvanceId) {
+      router.push(`/practice/${autoAdvanceId}${navSuffix}`)
     }
   }
 

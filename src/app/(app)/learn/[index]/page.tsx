@@ -445,6 +445,7 @@ function LearnInner() {
   const handleAcceptedRun = async () => {
     if (!q) return
     const before = runs[String(q.id)] ?? 0
+    const nextQuestion = gatedIdx < filtered.length - 1 ? filtered[gatedIdx + 1] : null
     const res = await addMasteryRunEvent(q.id, 1)
     if (!res.ok) {
       toast.error(`Couldn't save mastery run: ${res.error ?? 'unknown error'}`)
@@ -453,7 +454,6 @@ function LearnInner() {
     const rawAfter = before + 1
     const after = Math.min(rawAfter, 3)
     setRuns(prev => ({ ...prev, [String(q.id)]: rawAfter }))
-    const nextQuestion = gatedIdx < filtered.length - 1 ? filtered[gatedIdx + 1] : null
     if (after >= 3) {
       toast.success(
         nextQuestion
@@ -463,6 +463,10 @@ function LearnInner() {
       )
     } else {
       toast.success(`Learn progress: ${after}/3`, { duration: 3000 })
+    }
+
+    if (before >= 3 && nextQuestion) {
+      router.push(`/learn/${gatedIdx + 1}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
     }
   }
 
