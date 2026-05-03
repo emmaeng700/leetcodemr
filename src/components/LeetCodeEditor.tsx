@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import {
   Play, Send, Loader2, CheckCircle, XCircle, Clock, Cpu,
@@ -15,6 +15,7 @@ import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSo
 import toast from 'react-hot-toast'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
+type SupportedLang = 'python3' | 'cpp' | 'javascript'
 
 /* ─── Types ──────────────────────────────────────────────── */
 interface LCQuestion {
@@ -59,8 +60,9 @@ const STATUS_CLS: Record<number, string> = {
   10: 'text-green-500', 11: 'text-red-500', 12: 'text-red-500',
   13: 'text-red-500', 14: 'text-orange-500', 15: 'text-red-500', 20: 'text-red-500',
 }
-const LANG_LC: Record<string, string> = { python3: 'python3', cpp: 'cpp' }
-const LANG_LABEL: Record<string, string> = { python3: 'Python 3', cpp: 'C++' }
+const LANG_LC: Record<SupportedLang, string> = { python3: 'python3', cpp: 'cpp', javascript: 'javascript' }
+const LANG_LABEL: Record<SupportedLang, string> = { python3: 'Python 3', cpp: 'C++', javascript: 'JavaScript' }
+const SUPPORTED_LANGS: SupportedLang[] = ['python3', 'cpp', 'javascript']
 
 /* ─── Pre-submit syntax checker ─────────────────────────── */
 /**
@@ -314,7 +316,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [lcErr,   setLcErr]   = useState('')
 
   /* Editor */
-  const [lang,        setLang]       = useState<'python3' | 'cpp'>('python3')
+  const [lang,        setLang]       = useState<SupportedLang>('python3')
   const [code,        setCode]       = useState('')
   const [retryKey,    setRetryKey]   = useState(0)
   const [extensions,  setExtensions] = useState<any[]>([])
@@ -339,6 +341,13 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [showSessionHint, setShowSessionHint] = useState(false)
   const [localConnector, setLocalConnector] = useState<{ ok: boolean; authed: boolean } | null>(null)
   const [extBridgeOn, setExtBridgeOn] = useState(false)
+  const availableLangs = useMemo<SupportedLang[]>(() => {
+    const langs = (lcQ?.codeSnippets ?? [])
+      .map(s => s.langSlug)
+      .filter((slug): slug is SupportedLang => SUPPORTED_LANGS.includes(slug as SupportedLang))
+    const unique = Array.from(new Set(langs))
+    return unique.length ? unique : ['python3', 'cpp']
+  }, [lcQ])
 
   /* ── My Solutions modal UX: ESC close + lock background scroll ── */
   useEffect(() => {
@@ -463,8 +472,9 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           cursorPosRef.current = { from: sel.from, to: sel.to }
         }
       })
+      const languageExtension = lang === 'python3' ? python() : lang === 'cpp' ? cpp() : []
       setExtensions([
-        lang === 'python3' ? python() : cpp(),
+        languageExtension,
         keys,
         indentationMarkers(),
         cursorTracker,
@@ -523,7 +533,13 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         const parsed = parseCases(q.exampleTestcases ?? '', q.metaData ?? '{}')
         setCases(parsed); setActiveCase(0); setTestInput(parsed[0]?.raw ?? '')
         // Always start fresh with LeetCode's starter code (normalised)
-        const raw = q.codeSnippets?.find(s => s.langSlug === lang)?.code ?? ''
+        const supportedSnippets = q.codeSnippets?.filter(s => SUPPORTED_LANGS.includes(s.langSlug as SupportedLang)) ?? []
+        const nextLang: SupportedLang =
+          supportedSnippets.find(s => s.langSlug === lang)?.langSlug as SupportedLang
+          || (supportedSnippets[0]?.langSlug as SupportedLang | undefined)
+          || 'python3'
+        if (nextLang !== lang) setLang(nextLang)
+        const raw = q.codeSnippets?.find(s => s.langSlug === nextLang)?.code ?? ''
         setCode(raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\t/g, '    '))
       })
       .catch(e => setLcErr(String(e)))
@@ -547,7 +563,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     setResultErr('')
   }, [lcQ, lang])
 
-  const switchLang = (l: 'python3' | 'cpp') => {
+  const switchLang = (l: SupportedLang) => {
     setLang(l)
     if (lcQ) setCode(normalizeCode(lcQ.codeSnippets?.find(s => s.langSlug === l)?.code ?? ''))
     setResult(null)
@@ -721,7 +737,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         <div className="flex items-center gap-2 px-3 py-2">
           {/* Language picker */}
           <div className="flex gap-1 shrink-0">
-            {(['python3', 'cpp'] as const).map(l => (
+            {availableLangs.map(l => (
               <button key={l} onClick={() => switchLang(l)}
                 style={{ touchAction: 'manipulation' }}
                 className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg transition ${lang === l ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'}`}>
