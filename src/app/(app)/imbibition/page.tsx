@@ -277,6 +277,38 @@ export default function ImbibitionPage() {
         </div>
       </div>
 
+      {/* ── Levels overview ── */}
+      {rows.some(r => r.questions.length > 0) && (
+        <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] p-4 mb-6">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-[var(--text-subtle)] mb-3">Pattern Levels</h2>
+          <div className="flex flex-wrap gap-2">
+            {rows.filter(r => r.questions.length > 0).map(row => {
+              const lv = levels[row.pattern] ?? 1
+              const name = LEVEL_NAMES[lv - 1]
+              const c = LEVEL_COLOUR[lv] ?? LEVEL_COLOUR[1]
+              const isMax = lv >= MAX_LEVEL
+              return (
+                <button
+                  key={row.pattern}
+                  type="button"
+                  onClick={() => {
+                    const el = sectionRefs.current[row.pattern]
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-opacity hover:opacity-80 ${c.bg} ${c.text} ${c.border}`}
+                >
+                  {isMax && <span>👑</span>}
+                  <span className="max-w-[10rem] truncate">{row.pattern}</span>
+                  <span className="opacity-60">·</span>
+                  <span>Lv {lv}</span>
+                  <span className="opacity-70 font-normal">{name}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {rows.length === 0 ? (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-8 text-center">
           <p className="text-sm text-[var(--text-muted)]">No solved questions yet. Mark questions solved and they'll appear here by topic.</p>
