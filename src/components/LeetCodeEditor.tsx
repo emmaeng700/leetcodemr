@@ -769,7 +769,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
   /* ══ RENDER ══════════════════════════════════════════════ */
   return (
-    <div className="relative flex flex-col overflow-x-hidden rounded-none sm:rounded-xl border-0 sm:border border-gray-700/50 bg-[#1a1a2e] flex-1 min-h-[34rem] sm:min-h-0 w-full">
+    <div className="relative flex flex-col overflow-x-hidden rounded-none sm:rounded-xl border-0 sm:border border-gray-700/50 bg-[#1a1a2e] flex-1 min-h-[38rem] sm:min-h-0 w-full">
       <style>{`
         /* Responsive CodeMirror font sizing (phone → desktop) */
         .cm-editor { font-size: clamp(10.5px, 2.4vw, 12.5px); line-height: 1.55; }
@@ -783,7 +783,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         .cm-editor { touch-action: none; }
         .cm-editor, .cm-content { max-width: 100%; }
         @media (max-width: 639px) {
-          .cm-editor { font-size: 11.5px; line-height: 1.6; }
+          .cm-editor { font-size: 12px; line-height: 1.68; }
           .cm-scroller { overflow-x: hidden !important; }
           .cm-content, .cm-line { white-space: pre-wrap; word-break: break-all; }
         }
@@ -792,7 +792,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       {/* ── Toolbar ── */}
       <div className="relative z-10 bg-[#16213e] border-b border-gray-700/50 shrink-0">
         {/* Row 1: language picker + session warning */}
-        <div className="flex items-center gap-2 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2">
           {/* Language picker */}
           <div className="flex gap-1 shrink-0">
             {availableLangs.map(l => (
@@ -804,13 +804,13 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
             ))}
           </div>
 
-          <div className="flex-1" />
+          <div className="hidden sm:block flex-1" />
 
 
           {/* Session button — always visible so session can be updated any time */}
           <button onClick={() => setShowSessionHint(h => !h)}
             style={{ touchAction: 'manipulation' }}
-            className={`flex items-center gap-1 text-xs transition shrink-0 ${sessionOK ? 'text-gray-500 hover:text-gray-300' : 'text-orange-400 hover:text-orange-300'}`}>
+            className={`ml-auto sm:ml-0 flex items-center gap-1 text-xs transition shrink-0 ${sessionOK ? 'text-gray-500 hover:text-gray-300' : 'text-orange-400 hover:text-orange-300'}`}>
             <Key size={11} />
             <span className="hidden sm:inline">{sessionOK ? 'Session' : 'Setup session'}</span>
             <span className="sm:hidden text-[10px]">Session</span>
@@ -1010,7 +1010,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
       {/* ── CodeMirror ── */}
       {!lcLoad && !lcErr && (
-        <div className="flex-1 overflow-hidden min-h-[50svh] sm:min-h-0 w-full">
+        <div className="flex-1 overflow-hidden min-h-[58svh] sm:min-h-0 w-full">
           <CodeMirror
             key={`${lang}-${editorResetKey}`}
             value={code}
@@ -1035,7 +1035,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       )}
 
       {/* ── Bottom panel ── */}
-      <div className="h-32 sm:h-52 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
+      <div className="h-28 sm:h-52 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
         {/* Tabs */}
         <div className="flex items-center border-b border-gray-700/50 shrink-0 overflow-x-auto scrollbar-none">
           {(['testcase', 'result', 'solutions'] as const).map(tab => {

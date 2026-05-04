@@ -1089,7 +1089,7 @@ function LearnInner() {
           </div>
 
           {/* ── Editor panel ── */}
-          <div className="flex flex-col w-full md:w-[58%] flex-1 min-h-[24rem] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
+          <div className="flex flex-col w-full md:w-[58%] flex-1 min-h-[30rem] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
             <LeetCodeEditor
               appQuestionId={q.id}
               slug={q.slug}
@@ -1118,7 +1118,7 @@ function LearnInner() {
 
 export default function LearnPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-[calc(100dvh-56px)] text-gray-400 text-sm gap-2"><Loader2 size={16} className="animate-spin" /> Loading…</div>}>
+    <Suspense fallback={<div className="flex min-h-[calc(100dvh-56px)] items-center justify-center text-gray-400 text-sm gap-2"><Loader2 size={16} className="animate-spin" /> Loading…</div>}>
       <LearnInner />
     </Suspense>
   )

@@ -445,13 +445,13 @@ export default function LeetCodePage() {
 
   /*  ══ RENDER ══════════════════════════════════════════════ */
   if (!online) return (
-    <div className="flex flex-col items-center justify-center h-[calc(100dvh-56px)] gap-4 text-center px-4">
+    <div className="flex min-h-[calc(100dvh-56px)] flex-col items-center justify-center gap-4 text-center px-4">
       <OfflineBanner feature="LeetCode section" />
     </div>
   )
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-56px)] bg-[#1a1a2e] text-gray-100 overflow-hidden">
+    <div className="flex min-h-[calc(100dvh-56px)] flex-col md:h-[calc(100dvh-56px)] bg-[#1a1a2e] text-gray-100 overflow-visible md:overflow-hidden">
 
       {/* ── Top bar ──────────────────────────────────────── */}
       <div className="relative z-40 flex flex-col gap-1.5 px-3 pt-2 pb-2 bg-[#16213e] border-b border-gray-700/50 shrink-0 overflow-visible">
@@ -654,7 +654,7 @@ export default function LeetCodePage() {
         </div>
       ) : question && (
         /* ── Split layout ── */
-        <div className="relative z-0 flex-1 flex flex-col sm:flex-row overflow-hidden">
+        <div className="relative z-0 flex-1 flex flex-col sm:flex-row overflow-visible sm:overflow-hidden">
 
           {/* Mobile tab switcher */}
           <div className="sm:hidden flex border-b border-gray-700/50 bg-[#16213e] shrink-0">
@@ -667,7 +667,7 @@ export default function LeetCodePage() {
           </div>
 
           {/* LEFT PANEL — Description */}
-          <div className={`${mobilePanel === 'desc' ? 'flex' : 'hidden'} sm:flex w-full sm:w-[42%] flex-col border-r border-gray-700/50 overflow-hidden`}>
+          <div className={`${mobilePanel === 'desc' ? 'flex' : 'hidden'} sm:flex w-full sm:w-[42%] flex-col border-r border-gray-700/50 overflow-visible sm:overflow-hidden`}>
             {/* Left tabs */}
             <div className="flex overflow-x-auto border-b border-gray-700/50 shrink-0 bg-[#16213e] scrollbar-none">
               {(['description', 'editorial', 'best', 'accepted', 'profile'] as const).map(tab => (
@@ -912,7 +912,7 @@ export default function LeetCodePage() {
           </div>
 
           {/* RIGHT PANEL — Shared editor */}
-          <div className={`${mobilePanel === 'code' ? 'flex' : 'hidden'} sm:flex flex-1 flex-col overflow-hidden`}>
+          <div className={`${mobilePanel === 'code' ? 'flex' : 'hidden'} sm:flex flex-1 flex-col min-h-[30rem] sm:min-h-0 overflow-x-hidden`}>
             <LeetCodeEditor appQuestionId={matchId || 0} slug={question.titleSlug} syncToApp={matchId > 0} />
           </div>
         </div>
@@ -920,4 +920,3 @@ export default function LeetCodePage() {
     </div>
   )
 }
-

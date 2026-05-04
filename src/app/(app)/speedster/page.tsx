@@ -858,7 +858,7 @@ export default function SpeedsterPage() {
   return (
     <>
       {/* ── MOBILE layout: full viewport height, tab-switched panels ── */}
-      <div className="flex flex-col md:hidden h-[calc(100dvh-56px)]">
+      <div className="flex min-h-[calc(100dvh-56px)] flex-col md:hidden">
         {/* Tab bar */}
         <div className="flex border-b border-gray-100 bg-white shrink-0">
           <button
@@ -881,7 +881,7 @@ export default function SpeedsterPage() {
         </div>
 
         {/* Editor panel — exact same wrapper as learn page */}
-        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} flex-1 min-h-0 overflow-x-hidden`}>
+        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} flex-1 min-h-[30rem] overflow-x-hidden`}>
           {editorContent}
         </div>
       </div>

@@ -319,7 +319,7 @@ export default function SpeedsterQuestionPage() {
         </div>
 
         {/* Editor panel */}
-        <div className="relative z-0 flex flex-col w-full md:w-[58%] flex-1 min-h-[24rem] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
+        <div className="relative z-0 flex flex-col w-full md:w-[58%] flex-1 min-h-[30rem] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
           {question ? (
             <LeetCodeEditor
               appQuestionId={question.id}

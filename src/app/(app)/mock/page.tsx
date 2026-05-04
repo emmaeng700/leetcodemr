@@ -347,7 +347,7 @@ export default function MockInterviewPage() {
 
   /* ── ACTIVE ── */
   if (phase === 'active' && question) return (
-    <div className="flex flex-col h-[calc(100dvh-56px)]">
+    <div className="flex min-h-[calc(100dvh-56px)] flex-col md:h-[calc(100dvh-56px)]">
       {/* Timer top bar */}
       <div className={`relative z-[80] flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 md:pr-44 lg:pr-48 border-b shrink-0 ${urgent ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-200'}`}>
         {/* Countdown */}
@@ -424,10 +424,10 @@ export default function MockInterviewPage() {
       </div>
 
       {/* Split layout */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-visible md:overflow-hidden">
 
         {/* LEFT — question */}
-        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-[var(--border)] overflow-hidden bg-[var(--bg-card)]`}>
+        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-[var(--border)] overflow-visible md:overflow-hidden bg-[var(--bg-card)]`}>
           <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
             <button onClick={() => setLeftTab('description')}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
