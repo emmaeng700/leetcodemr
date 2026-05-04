@@ -180,20 +180,31 @@ export async function addMasteryRunEvent(questionId: number, count = 1) {
 }
 
 export async function getMasteryRunsByQuestion(): Promise<Record<string, number>> {
+  // Aggregate on the DB side so we transfer one row per question, not one per event.
   const { data, error } = await supabase
-    .from('mastery_run_events')
-    .select('question_id')
-    .eq('user_id', USER_ID)
+    .rpc('get_mastery_run_counts', { p_user_id: USER_ID })
 
   if (error) {
-    console.error('[db] getMasteryRunsByQuestion:', error.message)
-    return {}
+    // Fallback: table or RPC might not exist yet — fetch raw events and count client-side.
+    const { data: raw, error: rawErr } = await supabase
+      .from('mastery_run_events')
+      .select('question_id')
+      .eq('user_id', USER_ID)
+    if (rawErr) {
+      console.error('[db] getMasteryRunsByQuestion:', rawErr.message)
+      return {}
+    }
+    const out: Record<string, number> = {}
+    for (const row of raw ?? []) {
+      const id = String((row as any).question_id)
+      out[id] = (out[id] ?? 0) + 1
+    }
+    return out
   }
 
   const out: Record<string, number> = {}
   for (const row of data ?? []) {
-    const id = String((row as any).question_id)
-    out[id] = (out[id] ?? 0) + 1
+    out[String((row as any).question_id)] = Number((row as any).run_count)
   }
   return out
 }
