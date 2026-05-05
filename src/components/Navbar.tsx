@@ -16,6 +16,7 @@ const STARRED_LINKS = [
   { href: '/review',          label: '★ Reviews',         icon: Brain },
   { href: '/imbibition',      label: '★ Imbibition',      icon: BookOpen },
   { href: '/pattern-review',  label: '★ Pattern Review',  icon: BookOpen },
+  { href: '/downloads',       label: '★ Downloads',       icon: Download },
 ]
 const STUDY_LINKS = [
   { href: '/',             label: 'Questions',    icon: Home,     also: ['/practice', '/question'] },
@@ -41,11 +42,10 @@ const TOPIC_LINKS = [
   { href: '/dsa',           label: 'DSA',           icon: Code2 },
 ]
 const META_LINKS = [
-  { href: '/sr-queue',   label: 'SR Queue',  icon: RefreshCw },
-  { href: '/pileup',     label: 'Pileup',    icon: Layers },
-  { href: '/stats',      label: 'Stats',     icon: BarChart2 },
-  { href: '/downloads',  label: 'Downloads', icon: Download },
-  { href: '/about',      label: 'About',     icon: Info },
+  { href: '/sr-queue', label: 'SR Queue', icon: RefreshCw },
+  { href: '/pileup',   label: 'Pileup',   icon: Layers },
+  { href: '/stats',    label: 'Stats',    icon: BarChart2 },
+  { href: '/about',    label: 'About',    icon: Info },
 ]
 
 const MOBILE_SECTIONS = [
