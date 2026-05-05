@@ -7,7 +7,7 @@ import {
   Menu, X, LogOut, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
   Calendar, Info, Timer, Code2, Zap, Gauge, Gamepad2, RefreshCw, Library,
-  BookOpen, Swords, Rocket,
+  BookOpen, Swords, Rocket, Download,
 } from 'lucide-react'
 
 const STARRED_LINKS = [
@@ -41,10 +41,11 @@ const TOPIC_LINKS = [
   { href: '/dsa',           label: 'DSA',           icon: Code2 },
 ]
 const META_LINKS = [
-  { href: '/sr-queue', label: 'SR Queue', icon: RefreshCw },
-  { href: '/pileup',   label: 'Pileup',   icon: Layers },
-  { href: '/stats',    label: 'Stats',    icon: BarChart2 },
-  { href: '/about',    label: 'About',    icon: Info },
+  { href: '/sr-queue',   label: 'SR Queue',  icon: RefreshCw },
+  { href: '/pileup',     label: 'Pileup',    icon: Layers },
+  { href: '/stats',      label: 'Stats',     icon: BarChart2 },
+  { href: '/downloads',  label: 'Downloads', icon: Download },
+  { href: '/about',      label: 'About',     icon: Info },
 ]
 
 const MOBILE_SECTIONS = [
