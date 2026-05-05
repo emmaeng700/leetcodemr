@@ -26,8 +26,9 @@ const DRILL_LINKS = [
 ]
 const PRACTICE_LINKS = [...STUDY_LINKS, ...DRILL_LINKS]
 const FLASHCARD_LINKS = [
-  { href: '/flashcards',   label: 'Flashcards',   icon: Layers },
-  { href: '/quick-review', label: 'Quick Review', icon: Clock },
+  { href: '/flashcards',      label: 'Flashcards',      icon: Layers },
+  { href: '/quick-review',    label: 'Quick Review',    icon: Clock },
+  { href: '/pattern-review',  label: 'Pattern Review',  icon: BookOpen },
 ]
 const TOPIC_LINKS = [
   { href: '/behavioral',    label: 'Behavioral',   icon: MessageSquare },
