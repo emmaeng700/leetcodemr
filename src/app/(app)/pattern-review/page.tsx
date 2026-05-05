@@ -59,7 +59,10 @@ export default function PatternReviewPage() {
     if (!el) return
     const container = scrollContainerRef.current
     if (container) {
-      container.scrollTo({ top: el.offsetTop - 16, behavior: 'smooth' })
+      const elTop = el.getBoundingClientRect().top
+      const containerTop = container.getBoundingClientRect().top
+      const targetScroll = container.scrollTop + (elTop - containerTop) - 8
+      container.scrollTo({ top: targetScroll, behavior: 'smooth' })
     } else {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
