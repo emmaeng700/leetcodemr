@@ -1,5 +1,5 @@
 'use client'
-import { Download, FileText, Printer, BookOpen } from 'lucide-react'
+import { Download, FileText, Printer, BookOpen, Eye } from 'lucide-react'
 
 const PDFS = [
   {
@@ -73,14 +73,25 @@ export default function DownloadsPage() {
                 </div>
               </div>
 
-              <a
-                href={`/pdfs/${file}`}
-                download={file}
-                className={`mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${accent} shadow-sm hover:opacity-90 active:scale-[0.98] transition-all`}
-              >
-                <Download size={14} />
-                Download PDF
-              </a>
+              <div className="mt-4 flex gap-2">
+                <a
+                  href={`/pdfs/${file}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 flex-1 py-2.5 rounded-xl text-sm font-semibold border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-muted)] active:scale-[0.98] transition-all"
+                >
+                  <Eye size={14} />
+                  Preview
+                </a>
+                <a
+                  href={`/pdfs/${file}`}
+                  download={file}
+                  className={`flex items-center justify-center gap-2 flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${accent} shadow-sm hover:opacity-90 active:scale-[0.98] transition-all`}
+                >
+                  <Download size={14} />
+                  Download
+                </a>
+              </div>
             </div>
           </div>
         ))}
