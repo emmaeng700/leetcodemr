@@ -10,42 +10,45 @@ import {
   BookOpen, Swords, Rocket,
 } from 'lucide-react'
 
+const STARRED_LINKS = [
+  { href: '/daily',           label: '★ Daily',           icon: Calendar },
+  { href: '/learn/0',         label: '★ Learn',           icon: BookOpen },
+  { href: '/review',          label: '★ Reviews',         icon: Brain },
+  { href: '/imbibition',      label: '★ Imbibition',      icon: BookOpen },
+  { href: '/pattern-review',  label: '★ Pattern Review',  icon: BookOpen },
+]
 const STUDY_LINKS = [
-  { href: '/',        label: 'Questions', icon: Home,     also: ['/practice', '/question'] },
-  { href: '/daily',       label: '★ Daily',       icon: Calendar },
-  { href: '/speedster', label: 'Speedster', icon: Gauge },
-  { href: '/learn/0', label: '★ Learn', icon: BookOpen },
-  { href: '/neetcode', label: 'NeetCode 150', icon: Rocket },
-  { href: '/leetcode-api', label: 'LeetCode',  icon: Zap },
-  { href: '/answers',     label: 'Answers',   icon: Library },
+  { href: '/',             label: 'Questions',    icon: Home,     also: ['/practice', '/question'] },
+  { href: '/speedster',    label: 'Speedster',    icon: Gauge },
+  { href: '/neetcode',     label: 'NeetCode 150', icon: Rocket },
+  { href: '/leetcode-api', label: 'LeetCode',     icon: Zap },
+  { href: '/answers',      label: 'Answers',      icon: Library },
 ]
 const DRILL_LINKS = [
-  { href: '/line-game',    label: 'Game',      icon: Gamepad2 },
-  { href: '/mock',         label: 'Mock',      icon: Timer },
-  { href: '/patterns',     label: 'Patterns',  icon: GitBranch },
+  { href: '/line-game', label: 'Game',     icon: Gamepad2 },
+  { href: '/mock',      label: 'Mock',     icon: Timer },
+  { href: '/patterns',  label: 'Patterns', icon: GitBranch },
 ]
 const PRACTICE_LINKS = [...STUDY_LINKS, ...DRILL_LINKS]
 const FLASHCARD_LINKS = [
-  { href: '/flashcards',      label: 'Flashcards',      icon: Layers },
-  { href: '/quick-review',    label: 'Quick Review',    icon: Clock },
-  { href: '/pattern-review',  label: 'Pattern Review',  icon: BookOpen },
+  { href: '/flashcards',   label: 'Flashcards',   icon: Layers },
+  { href: '/quick-review', label: 'Quick Review',  icon: Clock },
 ]
 const TOPIC_LINKS = [
-  { href: '/behavioral',    label: 'Behavioral',   icon: MessageSquare },
-  { href: '/system-design', label: 'System Design',icon: Server },
-  { href: '/gems',  label: 'Gems', icon: Gem },
-  { href: '/dsa',   label: 'DSA',  icon: Code2 },
+  { href: '/behavioral',    label: 'Behavioral',    icon: MessageSquare },
+  { href: '/system-design', label: 'System Design', icon: Server },
+  { href: '/gems',          label: 'Gems',          icon: Gem },
+  { href: '/dsa',           label: 'DSA',           icon: Code2 },
 ]
 const META_LINKS = [
   { href: '/sr-queue', label: 'SR Queue', icon: RefreshCw },
-  { href: '/review',  label: '★ Reviews',  icon: Brain },
-  { href: '/imbibition', label: '★ Imbibition', icon: BookOpen },
-  { href: '/pileup', label: 'Pileup', icon: Layers },
-  { href: '/stats',  label: 'Stats',   icon: BarChart2 },
-  { href: '/about',  label: 'About',   icon: Info },
+  { href: '/pileup',   label: 'Pileup',   icon: Layers },
+  { href: '/stats',    label: 'Stats',    icon: BarChart2 },
+  { href: '/about',    label: 'About',    icon: Info },
 ]
 
 const MOBILE_SECTIONS = [
+  { emoji: '⭐', label: 'Core',       group: STARRED_LINKS },
   { emoji: '⚔️', label: 'Study',      group: STUDY_LINKS },
   { emoji: '🎯', label: 'Drill',      group: DRILL_LINKS },
   { emoji: '🃏', label: 'Flashcards', group: FLASHCARD_LINKS },
@@ -120,7 +123,7 @@ export default function Navbar() {
 
         {/* ── Desktop Nav ────────────────────────────────────────── */}
         <div className="hidden md:flex flex-wrap items-center gap-1 pb-2.5">
-          {[STUDY_LINKS, DRILL_LINKS, FLASHCARD_LINKS, TOPIC_LINKS, META_LINKS].map((group, gi) => (
+          {[STARRED_LINKS, STUDY_LINKS, DRILL_LINKS, FLASHCARD_LINKS, TOPIC_LINKS, META_LINKS].map((group, gi) => (
             <React.Fragment key={gi}>
               {gi > 0 && (
                 <span className="w-px h-4 mx-1.5 shrink-0 rounded-full" style={{ background: 'var(--border)' }} />
