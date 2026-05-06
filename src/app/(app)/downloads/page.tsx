@@ -1,5 +1,4 @@
 'use client'
-import Link from 'next/link'
 import { Download, FileText, Printer, BookOpen, Eye } from 'lucide-react'
 
 const PDFS = [
@@ -75,13 +74,13 @@ export default function DownloadsPage() {
               </div>
 
               <div className="mt-4 flex gap-2">
-                <Link
-                  href={`/downloads/preview?file=${encodeURIComponent(file)}`}
+                <a
+                  href={`/pdfs/${file}`}
                   className="flex items-center justify-center gap-2 flex-1 py-2.5 rounded-xl text-sm font-semibold border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-muted)] active:scale-[0.98] transition-all"
                 >
                   <Eye size={14} />
                   Preview
-                </Link>
+                </a>
                 <a
                   href={`/api/download-pdf?file=${encodeURIComponent(file)}`}
                   className={`flex items-center justify-center gap-2 flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${accent} shadow-sm hover:opacity-90 active:scale-[0.98] transition-all`}
