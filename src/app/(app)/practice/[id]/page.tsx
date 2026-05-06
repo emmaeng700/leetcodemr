@@ -253,15 +253,21 @@ export default function PracticePage() {
   async function handleCompleteReview() {
     if (isReviewMode) await forceCurrentRunsComplete()
     if (reviewDone) return
+    let nextReviewId: number | null = null
     if (isReviewMode) {
       const remainingQueue = planOrder.filter(qid => qid !== id)
       sessionStorage.setItem('lm_review_queue', JSON.stringify(remainingQueue))
-      setQueuedNextId(remainingQueue[0] ?? null)
+      nextReviewId = remainingQueue[0] ?? null
+      setQueuedNextId(nextReviewId)
     }
     setReviewDone(true)
     const result = await completeReview(id)
     setNextReview(result.next_review)
     toast.success(`✓ Review done! Next review: ${result.next_review}`)
+    if (isReviewMode) {
+      if (nextReviewId) router.push(`/practice/${nextReviewId}?from=review`)
+      else router.push('/review')
+    }
   }
 
   async function handleAcceptedRun() {
@@ -318,15 +324,21 @@ export default function PracticePage() {
   async function handleFailReview() {
     if (isReviewMode) await forceCurrentRunsComplete()
     if (reviewDone) return
+    let nextReviewId: number | null = null
     if (isReviewMode) {
       const remainingQueue = planOrder.filter(qid => qid !== id)
       sessionStorage.setItem('lm_review_queue', JSON.stringify(remainingQueue))
-      setQueuedNextId(remainingQueue[0] ?? null)
+      nextReviewId = remainingQueue[0] ?? null
+      setQueuedNextId(nextReviewId)
     }
     setReviewDone(true)
     const result = await failReview(id)
     setNextReview(result.next_review)
     toast(`Again scheduled — next review: ${result.next_review}`)
+    if (isReviewMode) {
+      if (nextReviewId) router.push(`/practice/${nextReviewId}?from=review`)
+      else router.push('/review')
+    }
   }
 
   async function handleMarkSolved() {
