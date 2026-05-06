@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     return new NextResponse('File not found', { status: 404 })
   }
 
-  return new NextResponse(data, {
+  return new NextResponse(new Uint8Array(data), {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${file}"`,
