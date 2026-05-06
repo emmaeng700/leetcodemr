@@ -83,8 +83,7 @@ export default function DownloadsPage() {
                   Preview
                 </Link>
                 <a
-                  href={`/pdfs/${file}`}
-                  download={file}
+                  href={`/api/download-pdf?file=${encodeURIComponent(file)}`}
                   className={`flex items-center justify-center gap-2 flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${accent} shadow-sm hover:opacity-90 active:scale-[0.98] transition-all`}
                 >
                   <Download size={14} />
