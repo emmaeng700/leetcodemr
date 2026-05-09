@@ -104,6 +104,7 @@ export default function ImbibitionPage() {
   const [levels, setLevels] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [resetting, setResetting] = useState(false)
+  const [confirmResetRuns, setConfirmResetRuns] = useState(false)
   const [resettingLevels, setResettingLevels] = useState(false)
   const [confirmResetLevels, setConfirmResetLevels] = useState(false)
   const [levelingUp, setLevelingUp] = useState<string | null>(null) // pattern name being levelled
@@ -237,8 +238,12 @@ export default function ImbibitionPage() {
 
   const handleResetAllRuns = async () => {
     if (resetting) return
-    const ok = window.confirm('Reset all Imbibition /3 counters back to 0/3? Solved questions will stay solved.')
-    if (!ok) return
+    if (!confirmResetRuns) {
+      setConfirmResetRuns(true)
+      setTimeout(() => setConfirmResetRuns(false), 4000)
+      return
+    }
+    setConfirmResetRuns(false)
     setResetting(true)
     const res = await resetImbibitionRuns()
     if (!res.ok) {
@@ -331,11 +336,15 @@ export default function ImbibitionPage() {
           </button>
           <button
             type="button"
-            onClick={handleResetAllRuns}
-            disabled={resetting}
-            className="shrink-0 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
+            onPointerDown={e => { e.preventDefault(); handleResetAllRuns() }}
+            style={{ touchAction: 'manipulation', opacity: resetting ? 0.5 : 1 }}
+            className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${
+              confirmResetRuns
+                ? 'border-red-400 bg-red-100 text-red-700 hover:bg-red-200'
+                : 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+            }`}
           >
-            {resetting ? 'Resetting…' : 'Reset all /3 counters'}
+            {resetting ? 'Resetting…' : confirmResetRuns ? 'Tap again to confirm' : 'Reset all /3 counters'}
           </button>
         </div>
       </div>
