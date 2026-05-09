@@ -795,13 +795,50 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         .cm-content, .cm-line { word-break: normal; white-space: pre; }
         .cm-editor { touch-action: none; }
         .cm-editor, .cm-content { max-width: 100%; }
+        .cm-tooltip {
+          background: #313641 !important;
+          border: 1px solid rgba(99, 102, 241, 0.24) !important;
+          color: #e5e7eb !important;
+          box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42) !important;
+        }
+        .cm-tooltip-autocomplete {
+          z-index: 80 !important;
+          overflow: hidden;
+        }
+        .cm-tooltip-autocomplete > ul {
+          background: #313641 !important;
+          color: #e5e7eb !important;
+        }
+        .cm-tooltip-autocomplete > ul > li {
+          background: transparent !important;
+          color: #e5e7eb !important;
+          border: 0 !important;
+        }
+        .cm-tooltip-autocomplete > ul > li[aria-selected] {
+          background: #414857 !important;
+          color: #ffffff !important;
+        }
+        .cm-completionDetail {
+          color: #cbd5e1 !important;
+        }
+        .cm-completionMatchedText {
+          color: #ffffff !important;
+          text-decoration-color: rgba(129, 140, 248, 0.7) !important;
+        }
         @media (max-width: 639px) {
-          .cm-editor { font-size: 8.5px !important; line-height: 1.4; }
+          .cm-editor { font-size: 11.5px !important; line-height: 1.6; }
           .cm-scroller { overflow-x: auto !important; }
           .cm-content, .cm-line { white-space: pre !important; word-break: normal !important; }
+          .cm-tooltip,
+          .cm-tooltip-autocomplete > ul {
+            background: #353b49 !important;
+          }
+          .cm-tooltip-autocomplete > ul > li[aria-selected] {
+            background: #495163 !important;
+          }
         }
         /* Fullscreen portal: same small font + horizontal scroll (no wrapping) */
-        .lc-fs-portal .cm-editor { font-size: 8.5px !important; line-height: 1.4 !important; }
+        .lc-fs-portal .cm-editor { font-size: 11.5px !important; line-height: 1.6 !important; }
         .lc-fs-portal .cm-scroller { overflow-x: auto !important; }
         .lc-fs-portal .cm-content, .lc-fs-portal .cm-line { white-space: pre !important; word-break: normal !important; }
       `}</style>

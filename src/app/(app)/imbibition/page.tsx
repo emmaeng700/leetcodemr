@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation'
 import { Brain, CheckCircle2, ChevronRight, Lock, Trophy, ArrowUpCircle } from 'lucide-react'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
-import { getMasteryRunsByQuestion, getProgress, resetMasteryRuns } from '@/lib/db'
+import { getProgress } from '@/lib/db'
+import { getImbibitionRunsByQuestion, resetImbibitionRuns } from '@/lib/imbibitionRuns'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
 
@@ -113,7 +114,7 @@ export default function ImbibitionPage() {
     Promise.all([
       fetch('/questions_full.json').then(r => r.json()),
       getProgress(),
-      getMasteryRunsByQuestion(),
+      getImbibitionRunsByQuestion(),
     ]).then(([qs, prog, masteryRuns]) => {
       setQuestions(qs as Question[])
       setProgress(prog)
@@ -162,7 +163,7 @@ export default function ImbibitionPage() {
 
     setLevelingUp(patternName)
     const questionIds = row.questions.map(q => q.id)
-    const res = await resetMasteryRuns(questionIds)
+    const res = await resetImbibitionRuns(questionIds)
     if (!res.ok) {
       toast.error(`Couldn't level up ${patternName}: ${res.error ?? 'unknown error'}`)
       setLevelingUp(null)
@@ -224,7 +225,7 @@ export default function ImbibitionPage() {
     const ok = window.confirm('Reset all Imbibition /3 counters back to 0/3? Solved questions will stay solved.')
     if (!ok) return
     setResetting(true)
-    const res = await resetMasteryRuns()
+    const res = await resetImbibitionRuns()
     if (!res.ok) {
       toast.error(`Couldn't reset Imbibition counters: ${res.error ?? 'unknown error'}`)
       setResetting(false)

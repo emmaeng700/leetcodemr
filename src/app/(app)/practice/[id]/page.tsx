@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan, addMasteryRunEvent, getMasteryRunsByQuestion } from '@/lib/db'
+import { addImbibitionRunEvent, getImbibitionRunsByQuestion } from '@/lib/imbibitionRuns'
 import { formatTime, isDue, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import { getPatternForQuestion } from '@/lib/patternUtils'
@@ -131,12 +132,14 @@ export default function PracticePage() {
       setNextReview(prog[String(id)]?.next_review ?? null)
       progressRef.current = prog
       if (usesThreeSolveGate) {
-        const masteryRuns = await getMasteryRunsByQuestion()
+        const masteryRuns = isImbibitionMode
+          ? await getImbibitionRunsByQuestion()
+          : await getMasteryRunsByQuestion()
         setModeRuns(masteryRuns)
       }
     }
     load()
-  }, [id, usesThreeSolveGate, isReviewMode])
+  }, [id, usesThreeSolveGate, isReviewMode, isImbibitionMode])
 
   useEffect(() => {
     if (!question) return
@@ -244,7 +247,9 @@ export default function PracticePage() {
     if (current >= 3) return
     const missing = 3 - current
     setModeRuns(prev => ({ ...prev, [String(question.id)]: 3 }))
-    const res = await addMasteryRunEvent(question.id, missing)
+    const res = isImbibitionMode
+      ? await addImbibitionRunEvent(question.id, missing)
+      : await addMasteryRunEvent(question.id, missing)
     if (!res.ok) {
       toast.error(`Couldn't fully sync ${isImbibitionMode ? 'imbibition' : 'review'} reps: ${res.error ?? 'unknown error'}`)
     }
@@ -276,7 +281,9 @@ export default function PracticePage() {
     const currentIdx = planOrder.indexOf(question.id)
     const nextQuestionId = currentIdx >= 0 ? planOrder[currentIdx + 1] : null
     const navSuffix = isReviewMode ? '?from=review' : '?from=imbibition'
-    const res = await addMasteryRunEvent(question.id, 1)
+    const res = isImbibitionMode
+      ? await addImbibitionRunEvent(question.id, 1)
+      : await addMasteryRunEvent(question.id, 1)
     if (!res.ok) {
       toast.error(`Couldn't save mastery run: ${res.error ?? 'unknown error'}`)
       return
