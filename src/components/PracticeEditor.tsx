@@ -75,6 +75,7 @@ export default function PracticeEditor({ questionId, slug, starterPython, starte
   const [output, setOutput] = useState<string | null>(null)
   const [showOutput, setShowOutput] = useState(false)
   const editorViewRef = useRef<any>(null)
+  const portalViewRef = useRef<any>(null)
 
   const storageKey = `practice_v7_${questionId}_${lang}`
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -369,7 +370,7 @@ int main() {
   }, [])
 
   const insert = useCallback((key: { k: string; v?: string; c?: number; action?: string }) => {
-    const view = editorViewRef.current
+    const view = portalViewRef.current ?? editorViewRef.current
     if (!view) return
 
     if (key.action === 'newline') {
@@ -406,145 +407,225 @@ int main() {
 
   const toolbar = TOOLBAR[lang]
 
-  const expandedWrap = editorExpanded
-    ? 'fixed inset-0 z-50 flex flex-col bg-[#1e1e2e]'
-    : 'bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden'
+  // Shared header / toolbar / footer JSX helpers (used in both normal and portal views)
+  const langToggle = (
+    <div className="flex items-center gap-1 bg-[#313244] rounded-lg p-0.5">
+      {(['python', 'cpp'] as const).map(l => (
+        <button key={l} onPointerDown={e => e.preventDefault()} onClick={() => setLang(l)}
+          className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
+            lang === l
+              ? l === 'python' ? 'bg-blue-600 text-white' : 'bg-purple-600 text-white'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}>
+          {l === 'python' ? 'Python' : 'C++'}
+        </button>
+      ))}
+    </div>
+  )
 
-  return (
-    <div className={expandedWrap}>
-      <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-[#181825] border-b border-gray-700 flex-wrap">
-        <div className="flex items-center gap-2 min-w-0">
-          <Code2 size={14} className="text-indigo-400 shrink-0" />
-          <span className="text-xs font-bold text-gray-200 truncate">Practice — write it from memory</span>
-          {slug && (
-            <a
-              href={leetCodeUrl(slug)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              className="flex items-center gap-1 text-xs text-yellow-400 hover:text-yellow-300 transition-colors shrink-0 ml-1"
-              title="Open on LeetCode"
-            >
-              <ExternalLink size={11} />
-              <span className="hidden sm:inline">LeetCode</span>
-            </a>
-          )}
-          {saved && <span className="text-xs text-green-400 ml-1 shrink-0">saved ✓</span>}
-        </div>
-        <div className="flex items-center gap-1 bg-[#313244] rounded-lg p-0.5">
-          {(['python', 'cpp'] as const).map(l => (
-            <button key={l} onClick={() => setLang(l)}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
-                lang === l
-                  ? l === 'python' ? 'bg-blue-600 text-white' : 'bg-purple-600 text-white'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}>
-              {l === 'python' ? 'Python' : 'C++'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className={editorExpanded ? 'flex-1 overflow-hidden' : 'practice-cm-wrap'}>
-        {typeof window !== 'undefined' && CodeMirror && (
-          <CodeMirror
-            value={code}
-            height={editorExpanded ? '100%' : '320px'}
-            theme={theme}
-            extensions={extensions}
-            onChange={handleChange}
-            onCreateEditor={(view: any) => { editorViewRef.current = view }}
-            basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
-            style={editorExpanded ? { height: '100%' } : undefined}
-          />
-        )}
-        {!CodeMirror && (
-          <textarea
-            value={code}
-            onChange={e => handleChange(e.target.value)}
-            className={`w-full p-4 font-mono bg-gray-50 text-gray-900 border border-gray-200 resize-none focus:outline-none ${editorExpanded ? 'h-full' : 'h-[320px]'}`}
-            style={{ fontSize: '12px' }}
-          />
-        )}
-      </div>
-
-      <div className="px-2 pt-1.5 pb-1.5 bg-[#1e1e2e] border-t border-[#313244] space-y-1.5">
-        <div className="grid grid-cols-8 gap-1">
-          {NAV_ROW.map(key => (
-            <button key={key.k} onMouseDown={e => e.preventDefault()} onClick={() => insert(key)}
-              className="py-2 rounded-md text-sm font-mono font-bold bg-[#45475a] text-gray-100 hover:bg-indigo-600 active:bg-indigo-700 transition-colors border border-[#585b70] select-none text-center">
-              {key.k}
-            </button>
-          ))}
-          {/* Fullscreen toggle — 8th button in nav row */}
-          <button
-            onMouseDown={e => e.preventDefault()}
-            onClick={() => setEditorExpanded(v => !v)}
-            title={editorExpanded ? 'Exit fullscreen' : 'Fullscreen editor'}
-            className={`py-2 rounded-md text-sm font-mono font-bold transition-colors border select-none text-center ${
-              editorExpanded
-                ? 'bg-indigo-700 text-white border-indigo-500 hover:bg-indigo-600'
-                : 'bg-[#45475a] text-indigo-300 border-[#585b70] hover:bg-indigo-600 hover:text-white'
-            }`}>
-            {editorExpanded ? '✕' : '⛶'}
+  const keybarRows = (isPortal: boolean) => (
+    <div className="px-2 pt-1.5 pb-1.5 bg-[#1e1e2e] border-t border-[#313244] space-y-1.5">
+      <div className="grid grid-cols-8 gap-1">
+        {NAV_ROW.map(key => (
+          <button key={key.k} onPointerDown={e => e.preventDefault()} onClick={() => insert(key)}
+            className="py-2 rounded-md text-sm font-mono font-bold bg-[#45475a] text-gray-100 hover:bg-indigo-600 active:bg-indigo-700 transition-colors border border-[#585b70] select-none text-center">
+            {key.k}
           </button>
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {toolbar.row1.map(key => (
-            <button key={key.k} onMouseDown={e => e.preventDefault()} onClick={() => insert(key)}
-              className="px-2.5 py-1.5 rounded-md text-xs font-mono font-semibold bg-[#313244] text-gray-200 hover:bg-[#45475a] active:bg-indigo-600 transition-colors border border-[#45475a] hover:border-indigo-500 select-none">
-              {key.k}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {toolbar.row2.map(key => (
-            <button key={key.k} onMouseDown={e => e.preventDefault()} onClick={() => insert(key)}
-              className="px-2.5 py-1.5 rounded-md text-xs font-mono font-semibold bg-[#313244] text-gray-200 hover:bg-[#45475a] active:bg-indigo-600 transition-colors border border-[#45475a] hover:border-indigo-500 select-none">
-              {key.k}
-            </button>
-          ))}
-        </div>
+        ))}
+        {/* Expand / collapse toggle — 8th button */}
+        <button
+          onPointerDown={e => {
+            e.preventDefault()
+            if (isPortal) {
+              portalViewRef.current = null
+              setEditorExpanded(false)
+            } else {
+              setEditorExpanded(true)
+            }
+          }}
+          style={{ touchAction: 'manipulation' }}
+          title={isPortal ? 'Exit fullscreen' : 'Fullscreen editor'}
+          className={`py-2 rounded-md text-sm font-mono font-bold transition-colors border select-none text-center ${
+            isPortal
+              ? 'bg-indigo-700 text-white border-indigo-500 active:bg-indigo-600'
+              : 'bg-[#45475a] text-indigo-300 border-[#585b70] hover:bg-indigo-600 hover:text-white'
+          }`}>
+          {isPortal ? '✕' : '⛶'}
+        </button>
       </div>
-
-      <div className="flex items-center justify-between px-4 py-2 bg-[#181825] border-t border-gray-700 flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">Auto-saved · {lang === 'python' ? 'Python' : 'C++'}</span>
-          {saved && <span className="text-xs text-green-400">saved ✓</span>}
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={reset} className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs text-gray-300 bg-[#313244] hover:bg-[#45475a] transition-colors">
-            <RotateCcw size={11} /> Reset
+      <div className="flex flex-wrap gap-1">
+        {toolbar.row1.map(key => (
+          <button key={key.k} onPointerDown={e => e.preventDefault()} onClick={() => insert(key)}
+            className="px-2.5 py-1.5 rounded-md text-xs font-mono font-semibold bg-[#313244] text-gray-200 hover:bg-[#45475a] active:bg-indigo-600 transition-colors border border-[#45475a] hover:border-indigo-500 select-none">
+            {key.k}
           </button>
-          {!hideRunCode && (
-            <button
-              onClick={runCode}
-              disabled={running}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50"
-            >
-              <Play size={11} /> {running ? 'Running…' : 'Run Code'}
-            </button>
-          )}
-        </div>
+        ))}
       </div>
+      <div className="flex flex-wrap gap-1">
+        {toolbar.row2.map(key => (
+          <button key={key.k} onPointerDown={e => e.preventDefault()} onClick={() => insert(key)}
+            className="px-2.5 py-1.5 rounded-md text-xs font-mono font-semibold bg-[#313244] text-gray-200 hover:bg-[#45475a] active:bg-indigo-600 transition-colors border border-[#45475a] hover:border-indigo-500 select-none">
+            {key.k}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 
-      {/* Output panel — only when run code is enabled */}
-      {!hideRunCode && output !== null && (
-        <div className="border-t border-[#313244]">
+  const footerBar = (
+    <div className="flex items-center justify-between px-4 py-2 bg-[#181825] border-t border-gray-700 flex-wrap gap-2">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-gray-500">Auto-saved · {lang === 'python' ? 'Python' : 'C++'}</span>
+        {saved && <span className="text-xs text-green-400">saved ✓</span>}
+      </div>
+      <div className="flex items-center gap-2">
+        <button onClick={reset} className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs text-gray-300 bg-[#313244] hover:bg-[#45475a] transition-colors">
+          <RotateCcw size={11} /> Reset
+        </button>
+        {!hideRunCode && (
           <button
-            onClick={() => setShowOutput(v => !v)}
-            className="w-full flex items-center justify-between px-4 py-2 bg-[#181825] text-xs font-semibold text-gray-400 hover:text-gray-200 transition-colors"
+            onPointerDown={e => e.preventDefault()}
+            onClick={runCode}
+            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white active:bg-green-700 transition-colors ${running ? 'opacity-50' : ''}`}
+            style={{ touchAction: 'manipulation' }}
           >
-            <span>Output</span>
-            {showOutput ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            <Play size={11} /> {running ? 'Running…' : 'Run Code'}
           </button>
-          {showOutput && (
-            <pre className="px-4 py-3 text-xs font-mono text-gray-200 bg-[#11111b] whitespace-pre-wrap overflow-x-auto max-h-48 overflow-y-auto">
-              {output}
-            </pre>
-          )}
-        </div>
+        )}
+      </div>
+    </div>
+  )
+
+  const outputPanel = !hideRunCode && output !== null ? (
+    <div className="border-t border-[#313244]">
+      <button
+        onClick={() => setShowOutput(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-2 bg-[#181825] text-xs font-semibold text-gray-400 hover:text-gray-200 transition-colors"
+      >
+        <span>Output</span>
+        {showOutput ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+      </button>
+      {showOutput && (
+        <pre className="px-4 py-3 text-xs font-mono text-gray-200 bg-[#11111b] whitespace-pre-wrap overflow-x-auto max-h-48 overflow-y-auto">
+          {output}
+        </pre>
       )}
     </div>
+  ) : null
+
+  return (
+    <>
+      {/* ── Normal (non-expanded) card ── */}
+      <div className="bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-[#181825] border-b border-gray-700 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <Code2 size={14} className="text-indigo-400 shrink-0" />
+            <span className="text-xs font-bold text-gray-200 truncate">Practice — write it from memory</span>
+            {slug && (
+              <a
+                href={leetCodeUrl(slug)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="flex items-center gap-1 text-xs text-yellow-400 hover:text-yellow-300 transition-colors shrink-0 ml-1"
+                title="Open on LeetCode"
+              >
+                <ExternalLink size={11} />
+                <span className="hidden sm:inline">LeetCode</span>
+              </a>
+            )}
+            {saved && <span className="text-xs text-green-400 ml-1 shrink-0">saved ✓</span>}
+          </div>
+          {langToggle}
+        </div>
+
+        {/* Editor — keep mounted (invisible when portal is active so layout is preserved) */}
+        <div className={`practice-cm-wrap ${editorExpanded ? 'invisible' : ''}`}>
+          {typeof window !== 'undefined' && CodeMirror && (
+            <CodeMirror
+              value={code}
+              height="320px"
+              theme={theme}
+              extensions={extensions}
+              onChange={handleChange}
+              onCreateEditor={(view: any) => { editorViewRef.current = view }}
+              basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
+            />
+          )}
+          {!CodeMirror && (
+            <textarea
+              value={code}
+              onChange={e => handleChange(e.target.value)}
+              className="w-full h-[320px] p-4 font-mono bg-gray-50 text-gray-900 border border-gray-200 resize-none focus:outline-none"
+              style={{ fontSize: '12px' }}
+            />
+          )}
+        </div>
+
+        {/* Keyboard + footer + output — hidden when portal is active */}
+        {!editorExpanded && keybarRows(false)}
+        {!editorExpanded && footerBar}
+        {!editorExpanded && outputPanel}
+      </div>
+
+      {/* ── Fullscreen portal — escapes any overflow:hidden ancestor ── */}
+      {editorExpanded && typeof document !== 'undefined' && (() => {
+        const { createPortal } = require('react-dom')
+        return createPortal(
+          <div className="fixed inset-0 flex flex-col bg-[#1e1e2e]" style={{ zIndex: 9999 }}>
+            {/* Mini header */}
+            <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#181825] border-b border-gray-700 flex-shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <Code2 size={14} className="text-indigo-400 shrink-0" />
+                <span className="text-xs font-bold text-gray-200 truncate">Practice Editor</span>
+                {slug && (
+                  <a
+                    href={leetCodeUrl(slug)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="flex items-center gap-1 text-xs text-yellow-400 hover:text-yellow-300 transition-colors shrink-0 ml-1"
+                    title="Open on LeetCode"
+                  >
+                    <ExternalLink size={11} />
+                    <span className="hidden sm:inline">LeetCode</span>
+                  </a>
+                )}
+                {saved && <span className="text-xs text-green-400 ml-1 shrink-0">saved ✓</span>}
+              </div>
+              {langToggle}
+            </div>
+
+            {/* Full-height CodeMirror */}
+            <div className="flex-1 overflow-hidden">
+              {typeof window !== 'undefined' && CodeMirror && (
+                <CodeMirror
+                  key={`portal-${lang}`}
+                  value={code}
+                  height="100%"
+                  theme={theme}
+                  extensions={extensions}
+                  onChange={handleChange}
+                  onCreateEditor={(view: any) => { portalViewRef.current = view }}
+                  basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
+                  style={{ height: '100%' }}
+                />
+              )}
+            </div>
+
+            {/* Keyboard toolbar (✕ is the 8th nav button) */}
+            {keybarRows(true)}
+
+            {/* Footer */}
+            {footerBar}
+
+            {/* Output panel */}
+            {outputPanel}
+          </div>,
+          document.body
+        )
+      })()}
+    </>
   )
 }

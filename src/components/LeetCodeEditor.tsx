@@ -1021,36 +1021,63 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         </div>
       )}
 
-      {/* ── CodeMirror + Mobile keyboard — optionally fullscreen on mobile ── */}
+      {/* ── CodeMirror (normal flow) ── */}
       {!lcLoad && !lcErr && (
-        <div className={
-          editorExpanded
-            ? 'fixed inset-0 z-50 flex flex-col bg-[#1e2127] sm:contents'
-            : 'contents'
-        }>
-          <div className={editorExpanded ? 'flex-1 overflow-hidden' : 'flex-1 overflow-hidden min-h-[58svh] sm:min-h-0 w-full'}>
-            <CodeMirror
-              key={`${lang}-${editorResetKey}`}
-              value={code}
-              onChange={handleCodeChange}
-              onCreateEditor={(view) => { editorViewRef.current = view }}
-              height="100%"
-              theme={editorTheme ?? 'dark'}
-              extensions={extensions}
-              basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
-              style={{ height: '100%', maxWidth: '100%', overflowX: 'hidden' }}
-            />
-          </div>
-
-          <MobileKeybar
-            editorViewRef={editorViewRef}
-            cursorPosRef={cursorPosRef}
-            onResetCode={resetToStarter}
-            isExpanded={editorExpanded}
-            onToggleExpand={() => setEditorExpanded(v => !v)}
+        <div className={`flex-1 overflow-hidden min-h-[58svh] sm:min-h-0 w-full ${editorExpanded ? 'invisible' : ''}`}>
+          <CodeMirror
+            key={`${lang}-${editorResetKey}`}
+            value={code}
+            onChange={handleCodeChange}
+            onCreateEditor={(view) => { editorViewRef.current = view }}
+            height="100%"
+            theme={editorTheme ?? 'dark'}
+            extensions={extensions}
+            basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
+            style={{ height: '100%', maxWidth: '100%', overflowX: 'hidden' }}
           />
         </div>
       )}
+
+      {/* ── Mobile keyboard (normal flow) — hidden when expanded so portal takes over ── */}
+      {!lcLoad && !lcErr && !editorExpanded && (
+        <MobileKeybar
+          editorViewRef={editorViewRef}
+          cursorPosRef={cursorPosRef}
+          onResetCode={resetToStarter}
+          isExpanded={false}
+          onToggleExpand={() => setEditorExpanded(true)}
+        />
+      )}
+
+      {/* ── Fullscreen portal — mounts at document.body to escape overflow:hidden parents ── */}
+      {!lcLoad && !lcErr && editorExpanded && typeof document !== 'undefined' && (() => {
+        const { createPortal } = require('react-dom')
+        return createPortal(
+          <div className="fixed inset-0 flex flex-col bg-[#1a1a2e]" style={{ zIndex: 9999 }}>
+            <div className="flex-1 overflow-hidden">
+              <CodeMirror
+                key={`${lang}-${editorResetKey}-fs`}
+                value={code}
+                onChange={handleCodeChange}
+                onCreateEditor={(view) => { editorViewRef.current = view }}
+                height="100%"
+                theme={editorTheme ?? 'dark'}
+                extensions={extensions}
+                basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
+                style={{ height: '100%' }}
+              />
+            </div>
+            <MobileKeybar
+              editorViewRef={editorViewRef}
+              cursorPosRef={cursorPosRef}
+              onResetCode={resetToStarter}
+              isExpanded={true}
+              onToggleExpand={() => setEditorExpanded(false)}
+            />
+          </div>,
+          document.body
+        )
+      })()}
 
       {/* ── Bottom panel ── */}
       <div className="h-28 sm:h-52 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
