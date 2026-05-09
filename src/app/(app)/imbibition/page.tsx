@@ -109,6 +109,7 @@ export default function ImbibitionPage() {
   const [levelingUp, setLevelingUp] = useState<string | null>(null) // pattern name being levelled
   const [targetPattern, setTargetPattern] = useState<string | null>(null)
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({})
+  const resetTokenRef = useRef(0)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -164,6 +165,7 @@ export default function ImbibitionPage() {
   // Run after rows settle. For each row: if questions.length > 0 AND all are at
   // 3/3 AND current level < MAX_LEVEL, fire level-up.
   const levelUpPattern = useCallback(async (row: ImbibitionRow) => {
+    const token = resetTokenRef.current          // snapshot before any await
     const patternName = row.pattern
     const currentLevel = levels[patternName] ?? 1
     if (currentLevel >= MAX_LEVEL) return
@@ -172,6 +174,11 @@ export default function ImbibitionPage() {
     setLevelingUp(patternName)
     const questionIds = row.questions.map(q => q.id)
     const res = await resetImbibitionRuns(questionIds)
+
+    // If the user hit Reset while we were awaiting, bail out — the reset
+    // already wrote the correct state; our stale closure must not overwrite it.
+    if (resetTokenRef.current !== token) { setLevelingUp(null); return }
+
     if (!res.ok) {
       toast.error(`Couldn't level up ${patternName}: ${res.error ?? 'unknown error'}`)
       setLevelingUp(null)
@@ -255,6 +262,9 @@ export default function ImbibitionPage() {
     }
     setConfirmResetLevels(false)
     setResettingLevels(true)
+    // Invalidate any in-flight levelUpPattern callbacks so they can't
+    // overwrite the reset state once their awaits resolve.
+    resetTokenRef.current += 1
 
     // 1. Wipe all run counts from localStorage
     const res = await resetImbibitionRuns()
