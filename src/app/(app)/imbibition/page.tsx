@@ -264,12 +264,25 @@ export default function ImbibitionPage() {
       return
     }
 
-    // 2. Persist level-1 map to localStorage
-    saveStoredLevels(LEVEL_ONE_MAP)
+    // 2. Build reset map: every key currently in state + every key in
+    //    ORDERED_PATTERNS — all forced to 1. This covers any pattern
+    //    that might be stored under a key not in LEVEL_ONE_MAP.
+    const allKeys = new Set([
+      ...Object.keys(levels),
+      ...ORDERED_PATTERNS.map(p => p.name),
+    ])
+    const resetMap: Record<string, number> = {}
+    allKeys.forEach(k => { resetMap[k] = 1 })
+
+    // Wipe localStorage levels key entirely, then write fresh resetMap
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(LEVELS_STORAGE_KEY)
+    }
+    saveStoredLevels(resetMap)
 
     // 3. Update React state immediately — no reload needed
     setRuns({})
-    setLevels({ ...LEVEL_ONE_MAP })
+    setLevels(resetMap)
     setLevelingUp(null)
     sessionStorage.removeItem('lm_imbibition_queue')
 
