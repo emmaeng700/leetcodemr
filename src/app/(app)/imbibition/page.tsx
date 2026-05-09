@@ -5,7 +5,7 @@ import { Brain, CheckCircle2, ChevronRight, Lock, Trophy, ArrowUpCircle } from '
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { getProgress } from '@/lib/db'
-import { getImbibitionRunsByQuestion, resetImbibitionRuns } from '@/lib/imbibitionRuns'
+import { ensureImbibitionIsolationMigration, getImbibitionRunsByQuestion, resetImbibitionRuns } from '@/lib/imbibitionRuns'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
 
@@ -105,6 +105,7 @@ export default function ImbibitionPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    ensureImbibitionIsolationMigration()
     const params = new URLSearchParams(window.location.search)
     setTargetPattern(params.get('pattern'))
     setLevels(readStoredLevels())
