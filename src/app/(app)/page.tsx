@@ -388,6 +388,7 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
   const [dailyQ, setDailyQ] = useState<Question | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [frozenDate, setFrozenDate] = useState<string | null>(null)
+  const [showAllReviews, setShowAllReviews] = useState(false)
   const streakHydratedRef = useRef(false)
   useEffect(() => {
     let cancelled = false
@@ -722,22 +723,33 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
             )}
           </div>
           {dueReviews.length > 0 ? (
-            <div className="px-4 pb-3 flex flex-wrap gap-2">
-              {dueReviews.map(q => {
-                const qObj = questions.find(x => x.id === q.id)
-                const [y, m, d] = q.next_review.split('-').map(Number)
-                const diff = Math.round((new Date().setHours(0,0,0,0) - new Date(y, m-1, d).getTime()) / 86400000)
-                const overdueTxt = diff === 0 ? 'due today' : diff === 1 ? '1 day overdue' : `${diff}d overdue`
-                return (
-                  <Link key={q.id} href={`/practice/${q.id}`}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50  border border-indigo-200  rounded-lg text-xs hover:border-indigo-400 transition-all"
-                  >
-                    <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
-                    {qObj && <span className="text-[var(--text)] font-semibold truncate max-w-[120px]">{qObj.title}</span>}
-                    <span className="text-indigo-400 shrink-0">· #{q.review_count + 1} · {overdueTxt}</span>
-                  </Link>
-                )
-              })}
+            <div className="px-4 pb-3">
+              <div className="flex flex-wrap gap-2">
+                {(showAllReviews ? dueReviews : dueReviews.slice(0, 5)).map(q => {
+                  const qObj = questions.find(x => x.id === q.id)
+                  const [y, m, d] = q.next_review.split('-').map(Number)
+                  const diff = Math.round((new Date().setHours(0,0,0,0) - new Date(y, m-1, d).getTime()) / 86400000)
+                  const overdueTxt = diff === 0 ? 'due today' : diff === 1 ? '1 day overdue' : `${diff}d overdue`
+                  return (
+                    <Link key={q.id} href={`/practice/${q.id}`}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50  border border-indigo-200  rounded-lg text-xs hover:border-indigo-400 transition-all"
+                    >
+                      <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                      {qObj && <span className="text-[var(--text)] font-semibold truncate max-w-[120px]">{qObj.title}</span>}
+                      <span className="text-indigo-400 shrink-0">· #{q.review_count + 1} · {overdueTxt}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+              {dueReviews.length > 5 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllReviews(v => !v)}
+                  className="mt-2 text-xs font-semibold text-indigo-500 hover:text-indigo-400 transition-colors"
+                >
+                  {showAllReviews ? 'Show less ↑' : `Show ${dueReviews.length - 5} more ↓`}
+                </button>
+              )}
             </div>
           ) : (
             <p className="px-4 pb-3 text-xs text-indigo-500 ">No reviews due today — solve questions to build your SR queue.</p>
@@ -806,6 +818,7 @@ function DueReviewBanner() {
   const router = useRouter()
   const [due, setDue] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
   const [open, setOpen] = useState(true)
+  const [showAllDue, setShowAllDue] = useState(false)
   useEffect(() => { getDueReviews().then(setDue).catch(() => {}) }, [])
   if (!due.length) return null
   function daysOverdue(nr: string) {
@@ -815,6 +828,7 @@ function DueReviewBanner() {
     if (diff === 1) return '1 day overdue'
     return diff + ' days overdue'
   }
+  const visibleDue = showAllDue ? due : due.slice(0, 5)
   return (
     <div className="bg-indigo-50  border border-indigo-200  rounded-xl mb-5 overflow-hidden">
       <button onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-900/30 transition-colors">
@@ -825,14 +839,25 @@ function DueReviewBanner() {
         {open ? <ChevronUp size={15} className="text-indigo-400" /> : <ChevronDown size={15} className="text-indigo-400" />}
       </button>
       {open && (
-        <div className="px-4 pb-3 flex flex-wrap gap-2">
-          {due.map(q => (
-            <button key={q.id} onClick={() => router.push('/practice/' + q.id)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-white (--bg-card)] border border-indigo-200  rounded-lg text-xs hover:border-indigo-400  hover:shadow-sm transition-all text-left">
-              <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
-              <span className="text-indigo-600  text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
+        <div className="px-4 pb-3">
+          <div className="flex flex-wrap gap-2">
+            {visibleDue.map(q => (
+              <button key={q.id} onClick={() => router.push('/practice/' + q.id)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white (--bg-card)] border border-indigo-200  rounded-lg text-xs hover:border-indigo-400  hover:shadow-sm transition-all text-left">
+                <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                <span className="text-indigo-600  text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
+              </button>
+            ))}
+          </div>
+          {due.length > 5 && (
+            <button
+              type="button"
+              onClick={() => setShowAllDue(v => !v)}
+              className="mt-2 text-xs font-semibold text-indigo-500 hover:text-indigo-400 transition-colors"
+            >
+              {showAllDue ? 'Show less ↑' : `Show ${due.length - 5} more ↓`}
             </button>
-          ))}
+          )}
         </div>
       )}
     </div>
@@ -843,6 +868,7 @@ function TodayPlanCard({ questions, progress }: { questions: Question[]; progres
   const router = useRouter()
   const [due, setDue] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
   const [reboot, setReboot] = useState<number[]>([])
+  const [showAllDuePick, setShowAllDuePick] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -912,19 +938,32 @@ function TodayPlanCard({ questions, progress }: { questions: Question[]; progres
 
         <div>
           <div className="text-xs font-bold text-[var(--text-muted)] mb-2">Due reviews (up to {reviewSlots})</div>
-          <div className="flex flex-wrap gap-2">
-            {duePick.length ? duePick.map(d => (
-              <button
-                key={d.id}
-                onClick={() => router.push('/practice/' + d.id)}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50  border border-indigo-200  text-indigo-800  hover:border-indigo-300 "
-              >
-                {titleFor(d.id)}
-              </button>
-            )) : (
-              <div className="text-xs text-[var(--text-subtle)]">No due reviews right now.</div>
-            )}
-          </div>
+          {duePick.length ? (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {(showAllDuePick ? duePick : duePick.slice(0, 5)).map(d => (
+                  <button
+                    key={d.id}
+                    onClick={() => router.push('/practice/' + d.id)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50  border border-indigo-200  text-indigo-800  hover:border-indigo-300 "
+                  >
+                    {titleFor(d.id)}
+                  </button>
+                ))}
+              </div>
+              {duePick.length > 5 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllDuePick(v => !v)}
+                  className="mt-2 text-xs font-semibold text-indigo-500 hover:text-indigo-400 transition-colors"
+                >
+                  {showAllDuePick ? 'Show less ↑' : `Show ${duePick.length - 5} more ↓`}
+                </button>
+              )}
+            </>
+          ) : (
+            <div className="text-xs text-[var(--text-subtle)]">No due reviews right now.</div>
+          )}
         </div>
 
         <div className="pt-3 border-t border-[var(--border-soft)]">
