@@ -201,12 +201,15 @@ body {
   display: none;
 }
 
-/* Practice editor — responsive font sizes */
+/* Practice editor — responsive font sizes, no line wrapping */
 .practice-cm-wrap .cm-content,
 .practice-cm-wrap .cm-line {
   font-size: 8.5px;
   touch-action: manipulation;
+  white-space: pre !important;
+  word-break: normal !important;
 }
+.practice-cm-wrap .cm-scroller { overflow-x: auto !important; }
 @media (min-width: 640px) {
   .practice-cm-wrap .cm-content,
   .practice-cm-wrap .cm-line { font-size: 10px; }

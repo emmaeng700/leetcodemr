@@ -796,9 +796,9 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         .cm-editor { touch-action: none; }
         .cm-editor, .cm-content { max-width: 100%; }
         @media (max-width: 639px) {
-          .cm-editor { font-size: 12px; line-height: 1.68; }
-          .cm-scroller { overflow-x: hidden !important; }
-          .cm-content, .cm-line { white-space: pre-wrap; word-break: break-all; }
+          .cm-editor { font-size: 10px !important; line-height: 1.45; }
+          .cm-scroller { overflow-x: auto !important; }
+          .cm-content, .cm-line { white-space: pre !important; word-break: normal !important; }
         }
         /* Fullscreen portal: smaller font + horizontal scroll (no wrapping) */
         .lc-fs-portal .cm-editor { font-size: 10px !important; line-height: 1.45 !important; }
