@@ -245,12 +245,19 @@ export default function ImbibitionPage() {
 
   const handleResetLevels = async () => {
     if (resettingLevels) return
-    const ok = window.confirm('Reset all Imbibition levels back to Level 1? This only clears levels, not solved questions.')
+    const ok = window.confirm('Reset all Imbibition levels back to Level 1? This also clears Imbibition /3 reps so patterns do not auto-level right back up.')
     if (!ok) return
     setResettingLevels(true)
+    const res = await resetImbibitionRuns()
+    if (!res.ok) {
+      toast.error(`Couldn't reset Imbibition levels: ${res.error ?? 'unknown error'}`)
+      setResettingLevels(false)
+      return
+    }
+    setRuns({})
     setLevels({})
     clearStoredLevels()
-    toast.success('All Imbibition levels reset to Level 1')
+    toast.success('All Imbibition levels reset to Level 1, and Imbibition reps were cleared')
     setResettingLevels(false)
   }
 
