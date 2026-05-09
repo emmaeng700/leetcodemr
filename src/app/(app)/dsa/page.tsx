@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Code2, RotateCcw, BookOpen } from 'lucide-react'
 import { DSA_CATEGORIES } from './data'
 import { TUTORIAL_SECTIONS } from './tutorials-data'
@@ -14,6 +14,8 @@ export default function DSAPage() {
   const [activeCategory, setActiveCategory] = useState<string>(DSA_CATEGORIES[0]?.name ?? '')
   const [flipped, setFlipped] = useState<Set<string>>(new Set())
   const [activeLang, setActiveLang] = useState<Record<string, string>>({})
+  const [showAllCards, setShowAllCards] = useState(false)
+  const cardGridRef = useRef<HTMLDivElement>(null)
 
   // --- Tutorials state ---
   const [activeSection, setActiveSection] = useState<string>(TUTORIAL_SECTIONS[0]?.section ?? '')
@@ -22,6 +24,8 @@ export default function DSAPage() {
   )
   const [tutFlipped, setTutFlipped] = useState<Set<string>>(new Set())
   const [tutLang, setTutLang] = useState<Record<string, string>>({})
+  const [showAllTutCards, setShowAllTutCards] = useState(false)
+  const tutCardGridRef = useRef<HTMLDivElement>(null)
 
   function toggleFlip(id: string) {
     setFlipped(prev => {
@@ -53,13 +57,32 @@ export default function DSAPage() {
     0
   )
 
+  const CARDS_PAGE = 6
   const currentSection = TUTORIAL_SECTIONS.find(s => s.section === activeSection)
   const currentTutCat = currentSection?.categories.find(c => c.name === activeTutCat)
+  const visibleTutCards = currentTutCat
+    ? (showAllTutCards ? currentTutCat.cards : currentTutCat.cards.slice(0, CARDS_PAGE))
+    : []
+  const hiddenTutCount = currentTutCat ? currentTutCat.cards.length - CARDS_PAGE : 0
+
+  function handleCategoryChange(name: string) {
+    setActiveCategory(name)
+    setShowAllCards(false)
+    setFlipped(new Set())
+  }
 
   function handleSectionChange(section: string) {
     setActiveSection(section)
     const sec = TUTORIAL_SECTIONS.find(s => s.section === section)
     setActiveTutCat(sec?.categories[0]?.name ?? '')
+    setShowAllTutCards(false)
+    setTutFlipped(new Set())
+  }
+
+  function handleTutCatChange(name: string) {
+    setActiveTutCat(name)
+    setShowAllTutCards(false)
+    setTutFlipped(new Set())
   }
 
   return (
@@ -111,7 +134,7 @@ export default function DSAPage() {
             {DSA_CATEGORIES.map(cat => (
               <button
                 key={cat.name}
-                onClick={() => setActiveCategory(cat.name)}
+                onClick={() => handleCategoryChange(cat.name)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
                   activeCategory === cat.name
                     ? 'bg-indigo-600 text-white'
@@ -125,8 +148,11 @@ export default function DSAPage() {
           </div>
 
           {/* Cards for active category */}
-          {DSA_CATEGORIES.filter(c => c.name === activeCategory).map(cat => (
-            <div key={cat.name}>
+          {DSA_CATEGORIES.filter(c => c.name === activeCategory).map(cat => {
+            const visibleCards = showAllCards ? cat.cards : cat.cards.slice(0, CARDS_PAGE)
+            const hiddenCount = cat.cards.length - CARDS_PAGE
+            return (
+            <div key={cat.name} ref={cardGridRef}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-bold text-[var(--text)] text-lg">{cat.name}</h2>
                 {flipped.size > 0 && (
@@ -140,7 +166,7 @@ export default function DSAPage() {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                {cat.cards.map(card => {
+                {visibleCards.map(card => {
                   const isFlipped = flipped.has(card.id)
                   const lang = getLang(card)
                   const snippet = card.snippets.find(s => s.lang === lang) ?? card.snippets[0]
@@ -206,8 +232,26 @@ export default function DSAPage() {
                   )
                 })}
               </div>
+
+              {cat.cards.length > CARDS_PAGE && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (showAllCards) {
+                      setShowAllCards(false)
+                      cardGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    } else {
+                      setShowAllCards(true)
+                    }
+                  }}
+                  className="mt-4 w-full py-2.5 rounded-xl border border-[var(--border)] text-xs font-semibold text-[var(--text-subtle)] hover:text-[var(--text-muted)] hover:bg-[var(--bg-muted)]/50 transition-colors"
+                >
+                  {showAllCards ? 'Show less ↑' : `Show ${hiddenCount} more cards ↓`}
+                </button>
+              )}
             </div>
-          ))}
+          )
+          })}
         </>
       )}
 
@@ -240,7 +284,7 @@ export default function DSAPage() {
               {currentSection.categories.map(cat => (
                 <button
                   key={cat.name}
-                  onClick={() => setActiveTutCat(cat.name)}
+                  onClick={() => handleTutCatChange(cat.name)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
                     activeTutCat === cat.name
                       ? 'bg-violet-600 text-white'
@@ -256,7 +300,7 @@ export default function DSAPage() {
 
           {/* Cards */}
           {currentTutCat && (
-            <div>
+            <div ref={tutCardGridRef}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-bold text-[var(--text)] text-lg">{currentTutCat.name}</h2>
                 {tutFlipped.size > 0 && (
@@ -270,7 +314,7 @@ export default function DSAPage() {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                {currentTutCat.cards.map(card => {
+                {visibleTutCards.map(card => {
                   const isFlipped = tutFlipped.has(card.id)
                   const lang = getTutLang(card)
                   const snippet = card.snippets.find(s => s.lang === lang) ?? card.snippets[0]
@@ -337,6 +381,23 @@ export default function DSAPage() {
                   )
                 })}
               </div>
+
+              {currentTutCat.cards.length > CARDS_PAGE && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (showAllTutCards) {
+                      setShowAllTutCards(false)
+                      tutCardGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    } else {
+                      setShowAllTutCards(true)
+                    }
+                  }}
+                  className="mt-4 w-full py-2.5 rounded-xl border border-[var(--border)] text-xs font-semibold text-[var(--text-subtle)] hover:text-[var(--text-muted)] hover:bg-[var(--bg-muted)]/50 transition-colors"
+                >
+                  {showAllTutCards ? 'Show less ↑' : `Show ${hiddenTutCount} more cards ↓`}
+                </button>
+              )}
             </div>
           )}
         </>

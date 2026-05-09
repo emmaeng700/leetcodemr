@@ -109,7 +109,9 @@ export default function ImbibitionPage() {
   const [confirmResetLevels, setConfirmResetLevels] = useState(false)
   const [levelingUp, setLevelingUp] = useState<string | null>(null) // pattern name being levelled
   const [targetPattern, setTargetPattern] = useState<string | null>(null)
+  const [showAllRows, setShowAllRows] = useState(false)
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({})
+  const rowsTopRef = useRef<HTMLDivElement>(null)
   const resetTokenRef = useRef(0)
 
   useEffect(() => {
@@ -309,6 +311,10 @@ export default function ImbibitionPage() {
     return <div className="text-center py-32 text-[var(--text-subtle)] animate-pulse text-sm">Loading imbibition…</div>
   }
 
+  const ROWS_PAGE = 6
+  const visibleRows = showAllRows ? rows : rows.slice(0, ROWS_PAGE)
+  const hiddenRowCount = rows.length - ROWS_PAGE
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-[var(--text)] mb-1 flex items-center gap-2">
@@ -405,8 +411,9 @@ export default function ImbibitionPage() {
           <p className="text-sm text-[var(--text-muted)]">No solved questions yet. Mark questions solved and they'll appear here by topic.</p>
         </div>
       ) : (
+        <div ref={rowsTopRef}>
         <div className="space-y-6">
-          {rows.map(row => {
+          {visibleRows.map(row => {
             const currentLevel = levels[row.pattern] ?? 1
             const levelName = LEVEL_NAMES[currentLevel - 1]
             const colours = LEVEL_COLOUR[currentLevel] ?? LEVEL_COLOUR[1]
@@ -534,6 +541,25 @@ export default function ImbibitionPage() {
               </section>
             )
           })}
+        </div>
+        {rows.length > ROWS_PAGE && (
+          <button
+            type="button"
+            onPointerDown={e => {
+              e.preventDefault()
+              if (showAllRows) {
+                setShowAllRows(false)
+                rowsTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              } else {
+                setShowAllRows(true)
+              }
+            }}
+            style={{ touchAction: 'manipulation' }}
+            className="mt-4 w-full py-3 rounded-2xl border border-[var(--border)] text-sm font-semibold text-[var(--text-subtle)] hover:text-[var(--text-muted)] hover:bg-[var(--bg-card)] transition-colors"
+          >
+            {showAllRows ? 'Show less ↑' : `Show ${hiddenRowCount} more patterns ↓`}
+          </button>
+        )}
         </div>
       )}
     </div>

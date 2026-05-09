@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Brain, ChevronRight, Loader2, Calendar, Clock, Play } from 'lucide-react'
@@ -101,6 +101,8 @@ export default function PileupPage() {
   )
 }
 
+const SECTION_PAGE = 5
+
 function Section({
   title,
   icon,
@@ -116,13 +118,19 @@ function Section({
   qMap: Record<number, Question | undefined>
   accent: 'red' | 'indigo'
 }) {
-  const border =
-    accent === 'red'
-      ? 'border-red-200 '
-      : 'border-indigo-200 '
+  const [showAll, setShowAll] = useState(false)
+  const topRef = useRef<HTMLDivElement>(null)
+  const border = accent === 'red' ? 'border-red-200 ' : 'border-indigo-200 '
+  const visible = showAll ? items : items.slice(0, SECTION_PAGE)
+  const hidden = items.length - SECTION_PAGE
+
+  function handleShowLess() {
+    setShowAll(false)
+    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
-    <div className={`bg-[var(--bg-card)] rounded-xl border ${border} shadow-sm overflow-hidden`}>
+    <div ref={topRef} className={`bg-[var(--bg-card)] rounded-xl border ${border} shadow-sm overflow-hidden`}>
       <div className="px-4 py-3 border-b border-[var(--border-soft)] flex items-center gap-2">
         {icon}
         <div className="min-w-0">
@@ -136,30 +144,41 @@ function Section({
           Nothing here.
         </div>
       ) : (
-        <div className="divide-y divide-[var(--border-soft)]">
-          {items.map(r => {
-            const q = qMap[r.id]
-            return (
-              <Link
-                key={`${r.id}:${r.next_review}`}
-                href={`/practice/${r.id}`}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-muted)]/60 transition-colors"
-              >
-                <span className="text-xs font-mono text-[var(--text-subtle)] shrink-0">#{r.id}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-[var(--text)] truncate">
-                    {q?.title ?? 'Question'}
-                  </p>
-                  <p className="text-[11px] text-[var(--text-subtle)]">
-                    Review #{(r.review_count ?? 0) + 1} · scheduled {r.next_review}
-                  </p>
-                </div>
-                {q?.difficulty && <DifficultyBadge difficulty={q.difficulty} />}
-                <ChevronRight size={14} className="text-[var(--text-subtle)] shrink-0" />
-              </Link>
-            )
-          })}
-        </div>
+        <>
+          <div className="divide-y divide-[var(--border-soft)]">
+            {visible.map(r => {
+              const q = qMap[r.id]
+              return (
+                <Link
+                  key={`${r.id}:${r.next_review}`}
+                  href={`/practice/${r.id}`}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-muted)]/60 transition-colors"
+                >
+                  <span className="text-xs font-mono text-[var(--text-subtle)] shrink-0">#{r.id}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-[var(--text)] truncate">
+                      {q?.title ?? 'Question'}
+                    </p>
+                    <p className="text-[11px] text-[var(--text-subtle)]">
+                      Review #{(r.review_count ?? 0) + 1} · scheduled {r.next_review}
+                    </p>
+                  </div>
+                  {q?.difficulty && <DifficultyBadge difficulty={q.difficulty} />}
+                  <ChevronRight size={14} className="text-[var(--text-subtle)] shrink-0" />
+                </Link>
+              )
+            })}
+          </div>
+          {items.length > SECTION_PAGE && (
+            <button
+              type="button"
+              onClick={showAll ? handleShowLess : () => setShowAll(true)}
+              className="w-full py-2.5 text-xs font-semibold text-[var(--text-subtle)] hover:text-[var(--text-muted)] hover:bg-[var(--bg-muted)]/50 border-t border-[var(--border-soft)] transition-colors"
+            >
+              {showAll ? 'Show less ↑' : `Show ${hidden} more ↓`}
+            </button>
+          )}
+        </>
       )}
     </div>
   )
