@@ -1036,7 +1036,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
             height="100%"
             theme={editorTheme ?? 'dark'}
             extensions={extensions}
-            basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
+            basicSetup={{ lineNumbers: true, highlightActiveLine: false, foldGutter: true, autocompletion: true, indentOnInput: true }}
             style={{ height: '100%', maxWidth: '100%', overflowX: 'hidden' }}
           />
         </div>
@@ -1087,7 +1087,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
                 height="100%"
                 theme={editorTheme ?? 'dark'}
                 extensions={extensions}
-                basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
+                basicSetup={{ lineNumbers: true, highlightActiveLine: false, foldGutter: true, autocompletion: true, indentOnInput: true }}
                 style={{ height: '100%' }}
               />
             </div>

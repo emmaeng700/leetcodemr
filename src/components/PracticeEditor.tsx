@@ -552,7 +552,7 @@ int main() {
               extensions={extensions}
               onChange={handleChange}
               onCreateEditor={(view: any) => { editorViewRef.current = view }}
-              basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
+              basicSetup={{ lineNumbers: true, highlightActiveLine: false, foldGutter: true, autocompletion: true, indentOnInput: true }}
             />
           )}
           {!CodeMirror && (
@@ -610,7 +610,7 @@ int main() {
                   extensions={extensions}
                   onChange={handleChange}
                   onCreateEditor={(view: any) => { portalViewRef.current = view }}
-                  basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
+                  basicSetup={{ lineNumbers: true, highlightActiveLine: false, foldGutter: true, autocompletion: true, indentOnInput: true }}
                   style={{ height: '100%' }}
                 />
               )}
