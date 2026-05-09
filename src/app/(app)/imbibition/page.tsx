@@ -66,6 +66,7 @@ function saveStoredLevels(levels: Record<string, number>) {
 
 function clearStoredLevels() {
   if (typeof window === 'undefined') return
+  localStorage.setItem(LEVELS_STORAGE_KEY, JSON.stringify({}))
   localStorage.removeItem(LEVELS_STORAGE_KEY)
 }
 
@@ -256,9 +257,13 @@ export default function ImbibitionPage() {
     }
     setRuns({})
     setLevels({})
+    setLevelingUp(null)
+    sessionStorage.removeItem('lm_imbibition_queue')
     clearStoredLevels()
-    toast.success('All Imbibition levels reset to Level 1, and Imbibition reps were cleared')
-    setResettingLevels(false)
+    toast.success('All Imbibition levels reset to Level 1, and Imbibition reps were cleared. Refreshing…')
+    window.setTimeout(() => {
+      window.location.reload()
+    }, 250)
   }
 
   if (loading) {
