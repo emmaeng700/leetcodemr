@@ -64,6 +64,11 @@ function saveStoredLevels(levels: Record<string, number>) {
   localStorage.setItem(LEVELS_STORAGE_KEY, JSON.stringify(levels))
 }
 
+function clearStoredLevels() {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(LEVELS_STORAGE_KEY)
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Question = {
   id: number
@@ -99,6 +104,7 @@ export default function ImbibitionPage() {
   const [levels, setLevels] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [resetting, setResetting] = useState(false)
+  const [resettingLevels, setResettingLevels] = useState(false)
   const [levelingUp, setLevelingUp] = useState<string | null>(null) // pattern name being levelled
   const [targetPattern, setTargetPattern] = useState<string | null>(null)
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({})
@@ -237,6 +243,17 @@ export default function ImbibitionPage() {
     setResetting(false)
   }
 
+  const handleResetLevels = async () => {
+    if (resettingLevels) return
+    const ok = window.confirm('Reset all Imbibition levels back to Level 1? This only clears levels, not solved questions.')
+    if (!ok) return
+    setResettingLevels(true)
+    setLevels({})
+    clearStoredLevels()
+    toast.success('All Imbibition levels reset to Level 1')
+    setResettingLevels(false)
+  }
+
   if (loading) {
     return <div className="text-center py-32 text-[var(--text-subtle)] animate-pulse text-sm">Loading imbibition…</div>
   }
@@ -250,14 +267,27 @@ export default function ImbibitionPage() {
         <p className="text-sm text-[var(--text-subtle)]">
           Reinforce solved questions by topic. Each question must be solved <strong className="text-[var(--text-muted)]">3 times</strong> before the next one unlocks. Complete all 3/3 to level up — <strong className="text-[var(--text-muted)]">15 levels</strong> per pattern.
         </p>
-        <button
-          type="button"
-          onClick={handleResetAllRuns}
-          disabled={resetting}
-          className="shrink-0 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
-        >
-          {resetting ? 'Resetting…' : 'Reset all /3 counters'}
-        </button>
+        <span className="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-cyan-700">
+          Imbibition-only progress
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleResetLevels}
+            disabled={resettingLevels}
+            className="shrink-0 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
+          >
+            {resettingLevels ? 'Resetting…' : 'Reset levels'}
+          </button>
+          <button
+            type="button"
+            onClick={handleResetAllRuns}
+            disabled={resetting}
+            className="shrink-0 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
+          >
+            {resetting ? 'Resetting…' : 'Reset all /3 counters'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
@@ -352,6 +382,9 @@ export default function ImbibitionPage() {
                         </span>
                       )}
                       {isMax && <span className="ml-2 text-amber-600 font-semibold">· Max level!</span>}
+                    </p>
+                    <p className="text-[11px] font-medium text-cyan-700 mt-1">
+                      Only Imbibition solves count toward these 3/3 reps and levels.
                     </p>
                   </div>
 
