@@ -68,6 +68,7 @@ export default function PracticeEditor({ questionId, slug, starterPython, starte
   const [lang, setLang] = useState<'python' | 'cpp'>('python')
   const [code, setCode] = useState('')
   const [saved, setSaved] = useState(false)
+  const [editorExpanded, setEditorExpanded] = useState(false)
   const [extensions, setExtensions] = useState<any[]>([])
   const [theme] = useState<any[]>([])
   const [running, setRunning] = useState(false)
@@ -405,8 +406,12 @@ int main() {
 
   const toolbar = TOOLBAR[lang]
 
+  const expandedWrap = editorExpanded
+    ? 'fixed inset-0 z-50 flex flex-col bg-[#1e1e2e]'
+    : 'bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden'
+
   return (
-    <div className="bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden">
+    <div className={expandedWrap}>
       <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-[#181825] border-b border-gray-700 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
           <Code2 size={14} className="text-indigo-400 shrink-0" />
@@ -440,36 +445,49 @@ int main() {
         </div>
       </div>
 
-      <div className="practice-cm-wrap">
+      <div className={editorExpanded ? 'flex-1 overflow-hidden' : 'practice-cm-wrap'}>
         {typeof window !== 'undefined' && CodeMirror && (
           <CodeMirror
             value={code}
-            height="320px"
+            height={editorExpanded ? '100%' : '320px'}
             theme={theme}
             extensions={extensions}
             onChange={handleChange}
             onCreateEditor={(view: any) => { editorViewRef.current = view }}
             basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
+            style={editorExpanded ? { height: '100%' } : undefined}
           />
         )}
         {!CodeMirror && (
           <textarea
             value={code}
             onChange={e => handleChange(e.target.value)}
-            className="w-full h-[320px] p-4 font-mono bg-gray-50 text-gray-900 border border-gray-200 resize-none focus:outline-none"
+            className={`w-full p-4 font-mono bg-gray-50 text-gray-900 border border-gray-200 resize-none focus:outline-none ${editorExpanded ? 'h-full' : 'h-[320px]'}`}
             style={{ fontSize: '12px' }}
           />
         )}
       </div>
 
       <div className="px-2 pt-1.5 pb-1.5 bg-[#1e1e2e] border-t border-[#313244] space-y-1.5">
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-8 gap-1">
           {NAV_ROW.map(key => (
             <button key={key.k} onMouseDown={e => e.preventDefault()} onClick={() => insert(key)}
               className="py-2 rounded-md text-sm font-mono font-bold bg-[#45475a] text-gray-100 hover:bg-indigo-600 active:bg-indigo-700 transition-colors border border-[#585b70] select-none text-center">
               {key.k}
             </button>
           ))}
+          {/* Fullscreen toggle — 8th button in nav row */}
+          <button
+            onMouseDown={e => e.preventDefault()}
+            onClick={() => setEditorExpanded(v => !v)}
+            title={editorExpanded ? 'Exit fullscreen' : 'Fullscreen editor'}
+            className={`py-2 rounded-md text-sm font-mono font-bold transition-colors border select-none text-center ${
+              editorExpanded
+                ? 'bg-indigo-700 text-white border-indigo-500 hover:bg-indigo-600'
+                : 'bg-[#45475a] text-indigo-300 border-[#585b70] hover:bg-indigo-600 hover:text-white'
+            }`}>
+            {editorExpanded ? '✕' : '⛶'}
+          </button>
         </div>
         <div className="flex flex-wrap gap-1">
           {toolbar.row1.map(key => (

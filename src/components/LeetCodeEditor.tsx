@@ -129,10 +129,14 @@ function MobileKeybar({
   editorViewRef,
   cursorPosRef,
   onResetCode,
+  isExpanded,
+  onToggleExpand,
 }: {
   editorViewRef: React.RefObject<any>
   cursorPosRef:  React.RefObject<{ from: number; to: number }>
   onResetCode: () => void
+  isExpanded: boolean
+  onToggleExpand: () => void
 }) {
   const press = (action: string | (() => void)) => {
     const view = editorViewRef.current
@@ -234,6 +238,14 @@ function MobileKeybar({
             {label}
           </button>
         ))}
+        {/* Expand / collapse button — next to RST */}
+        <button
+          onPointerDown={e => { e.preventDefault(); onToggleExpand() }}
+          style={{ touchAction: 'manipulation' }}
+          title={isExpanded ? 'Exit fullscreen' : 'Fullscreen editor'}
+          className={`${btnCls} flex-1 h-9 text-sm ${isExpanded ? 'bg-indigo-700 active:bg-indigo-600 text-white' : 'bg-[#2c313a] active:bg-[#3e4451] text-indigo-300'}`}>
+          {isExpanded ? '✕' : '⛶'}
+        </button>
       </div>
     </div>
   )
@@ -343,6 +355,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [resultErr,  setResultErr]  = useState('')
   const [solvedStatus, setSolvedStatus] = useState<'marked' | 'already' | 'not-in-library' | null>(null)
   const [showSessionHint, setShowSessionHint] = useState(false)
+  const [editorExpanded,  setEditorExpanded]  = useState(false)
   const [localConnector, setLocalConnector] = useState<{ ok: boolean; authed: boolean } | null>(null)
   const [extBridgeOn, setExtBridgeOn] = useState(false)
   const availableLangs = useMemo<SupportedLang[]>(() => {
@@ -1008,30 +1021,35 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         </div>
       )}
 
-      {/* ── CodeMirror ── */}
+      {/* ── CodeMirror + Mobile keyboard — optionally fullscreen on mobile ── */}
       {!lcLoad && !lcErr && (
-        <div className="flex-1 overflow-hidden min-h-[58svh] sm:min-h-0 w-full">
-          <CodeMirror
-            key={`${lang}-${editorResetKey}`}
-            value={code}
-            onChange={handleCodeChange}
-            onCreateEditor={(view) => { editorViewRef.current = view }}
-            height="100%"
-            theme={editorTheme ?? 'dark'}
-            extensions={extensions}
-            basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
-            style={{ height: '100%', maxWidth: '100%', overflowX: 'hidden' }}
+        <div className={
+          editorExpanded
+            ? 'fixed inset-0 z-50 flex flex-col bg-[#1e2127] sm:contents'
+            : 'contents'
+        }>
+          <div className={editorExpanded ? 'flex-1 overflow-hidden' : 'flex-1 overflow-hidden min-h-[58svh] sm:min-h-0 w-full'}>
+            <CodeMirror
+              key={`${lang}-${editorResetKey}`}
+              value={code}
+              onChange={handleCodeChange}
+              onCreateEditor={(view) => { editorViewRef.current = view }}
+              height="100%"
+              theme={editorTheme ?? 'dark'}
+              extensions={extensions}
+              basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: true, autocompletion: true, indentOnInput: true }}
+              style={{ height: '100%', maxWidth: '100%', overflowX: 'hidden' }}
+            />
+          </div>
+
+          <MobileKeybar
+            editorViewRef={editorViewRef}
+            cursorPosRef={cursorPosRef}
+            onResetCode={resetToStarter}
+            isExpanded={editorExpanded}
+            onToggleExpand={() => setEditorExpanded(v => !v)}
           />
         </div>
-      )}
-
-      {/* ── Mobile keyboard toolbar — sm:hidden ── */}
-      {!lcLoad && !lcErr && (
-        <MobileKeybar
-          editorViewRef={editorViewRef}
-          cursorPosRef={cursorPosRef}
-          onResetCode={resetToStarter}
-        />
       )}
 
       {/* ── Bottom panel ── */}
