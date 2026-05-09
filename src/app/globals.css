@@ -201,6 +201,10 @@ body {
   display: none;
 }
 
+/* Remove active-line highlight so all lines share the same background color */
+.cm-activeLine,
+.cm-activeLineGutter { background-color: transparent !important; }
+
 /* Practice editor — responsive font sizes, no line wrapping */
 .practice-cm-wrap .cm-content,
 .practice-cm-wrap .cm-line {
