@@ -53,7 +53,8 @@ const LEVELS_STORAGE_KEY = 'lm_imbibition_levels_v1'
 function readStoredLevels(): Record<string, number> {
   if (typeof window === 'undefined') return {}
   try {
-    return JSON.parse(localStorage.getItem(LEVELS_STORAGE_KEY) ?? '{}')
+    const parsed = JSON.parse(localStorage.getItem(LEVELS_STORAGE_KEY) ?? '{}')
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, number> : {}
   } catch {
     return {}
   }
@@ -62,12 +63,6 @@ function readStoredLevels(): Record<string, number> {
 function saveStoredLevels(levels: Record<string, number>) {
   if (typeof window === 'undefined') return
   localStorage.setItem(LEVELS_STORAGE_KEY, JSON.stringify(levels))
-}
-
-function clearStoredLevels() {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(LEVELS_STORAGE_KEY, JSON.stringify({}))
-  localStorage.removeItem(LEVELS_STORAGE_KEY)
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -95,6 +90,10 @@ const ORDERED_PATTERNS = QUICK_PATTERNS
       DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
       DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
   )
+
+const LEVEL_ONE_MAP = Object.fromEntries(
+  ORDERED_PATTERNS.map(pattern => [pattern.name, 1])
+) as Record<(typeof QUICK_PATTERNS)[number]['name'], number>
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ImbibitionPage() {
@@ -256,10 +255,10 @@ export default function ImbibitionPage() {
       return
     }
     setRuns({})
-    setLevels({})
+    setLevels(LEVEL_ONE_MAP)
     setLevelingUp(null)
     sessionStorage.removeItem('lm_imbibition_queue')
-    clearStoredLevels()
+    saveStoredLevels(LEVEL_ONE_MAP)
     toast.success('All Imbibition levels reset to Level 1, and Imbibition reps were cleared. Refreshing…')
     window.setTimeout(() => {
       window.location.reload()
