@@ -220,6 +220,12 @@ body {
   .practice-cm-wrap .cm-line { font-size: 12px; }
 }
 
+/* Practice portal fullscreen — small font, no line wrapping */
+.practice-fs-portal .cm-editor { font-size: 10px !important; line-height: 1.45 !important; }
+.practice-fs-portal .cm-scroller { overflow-x: auto !important; }
+.practice-fs-portal .cm-content,
+.practice-fs-portal .cm-line { font-size: 10px !important; white-space: pre !important; word-break: normal !important; touch-action: manipulation; }
+
 /* Prevent iOS auto-zoom */
 input[type="text"],
 input[type="password"],

@@ -573,7 +573,7 @@ int main() {
       {editorExpanded && typeof document !== 'undefined' && (() => {
         const { createPortal } = require('react-dom')
         return createPortal(
-          <div className="fixed inset-0 flex flex-col bg-[#1e1e2e]" style={{ zIndex: 9999 }}>
+          <div className="practice-fs-portal fixed inset-0 flex flex-col bg-[#1e1e2e]" style={{ zIndex: 9999 }}>
             {/* Mini header */}
             <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#181825] border-b border-gray-700 flex-shrink-0">
               <div className="flex items-center gap-2 min-w-0">

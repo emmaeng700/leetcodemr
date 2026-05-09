@@ -800,6 +800,10 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           .cm-scroller { overflow-x: hidden !important; }
           .cm-content, .cm-line { white-space: pre-wrap; word-break: break-all; }
         }
+        /* Fullscreen portal: smaller font + horizontal scroll (no wrapping) */
+        .lc-fs-portal .cm-editor { font-size: 10px !important; line-height: 1.45 !important; }
+        .lc-fs-portal .cm-scroller { overflow-x: auto !important; }
+        .lc-fs-portal .cm-content, .lc-fs-portal .cm-line { white-space: pre !important; word-break: normal !important; }
       `}</style>
 
       {/* ── Toolbar ── */}
@@ -1053,7 +1057,27 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       {!lcLoad && !lcErr && editorExpanded && typeof document !== 'undefined' && (() => {
         const { createPortal } = require('react-dom')
         return createPortal(
-          <div className="fixed inset-0 flex flex-col bg-[#1a1a2e]" style={{ zIndex: 9999 }}>
+          <div className="lc-fs-portal fixed inset-0 flex flex-col bg-[#1a1a2e]" style={{ zIndex: 9999 }}>
+            {/* Session panel (if open) */}
+            {showSessionHint && (
+              <SessionPanel
+                onSave={(s, c) => {
+                  setSession(s); setCsrf(c)
+                  localStorage.setItem('lc_session', s)
+                  localStorage.setItem('lc_csrf', c)
+                  fetch('/api/lc-session', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lc_session: s, lc_csrf: c }),
+                  }).catch(() => {})
+                  setShowSessionHint(false)
+                  setLcErr('')
+                  setRetryKey(k => k + 1)
+                }}
+                onClose={() => setShowSessionHint(false)}
+              />
+            )}
+
+            {/* CodeMirror — takes all remaining height */}
             <div className="flex-1 overflow-hidden">
               <CodeMirror
                 key={`${lang}-${editorResetKey}-fs`}
@@ -1067,6 +1091,62 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
                 style={{ height: '100%' }}
               />
             </div>
+
+            {/* Compact result panel — auto-shows after run/submit */}
+            {(pollMsg || result || resultErr) && (
+              <div className="shrink-0 bg-[#16213e] border-t border-gray-700/50 px-3 py-2 max-h-[28vh] overflow-y-auto">
+                {pollMsg && (
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                    <Loader2 size={11} className="animate-spin text-indigo-400 shrink-0" /> {pollMsg}
+                  </div>
+                )}
+                {resultErr && !pollMsg && (
+                  <p className="text-xs text-red-400 break-words">{resultErr}</p>
+                )}
+                {result && !pollMsg && (
+                  <div className="space-y-1 text-xs">
+                    <p className={`font-bold ${STATUS_CLS[result.status_code ?? 0] ?? 'text-gray-400'}`}>
+                      {result.status_msg}
+                      {result.total_correct != null && ` · ${result.total_correct}/${result.total_testcases} passed`}
+                    </p>
+                    {(result.status_runtime || result.status_memory) && (
+                      <p className="text-gray-500">{result.status_runtime}{result.status_memory ? ` · ${result.status_memory}` : ''}</p>
+                    )}
+                    {result.full_compile_error && (
+                      <pre className="text-red-300 text-[10px] whitespace-pre-wrap break-words mt-1 leading-snug">{result.full_compile_error}</pre>
+                    )}
+                    {result.full_runtime_error && (
+                      <pre className="text-red-300 text-[10px] whitespace-pre-wrap break-words mt-1 leading-snug">{result.full_runtime_error}</pre>
+                    )}
+                    {result.status_code === 11 && result.last_testcase && (
+                      <p className="text-gray-500 text-[10px]">Failed: <span className="font-mono text-gray-400">{result.last_testcase.slice(0, 60)}</span></p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Run + Submit row */}
+            <div className="shrink-0 flex gap-2 px-3 py-2 bg-[#16213e] border-t border-gray-700/50">
+              <button
+                onPointerDown={e => e.preventDefault()}
+                onClick={!sessionOK ? () => setShowSessionHint(true) : runTest}
+                style={{ touchAction: 'manipulation' }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition ${!sessionOK ? 'bg-orange-600/80 text-white active:bg-orange-500' : 'bg-gray-700 text-gray-200 active:bg-gray-500'} ${running ? 'opacity-50' : ''}`}>
+                {running && runMode === 'test' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+                Run
+              </button>
+              <button
+                onPointerDown={e => e.preventDefault()}
+                onClick={!sessionOK ? () => setShowSessionHint(true) : runSubmit}
+                style={{ touchAction: 'manipulation' }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition ${!sessionOK ? 'bg-orange-600/80 text-white active:bg-orange-500' : 'bg-green-600 text-white active:bg-green-400'} ${running ? 'opacity-50' : ''}`}>
+                {running && runMode === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                Submit
+              </button>
+            </div>
+
+            {/* Keybar (RST + arrows + ⛶→✕) */}
             <MobileKeybar
               editorViewRef={editorViewRef}
               cursorPosRef={cursorPosRef}
