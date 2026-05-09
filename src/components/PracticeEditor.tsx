@@ -70,7 +70,7 @@ export default function PracticeEditor({ questionId, slug, starterPython, starte
   const [saved, setSaved] = useState(false)
   const [editorExpanded, setEditorExpanded] = useState(false)
   const [extensions, setExtensions] = useState<any[]>([])
-  const [theme] = useState<any[]>([])
+  const [editorTheme, setEditorTheme] = useState<any>(null)
   const [running, setRunning] = useState(false)
   const [output, setOutput] = useState<string | null>(null)
   const [showOutput, setShowOutput] = useState(false)
@@ -266,6 +266,8 @@ int main() {
       const { Prec } = stateMod
       const { indentWithTab } = cmdMod
       const { indentationMarkers } = await import('@replit/codemirror-indentation-markers')
+      const { oneDark } = await import('@codemirror/theme-one-dark')
+      setEditorTheme(oneDark)
       const smartEnter = (view: any) => {
         const { from } = view.state.selection.main
         const line = view.state.doc.lineAt(from)
@@ -546,7 +548,7 @@ int main() {
             <CodeMirror
               value={code}
               height="320px"
-              theme={theme}
+              theme={editorTheme ?? 'dark'}
               extensions={extensions}
               onChange={handleChange}
               onCreateEditor={(view: any) => { editorViewRef.current = view }}
@@ -604,7 +606,7 @@ int main() {
                   key={`portal-${lang}`}
                   value={code}
                   height="100%"
-                  theme={theme}
+                  theme={editorTheme ?? 'dark'}
                   extensions={extensions}
                   onChange={handleChange}
                   onCreateEditor={(view: any) => { portalViewRef.current = view }}

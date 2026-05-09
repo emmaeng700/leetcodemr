@@ -201,9 +201,18 @@ body {
   display: none;
 }
 
-/* Remove active-line highlight so all lines share the same background color */
+/* Flatten all CodeMirror background regions to one uniform color.
+   Targets every state (normal, focused) so no line ever looks different. */
 .cm-activeLine,
-.cm-activeLineGutter { background-color: transparent !important; }
+.cm-editor .cm-activeLine,
+.cm-editor.cm-focused .cm-activeLine { background-color: transparent !important; }
+
+.cm-activeLineGutter,
+.cm-editor .cm-activeLineGutter,
+.cm-editor.cm-focused .cm-activeLineGutter { background-color: transparent !important; }
+
+/* Make the gutter (line numbers) match the editor body exactly */
+.cm-gutters { background-color: transparent !important; border-right: 1px solid rgba(255,255,255,0.06) !important; }
 
 /* Practice editor — responsive font sizes, no line wrapping */
 .practice-cm-wrap .cm-content,
