@@ -245,24 +245,29 @@ export default function ImbibitionPage() {
 
   const handleResetLevels = async () => {
     if (resettingLevels) return
-    const ok = window.confirm('Reset all Imbibition levels back to Level 1? This also clears Imbibition /3 reps so patterns do not auto-level right back up.')
+    const ok = window.confirm('Reset all Imbibition levels back to Level 1 and all /3 counters to 0?')
     if (!ok) return
     setResettingLevels(true)
+
+    // 1. Wipe all run counts from localStorage
     const res = await resetImbibitionRuns()
     if (!res.ok) {
-      toast.error(`Couldn't reset Imbibition levels: ${res.error ?? 'unknown error'}`)
+      toast.error(`Couldn't reset: ${res.error ?? 'unknown error'}`)
       setResettingLevels(false)
       return
     }
+
+    // 2. Persist level-1 map to localStorage so it survives any future reload
+    saveStoredLevels(LEVEL_ONE_MAP)
+
+    // 3. Update React state immediately — no reload needed
     setRuns({})
-    setLevels(LEVEL_ONE_MAP)
+    setLevels({ ...LEVEL_ONE_MAP })
     setLevelingUp(null)
     sessionStorage.removeItem('lm_imbibition_queue')
-    saveStoredLevels(LEVEL_ONE_MAP)
-    toast.success('All Imbibition levels reset to Level 1, and Imbibition reps were cleared. Refreshing…')
-    window.setTimeout(() => {
-      window.location.reload()
-    }, 250)
+
+    setResettingLevels(false)
+    toast.success('All levels reset to Level 1 and all /3 counters cleared.')
   }
 
   if (loading) {
