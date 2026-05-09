@@ -2,7 +2,7 @@
 
 const IMBIBITION_RUNS_STORAGE_KEY = 'lm_imbibition_runs_v1'
 const IMBIBITION_LEVELS_STORAGE_KEY = 'lm_imbibition_levels_v1'
-const IMBIBITION_ISOLATION_MIGRATION_KEY = 'lm_imbibition_isolation_migrated_v1'
+const IMBIBITION_ISOLATION_MIGRATION_KEY = 'lm_imbibition_isolation_migrated_v2'
 
 export function ensureImbibitionIsolationMigration() {
   if (typeof window === 'undefined') return
