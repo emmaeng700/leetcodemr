@@ -105,6 +105,7 @@ export default function ImbibitionPage() {
   const [loading, setLoading] = useState(true)
   const [resetting, setResetting] = useState(false)
   const [resettingLevels, setResettingLevels] = useState(false)
+  const [confirmResetLevels, setConfirmResetLevels] = useState(false)
   const [levelingUp, setLevelingUp] = useState<string | null>(null) // pattern name being levelled
   const [targetPattern, setTargetPattern] = useState<string | null>(null)
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({})
@@ -245,8 +246,14 @@ export default function ImbibitionPage() {
 
   const handleResetLevels = async () => {
     if (resettingLevels) return
-    const ok = window.confirm('Reset all Imbibition levels back to Level 1 and all /3 counters to 0?')
-    if (!ok) return
+    // First tap → show inline confirm; second tap → execute
+    if (!confirmResetLevels) {
+      setConfirmResetLevels(true)
+      // Auto-cancel after 4 s if user changes mind
+      setTimeout(() => setConfirmResetLevels(false), 4000)
+      return
+    }
+    setConfirmResetLevels(false)
     setResettingLevels(true)
 
     // 1. Wipe all run counts from localStorage
@@ -257,7 +264,7 @@ export default function ImbibitionPage() {
       return
     }
 
-    // 2. Persist level-1 map to localStorage so it survives any future reload
+    // 2. Persist level-1 map to localStorage
     saveStoredLevels(LEVEL_ONE_MAP)
 
     // 3. Update React state immediately — no reload needed
@@ -289,11 +296,15 @@ export default function ImbibitionPage() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={handleResetLevels}
-            disabled={resettingLevels}
-            className="shrink-0 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
+            onPointerDown={e => { e.preventDefault(); handleResetLevels() }}
+            style={{ touchAction: 'manipulation', opacity: resettingLevels ? 0.5 : 1 }}
+            className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${
+              confirmResetLevels
+                ? 'border-red-400 bg-red-100 text-red-700 hover:bg-red-200'
+                : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+            }`}
           >
-            {resettingLevels ? 'Resetting…' : 'Reset levels'}
+            {resettingLevels ? 'Resetting…' : confirmResetLevels ? 'Tap again to confirm' : 'Reset levels'}
           </button>
           <button
             type="button"
