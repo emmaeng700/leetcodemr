@@ -210,6 +210,12 @@ body {
   word-break: normal !important;
 }
 .practice-cm-wrap .cm-scroller { overflow-x: auto !important; }
+
+/* Practice portal fullscreen — same small font, no line wrapping */
+.practice-fs-portal .cm-editor { font-size: 8.5px !important; line-height: 1.4 !important; }
+.practice-fs-portal .cm-scroller { overflow-x: auto !important; }
+.practice-fs-portal .cm-content,
+.practice-fs-portal .cm-line { font-size: 8.5px !important; white-space: pre !important; word-break: normal !important; touch-action: manipulation; }
 @media (min-width: 640px) {
   .practice-cm-wrap .cm-content,
   .practice-cm-wrap .cm-line { font-size: 10px; }
