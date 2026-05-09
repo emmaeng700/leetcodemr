@@ -195,7 +195,7 @@ export default function ImbibitionPage() {
   }, [levels, levelingUp])
 
   useEffect(() => {
-    if (loading || levelingUp) return
+    if (loading || levelingUp || resetting || resettingLevels) return
     for (const row of rows) {
       if (row.questions.length === 0) continue
       const allComplete = row.questions.every(q => (runs[String(q.id)] ?? 0) >= 3)
@@ -205,7 +205,7 @@ export default function ImbibitionPage() {
         break // process one at a time
       }
     }
-  }, [rows, loading, levelingUp, levels, runs, levelUpPattern])
+  }, [rows, loading, levelingUp, resetting, resettingLevels, levels, runs, levelUpPattern])
 
   const totalSolved = rows.reduce((sum, row) => sum + row.questions.length, 0)
   const fullyImbibed = rows.reduce((sum, row) => sum + row.completed, 0)
