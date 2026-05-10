@@ -50,28 +50,32 @@ function localTodayISO() {
 
 // ─── Progress ─────────────────────────────────────────────────────────────────
 export async function getProgress() {
-  const [{ data }, masteryRuns] = await Promise.all([
-    supabase
-      .from('progress')
-      .select('*')
-      .eq('user_id', USER_ID),
-    getMasteryRunsByQuestion(),
-  ])
+  try {
+    const [{ data }, masteryRuns] = await Promise.all([
+      supabase
+        .from('progress')
+        .select('*')
+        .eq('user_id', USER_ID),
+      getMasteryRunsByQuestion(),
+    ])
 
-  const result: Record<string, any> = {}
-  for (const row of data || []) {
-    const runs = masteryRuns[String(row.question_id)] ?? 0
-    result[String(row.question_id)] = {
-      solved: row.solved,
-      starred: row.starred,
-      notes: row.notes,
-      review_count: row.review_count,
-      next_review: row.next_review,
-      last_reviewed: row.last_reviewed,
-      status: deriveMasteryStatus(!!row.solved, runs),
+    const result: Record<string, any> = {}
+    for (const row of data || []) {
+      const runs = masteryRuns[String(row.question_id)] ?? 0
+      result[String(row.question_id)] = {
+        solved: row.solved,
+        starred: row.starred,
+        notes: row.notes,
+        review_count: row.review_count,
+        next_review: row.next_review,
+        last_reviewed: row.last_reviewed,
+        status: deriveMasteryStatus(!!row.solved, runs),
+      }
     }
+    return result
+  } catch {
+    return {}
   }
-  return result
 }
 
 /** Increment count when user gets Accepted on a Submit (tracked per app question id). */
@@ -180,33 +184,44 @@ export async function addMasteryRunEvent(questionId: number, count = 1) {
 }
 
 export async function getMasteryRunsByQuestion(): Promise<Record<string, number>> {
-  // Aggregate on the DB side so we transfer one row per question, not one per event.
-  const { data, error } = await supabase
-    .rpc('get_mastery_run_counts', { p_user_id: USER_ID })
+  try {
+    // Aggregate on the DB side so we transfer one row per question, not one per event.
+    const { data, error } = await supabase
+      .rpc('get_mastery_run_counts', { p_user_id: USER_ID })
 
-  if (error) {
-    // Fallback: table or RPC might not exist yet — fetch raw events and count client-side.
-    const { data: raw, error: rawErr } = await supabase
-      .from('mastery_run_events')
-      .select('question_id')
-      .eq('user_id', USER_ID)
-    if (rawErr) {
-      console.error('[db] getMasteryRunsByQuestion:', rawErr.message)
-      return {}
+    if (error) {
+      // Transport error (offline / Supabase unreachable) — skip fallback, it'll fail too.
+      if (isFetchTransportError(error.message)) return {}
+
+      // Fallback: RPC might not exist yet — fetch raw events and count client-side.
+      const { data: raw, error: rawErr } = await supabase
+        .from('mastery_run_events')
+        .select('question_id')
+        .eq('user_id', USER_ID)
+      if (rawErr) {
+        // Only log unexpected errors; transport errors are silently ignored.
+        if (!isFetchTransportError(rawErr.message)) {
+          console.error('[db] getMasteryRunsByQuestion:', rawErr.message)
+        }
+        return {}
+      }
+      const out: Record<string, number> = {}
+      for (const row of raw ?? []) {
+        const id = String((row as any).question_id)
+        out[id] = (out[id] ?? 0) + 1
+      }
+      return out
     }
+
     const out: Record<string, number> = {}
-    for (const row of raw ?? []) {
-      const id = String((row as any).question_id)
-      out[id] = (out[id] ?? 0) + 1
+    for (const row of data ?? []) {
+      out[String((row as any).question_id)] = Number((row as any).run_count)
     }
     return out
+  } catch {
+    // Unexpected throw from the Supabase client — degrade gracefully.
+    return {}
   }
-
-  const out: Record<string, number> = {}
-  for (const row of data ?? []) {
-    out[String((row as any).question_id)] = Number((row as any).run_count)
-  }
-  return out
 }
 
 export async function resetMasteryRuns(questionIds?: number[]) {
