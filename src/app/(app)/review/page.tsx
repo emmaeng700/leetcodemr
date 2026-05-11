@@ -278,12 +278,24 @@ export default function ReviewPage() {
       {/* ── Due for Review ─────────────────────────────────────────────────── */}
       {due.length > 0 && (
         <section className="mb-7">
-          <h2 className="text-sm font-bold text-[var(--text)] mb-4 flex items-center gap-2">
-            <Flame size={15} className="text-orange-500" /> Due for Review
-            <span className="px-2 py-0.5 bg-orange-100  text-orange-600  rounded-full text-xs border border-orange-200 ">
-              {pendingDue.length}/{due.length}
-            </span>
-          </h2>
+          {/* Section header — makes crystal clear these are today's batch */}
+          <div className="mb-4">
+            <h2 className="text-sm font-bold text-[var(--text)] flex items-center gap-2">
+              <Flame size={15} className="text-orange-500" />
+              Today's Reviews
+              <span className="px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full text-xs border border-orange-200 font-bold">
+                {pendingDue.length} left
+              </span>
+              {localDoneIds.size > 0 && (
+                <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs border border-green-200 font-bold">
+                  {localDoneIds.size} done ✓
+                </span>
+              )}
+            </h2>
+            <p className="text-xs text-[var(--text-subtle)] mt-1">
+              Today's scheduled batch · grouped by pattern · Again &amp; Pass appear when you open a question
+            </p>
+          </div>
 
           {/* All done celebration */}
           {localDoneIds.size >= due.length ? (
@@ -307,18 +319,19 @@ export default function ReviewPage() {
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
                       <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">{pattern}</span>
-                      <span className="text-[11px] font-bold text-orange-600 bg-orange-50  border border-orange-200  px-1.5 py-0.5 rounded-full">
+                      <span className="text-[11px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full">
                         {items.length}
                       </span>
                     </div>
                     <button
+                      type="button"
                       onClick={() => {
                         sessionStorage.setItem('lm_review_queue', JSON.stringify(items.map(q => q.id)))
                         router.push(`/practice/${items[0].id}?from=review`)
                       }}
-                      className="text-xs font-bold text-indigo-500 hover:text-indigo-400 transition-colors"
+                      className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
                     >
-                      Review all →
+                      Review all <CalendarCheck size={11} />
                     </button>
                   </div>
 
@@ -336,7 +349,7 @@ export default function ReviewPage() {
                             ))
                             router.push(`/practice/${q.id}?from=review`)
                           }}
-                          className="flex items-center justify-between gap-2 flex-wrap rounded-xl px-4 py-3 cursor-pointer bg-indigo-50  border border-indigo-200  hover:border-indigo-400 hover:shadow-md transition-all group"
+                          className="flex items-center justify-between gap-2 flex-wrap rounded-xl px-4 py-3 cursor-pointer bg-indigo-50 border border-indigo-200 hover:border-indigo-400 hover:shadow-md transition-all group"
                         >
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
