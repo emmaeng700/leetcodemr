@@ -40,29 +40,28 @@ export const QUICK_PATTERNS = [
   { name: 'Arrays & Hashing',     tags: ['Array', 'Hash Table', 'Prefix Sum'] },
 ] as const
 
-// Learning-progression order — Arrays & Hashing first (Two Sum is #1),
-// building from foundational to complex. Used to order flashcards, pattern
-// filter buttons, coverage grids, and imbibition patterns throughout the app.
+// Ascending question-count order (fewest → most). Computed from questions_full.json.
+// Graphs(5) first, Trees & BST(37) last — consistent ordering throughout the app.
 export const DISPLAY_PATTERN_ORDER = [
-  'Arrays & Hashing',    // Two Sum (#1) — foundational
-  'Two Pointers',
-  'Sliding Window',
-  'Stack',
-  'Binary Search',
-  'Linked List',
-  'Trees & BST',
-  'Heap',
-  'Backtracking',
-  'DFS',
-  'BFS',
-  'Graphs',
-  'Matrix',
-  'Dynamic Programming',
-  'Greedy',
-  'Sorting',
-  'Math',
-  'Bit Manipulation',
-  'Trie',
-  'String',
-  'JavaScript',
+  'Graphs',              // 5
+  'Greedy',              // 6
+  'JavaScript',          // 7
+  'String',              // 8
+  'Sliding Window',      // 9
+  'Sorting',             // 9
+  'Backtracking',        // 10
+  'Bit Manipulation',    // 10
+  'BFS',                 // 10
+  'Math',                // 12
+  'Trie',                // 12
+  'Arrays & Hashing',    // 18
+  'Two Pointers',        // 19
+  'Heap',                // 20
+  'Matrix',              // 20
+  'Linked List',         // 23
+  'DFS',                 // 23
+  'Binary Search',       // 24
+  'Dynamic Programming', // 24
+  'Stack',               // 25
+  'Trees & BST',         // 37
 ] as const

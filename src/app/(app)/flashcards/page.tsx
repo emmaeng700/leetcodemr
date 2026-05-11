@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Shuffle, RotateCcw, Layers, CheckCircle, Circle } from 'lucide-react'
 import { getFcVisited, addFcVisited, getProgress } from '@/lib/db'
@@ -23,11 +23,7 @@ interface Question {
   description?: string
 }
 
-const DISPLAY_PATTERNS = [...QUICK_PATTERNS].sort(
-  (a, b) =>
-    DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
-    DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
-)
+// Sorted dynamically by count inside the component (see sortedPatterns useMemo)
 
 function FlashcardsInner() {
   const searchParams = useSearchParams()
@@ -61,6 +57,24 @@ function FlashcardsInner() {
   const [isPremium, setIsPremium] = useState(false)
   const lcCacheRef = useRef<Record<string, string>>({})
 
+  // Exclusive pattern map and per-pattern counts — used for deck sort and filter buttons
+  const exclusiveMapAll = useMemo(() => buildExclusivePatternMap(all), [all])
+  const patternCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const q of all) {
+      const p = exclusiveMapAll[q.id]
+      if (p) counts[p] = (counts[p] ?? 0) + 1
+    }
+    return counts
+  }, [all, exclusiveMapAll])
+  // Pattern filter buttons sorted ascending by question count (fewest first)
+  const sortedPatterns = useMemo(
+    () => (QUICK_PATTERNS as unknown as { name: string; tags: readonly string[] }[])
+      .slice()
+      .sort((a, b) => (patternCounts[a.name] ?? 0) - (patternCounts[b.name] ?? 0)),
+    [patternCounts]
+  )
+
   useEffect(() => {
     async function load() {
       const [qs, vis, prog] = await Promise.all([
@@ -78,9 +92,6 @@ function FlashcardsInner() {
 
   useEffect(() => {
     let filtered = all
-    // Compute once — used for both pattern filtering and sort ordering below
-    const exclusiveMap = buildExclusivePatternMap(all)
-
     if (filterDiff !== 'All') filtered = filtered.filter(q => q.difficulty === filterDiff)
     if (filterSource !== 'All') filtered = filtered.filter(q => (q.source || []).includes(filterSource))
     if (initSearch) {
@@ -89,7 +100,7 @@ function FlashcardsInner() {
       filtered = filtered.filter(q => q.title.toLowerCase().includes(s) || String(q.id).includes(byId))
     }
     if (filterPattern) {
-      filtered = filtered.filter(q => exclusiveMap[q.id] === filterPattern)
+      filtered = filtered.filter(q => exclusiveMapAll[q.id] === filterPattern)
     }
     if (initStarred) filtered = filtered.filter(q => progress[q.id]?.starred)
     if (initSolved === true)  filtered = filtered.filter(q => progress[q.id]?.solved)
@@ -99,13 +110,11 @@ function FlashcardsInner() {
     if (isShuffled) {
       next = shuffle(filtered)
     } else {
-      // Sort by learning-progression pattern order, then by question ID within each pattern
-      const patternOrderIdx: Record<string, number> = {}
-      DISPLAY_PATTERN_ORDER.forEach((p, i) => { patternOrderIdx[p] = i })
+      // Sort by ascending pattern question-count, then by question ID within each pattern
       next = [...filtered].sort((a, b) => {
-        const oa = patternOrderIdx[exclusiveMap[a.id]] ?? 999
-        const ob = patternOrderIdx[exclusiveMap[b.id]] ?? 999
-        return oa !== ob ? oa - ob : a.id - b.id
+        const ca = patternCounts[exclusiveMapAll[a.id]] ?? 999
+        const cb = patternCounts[exclusiveMapAll[b.id]] ?? 999
+        return ca !== cb ? ca - cb : a.id - b.id
       })
     }
     setDeck(next)
@@ -117,7 +126,7 @@ function FlashcardsInner() {
     } else {
       setIdx(i => Math.min(i, Math.max(0, next.length - 1)))
     }
-  }, [filterDiff, filterSource, filterPattern, all, isShuffled, initSearch, initStarred, initSolved, progress])
+  }, [filterDiff, filterSource, filterPattern, all, isShuffled, initSearch, initStarred, initSolved, progress, exclusiveMapAll, patternCounts])
 
   const q = deck[idx] || null
 
@@ -197,9 +206,8 @@ function FlashcardsInner() {
     return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
   }, [q?.id, q?.slug])
 
-  // Pattern coverage for the active pattern filter (exclusive — each question in one pattern only)
-  const exclusiveMapAll = filterPattern ? buildExclusivePatternMap(all) : null
-  const patternAllQs = filterPattern && exclusiveMapAll
+  // Pattern coverage for the active pattern filter
+  const patternAllQs = filterPattern
     ? all.filter(q => exclusiveMapAll[q.id] === filterPattern)
     : []
   const patternSolvedCount = patternAllQs.filter(q => progress[String(q.id)]?.solved).length
@@ -354,7 +362,7 @@ function FlashcardsInner() {
             }`}>
             All Patterns
           </button>
-          {DISPLAY_PATTERNS.map(p => (
+          {sortedPatterns.map(p => (
             <button key={p.name} onClick={() => setFilterPattern(filterPattern === p.name ? null : p.name)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
                 filterPattern === p.name ? 'bg-cyan-700 text-white border-cyan-500' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:border-cyan-500/50'
