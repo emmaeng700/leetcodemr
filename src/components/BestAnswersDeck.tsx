@@ -93,7 +93,6 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
 const emptyStates = (): Record<SiteKey, SiteState> => ({
   walkccc:    { status: 'idle', blocks: [], url: '' },
   doocs:      { status: 'idle', blocks: [], url: '' },
-  simplyleet: { status: 'idle', blocks: [], url: '' },
   leetcodeca: { status: 'idle', blocks: [], url: '' },
 })
 

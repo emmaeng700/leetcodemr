@@ -9,7 +9,6 @@ import {
 export const BEST_ANSWER_SITES = [
   { key: 'walkccc',    label: 'WalkCC',      color: 'text-blue-400',    border: 'border-blue-500/30',    bg: 'bg-blue-500/5'    },
   { key: 'doocs',      label: 'LeetDoocs',   color: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/5' },
-  { key: 'simplyleet', label: 'SimplyLeet',  color: 'text-purple-400',  border: 'border-purple-500/30',  bg: 'bg-purple-500/5'  },
   { key: 'leetcodeca', label: 'LeetCode.ca', color: 'text-orange-400',  border: 'border-orange-500/30',  bg: 'bg-orange-500/5'  },
 ] as const
 
@@ -43,7 +42,6 @@ function labelForLang(lang: string) {
 const emptyStates = (): Record<SiteKey, SiteState> => ({
   walkccc:    { status: 'idle', blocks: [], url: '' },
   doocs:      { status: 'idle', blocks: [], url: '' },
-  simplyleet: { status: 'idle', blocks: [], url: '' },
   leetcodeca: { status: 'idle', blocks: [], url: '' },
 })
 
