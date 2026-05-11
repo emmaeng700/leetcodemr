@@ -54,15 +54,32 @@ function PremiumBlock({ slug }: { slug?: string }) {
   )
 }
 
+function todayDailyRepsKey() {
+  return `lm_daily_reps_${new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })}`
+}
+
+function readDailyRuns() {
+  try {
+    return JSON.parse(localStorage.getItem(todayDailyRepsKey()) ?? '{}') as Record<string, number>
+  } catch {
+    return {}
+  }
+}
+
+function writeDailyRuns(runs: Record<string, number>) {
+  localStorage.setItem(todayDailyRepsKey(), JSON.stringify(runs))
+}
+
 export default function PracticePage() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
   const flowMode = searchParams.get('from')
+  const isDailyMode     = flowMode === 'daily'
   const isReviewMode    = flowMode === 'review'
   const isEarlyReview   = flowMode === 'early-review'   // upcoming review done in advance
   const isImbibitionMode = flowMode === 'imbibition'
-  const usesThreeSolveGate = isReviewMode || isEarlyReview || isImbibitionMode
+  const usesThreeSolveGate = isDailyMode || isReviewMode || isEarlyReview || isImbibitionMode
   const id = Number(params.id)
 
   const [question, setQuestion] = useState<Question | null>(null)
@@ -110,7 +127,13 @@ export default function PracticePage() {
       setAllQuestions(qs as Question[])
       // In review / early-review mode, use the stored queue for prev/next navigation
       let modeQueue: number[] | null = null
-      const queueKey = (isReviewMode || isEarlyReview) ? 'lm_review_queue' : isImbibitionMode ? 'lm_imbibition_queue' : null
+      const queueKey = isDailyMode
+        ? 'lm_daily_queue'
+        : (isReviewMode || isEarlyReview)
+          ? 'lm_review_queue'
+          : isImbibitionMode
+            ? 'lm_imbibition_queue'
+            : null
       if (queueKey) {
         try {
           const stored = sessionStorage.getItem(queueKey)
@@ -123,7 +146,7 @@ export default function PracticePage() {
                   const next = prog[String(qid)]?.next_review
                   return !!next && isDue(next)
                 })
-              : parsed   // early-review and imbibition: use as-is
+              : parsed   // daily, early-review and imbibition: use as-is
           }
         } catch { /* ignore */ }
       }
@@ -135,14 +158,16 @@ export default function PracticePage() {
       setNextReview(prog[String(id)]?.next_review ?? null)
       progressRef.current = prog
       if (usesThreeSolveGate) {
-        const masteryRuns = isImbibitionMode
-          ? await getImbibitionRunsByQuestion()
-          : await getMasteryRunsByQuestion()
+        const masteryRuns = isDailyMode
+          ? readDailyRuns()
+          : isImbibitionMode
+            ? await getImbibitionRunsByQuestion()
+            : await getMasteryRunsByQuestion()
         setModeRuns(masteryRuns)
       }
     }
     load()
-  }, [id, usesThreeSolveGate, isReviewMode, isImbibitionMode])
+  }, [id, usesThreeSolveGate, isDailyMode, isReviewMode, isImbibitionMode])
 
   useEffect(() => {
     if (!question) return
@@ -161,9 +186,9 @@ export default function PracticePage() {
     const unlockedThrough = firstIncompleteIdx === -1 ? planOrder.length - 1 : firstIncompleteIdx
     if (currentIdx <= unlockedThrough) return
     const fallbackId = planOrder[unlockedThrough]
-    const navSuffix = isReviewMode ? '?from=review' : '?from=imbibition'
+    const navSuffix = isDailyMode ? '?from=daily' : isReviewMode ? '?from=review' : '?from=imbibition'
     router.replace(`/practice/${fallbackId}${navSuffix}`)
-  }, [id, isReviewMode, modeRuns, planOrder, router, usesThreeSolveGate])
+  }, [id, isDailyMode, isReviewMode, modeRuns, planOrder, router, usesThreeSolveGate])
 
   // Fetch real LeetCode description in the background once we have the slug.
   // Reads session from localStorage first; if empty falls back to Supabase
@@ -250,6 +275,12 @@ export default function PracticePage() {
     if (current >= 3) return
     const missing = 3 - current
     setModeRuns(prev => ({ ...prev, [String(question.id)]: 3 }))
+    if (isDailyMode) {
+      const updated = readDailyRuns()
+      updated[String(question.id)] = 3
+      writeDailyRuns(updated)
+      return
+    }
     const res = isImbibitionMode
       ? await addImbibitionRunEvent(question.id, missing)
       : await addMasteryRunEvent(question.id, missing)
@@ -288,23 +319,34 @@ export default function PracticePage() {
     const before = modeRuns[String(question.id)] ?? 0
     const currentIdx = planOrder.indexOf(question.id)
     const nextQuestionId = currentIdx >= 0 ? planOrder[currentIdx + 1] : null
-    const navSuffix = isReviewMode ? '?from=review' : isEarlyReview ? '?from=early-review' : '?from=imbibition'
-    const res = isImbibitionMode
-      ? await addImbibitionRunEvent(question.id, 1)
-      : await addMasteryRunEvent(question.id, 1)
-    if (!res.ok) {
-      toast.error(`Couldn't save mastery run: ${res.error ?? 'unknown error'}`)
-      return
+    const navSuffix = isDailyMode ? '?from=daily' : isReviewMode ? '?from=review' : isEarlyReview ? '?from=early-review' : '?from=imbibition'
+    if (isDailyMode) {
+      const updated = readDailyRuns()
+      updated[String(question.id)] = (updated[String(question.id)] ?? 0) + 1
+      writeDailyRuns(updated)
+    } else {
+      const res = isImbibitionMode
+        ? await addImbibitionRunEvent(question.id, 1)
+        : await addMasteryRunEvent(question.id, 1)
+      if (!res.ok) {
+        toast.error(`Couldn't save mastery run: ${res.error ?? 'unknown error'}`)
+        return
+      }
     }
     const after = Math.min(before + 1, 3)
     setModeRuns(prev => ({ ...prev, [String(question.id)]: (prev[String(question.id)] ?? 0) + 1 }))
 
     const nextQuestion = nextQuestionId ? allQuestions.find(q => q.id === nextQuestionId) ?? null : null
-    const modeLabel = isImbibitionMode ? 'Imbibition' : isEarlyReview ? 'Early review' : 'Review'
+    const modeLabel = isDailyMode ? 'Daily' : isImbibitionMode ? 'Imbibition' : isEarlyReview ? 'Early review' : 'Review'
     let autoAdvanceId: number | null = null
 
     if (after >= 3) {
-      if (isImbibitionMode) {
+      if (isDailyMode) {
+        const remainingQueue = planOrder.filter(qid => qid !== question.id)
+        sessionStorage.setItem('lm_daily_queue', JSON.stringify(remainingQueue))
+        autoAdvanceId = remainingQueue[0] ?? null
+        setQueuedNextId(autoAdvanceId)
+      } else if (isImbibitionMode) {
         const remainingQueue = planOrder.filter(qid => qid !== question.id)
         sessionStorage.setItem('lm_imbibition_queue', JSON.stringify(remainingQueue))
         autoAdvanceId = remainingQueue[0] ?? null
@@ -334,6 +376,8 @@ export default function PracticePage() {
 
     if (autoAdvanceId) {
       router.push(`/practice/${autoAdvanceId}${navSuffix}`)
+    } else if (isDailyMode && after >= 3) {
+      router.push('/daily')
     }
   }
 
@@ -430,7 +474,7 @@ export default function PracticePage() {
                 : firstIncompleteIdx
             const prevId = currentIdx > 0 ? planOrder[currentIdx - 1] : null
             const nextId = queuedNextId ?? (currentIdx < unlockedThrough ? planOrder[currentIdx + 1] : null)
-            const navSuffix = isReviewMode ? '?from=review' : isImbibitionMode ? '?from=imbibition' : ''
+            const navSuffix = isDailyMode ? '?from=daily' : isReviewMode ? '?from=review' : isImbibitionMode ? '?from=imbibition' : ''
             const practiceListItems = planOrder.map((qid) => {
               const lq = qMap[qid]
               if (!lq) return null
@@ -465,6 +509,11 @@ export default function PracticePage() {
             })
             return (
               <div className="flex items-center gap-1">
+                {isDailyMode && (
+                  <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold shrink-0">
+                    📅 Daily
+                  </span>
+                )}
                 {isReviewMode && (
                   <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-orange-50 border border-orange-200 text-orange-600 text-xs font-bold shrink-0">
                     🔁 Review
@@ -581,7 +630,7 @@ export default function PracticePage() {
           <span className="text-xs font-semibold text-[var(--text)]">{p}</span>
           {usesThreeSolveGate && (
             <span className="ml-auto text-[11px] font-bold text-cyan-700 shrink-0">
-              {isImbibitionMode ? 'Imbibition' : 'Review'} {Math.min(modeRuns[String(question.id)] ?? 0, 3)}/3
+              {isDailyMode ? 'Daily' : isImbibitionMode ? 'Imbibition' : 'Review'} {Math.min(modeRuns[String(question.id)] ?? 0, 3)}/3
             </span>
           )}
         </div>

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
@@ -35,6 +35,7 @@ const PLAN_MODE_KEY      = 'lm_plan_mode_v1'
 const FOCUS_PATTERN_KEY  = 'lm_focus_pattern_v1'
 const REPS_PER_Q_KEY     = 'lm_reps_per_q'
 const DAILY_REPS_PREFIX  = 'lm_daily_reps_'
+const DAILY_QUEUE_KEY    = 'lm_daily_queue'
 
 // ─── Rep dots ─────────────────────────────────────────────────────────────────
 function RepDots({ done, total }: { done: number; total: number }) {
@@ -144,6 +145,7 @@ function getTodayInfo(plan: StudyPlan, allQuestions: Question[], progress: Recor
 
 export default function DailyPage() {
   const pathname = usePathname()
+  const router = useRouter()
   const prevPathRef = useRef<string | null>(null)
   const online = useOnlineStatus()
   const [allQuestions, setAllQuestions] = useState<Question[]>([])
@@ -200,27 +202,13 @@ export default function DailyPage() {
 
   const topicMap = useMemo(() => buildExclusivePatternMap(allQuestions), [allQuestions])
 
-  // incrementRep must be declared before any useEffect that references it
-  const incrementRep = useCallback((id: number) => {
-    const key = `${DAILY_REPS_PREFIX}${todayISO()}`
-    setDailyReps(prev => {
-      const prevCount = prev[String(id)] ?? 0
-      const newCount  = prevCount + 1
-      const updated   = { ...prev, [String(id)]: newCount }
-      localStorage.setItem(key, JSON.stringify(updated))
-      // Auto-advance to next question when this one hits the rep target
-      if (newCount >= repsPerQRef.current) {
-        const qs  = todayQsRef.current
-        const idx = qs.findIndex(q => q.id === id)
-        const nextQ = qs.slice(idx + 1).find(q => (updated[String(q.id)] ?? 0) < repsPerQRef.current)
-        if (nextQ) {
-          setTimeout(() => {
-            questionRefs.current[nextQ.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          }, 450)
-        }
-      }
-      return updated
-    })
+  const refreshDailyReps = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(`${DAILY_REPS_PREFIX}${todayISO()}`) ?? '{}'
+      setDailyReps(JSON.parse(raw) as Record<string, number>)
+    } catch {
+      setDailyReps({})
+    }
   }, [])
 
   // ── Derived values that must live before any early return (Rules of Hooks) ──
@@ -294,8 +282,7 @@ export default function DailyPage() {
       setRepsPerQ(savedRpq)
       setSetupRepsPerQ(savedRpq)
       repsPerQRef.current = savedRpq
-      const todayRepsRaw = localStorage.getItem(`${DAILY_REPS_PREFIX}${todayISO()}`) ?? '{}'
-      setDailyReps(JSON.parse(todayRepsRaw) as Record<string, number>)
+      refreshDailyReps()
 
       const [qs, prog, p, due, solvedToday] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
@@ -335,7 +322,7 @@ export default function DailyPage() {
       void syncStreakActivityFromGoals(resolvedMode).catch(() => {/* silent */})
     }
     load()
-  }, [])
+  }, [refreshDailyReps])
 
   // When coming back from /practice (or any route), merge latest solved state immediately — no full-page reload.
   // In random mode we also re-trigger the streak sync so the activity_log is
@@ -347,9 +334,7 @@ export default function DailyPage() {
       if (prev !== null && prev !== '/daily') {
         void refreshProgress()
         void refreshDue()
-        // Count every practice-page visit as one rep for that question
-        const m = prev?.match(/^\/practice\/(\d+)$/)
-        if (m) incrementRep(parseInt(m[1]))
+        refreshDailyReps()
         if (activePlanMode === 'random') {
           void syncStreakActivityFromGoals(activePlanMode).catch(() => {/* silent */})
         }
@@ -357,7 +342,7 @@ export default function DailyPage() {
     } else {
       prevPathRef.current = pathname
     }
-  }, [pathname, loading, refreshProgress, refreshDue, activePlanMode, incrementRep])
+  }, [pathname, loading, refreshProgress, refreshDue, refreshDailyReps, activePlanMode])
 
   useEffect(() => {
     if (loading || pathname !== '/daily') return
@@ -365,6 +350,7 @@ export default function DailyPage() {
       if (document.visibilityState === 'visible') {
         void refreshProgress()
         void refreshDue()
+        refreshDailyReps()
         if (activePlanMode === 'random') {
           void syncStreakActivityFromGoals(activePlanMode).catch(() => {/* silent */})
         }
@@ -374,6 +360,7 @@ export default function DailyPage() {
       if ((e as PageTransitionEvent).persisted) {
         void refreshProgress()
         void refreshDue()
+        refreshDailyReps()
         if (activePlanMode === 'random') {
           void syncStreakActivityFromGoals(activePlanMode).catch(() => {/* silent */})
         }
@@ -385,7 +372,7 @@ export default function DailyPage() {
       document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener('pageshow', onPageShow)
     }
-  }, [loading, pathname, refreshProgress, refreshDue, activePlanMode])
+  }, [loading, pathname, refreshProgress, refreshDue, refreshDailyReps, activePlanMode])
 
   const { days: previewDays, date: previewFinish } = calcFinish(startDate, perDay, allQuestions.length)
 
@@ -704,11 +691,26 @@ export default function DailyPage() {
   // Random mode: day goal met when per_day new questions solved today
   const randomGoalMet = isRandomMode && todaySolvedCount >= plan.per_day
 
+  const launchDailyQuestion = useCallback((qid: number) => {
+    const strictQueue = todayQs.map(q => q.id)
+    const randomQueue = [qid, ...randomFocusQs.filter(q => q.id !== qid).map(q => q.id)].slice(0, plan.per_day)
+    const queue = isRandomMode ? randomQueue : strictQueue
+    try {
+      sessionStorage.setItem(DAILY_QUEUE_KEY, JSON.stringify(queue))
+    } catch {
+      // Ignore storage issues and still navigate.
+    }
+    router.push(`/practice/${qid}?from=daily`)
+  }, [isRandomMode, plan.per_day, randomFocusQs, router, todayQs])
+
   const dailyListItems = todayQs.map(q => (
-    <a
+    <button
       key={q.id}
-      href={`/practice/${q.id}`}
-      onClick={() => setShowList(false)}
+      type="button"
+      onClick={() => {
+        launchDailyQuestion(q.id)
+        setShowList(false)
+      }}
       className="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--bg-muted)] border-b border-[var(--border-soft)] transition-colors"
     >
       <span className="shrink-0 tabular-nums text-xs font-mono text-[var(--text-subtle)]">#{q.id}</span>
@@ -719,7 +721,7 @@ export default function DailyPage() {
         {q.difficulty[0]}
       </span>
       {isSolved(q.id) && <CheckCircle2 size={11} className="text-green-400 shrink-0" />}
-    </a>
+    </button>
   ))
   const pastDayCount = todayInfo.dayNumber ? todayInfo.dayNumber - 1 : totalDays
   const PAST_DAYS_INITIAL = 7
@@ -1018,8 +1020,9 @@ export default function DailyPage() {
                           </span>
                         </div>
                       </div>
-                      <Link
-                        href={`/practice/${q.id}`}
+                      <button
+                        type="button"
+                        onClick={() => launchDailyQuestion(q.id)}
                         className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
                           repDone
                             ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
@@ -1027,7 +1030,7 @@ export default function DailyPage() {
                         }`}
                       >
                         {repDone ? <><RotateCcw size={11} /> Extra</> : <>Solve <ArrowRight size={12} /></>}
-                      </Link>
+                      </button>
                     </div>
                   )
                 })
@@ -1116,8 +1119,9 @@ export default function DailyPage() {
                         </span>
                       </div>
                     </div>
-                    <Link
-                      href={`/practice/${q.id}`}
+                    <button
+                      type="button"
+                      onClick={() => launchDailyQuestion(q.id)}
                       className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
                         repDone
                           ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
@@ -1127,7 +1131,7 @@ export default function DailyPage() {
                       }`}
                     >
                       {repDone ? <><RotateCcw size={11} /> Extra</> : <>Solve <ArrowRight size={12} /></>}
-                    </Link>
+                    </button>
                   </div>
                 </div>
               )
