@@ -1,12 +1,14 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { getDailyReviewCapChicago, getMasteryRunsByQuestion, getProgress, getDueReviews, completeReview } from '@/lib/db'
+import { getMasteryRunsByQuestion, getProgress, getDueReviews, completeReview } from '@/lib/db'
 import { isDue, formatLocalDate } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
-import { Brain, CheckCircle, Clock, CalendarCheck, Flame, Trophy, TrendingUp, ChevronLeft, ChevronRight, Home } from 'lucide-react'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { DISPLAY_PATTERN_ORDER } from '@/lib/constants'
+import { Brain, CheckCircle, Clock, CalendarCheck, Flame, Trophy, TrendingUp, Home } from 'lucide-react'
 
 interface Question {
   id: number
@@ -36,31 +38,54 @@ const STATUS_META: Record<string, { bg: string; text: string; label: string; emo
   mastered: { bg: 'bg-green-50  border-green-200 ',   text: 'text-green-600 ',  label: 'Mastered', emoji: '📗' },
 }
 
-const PAGE_SIZE = 5
+// ─── Utility: group any question array by pattern in DISPLAY_PATTERN_ORDER ────
 
-// Paginated card list for a status bucket
+function groupByPattern<T extends { id: number }>(
+  items: T[],
+  exclusiveMap: Record<number, string>
+): Array<{ pattern: string; items: T[] }> {
+  const map = new Map<string, T[]>()
+  for (const item of items) {
+    const pat = exclusiveMap[item.id] ?? 'Other'
+    if (!map.has(pat)) map.set(pat, [])
+    map.get(pat)!.push(item)
+  }
+  const order = DISPLAY_PATTERN_ORDER as readonly string[]
+  return [...map.entries()]
+    .sort(([a], [b]) => {
+      const ai = order.indexOf(a)
+      const bi = order.indexOf(b)
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
+    })
+    .map(([pattern, items]) => ({ pattern, items }))
+}
+
+// ─── Status bucket with pattern sub-groups ────────────────────────────────────
+
+const STATUS_PATTERN_PAGE = 4
+
 function StatusBucket({
   status,
   questions,
+  exclusiveMap,
   runs,
   onNavigate,
 }: {
   status: string
   questions: any[]
+  exclusiveMap: Record<number, string>
   runs: Record<string, number>
   onNavigate: (id: number) => void
 }) {
-  const [page, setPage] = useState(0)
   const meta = STATUS_META[status]
-  const totalPages = Math.ceil(questions.length / PAGE_SIZE)
-  const slice = questions.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+  const patternGroups = useMemo(() => groupByPattern(questions, exclusiveMap), [questions, exclusiveMap])
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   if (!questions.length) return null
 
   return (
     <div className="mb-6">
-      {/* Bucket header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center gap-2 mb-3">
         <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[var(--text-subtle)]">
           <span>{meta.emoji}</span>
           <span>{meta.label}</span>
@@ -68,75 +93,68 @@ function StatusBucket({
             {questions.length}
           </span>
         </p>
-        {totalPages > 1 && (
-          <span className="text-xs text-[var(--text-subtle)]">
-            {page + 1} / {totalPages}
-          </span>
-        )}
       </div>
 
-      {/* Cards */}
-      <div className="space-y-2">
-        {slice.map(q => (
-          <div
-            key={q.id}
-            onClick={() => onNavigate(q.id)}
-            className="flex items-center justify-between gap-2 flex-wrap bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-4 py-3 cursor-pointer hover:border-indigo-400/60 hover:shadow-md hover:shadow-[var(--accent-glow)] transition-all group"
-          >
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
-              <span className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-500 transition-colors">{q.title}</span>
-              <DifficultyBadge difficulty={q.difficulty} />
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${STATUS_STYLE[status]}`}>
-                {meta.label}
-              </span>
-              <span className="text-xs text-[var(--text-subtle)] hidden sm:inline">
-                Runs {Math.min(runs[String(q.id)] ?? 0, 3)}/3
-              </span>
-              {q.p.solved && q.p.next_review && (
-                <span className="text-xs text-[var(--text-subtle)] hidden sm:inline">
-                  {isDue(q.p.next_review) ? '🔴 Due' : `📅 ${formatLocalDate(q.p.next_review)}`}
-                </span>
+      <div className="space-y-4">
+        {patternGroups.map(({ pattern, items }) => {
+          const isExpanded = expanded.has(pattern)
+          const visible = isExpanded ? items : items.slice(0, STATUS_PATTERN_PAGE)
+          const hidden = items.length - STATUS_PATTERN_PAGE
+          return (
+            <div key={pattern}>
+              <p className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wider mb-1.5 px-1">
+                {pattern} · {items.length}
+              </p>
+              <div className="space-y-1.5">
+                {visible.map(q => (
+                  <div
+                    key={q.id}
+                    onClick={() => onNavigate(q.id)}
+                    className="flex items-center justify-between gap-2 flex-wrap bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-4 py-3 cursor-pointer hover:border-indigo-400/60 hover:shadow-md hover:shadow-[var(--accent-glow)] transition-all group"
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
+                      <span className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-500 transition-colors">{q.title}</span>
+                      <DifficultyBadge difficulty={q.difficulty} />
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${STATUS_STYLE[status]}`}>
+                        {meta.label}
+                      </span>
+                      <span className="text-xs text-[var(--text-subtle)] hidden sm:inline">
+                        {Math.min(runs[String(q.id)] ?? 0, 3)}/3
+                      </span>
+                      {q.p?.solved && q.p?.next_review && (
+                        <span className="text-xs text-[var(--text-subtle)] hidden sm:inline">
+                          {isDue(q.p.next_review) ? '🔴 Due' : `📅 ${formatLocalDate(q.p.next_review)}`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {items.length > STATUS_PATTERN_PAGE && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded(prev => {
+                    const next = new Set(prev)
+                    next.has(pattern) ? next.delete(pattern) : next.add(pattern)
+                    return next
+                  })}
+                  className="mt-1.5 ml-1 text-xs font-semibold text-[var(--text-subtle)] hover:text-indigo-400 transition-colors"
+                >
+                  {isExpanded ? 'Show less ↑' : `Show ${hidden} more ↓`}
+                </button>
               )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
-
-      {/* Prev / Next */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-3">
-          <button
-            onClick={() => setPage(p => Math.max(0, p - 1))}
-            disabled={page === 0}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--bg-muted)] border border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-400/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronLeft size={13} /> Prev
-          </button>
-          {/* dot indicators */}
-          <div className="flex gap-1">
-            {Array.from({ length: totalPages }).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setPage(i)}
-                className={`rounded-full transition-all ${i === page ? 'w-4 h-2 bg-indigo-500' : 'w-2 h-2 bg-[var(--bg-muted)] hover:bg-[var(--text-subtle)]'}`}
-              />
-            ))}
-          </div>
-          <button
-            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-            disabled={page === totalPages - 1}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--bg-muted)] border border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-400/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            Next <ChevronRight size={13} />
-          </button>
-        </div>
-      )}
     </div>
   )
 }
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ReviewPage() {
   const online = useOnlineStatus()
@@ -154,14 +172,14 @@ export default function ReviewPage() {
       fetch('/questions_full.json').then(r => r.json()),
       getProgress(),
       getMasteryRunsByQuestion(),
-      getDueReviews(), // triggers spreading + returns capped list
+      getDueReviews(),
     ]).then(([qs, prog, mr, due]) => {
       setAllQ(qs)
       setProgress(prog)
       setRuns(mr)
       setDueList(due)
       setLoading(false)
-    }).catch((e) => {
+    }).catch(e => {
       console.error('[review] load failed:', e)
       setLoading(false)
     })
@@ -170,18 +188,13 @@ export default function ReviewPage() {
   useEffect(() => {
     if (!dueList.length) return
     const syncedDone = dueList
-      .filter(d => {
-        const next = progress[String(d.id)]?.next_review
-        return next && !isDue(next)
-      })
+      .filter(d => { const next = progress[String(d.id)]?.next_review; return next && !isDue(next) })
       .map(d => d.id)
     if (!syncedDone.length) return
-    setLocalDoneIds(prev => {
-      const next = new Set(prev)
-      for (const id of syncedDone) next.add(id)
-      return next
-    })
+    setLocalDoneIds(prev => { const next = new Set(prev); syncedDone.forEach(id => next.add(id)); return next })
   }, [dueList, progress])
+
+  const exclusiveMap = useMemo(() => buildExclusivePatternMap(allQ), [allQ])
 
   const handleCompleteReview = async (qId: number, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -189,11 +202,7 @@ export default function ReviewPage() {
     const result = await completeReview(qId)
     setProgress(prev => ({
       ...prev,
-      [String(qId)]: {
-        ...prev[String(qId)],
-        review_count: result.review_count,
-        next_review: result.next_review,
-      },
+      [String(qId)]: { ...prev[String(qId)], review_count: result.review_count, next_review: result.next_review },
     }))
     setLocalDoneIds(prev => new Set([...prev, qId]))
     setCompleting(null)
@@ -221,18 +230,10 @@ export default function ReviewPage() {
     statusCounts[b] = (statusCounts[b] || 0) + 1
   }
 
-  const upcomingBuckets: Record<string, typeof upcoming> = {}
-  upcoming.forEach(q => {
-    const days = daysUntil(q.p.next_review)
-    const label =
-      days <= 1  ? 'Tomorrow'
-      : days <= 7  ? `In ${days} days`
-      : days <= 14 ? 'Next week'
-      : days <= 30 ? 'This month'
-      : 'Later'
-    if (!upcomingBuckets[label]) upcomingBuckets[label] = []
-    upcomingBuckets[label].push(q)
-  })
+  // Pre-compute pattern groups for due and upcoming sections
+  const pendingDue = due.filter(q => !localDoneIds.has(q.id))
+  const dueByPattern = groupByPattern(pendingDue, exclusiveMap)
+  const upcomingByPattern = groupByPattern(upcoming, exclusiveMap)
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -274,17 +275,17 @@ export default function ReviewPage() {
         </div>
       </div>
 
-      {/* Due now */}
+      {/* ── Due for Review ─────────────────────────────────────────────────── */}
       {due.length > 0 && (
         <section className="mb-7">
-          <h2 className="text-sm font-bold text-[var(--text)] mb-3 flex items-center gap-2">
+          <h2 className="text-sm font-bold text-[var(--text)] mb-4 flex items-center gap-2">
             <Flame size={15} className="text-orange-500" /> Due for Review
             <span className="px-2 py-0.5 bg-orange-100  text-orange-600  rounded-full text-xs border border-orange-200 ">
-              {due.length - localDoneIds.size}/{due.length}
+              {pendingDue.length}/{due.length}
             </span>
           </h2>
 
-          {/* 🎉 All done celebration */}
+          {/* All done celebration */}
           {localDoneIds.size >= due.length ? (
             <div className="rounded-2xl border border-green-300 bg-gradient-to-br from-green-50 to-emerald-50 p-6 text-center shadow-md">
               <div className="text-4xl mb-2">🎉</div>
@@ -298,59 +299,78 @@ export default function ReviewPage() {
               </button>
             </div>
           ) : (
-            <div className="space-y-2">
-              {due.map(q => {
-                const isDone = localDoneIds.has(q.id)
-                const reps = Math.min(runs[String(q.id)] ?? 0, 3)
-                const canFinishFromHere = reps >= 3
-                return (
-                  <div
-                    key={q.id}
-                    onClick={() => !isDone && (() => {
-                      sessionStorage.setItem('lm_review_queue', JSON.stringify(due.filter(d => !localDoneIds.has(d.id)).map(d => d.id)))
-                      router.push(`/practice/${q.id}?from=review`)
-                    })()}
-                    className={`flex items-center justify-between gap-2 flex-wrap rounded-xl px-4 py-3 transition-all group ${
-                      isDone
-                        ? 'bg-green-50 border border-green-200 opacity-60 cursor-default'
-                        : 'bg-indigo-50 border border-indigo-200 cursor-pointer hover:border-indigo-400 hover:shadow-md'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      {isDone
-                        ? <CheckCircle size={14} className="text-green-500 shrink-0" />
-                        : <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
-                      }
-                      <span className={`font-semibold text-sm truncate ${isDone ? 'text-green-700 line-through' : 'text-[var(--text)] group-hover:text-indigo-600'}`}>{q.title}</span>
-                      <DifficultyBadge difficulty={q.difficulty} />
+            <div className="space-y-5">
+              {dueByPattern.map(({ pattern, items }) => (
+                <div key={pattern}>
+                  {/* Pattern header */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
+                      <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">{pattern}</span>
+                      <span className="text-[11px] font-bold text-orange-600 bg-orange-50  border border-orange-200  px-1.5 py-0.5 rounded-full">
+                        {items.length}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {!isDone && <span className="text-xs text-indigo-500 hidden sm:inline">Review #{(q.p.review_count || 0) + 1}</span>}
-                      {!isDone && <span className="text-xs font-bold text-cyan-600">{reps}/3</span>}
-                      {isDone ? (
-                        <span className="text-xs text-green-600 font-semibold">✓ Done</span>
-                      ) : (
-                        <button
-                          onClick={e => {
-                            if (!canFinishFromHere) {
-                              e.stopPropagation()
-                              sessionStorage.setItem('lm_review_queue', JSON.stringify(due.filter(d => !localDoneIds.has(d.id)).map(d => d.id)))
-                              router.push(`/practice/${q.id}?from=review`)
-                              return
-                            }
-                            handleCompleteReview(q.id, e)
-                          }}
-                          disabled={completing === q.id}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                        >
-                          <CalendarCheck size={12} />
-                          {completing === q.id ? 'Saving…' : canFinishFromHere ? 'Done' : 'Open'}
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      onClick={() => {
+                        sessionStorage.setItem('lm_review_queue', JSON.stringify(items.map(q => q.id)))
+                        router.push(`/practice/${items[0].id}?from=review`)
+                      }}
+                      className="text-xs font-bold text-indigo-500 hover:text-indigo-400 transition-colors"
+                    >
+                      Review all →
+                    </button>
                   </div>
-                )
-              })}
+
+                  {/* Questions */}
+                  <div className="space-y-2">
+                    {items.map(q => {
+                      const reps = Math.min(runs[String(q.id)] ?? 0, 3)
+                      const canFinishFromHere = reps >= 3
+                      return (
+                        <div
+                          key={q.id}
+                          onClick={() => {
+                            sessionStorage.setItem('lm_review_queue', JSON.stringify(
+                              due.filter(d => !localDoneIds.has(d.id)).map(d => d.id)
+                            ))
+                            router.push(`/practice/${q.id}?from=review`)
+                          }}
+                          className="flex items-center justify-between gap-2 flex-wrap rounded-xl px-4 py-3 cursor-pointer bg-indigo-50  border border-indigo-200  hover:border-indigo-400 hover:shadow-md transition-all group"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
+                            <span className="font-semibold text-sm truncate text-[var(--text)] group-hover:text-indigo-600">{q.title}</span>
+                            <DifficultyBadge difficulty={q.difficulty} />
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs text-indigo-500 hidden sm:inline">Review #{(q.p.review_count || 0) + 1}</span>
+                            <span className="text-xs font-bold text-cyan-600">{reps}/3</span>
+                            <button
+                              onClick={e => {
+                                if (!canFinishFromHere) {
+                                  e.stopPropagation()
+                                  sessionStorage.setItem('lm_review_queue', JSON.stringify(
+                                    due.filter(d => !localDoneIds.has(d.id)).map(d => d.id)
+                                  ))
+                                  router.push(`/practice/${q.id}?from=review`)
+                                  return
+                                }
+                                handleCompleteReview(q.id, e)
+                              }}
+                              disabled={completing === q.id}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                            >
+                              <CalendarCheck size={12} />
+                              {completing === q.id ? 'Saving…' : canFinishFromHere ? 'Done' : 'Open'}
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </section>
@@ -366,18 +386,22 @@ export default function ReviewPage() {
         </div>
       )}
 
-      {/* Upcoming */}
-      {Object.keys(upcomingBuckets).length > 0 && (
+      {/* ── Upcoming Reviews ───────────────────────────────────────────────── */}
+      {upcomingByPattern.length > 0 && (
         <section className="mb-7">
-          <h2 className="text-sm font-bold text-[var(--text)] mb-3 flex items-center gap-2">
+          <h2 className="text-sm font-bold text-[var(--text)] mb-4 flex items-center gap-2">
             <Clock size={15} className="text-indigo-500" /> Upcoming Reviews
+            <span className="text-xs text-[var(--text-subtle)] font-mono">· {upcoming.length}</span>
           </h2>
           <div className="space-y-4">
-            {Object.entries(upcomingBuckets).map(([bucket, questions]) => (
-              <div key={bucket}>
-                <p className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-widest mb-2">{bucket}</p>
+            {upcomingByPattern.map(({ pattern, items }) => (
+              <div key={pattern}>
+                <p className="text-xs font-bold text-[var(--text-subtle)] uppercase tracking-wider mb-2 flex items-center gap-2">
+                  {pattern}
+                  <span className="text-[11px] normal-case tracking-normal font-mono">· {items.length}</span>
+                </p>
                 <div className="space-y-1.5">
-                  {questions.map(q => (
+                  {items.map(q => (
                     <div
                       key={q.id}
                       onClick={() => router.push(`/practice/${q.id}`)}
@@ -389,12 +413,8 @@ export default function ReviewPage() {
                         <DifficultyBadge difficulty={q.difficulty} />
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs text-[var(--text-subtle)] hidden sm:inline">
-                          📅 {formatLocalDate(q.p.next_review)}
-                        </span>
-                        <span className="text-xs text-indigo-500 hidden sm:inline">
-                          Review #{(q.p.review_count || 0) + 1}
-                        </span>
+                        <span className="text-xs text-[var(--text-subtle)]">📅 {formatLocalDate(q.p.next_review)}</span>
+                        <span className="text-xs text-indigo-500 hidden sm:inline">Review #{(q.p.review_count || 0) + 1}</span>
                       </div>
                     </div>
                   ))}
@@ -405,7 +425,7 @@ export default function ReviewPage() {
         </section>
       )}
 
-      {/* All by status — paginated */}
+      {/* ── All Questions by Status → Pattern ──────────────────────────────── */}
       <section>
         <h2 className="text-sm font-bold text-[var(--text)] mb-4 flex items-center gap-2">
           <TrendingUp size={15} className="text-[var(--text-muted)]" /> All Questions by Status
@@ -417,6 +437,7 @@ export default function ReviewPage() {
               key={st}
               status={st}
               questions={qs}
+              exclusiveMap={exclusiveMap}
               runs={runs}
               onNavigate={id => router.push(`/practice/${id}`)}
             />
