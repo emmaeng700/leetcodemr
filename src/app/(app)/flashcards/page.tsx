@@ -7,7 +7,6 @@ import { shuffle, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/u
 import { DIFFICULTY_LEVELS, DISPLAY_PATTERN_ORDER, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
-import CodePanel from '@/components/CodePanel'
 import QuestionImage from '@/components/QuestionImage'
 import BestAnswersDeck from '@/components/BestAnswersDeck'
 
@@ -467,14 +466,11 @@ function FlashcardsInner() {
 
                 {/* Stop propagation so language tabs / copy don't accidentally flip the card */}
                 <div className="p-4" onClick={e => e.stopPropagation()}>
-                  <CodePanel pythonCode={q.python_solution} cppCode={q.cpp_solution} />
-                  <div className="mt-4">
-                    <BestAnswersDeck
-                      questionId={q.id}
-                      slug={q.slug}
-                      active={flipped}
-                    />
-                  </div>
+                  <BestAnswersDeck
+                    questionId={q.id}
+                    slug={q.slug}
+                    active={flipped}
+                  />
                 </div>
               </div>
             )}
