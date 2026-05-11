@@ -408,7 +408,7 @@ export default function ReviewPage() {
               <span className="text-xs text-[var(--text-subtle)] font-mono">· {upcoming.length}</span>
             </h2>
             <p className="text-xs text-[var(--text-subtle)] mt-1">
-              Not yet due — you can preview questions but <strong>Again &amp; Pass only unlock on the scheduled date</strong>
+              Not yet due — tap to do an <strong>early review</strong>: complete 3 reps and the date advances automatically
             </p>
           </div>
           <div className="space-y-4">
@@ -424,12 +424,15 @@ export default function ReviewPage() {
                     return (
                       <div
                         key={q.id}
-                        onClick={() => router.push(`/practice/${q.id}`)}
-                        className="flex items-center justify-between gap-2 flex-wrap bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-4 py-2.5 cursor-pointer hover:border-indigo-400/60 hover:shadow-sm transition-all group"
+                        onClick={() => {
+                          sessionStorage.setItem('lm_review_queue', JSON.stringify(items.map((q2: any) => q2.id)))
+                          router.push(`/practice/${q.id}?from=early-review`)
+                        }}
+                        className="flex items-center justify-between gap-2 flex-wrap bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-4 py-2.5 cursor-pointer hover:border-violet-400/60 hover:shadow-sm transition-all group"
                       >
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
-                          <span className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-500">{q.title}</span>
+                          <span className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-violet-600">{q.title}</span>
                           <DifficultyBadge difficulty={q.difficulty} />
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -437,8 +440,8 @@ export default function ReviewPage() {
                             📅 {formatLocalDate(q.p.next_review)}
                             {daysLeft === 1 ? ' · tomorrow' : daysLeft > 1 ? ` · in ${daysLeft}d` : ''}
                           </span>
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 border border-gray-200">
-                            preview only
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600 border border-violet-200">
+                            early review
                           </span>
                         </div>
                       </div>

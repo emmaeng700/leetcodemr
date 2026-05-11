@@ -59,9 +59,10 @@ export default function PracticePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const flowMode = searchParams.get('from')
-  const isReviewMode = flowMode === 'review'
+  const isReviewMode    = flowMode === 'review'
+  const isEarlyReview   = flowMode === 'early-review'   // upcoming review done in advance
   const isImbibitionMode = flowMode === 'imbibition'
-  const usesThreeSolveGate = isReviewMode || isImbibitionMode
+  const usesThreeSolveGate = isReviewMode || isEarlyReview || isImbibitionMode
   const id = Number(params.id)
 
   const [question, setQuestion] = useState<Question | null>(null)
@@ -107,20 +108,22 @@ export default function PracticePage() {
       if (!q) return
       setQuestion(q)
       setAllQuestions(qs as Question[])
-      // In review mode, use the stored due queue so prev/next stays within the review session
+      // In review / early-review mode, use the stored queue for prev/next navigation
       let modeQueue: number[] | null = null
-      const queueKey = isReviewMode ? 'lm_review_queue' : isImbibitionMode ? 'lm_imbibition_queue' : null
+      const queueKey = (isReviewMode || isEarlyReview) ? 'lm_review_queue' : isImbibitionMode ? 'lm_imbibition_queue' : null
       if (queueKey) {
         try {
           const stored = sessionStorage.getItem(queueKey)
           if (stored) {
             const parsed = JSON.parse(stored) as number[]
+            // Normal review: strip already-completed items (next_review > today)
+            // Early review: keep full queue — these questions aren't due yet, that's the point
             modeQueue = isReviewMode
               ? parsed.filter(qid => {
                   const next = prog[String(qid)]?.next_review
                   return !!next && isDue(next)
                 })
-              : parsed
+              : parsed   // early-review and imbibition: use as-is
           }
         } catch { /* ignore */ }
       }
@@ -256,10 +259,10 @@ export default function PracticePage() {
   }
 
   async function handleCompleteReview() {
-    if (isReviewMode) await forceCurrentRunsComplete()
+    if (isReviewMode || isEarlyReview) await forceCurrentRunsComplete()
     if (reviewDone) return
     let nextReviewId: number | null = null
-    if (isReviewMode) {
+    if (isReviewMode || isEarlyReview) {
       const remainingQueue = planOrder.filter(qid => qid !== id)
       sessionStorage.setItem('lm_review_queue', JSON.stringify(remainingQueue))
       nextReviewId = remainingQueue[0] ?? null
@@ -268,9 +271,14 @@ export default function PracticePage() {
     setReviewDone(true)
     const result = await completeReview(id)
     setNextReview(result.next_review)
-    toast.success(`✓ Review done! Next review: ${result.next_review}`)
-    if (isReviewMode) {
-      if (nextReviewId) router.push(`/practice/${nextReviewId}?from=review`)
+    toast.success(
+      isEarlyReview
+        ? `✓ Early review done! Next review: ${result.next_review}`
+        : `✓ Review done! Next review: ${result.next_review}`
+    )
+    const navSuffix = isEarlyReview ? '?from=early-review' : '?from=review'
+    if (isReviewMode || isEarlyReview) {
+      if (nextReviewId) router.push(`/practice/${nextReviewId}${navSuffix}`)
       else router.push('/review')
     }
   }
@@ -280,7 +288,7 @@ export default function PracticePage() {
     const before = modeRuns[String(question.id)] ?? 0
     const currentIdx = planOrder.indexOf(question.id)
     const nextQuestionId = currentIdx >= 0 ? planOrder[currentIdx + 1] : null
-    const navSuffix = isReviewMode ? '?from=review' : '?from=imbibition'
+    const navSuffix = isReviewMode ? '?from=review' : isEarlyReview ? '?from=early-review' : '?from=imbibition'
     const res = isImbibitionMode
       ? await addImbibitionRunEvent(question.id, 1)
       : await addMasteryRunEvent(question.id, 1)
@@ -292,7 +300,7 @@ export default function PracticePage() {
     setModeRuns(prev => ({ ...prev, [String(question.id)]: (prev[String(question.id)] ?? 0) + 1 }))
 
     const nextQuestion = nextQuestionId ? allQuestions.find(q => q.id === nextQuestionId) ?? null : null
-    const modeLabel = isImbibitionMode ? 'Imbibition' : 'Review'
+    const modeLabel = isImbibitionMode ? 'Imbibition' : isEarlyReview ? 'Early review' : 'Review'
     let autoAdvanceId: number | null = null
 
     if (after >= 3) {
@@ -301,7 +309,7 @@ export default function PracticePage() {
         sessionStorage.setItem('lm_imbibition_queue', JSON.stringify(remainingQueue))
         autoAdvanceId = remainingQueue[0] ?? null
         setQueuedNextId(autoAdvanceId)
-      } else if (isReviewMode) {
+      } else if (isReviewMode || isEarlyReview) {
         const remainingQueue = planOrder.filter(qid => qid !== question.id)
         autoAdvanceId = remainingQueue[0] ?? null
         setQueuedNextId(autoAdvanceId)
@@ -311,15 +319,16 @@ export default function PracticePage() {
       }
       toast.success(
         nextQuestion
-          ? `${modeLabel} complete: 3/3. ${nextQuestion.title} is now unlocked.`
-          : `${modeLabel} complete: 3/3. This lane is fully unlocked.`,
+          ? `${modeLabel} complete: 3/3. ${nextQuestion.title} is next.`
+          : `${modeLabel} complete: 3/3. All done!`,
         { duration: 4500 }
       )
     } else {
       toast.success(`${modeLabel} progress: ${after}/3`, { duration: 3000 })
     }
 
-    if (isReviewMode && due && !reviewDone && after >= 3) {
+    // Complete the review at 3/3: for due reviews (due=true) or early reviews
+    if ((isReviewMode && due || isEarlyReview) && !reviewDone && after >= 3) {
       await handleCompleteReview()
     }
 
@@ -329,10 +338,10 @@ export default function PracticePage() {
   }
 
   async function handleFailReview() {
-    if (isReviewMode) await forceCurrentRunsComplete()
+    if (isReviewMode || isEarlyReview) await forceCurrentRunsComplete()
     if (reviewDone) return
     let nextReviewId: number | null = null
-    if (isReviewMode) {
+    if (isReviewMode || isEarlyReview) {
       const remainingQueue = planOrder.filter(qid => qid !== id)
       sessionStorage.setItem('lm_review_queue', JSON.stringify(remainingQueue))
       nextReviewId = remainingQueue[0] ?? null
@@ -342,8 +351,9 @@ export default function PracticePage() {
     const result = await failReview(id)
     setNextReview(result.next_review)
     toast(`Again scheduled — next review: ${result.next_review}`)
-    if (isReviewMode) {
-      if (nextReviewId) router.push(`/practice/${nextReviewId}?from=review`)
+    const navSuffix = isEarlyReview ? '?from=early-review' : '?from=review'
+    if (isReviewMode || isEarlyReview) {
+      if (nextReviewId) router.push(`/practice/${nextReviewId}${navSuffix}`)
       else router.push('/review')
     }
   }
@@ -523,18 +533,18 @@ export default function PracticePage() {
         </div>
       </div>
 
-      {/* SR review actions */}
+      {/* SR review actions — due today */}
       {due && (
-        <div className="px-3 sm:px-4 py-2 border-b border-[var(--border)] bg-indigo-50/60  shrink-0">
+        <div className="px-3 sm:px-4 py-2 border-b border-[var(--border)] bg-indigo-50/60 shrink-0">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="text-xs font-semibold text-indigo-700 ">
+            <div className="text-xs font-semibold text-indigo-700">
               🧠 Spaced repetition review due
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleFailReview}
                 disabled={reviewDone}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-200  bg-white (--bg-card)] text-indigo-700  hover:border-indigo-300  disabled:opacity-50"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-200 bg-white text-indigo-700 hover:border-indigo-300 disabled:opacity-50"
               >
                 Again
               </button>
@@ -546,6 +556,20 @@ export default function PracticePage() {
                 Pass
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Early review — not due yet, 3/3 advances date */}
+      {isEarlyReview && !due && (
+        <div className="px-3 sm:px-4 py-2 border-b border-[var(--border)] bg-violet-50/60 shrink-0">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-xs font-semibold text-violet-700">
+              ⏩ Early review — complete 3 reps to advance the date
+            </div>
+            {reviewDone && (
+              <span className="text-xs font-bold text-green-600">✓ Done — date advanced</span>
+            )}
           </div>
         </div>
       )}
