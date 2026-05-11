@@ -1,0 +1,322 @@
+[
+  {
+    "id": 567,
+    "title": "Permutation in String",
+    "slug": "permutation-in-string",
+    "solution_url": "https://www.simplyleet.com/permutation-in-string",
+    "key_insights": "- Use a sliding window approach to examine substrings of s2 of length equal to s1.\n- Maintain frequency counts of characters for both s1 and the current window in s2.\n- Compare the frequency counts to determine if a valid permutation exists.\n- Increment the window by adding a new character and removing the leftmost one, keeping the operation efficient.",
+    "space_and_time_complexity": "Time Complexity: O(n) where n is the length of s2 (each character is processed a constant number of times).\nSpace Complexity: O(1) since the frequency count arrays have a fixed size (26 for lowercase English letters).",
+    "solution": "The solution uses two fixed-length arrays (of size 26) to store character frequencies for s1 and the current window in s2. First, initialize the frequency arrays by processing s1 and the first window of s2. Then, slide the window one character at a time, updating the counts by incrementing the count for the new character and decrementing the count for the character that is no longer in the window. After each move, compare both frequency arrays; if they match, s2 contains a permutation of s1. This technique avoids repeatedly computing the frequency distribution from scratch, making the algorithm efficient.",
+    "pattern": "Sliding Window"
+  },
+  {
+    "id": 853,
+    "title": "Car Fleet",
+    "slug": "car-fleet",
+    "solution_url": "https://www.simplyleet.com/car-fleet",
+    "key_insights": "- Since cars cannot pass each other, the relative order (by starting position) is maintained.\n- Sorting the cars based on their starting positions (descending order) helps to simulate the catching-up process.\n- Computing the time each car takes to reach the target is critical.\n- Compare the current car’s time to the time of the fleet ahead: if it takes longer, it forms a new fleet; otherwise, it gets merged.\n- A stack-like approach (tracking the slowest arrival time seen so far) reduces the problem to a single pass after sorting.",
+    "space_and_time_complexity": "Time Complexity: O(n log n) due to the sorting step.\nSpace Complexity: O(n) for storing the computed times and sorted car information.",
+    "solution": "The solution involves sorting the cars by their starting positions in descending order so that we process the cars from nearest to the target to farthest. For each car, calculate the time to reach the target using the formula (target - position) / speed. As we iterate:\n\n- If a car’s time is greater than the slowest time encountered (tracked by a variable or stack), it cannot catch up to the fleet ahead and forms a new fleet.\n- Otherwise, it merges into the current fleet.\nThis approach ensures that we count each distinct fleet accurately with a single pass through the sorted list.",
+    "pattern": "Stack"
+  },
+  {
+    "id": 875,
+    "title": "Koko Eating Bananas",
+    "slug": "koko-eating-bananas",
+    "solution_url": "https://www.simplyleet.com/koko-eating-bananas",
+    "key_insights": "- The required eating speed k lies in the range [1, max(piles)].\n- For a given k, one can calculate the total hours needed by summing up ceil(pile / k) for each pile.\n- The problem can be solved efficiently using binary search to find the minimum k that satisfies the time constraint.\n- Early termination in the hour calculation can be used if the computed hours exceed h.",
+    "space_and_time_complexity": "Time Complexity: O(n log(max(pile))) where n is the number of piles and max(pile) is the maximum bananas in a pile.\nSpace Complexity: O(1) extra space beyond the input.",
+    "solution": "We use binary search on the candidate eating rate k. The search space starts at 1 (minimum possible speed) and goes up to the maximum number of bananas in any pile. For each candidate k, we simulate the number of hours Koko would take by calculating hours += (pile + k - 1) // k for each pile (this formula performs the ceiling division). If the total hours are less than or equal to h, then k might be a valid solution and we try to lower it; otherwise, we increase k. The binary search continues until we converge on the minimum valid eating speed.",
+    "pattern": "Binary Search"
+  },
+  {
+    "id": 138,
+    "title": "Copy List with Random Pointer",
+    "slug": "copy-list-with-random-pointer",
+    "solution_url": "https://www.simplyleet.com/copy-list-with-random-pointer",
+    "key_insights": "- Use a hash map (or dictionary) to map each original node to its corresponding copy.\n- Perform two passes: the first to create a copy of each node, and the second to assign the next and random pointers using the hash map.\n- An alternative interleaving approach exists but using a hash table is typically more straightforward.",
+    "space_and_time_complexity": "Time Complexity: O(n) – Each node is processed a constant number of times.\nSpace Complexity: O(n) – A hash map is used to store the mapping from original nodes to their copies.",
+    "solution": "The solution uses a two-pass algorithm. In the first pass, we iterate through the original list and for each node, create a new node (deep copy) while saving the mapping between the original and copy in a hash table. In the second pass, we iterate over the original list again to assign the next and random pointers of the new nodes using the previously built map. This guarantees that every pointer in the copied list corresponds to a new node and not the original.",
+    "pattern": "Linked List"
+  },
+  {
+    "id": 1448,
+    "title": "Count Good Nodes in Binary Tree",
+    "slug": "count-good-nodes-in-binary-tree",
+    "solution_url": "https://www.simplyleet.com/count-good-nodes-in-binary-tree",
+    "key_insights": "- Perform a tree traversal (DFS or BFS) from the root.\n- Keep track of the maximum value encountered along the current path.\n- A node is \"good\" if its value is greater than or equal to the maximum value seen so far.\n- Update the maximum value as you traverse deeper in the tree.\n- The root is always a good node.",
+    "space_and_time_complexity": "Time Complexity: O(n), where n is the number of nodes, since each node is visited exactly once.\nSpace Complexity: O(h), where h is the height of the tree (O(n) in the worst-case of a skewed tree).",
+    "solution": "We can solve this problem using Depth-First Search (DFS) recursion. Starting from the root, we pass along the current maximum value encountered on the path. For each node, we check if its value is greater than or equal to this maximum. If it is, we count it as a good node and update the maximum value if necessary. This process is continued recursively for both the left and right children of the node. Finally, we sum the counts from both subtrees.",
+    "pattern": "Trees"
+  },
+  {
+    "id": 703,
+    "title": "Kth Largest Element in a Stream",
+    "slug": "kth-largest-element-in-a-stream",
+    "solution_url": "https://www.simplyleet.com/kth-largest-element-in-a-stream",
+    "key_insights": "- Use a min-heap (priority queue) of fixed size k.\n- The heap always contains the k largest elements; the smallest element in the heap is the kth largest overall.\n- When a new test score is added:\nIf the heap has less than k elements, simply add the score.\nIf the heap is full and the new score is greater than the smallest (heap root), replace the root.\n- Each add operation runs in O(log k) time.",
+    "space_and_time_complexity": "Time Complexity: O(log k) per add operation, O(n log k) to build the initial heap.\nSpace Complexity: O(k) for maintaining the heap.",
+    "solution": "We use a min-heap to track the k largest numbers. When initializing, we add numbers from the given list to the heap, ensuring not to exceed a size of k. For each add operation, if the new number is greater than the heap minimum, we replace the minimum. The kth largest number is always accessible as the minimum element in the heap.",
+    "pattern": "Heap / Priority Queue"
+  },
+  {
+    "id": 1046,
+    "title": "Last Stone Weight",
+    "slug": "last-stone-weight",
+    "solution_url": "https://www.simplyleet.com/last-stone-weight",
+    "key_insights": "- Use a max-heap (or simulate one) to always access the two largest stones quickly.\n- If the two stones are equal, both are removed; otherwise, the difference is pushed back into the heap.\n- Continue the process until the heap has one or no stone left.\n- For languages without a max-heap in their standard library (e.g., Python), simulate one by pushing negative values.",
+    "space_and_time_complexity": "Time Complexity: O(n log n) – Each stone removal and insertion takes O(log n) and in the worst-case scenario, we perform O(n) operations.\nSpace Complexity: O(n) – The heap stores all the stones initially.",
+    "solution": "We solve the problem by using a priority queue (max-heap). In Python, we simulate a max-heap by inserting the negative of each stone's weight into a min-heap. In JavaScript, due to the lack of a built-in heap structure, we sort the array in descending order at each iteration (acceptable given the small constraints). In C++ and Java, we use the standard priority_queue. The algorithm repeatedly extracts the two largest stones, computes their difference, and if the difference is non-zero, it is inserted back into the heap. This process repeats until there is at most one stone left.",
+    "pattern": "Heap / Priority Queue"
+  },
+  {
+    "id": 355,
+    "title": "Design Twitter",
+    "slug": "design-twitter",
+    "solution_url": "https://www.simplyleet.com/design-twitter",
+    "key_insights": "- Use a global timestamp to order tweets as they are posted.\n- Maintain a mapping of each user to the list of tweets they posted.\n- Maintain a mapping of each user to the set of users they follow.\n- For getNewsFeed, merge tweets from the user and their followees using a heap to efficiently retrieve the 10 most recent tweets.\n- Ensure that a user always follows themself to simplify retrieving their own tweets.",
+    "space_and_time_complexity": "Time Complexity:\n\n- postTweet: O(1)\n- follow / unfollow: O(1)\n- getNewsFeed: O(N log K) where N is the number of followees and K is the average number of tweets considered (capped at 10 tweets per merge iteration)\nSpace Complexity:\n- O(U + T) where U is the number of users (for follow mappings) and T is the total number of tweets stored.",
+    "solution": "We use two main data structures: a hash table to store tweets for each user and another hash table for follow relationships. Each tweet is stored as a tuple of (timestamp, tweetId). A global timestamp counter provides a unique ordering. A min-heap (or max-heap using negative timestamp values) is used to merge the tweets from different users efficiently. When retrieving the news feed, we look up the tweet lists for the given user's followees (including self) and use the heap to extract the 10 most recent tweets.",
+    "pattern": "Heap / Priority Queue"
+  },
+  {
+    "id": 40,
+    "title": "Combination Sum II",
+    "slug": "combination-sum-ii",
+    "solution_url": "https://www.simplyleet.com/combination-sum-ii",
+    "key_insights": "- Sort the candidates first to easily skip duplicates.\n- Use backtracking to explore all possible combinations.\n- Avoid selecting the same number (at the same recursive level) to avoid duplicate combinations.\n- Terminate recursion when the running sum exceeds the target.\n- Use indices rather than reusing elements to ensure each number is used at most once.",
+    "space_and_time_complexity": "Time Complexity: O(2^n * k) in the worst case, where n is the number of candidates and k is the average length of a combination.\nSpace Complexity: O(k) for the recursion stack and current combination (not including the space occupied by the output).",
+    "solution": "The solution is based on a backtracking algorithm. First, the candidates are sorted to handle duplicates easily. Then, a recursive function is used to build combinations. At each recursion level, iterate through the candidates starting from the current index. For each candidate:\n\n- Skip the candidate if it is the same as the previous one (to avoid duplicates).\n- If the candidate can be added without exceeding the target, add it to the current combination.\n- Recurse with the next index (ensuring each candidate is used only once).\n- Backtrack by removing the candidate from the current combination once completed.\n\nData structures used include:\n\n- An array or list to hold the current combination.\n- A results list to store all valid combinations.\n- Sorting is leveraged to simplify duplicate elimination.",
+    "pattern": "Backtracking"
+  },
+  {
+    "id": 131,
+    "title": "Palindrome Partitioning",
+    "slug": "palindrome-partitioning",
+    "solution_url": "https://www.simplyleet.com/palindrome-partitioning",
+    "key_insights": "- Use backtracking to explore all possible ways to partition the string.\n- At each step, check whether the current substring is a palindrome.\n- If it is, include that substring in the current partition and recursively partition the rest of the string.\n- The limit on the string length (at most 16 characters) allows an exponential backtracking approach.\n- Optimizations like caching palindrome checks can be used, though the simple approach is typically sufficient.",
+    "space_and_time_complexity": "Time Complexity: O(n * 2^n) in the worst case, due to exploring all possible partitions and checking palindromes.\nSpace Complexity: O(n) for recursion stack and temporary storage for current partition.",
+    "solution": "The solution uses the backtracking algorithm:\n\n- Define a helper function that will recursively try to partition the string.\n- For each possible split, check if the substring is a palindrome.\n- If it is, add the substring to the current partition list and recursively call the helper on the remaining substring.\n- When the end of the string is reached, add the current partition list to the final result.\n- Backtrack by removing the last added substring and try the next possible partition.\nThis method systematically explores every possible palindrome partitioning of the string.",
+    "pattern": "Backtracking"
+  },
+  {
+    "id": 684,
+    "title": "Redundant Connection",
+    "slug": "redundant-connection",
+    "solution_url": "https://www.simplyleet.com/redundant-connection",
+    "key_insights": "- The problem can be solved using a Union Find (Disjoint Set Union) data structure.\n- As we iterate over each edge, we check whether the two vertices are already connected.\n- If connecting the two vertices would create a cycle (i.e., they already belong to the same set), then the current edge is redundant.\n- Alternatives like DFS or BFS are possible, but Union Find offers a more straightforward and efficient solution.",
+    "space_and_time_complexity": "Time Complexity: O(n * α(n)) where α(n) is the inverse Ackermann function (almost constant in practice).\nSpace Complexity: O(n), for storing the parent array used in the Union Find structure.",
+    "solution": "We use the Union Find algorithm by maintaining an array where each node points to its parent. For each edge, we perform a find operation on both endpoints:\n\n- If the endpoints belong to the same set, adding this edge would create a cycle and it is marked as redundant.\n- Otherwise, we union the two sets.\nThis algorithm efficiently detects the extra edge that introduces a cycle in the graph.",
+    "pattern": "Graphs"
+  },
+  {
+    "id": 743,
+    "title": "Network Delay Time",
+    "slug": "network-delay-time",
+    "solution_url": "https://www.simplyleet.com/network-delay-time",
+    "key_insights": "- This is a single-source shortest path problem on a directed graph.\n- Since all edge weights are non-negative, Dijkstra’s algorithm is well-suited for this problem.\n- Construct an adjacency list for the graph.\n- Utilize a min-heap (priority queue) to efficiently select the next node with the smallest cumulative travel time.\n- The answer is the maximum travel time among all reachable nodes; if any node is unreachable, return -1.",
+    "space_and_time_complexity": "Time Complexity: O(E log V) where E is the number of edges and V is the number of nodes.\nSpace Complexity: O(V + E) due to the adjacency list and distance storage.",
+    "solution": "We solve the problem using Dijkstra’s algorithm. First, an adjacency list is built using the input times array. A distance map (or array) records the shortest known distance from the starting node k to all other nodes, initialized to infinity except for k which is set to 0. A min-heap stores nodes prioritized by their current shortest distance.\n\nThe algorithm repeatedly extracts the node with the smallest distance from the heap. For each neighbor of the current node, it checks if a shorter path is found via the current node; if so, the neighbor’s distance is updated and it is added to the heap. Once all nodes are processed, the answer is the maximum distance from the k node. If any node remains unreachable (has distance equal to infinity), return -1.",
+    "pattern": "Advanced Graphs"
+  },
+  {
+    "id": 332,
+    "title": "Reconstruct Itinerary",
+    "slug": "reconstruct-itinerary",
+    "solution_url": "https://www.simplyleet.com/reconstruct-itinerary",
+    "key_insights": "- Model the tickets as a directed graph where airports are nodes.\n- The problem is akin to finding an Eulerian path through the graph.\n- Use Depth-First Search (DFS) with Hierholzer’s algorithm to construct the itinerary.\n- To ensure lexical order, sort the destination lists in reverse order so that the smallest lexical destination can be popped during DFS.\n- Build the itinerary in reverse during backtracking and then reverse it to get the final order.",
+    "space_and_time_complexity": "Time Complexity: O(E log E), where E is the number of tickets, due to the sorting of edges.\nSpace Complexity: O(E), to store the graph and recursion stack.",
+    "solution": "Construct an adjacency list (graph) mapping each departure airport to a list of destination airports sorted in reverse lexicographical order. Perform DFS starting from \"JFK\". During DFS, traverse while there are destinations available from the current airport. Append airports to the itinerary as you backtrack. Reverse the built itinerary at the end to obtain the correct order.",
+    "pattern": "Advanced Graphs"
+  },
+  {
+    "id": 1584,
+    "title": "Min Cost to Connect All Points",
+    "slug": "min-cost-to-connect-all-points",
+    "solution_url": "https://www.simplyleet.com/min-cost-to-connect-all-points",
+    "key_insights": "- The problem can be reinterpreted as finding a Minimum Spanning Tree (MST) on a complete graph.\n- Manhattan distance is used to calculate the weight/cost between every pair of vertices.\n- Prim’s or Kruskal’s algorithm can be applied to solve the MST problem.\n- A direct construction of the complete graph is unnecessary; distances can be computed on the fly, which is efficient given the problem constraints.",
+    "space_and_time_complexity": "Time Complexity: O(n^2)\nSpace Complexity: O(n)",
+    "solution": "We can solve the problem using Prim’s algorithm. We start from an arbitrary point (for example, the first point) and iteratively add the point that has the smallest distance to the growing MST. Instead of explicitly constructing all the edges, we compute the Manhattan distance on the fly between the current MST and the remaining points. An array is used to track the minimum connection cost for each point that is not yet included in the tree. At each iteration, we select the point with the smallest cost to add into the MST and update the costs for the remaining points. This approach guarantees that we connect all points with the minimum total cost.",
+    "pattern": "Advanced Graphs"
+  },
+  {
+    "id": 778,
+    "title": "Swim in Rising Water",
+    "slug": "swim-in-rising-water",
+    "solution_url": "https://www.simplyleet.com/swim-in-rising-water",
+    "key_insights": "- The problem can be viewed as finding a path from the top-left to bottom-right where the cost is the maximum elevation encountered on that path.\n- A greedy approach using Dijkstra’s algorithm (or a min-heap based BFS) ensures that we always consider the next move with the smallest current elevation requirement.\n- Once the destination is reached, the maximum elevation along that path is the minimum time required.\n- Alternative approaches include binary search on time combined with a DFS/BFS check to see if a valid path exists.",
+    "space_and_time_complexity": "Time Complexity: O(n^2 log(n^2)) which simplifies to O(n^2 log n) since each cell is processed once and we use a priority queue.\nSpace Complexity: O(n^2) due to the visited matrix and the priority queue.",
+    "solution": "We can solve the problem using a min-heap based BFS (Dijkstra’s algorithm). Start at cell (0, 0) with its elevation as the initial cost, and use a min-heap to always expand the cell with the lowest required water level. For each popped cell, update the maximum elevation encountered on the current path. When reaching the target cell (n - 1, n - 1), this value represents the least time needed. We maintain a visited matrix to avoid reprocessing cells.",
+    "pattern": "Advanced Graphs"
+  },
+  {
+    "id": 746,
+    "title": "Min Cost Climbing Stairs",
+    "slug": "min-cost-climbing-stairs",
+    "solution_url": "https://www.simplyleet.com/min-cost-climbing-stairs",
+    "key_insights": "- Use Dynamic Programming to solve overlapping subproblems.\n- The minimum cost to reach a step is the cost of that step plus the minimum cost of reaching one of the two previous steps.\n- The final result is the minimum cost to reach the last or second last step since you can jump from either directly to the top.",
+    "space_and_time_complexity": "Time Complexity: O(n)\nSpace Complexity: O(n) (can be optimized to O(1) by using only two variables)",
+    "solution": "We use a dynamic programming approach. Define a dp array where dp[i] is the minimum cost required to reach step i. Initialize dp[0] with cost[0] and dp[1] with cost[1] because you can start at either step. For each subsequent step, the recurrence is dp[i] = cost[i] + min(dp[i-1], dp[i-2]). Finally, the answer is the minimum of dp[n-1] and dp[n-2] since you can reach the top from either of these steps. This method efficiently computes the answer in one pass through the array.",
+    "pattern": "1-D Dynamic Programming"
+  },
+  {
+    "id": 213,
+    "title": "House Robber II",
+    "slug": "house-robber-ii",
+    "solution_url": "https://www.simplyleet.com/house-robber-ii",
+    "key_insights": "- The houses are arranged in a circle, meaning the first and last houses are neighbors.\n- Because of the circular arrangement, you cannot rob both the first and last houses.\n- The problem can be reduced into two separate linear House Robber problems:\nOne considering houses from index 1 to n-1 (exclude the first house).\nThe other considering houses from index 0 to n-2 (exclude the last house).\n- Use dynamic programming with constant space (using two variables) to compute the solution for a linear array of houses.",
+    "space_and_time_complexity": "Time Complexity: O(n), where n is the number of houses.\nSpace Complexity: O(1), as only a constant amount of extra space is used.",
+    "solution": "To handle the circular dependency, we solve two linear versions of the problem:\n\n- Exclude the first house and calculate the maximum rob amount for houses from index 1 to n-1.\n- Exclude the last house and calculate the maximum rob amount for houses from index 0 to n-2.\nThen, the final answer is the maximum of these two calculated values. We use dynamic programming by iterating through the list and at each step, calculating the maximum money that can be robbed up to that point with two variables.",
+    "pattern": "1-D Dynamic Programming"
+  },
+  {
+    "id": 647,
+    "title": "Palindromic Substrings",
+    "slug": "palindromic-substrings",
+    "solution_url": "https://www.simplyleet.com/palindromic-substrings",
+    "key_insights": "- Every individual character is a palindrome.\n- Palindromes can be expanded from a center point; centers can be single characters (odd length) or between two characters (even length).\n- The \"expand around center\" technique efficiently counts palindromes in O(n^2) time.\n- Dynamic programming could also be used but requires extra space and is more complex to implement.",
+    "space_and_time_complexity": "Time Complexity: O(n^2) where n is the length of the string.\nSpace Complexity: O(1) if using the expand-around-center method (ignoring recursion/stack overhead).",
+    "solution": "The solution employs the expand-around-center approach:\n\n- Iterate over each index of the string considering it as the center of a palindrome.\n- For each center, expand in both directions (left and right) as long as the characters are the same and within bounds.\n- Count every valid palindrome found during the expansion.\n- Repeat for both odd-length centers (a single index) and even-length centers (between two indices).\n\nThis method efficiently checks all potential palindromic substrings without extra space for dynamic programming tables.",
+    "pattern": "1-D Dynamic Programming"
+  },
+  {
+    "id": 518,
+    "title": "Coin Change II",
+    "slug": "coin-change-ii",
+    "solution_url": "https://www.simplyleet.com/coin-change-ii",
+    "key_insights": "- Use dynamic programming to build up the number of ways to form every amount up to the target.\n- A one-dimensional dp array suffices, where dp[j] represents the number of ways to form sum j.\n- When processing each coin, iterate over amounts from the coin value to the target, updating dp.\n- Order of iteration ensures that combinations, not permutations, are counted.",
+    "space_and_time_complexity": "Time Complexity: O(n * amount), where n is the number of coins.\nSpace Complexity: O(amount), due to the dp array used for computations.",
+    "solution": "We solve the problem by using dynamic programming with a one-dimensional dp array. The dp array is sized as amount + 1 with dp[0] initialized to 1, representing the single way to achieve the amount of 0 (by choosing no coins). For each coin in the coins array, we update every dp[j] for j from the coin’s value up to the target amount: dp[j] is increased by dp[j - coin]. This ensures we consider each coin only once per combination, hence avoiding duplicate counts of the same combination in different orders.",
+    "pattern": "2-D Dynamic Programming"
+  },
+  {
+    "id": 494,
+    "title": "Target Sum",
+    "slug": "target-sum",
+    "solution_url": "https://www.simplyleet.com/target-sum",
+    "key_insights": "- The problem can be converted into a subset sum problem by considering two groups: numbers with a '+' sign and numbers with a '-' sign.\n- Let the sum of numbers with a '+' sign be sum(P) and with a '-' sign be sum(N). Then the problem reduces to solving:\nsum(P) - sum(N) = target\nand sum(P) + sum(N) = totalSum, where totalSum is the sum of all numbers in nums.\n- From these equations, we derive sum(P) = (target + totalSum) / 2.\n- We only proceed if (target + totalSum) is even and not negative; otherwise, there are no valid expressions.\n- Dynamic programming is used to count the number of subsets that sum to sum(P).",
+    "space_and_time_complexity": "Time Complexity: O(n * subsetSum), where n is the length of the nums array and subsetSum = (target + totalSum)/2.\nSpace Complexity: O(subsetSum), as we use a one-dimensional DP array.",
+    "solution": "The solution converts the problem into a subset sum DP problem. First, compute the total sum of the array. If (target + totalSum) is not even or target is greater than totalSum, return 0 since no valid configuration exists. Otherwise, compute the required subset sum (subsetSum) as (target + totalSum) / 2 and use a dynamic programming array to count the number of ways to reach subsetSum. The DP approach iterates through each number in the array, updating the counts using a reverse iteration to ensure each number is only used once.",
+    "pattern": "2-D Dynamic Programming"
+  },
+  {
+    "id": 97,
+    "title": "Interleaving String",
+    "slug": "interleaving-string",
+    "solution_url": "https://www.simplyleet.com/interleaving-string",
+    "key_insights": "- The problem asks if s3 can be constructed by preserving the order of characters in s1 and s2.\n- A dynamic programming approach is effective by defining dp[i][j] to represent whether s3[0 ... i+j-1] is an interleaving of s1[0 ... i-1] and s2[0 ... j-1].\n- The solution must check that the total lengths match; otherwise, it is immediately false.\n- Transitions are based on whether the current character in s3 matches the next char in s1 or s2.\n- Space optimization to O(s2.length) is possible by reusing a 1D DP array.",
+    "space_and_time_complexity": "Time Complexity: O(n * m) where n = length of s1 and m = length of s2.\nSpace Complexity: O(n * m) with the basic DP solution. (Can be optimized to O(m) with further space reduction.)",
+    "solution": "We use a 2D dynamic programming table where dp[i][j] is true if s3[0 ... i+j-1] can be formed by interleaving s1[0 ... i-1] and s2[0 ... j-1]. First, we check if the lengths of s1 and s2 add up to s3’s length; if not, return false. Then, we initialize dp[0][0] to true and fill in the first row and column based on whether the characters in s2 or s1 correspond to s3. For the rest of the table, dp[i][j] is true if either the previous state dp[i-1][j] is true and s1[i-1] matches s3[i+j-1], or dp[i][j-1] is true and s2[j-1] matches s3[i+j-1]. The answer is found in dp[s1.length][s2.length].",
+    "pattern": "2-D Dynamic Programming"
+  },
+  {
+    "id": 45,
+    "title": "Jump Game II",
+    "slug": "jump-game-ii",
+    "solution_url": "https://www.simplyleet.com/jump-game-ii",
+    "key_insights": "- Utilize a greedy algorithm to make optimal jumps.\n- Track the furthest index that can be reached within the current jump range.\n- When the current index reaches the end of the current range, a jump is made and the range updates to the furthest reachable index.\n- Edge case: if the array has only one element, no jumps are needed.",
+    "space_and_time_complexity": "Time Complexity: O(n) - Single pass through the array.\nSpace Complexity: O(1) - Only a few variables are used for tracking jumps and ranges.",
+    "solution": "We use a greedy approach by iterating through the array and keeping track of:\n\n- The furthest index reachable from the current range (furthest).\n- The end of the current jump's range (currentEnd).\n- The number of jumps made (jumps).\n\nAt each iteration, we update the furthest reachable index. When the current index reaches the currentEnd, it indicates that one jump has been used and we update currentEnd to furthest. This ensures we are always making the optimal jump to cover the longest distance possible until the end of the array is reached.",
+    "pattern": "Greedy"
+  },
+  {
+    "id": 846,
+    "title": "Hand of Straights",
+    "slug": "hand-of-straights",
+    "solution_url": "https://www.simplyleet.com/hand-of-straights",
+    "key_insights": "- The total number of cards must be divisible by groupSize.\n- Use a frequency count (hash table or map) to record the occurrence of each card.\n- Always start forming groups from the smallest available card to maintain the consecutive order.\n- For each card, if its count is non-zero, check that the subsequent groupSize-1 cards exist with at least as many counts.\n- Decrease the counts accordingly for each valid consecutive group.",
+    "space_and_time_complexity": "Time Complexity: O(n log n) due to sorting the unique keys from the hand.\nSpace Complexity: O(n) for storing the frequency count of the cards.",
+    "solution": "The solution uses a greedy approach along with a frequency hash map. The main steps are:\n\n- Verify that the total number of cards is divisible by groupSize.\n- Count the frequency of each card.\n- Sort the keys of the frequency map.\n- Iterate over the sorted keys and for each card with a positive count, try to form a group of groupSize consecutive cards.\n- For each card in the group, decrease the frequency by the number of groups formed. If at any point the required card is missing or its count is insufficient, return false.\n- If all groups can be formed successfully, return true.",
+    "pattern": "Greedy"
+  },
+  {
+    "id": 1899,
+    "title": "Merge Triplets to Form Target Triplet",
+    "slug": "merge-triplets-to-form-target-triplet",
+    "solution_url": "https://www.simplyleet.com/merge-triplets-to-form-target-triplet",
+    "key_insights": "- Only consider triplets that are \"valid\" in the sense that none of its values exceed the corresponding target value.\n- For each component of the target, there must be at least one valid triplet that provides that maximum value.\n- By taking the element-wise maximum across all valid triplets, if we can recreate the target, then the target can be formed using a series of allowed operations.",
+    "space_and_time_complexity": "Time Complexity: O(n), where n is the number of triplets.\nSpace Complexity: O(1) extra space.",
+    "solution": "The solution approach involves iterating over the list of triplets and only considering those triplets that do not exceed the target values in any position. For each valid triplet, update a candidate triplet by taking the element-wise maximum with the current candidate. Finally, check if the candidate exactly matches the target triplet. The algorithm uses simple array operations and avoids any extra space beyond a few variables.",
+    "pattern": "Greedy"
+  },
+  {
+    "id": 763,
+    "title": "Partition Labels",
+    "slug": "partition-labels",
+    "solution_url": "https://www.simplyleet.com/partition-labels",
+    "key_insights": "- Determine the last occurrence of every character in the string.\n- Use a greedy approach to extend the current partition until all characters within it do not appear later in the string.\n- When the current index reaches the furthest last occurrence for characters seen so far, a partition can be closed.\n- Repeat the process for the remaining section of the string.",
+    "space_and_time_complexity": "Time Complexity: O(n) where n is the length of the string because we traverse the string twice.\nSpace Complexity: O(1) (or O(26) to be precise) for storing the last occurrences of each character.",
+    "solution": "We first iterate through the string to store the last index at which each character appears. Then, we traverse the string while maintaining two pointers: one for the start of the current partition and one to track the furthest last occurrence (end) of any character seen so far. For each character, we update the end pointer to be the maximum of its current value and the last index of that character. When the current index equals the end pointer, it means that all characters in the current partition do not appear later. We then determine the size of this partition, add it to the result list, and move to the next partition. We repeat this until the entire string is processed.",
+    "pattern": "Greedy"
+  },
+  {
+    "id": 678,
+    "title": "Valid Parenthesis String",
+    "slug": "valid-parenthesis-string",
+    "solution_url": "https://www.simplyleet.com/valid-parenthesis-string",
+    "key_insights": "- The '*' character provides flexibility, allowing multiple interpretations.\n- A greedy approach can track the range of possible open parentheses count.\n- Use two counters to represent the minimum and maximum open count possible at any moment.\n- If the maximum count goes negative at any point, the string cannot be valid.\n- At the end, the minimum count must be zero for a valid string.",
+    "space_and_time_complexity": "Time Complexity: O(n) where n is the length of the string\nSpace Complexity: O(1)",
+    "solution": "We use a greedy algorithm by maintaining two counters:\n\n- minOpen - the minimum number of open parentheses that could be present.\n- maxOpen - the maximum number of open parentheses that could be present.\n\nFor every character in the string:\n\n- For '(', increment both minOpen and maxOpen.\n- For ')', decrement both minOpen and maxOpen.\n- For '*', decrement minOpen (treat as ')') and increment maxOpen (treat as '(').\n\nClamp minOpen to not go below 0, since negative count of open parentheses is not possible in any valid interpretation. If maxOpen drops below 0 at any point, it means there are more closing brackets than can be balanced by available '*' and '(', so the string is invalid. Finally, if minOpen is 0, the string can be balanced, otherwise it is invalid.",
+    "pattern": "Greedy"
+  },
+  {
+    "id": 1851,
+    "title": "Minimum Interval to Include Each Query",
+    "slug": "minimum-interval-to-include-each-query",
+    "solution_url": "https://www.simplyleet.com/minimum-interval-to-include-each-query",
+    "key_insights": "- Sort the intervals by their start values to efficiently determine when an interval becomes relevant for a given query.\n- Process queries in increasing order so that intervals can be added to a data structure (min-heap) as they \"start\" to cover queries.\n- Use a min-heap keyed by the size (length) of the interval to quickly retrieve the smallest interval currently containing the query.\n- Remove any intervals from the heap that no longer cover the current query (i.e., their end is less than the query).\n- Maintain the original order of queries by storing the indices while sorting.",
+    "space_and_time_complexity": "Time Complexity: O((N + Q) log N) where N is the number of intervals and Q is the number of queries. Sorting and heap operations dominate the complexity.\nSpace Complexity: O(N + Q) for storing intervals, queries, and the heap.",
+    "solution": "The solution uses a two-step approach:\n\n- Sort the queries while keeping track of their original indices.\n- Sort intervals by their starting values. For each query (in increasing order), add intervals that start before or at this query to a min-heap, where each entry is the size of the interval along with its end value. Then, remove intervals from the heap that do not cover the query (their end value is less than the query). The heap’s top element (if available) holds the smallest interval size that contains the query.\n- Place the answer in a result array at the position corresponding to the original query order.\n\nData structures used: Sorting arrays and a min-heap for efficient retrieval and removal.",
+    "pattern": "Intervals"
+  },
+  {
+    "id": 202,
+    "title": "Happy Number",
+    "slug": "happy-number",
+    "solution_url": "https://www.simplyleet.com/happy-number",
+    "key_insights": "- The process involves repeatedly computing the sum of squares of digits.\n- If the process reaches 1, the number is happy.\n- If the computed values start repeating (cycle detection), the number is not happy.\n- The cycle can be detected using a hash set to record previously seen numbers or using a two pointers (Floyd’s cycle detection) approach.",
+    "space_and_time_complexity": "Time Complexity: O(1) – Although the process appears iterative, the sum of squares quickly reduces any number to a bounded range.\nSpace Complexity: O(1) – The number of unique sums computed is bounded, resulting in constant space usage.",
+    "solution": "The solution involves computing the sum of the squares of a number's digits in each iteration. We use a hash set to track numbers that have already been seen. If a number repeats, it means we are in a cycle and the number is not happy. If the number becomes 1, it is a happy number. Data structures used include a hash set for cycle detection, and the algorithm uses iterative computation.",
+    "pattern": "Math & Geometry"
+  },
+  {
+    "id": 66,
+    "title": "Plus One",
+    "slug": "plus-one",
+    "solution_url": "https://www.simplyleet.com/plus-one",
+    "key_insights": "- The digits are stored from most significant to least significant.\n- Start processing from the least significant digit (end of array) to handle potential carry.\n- Carefully handle the case where all digits are 9, in which case an additional digit is needed.\n- Use an in-place update approach to reduce extra space usage when possible.",
+    "space_and_time_complexity": "Time Complexity: O(n) in the worst-case, where n is the number of digits.\nSpace Complexity: O(n) in the worst-case for the output array (when an extra digit is added).",
+    "solution": "We iterate from the end of the digits array towards the beginning, adding one to the current digit. If the digit becomes 10, we set it to 0 and propagate the carry to the next digit. If no carry is needed, we can return the result immediately. If we finish processing the array and still have a carry (e.g., the number was all 9s), we create a new array with one extra digit at the beginning set to 1.",
+    "pattern": "Math & Geometry"
+  },
+  {
+    "id": 43,
+    "title": "Multiply Strings",
+    "slug": "multiply-strings",
+    "solution_url": "https://www.simplyleet.com/multiply-strings",
+    "key_insights": "- Simulate the multiplication process similar to hand multiplication.\n- Use an array to store intermediate results where the index correlation is based on the position of digits.\n- Each multiplication may contribute a value that needs to be managed with a carry over in the result array.\n- Handle the special case when either input is \"0\".",
+    "space_and_time_complexity": "Time Complexity: O(n * m), where n and m are the lengths of num1 and num2 respectively.\nSpace Complexity: O(n + m), used for storing the intermediate multiplication results.",
+    "solution": "The solution multiplies each digit of num1 with each digit of num2 by simulating the grade-school multiplication algorithm. An array is used to store the intermediate sums at positions that correspond to the sum of the indices from num1 and num2. For two digits multiplied together, the product is added to the corresponding index in the result array, and any carry is added to the adjacent left cell. Finally, the array is converted back to a string while taking care to remove any leading zeros.\n\nData structures used:\n\n- Array for intermediate multiplication results.\n- Two nested loops to multiply each digit pair.\n\nAlgorithmic steps:\n\n- Initialize an array of size (length of num1 + length of num2) with all zeros.\n- Loop through digits of num1 and num2 in reverse order.\n- Multiply the two digits, add the product to the corresponding position in the result array (taking into account any previous values).\n- Manage the carry for each index.\n- Convert the result array to a string, skipping any leading zeros.\n- Return the final product string.",
+    "pattern": "Math & Geometry"
+  },
+  {
+    "id": 2013,
+    "title": "Detect Squares",
+    "slug": "detect-squares",
+    "solution_url": "https://www.simplyleet.com/detect-squares",
+    "key_insights": "- Leverage the fact that an axis-aligned square has vertical and horizontal edges.\n- For a query point (x, y), iterate over all points that share the same y-axis. For each of these points (px, y) (with px ≠ x), determine the potential square's side length, d = |px - x|.\n- Check for the existence of the two other points (x, y+d) and (px, y+d) (or (x, y-d) and (px, y-d)) that would complete the square.\n- Use a hash map (or dictionary) to store each point along with its count since duplicate points are allowed.",
+    "space_and_time_complexity": "Time Complexity:\n• The add operation is O(1).\n• The count operation is O(n) in the worst-case scenario, where n is the number of distinct points with the same y-coordinate as the query point.\n\nSpace Complexity:\n• O(m), where m is the number of added points, since we store counts for each point.",
+    "solution": "We implement the DetectSquares class by maintaining a hash map (or dictionary) to store the frequency count for each point using its (x, y) coordinates as the key.\nIn the add(point) method, we simply increment the count for the given point.\nFor the count(point) method, we iterate through all points that share the same y-coordinate as the query point. For every such point (px, y) (with px ≠ x), we calculate the potential side length of a square (d = px - x). Then, we check for two possible squares: one above the query point and one below it. The count is increased by the number of times these needed points exist multiplied by the count of the current candidate point.\nThis method efficiently counts all possible squares that can be formed with the query point.",
+    "pattern": "Math & Geometry"
+  },
+  {
+    "id": 371,
+    "title": "Sum of Two Integers",
+    "slug": "sum-of-two-integers",
+    "solution_url": "https://www.simplyleet.com/sum-of-two-integers",
+    "key_insights": "- Use bitwise XOR (^) to perform addition without carrying.\n- Use bitwise AND (&) followed by a left shift (<<) to calculate the carry.\n- Repeat the process until there is no carry.\n- This method simulates the addition process using binary arithmetic.",
+    "space_and_time_complexity": "Time Complexity: O(1) – The loop runs a fixed number of times based on the number of bits.\nSpace Complexity: O(1) – Only constant extra space is used.",
+    "solution": "The solution uses bit manipulation to add two numbers without using the + or - operators.\n\n- Use XOR (^) on a and b to add the bits where there is no carry.\n- Use AND (&) to find the positions where both a and b have a 1 (i.e., potential carry). Then shift the result left by one to add in the next higher bit.\n- Set a to the XOR result and b to the shifted carry.\n- Repeat steps 1-3 until there is no carry (b equals 0).\n- Return a which holds the final sum.\nThis approach leverages the bitwise operations to effectively simulate binary addition.",
+    "pattern": "Bit Manipulation"
+  }
+]

@@ -6,6 +6,7 @@ rendering logic as generate_patterns_pdf.py.
 Usage:
   python3 generate_individual_pattern_pdfs.py              # screen colors
   python3 generate_individual_pattern_pdfs.py --printable  # print-friendly
+  python3 generate_individual_pattern_pdfs.py --print-colored-dark  # print layout + colored syntax + dark code panels
   python3 generate_individual_pattern_pdfs.py --pattern "Sliding Window"  # one pattern only
   python3 generate_individual_pattern_pdfs.py --both       # screen + print editions
 
@@ -64,11 +65,14 @@ def generate_pattern_pdf(
     doocs_cache, sites_cache, lc_cache,
     output: Path,
     printable: bool = False,
+    mono_code: bool | None = None,
+    dark_code_panels: bool = False,
+    color_meta: bool = False,
     code_size: float = None,
     bold: bool = False,
 ):
     """Generate a single PDF for one pattern."""
-    styles = build_styles(printable, code_size=code_size, bold=bold)
+    styles = build_styles(printable, code_size=code_size, bold=bold, dark_code_panels=dark_code_panels)
 
     doc = SimpleDocTemplate(
         str(output),
@@ -87,7 +91,7 @@ def generate_pattern_pdf(
     HF        = "Helvetica-Bold" if bold else "Helvetica"
     # For printable: everything pure black; for screen: use brand colours
     BLK       = "#000000"
-    cvr_hex   = BLK if printable else pat_hex
+    cvr_hex   = BLK if (printable and not color_meta) else pat_hex
     cvr_col   = HexColor(BLK) if printable else GRAY_500
 
     # ── Cover page ────────────────────────────────────────────────────────────
@@ -210,7 +214,12 @@ def generate_pattern_pdf(
     for i, q in enumerate(qs, 1):
         story += build_question_block(
             q, styles, doocs_cache, sites_cache, lc_cache,
-            pattern=pat, printable=printable, bold=bold,
+            pattern=pat,
+            printable=printable,
+            bold=bold,
+            mono_code=mono_code,
+            dark_code_panels=dark_code_panels,
+            color_meta=color_meta,
         )
         if i % 5 == 0:
             print(f"      {i}/{n_qs} questions rendered…")
@@ -245,6 +254,16 @@ def main():
         "--printable", "-p",
         action="store_true",
         help="Build print-friendly edition (light bg, monochrome syntax)",
+    )
+    ap.add_argument(
+        "--print-colored-dark",
+        action="store_true",
+        help="Build print edition but with colored syntax + dark code panels (eye-friendly)",
+    )
+    ap.add_argument(
+        "--build-only",
+        action="store_true",
+        help="Skip all fetching/scraping; build using local cache files only",
     )
     ap.add_argument(
         "--both", "-b",
@@ -283,19 +302,32 @@ def main():
 
     # Create output directory
     OUTPUT_DIR.mkdir(exist_ok=True)
-    suffix_dir = OUTPUT_DIR / "print" if args.printable and not args.both else OUTPUT_DIR
+    suffix_dir = OUTPUT_DIR / "print" if (args.printable or args.print_colored_dark) and not args.both else OUTPUT_DIR
     if args.both:
         (OUTPUT_DIR / "screen").mkdir(exist_ok=True)
         (OUTPUT_DIR / "print").mkdir(exist_ok=True)
 
-    print("Step 1/3 — Doocs (descriptions + solutions)…")
-    doocs_cache = fetch_doocs(questions)
+    if args.build_only:
+        missing = [p for p in (DOOCS_CACHE, SITES_CACHE, LC_CACHE) if not p.exists()]
+        if missing:
+            raise SystemExit(
+                "✗ --build-only requested but cache file(s) missing:\n"
+                + "\n".join(f"  - {p}" for p in missing)
+            )
+        print("Build-only: loading local caches (no network)…")
+        doocs_cache = _load(DOOCS_CACHE)
+        sites_cache = _load(SITES_CACHE)
+        lc_cache    = _load(LC_CACHE)
+        print("\nBuilding individual pattern PDFs…")
+    else:
+        print("Step 1/3 — Doocs (descriptions + solutions)…")
+        doocs_cache = fetch_doocs(questions)
 
-    print("\nStep 2/3 — SimplyLeet, WalkCC, LeetCode.ca…")
-    sites_cache = fetch_all_sites(questions, doocs_cache)
+        print("\nStep 2/3 — SimplyLeet, WalkCC, LeetCode.ca…")
+        sites_cache = fetch_all_sites(questions, doocs_cache)
 
-    print("\nStep 3/3 — Building individual pattern PDFs…")
-    lc_cache = _load(LC_CACHE)
+        print("\nStep 3/3 — Building individual pattern PDFs…")
+        lc_cache = _load(LC_CACHE)
 
     # Get all groups in canonical QUICK_PATTERNS order
     groups = build_groups(questions)
@@ -341,6 +373,19 @@ def main():
             generate_pattern_pdf(
                 pat, qs, i, questions, doocs_cache, sites_cache, lc_cache,
                 out, printable=True, code_size=code_size, bold=bold,
+            )
+        elif args.print_colored_dark:
+            out = OUTPUT_DIR / "print" / f"{base}_Print_Colored_DarkCode.pdf"
+            out.parent.mkdir(exist_ok=True)
+            generate_pattern_pdf(
+                pat, qs, i, questions, doocs_cache, sites_cache, lc_cache,
+                out,
+                printable=True,
+                mono_code=False,
+                dark_code_panels=True,
+                code_size=code_size,
+                bold=True,
+                color_meta=True,
             )
         else:
             out = OUTPUT_DIR / f"{base}.pdf"

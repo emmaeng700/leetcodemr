@@ -2537,13 +2537,16 @@ def build_question_block(
             clean = re.sub(r"\n"," ", stored)
             story.append(Paragraph(safe_xml(clean), styles["body"]))
 
-    # ── Brute Force (always shown first, for interview prep) ─────────────────
-    bf = gen_brute_force_python(q, pattern_name)
-    if bf:
-        story.append(site_banner(f">> Brute Force  [{pattern_name}]  Interview Prep", "#DC2626", printable))
-        story += code_flowable(bf, "python", styles, printable, mono_code=mono_code, dark_code_panels=dark_code_panels)
+    is_js_pattern = (pattern_name == "JavaScript")
 
-    # ── Community solutions from all 4 sites (all languages) ─────────────────
+    # ── Brute Force — skip for JavaScript pattern (not applicable) ────────────
+    if not is_js_pattern:
+        bf = gen_brute_force_python(q, pattern_name)
+        if bf:
+            story.append(site_banner(f">> Brute Force  [{pattern_name}]  Interview Prep", "#DC2626", printable))
+            story += code_flowable(bf, "python", styles, printable, mono_code=mono_code, dark_code_panels=dark_code_panels)
+
+    # ── Community solutions from all 4 sites ──────────────────────────────────
     merged = dict(sites)
     merged["doocs"] = doocs.get("blocks", [])
 
@@ -2552,14 +2555,25 @@ def build_question_block(
     for site_cfg in SITES:
         all_blocks.extend(merged.get(site_cfg["key"], []))
 
-    # ── Group by language — all Python together, then C++, Java, etc. ────────
-    _LANG_ORDER = ["python", "cpp", "java", "javascript", "typescript",
-                   "go", "rust", "kotlin", "swift", "ruby", "scala", "csharp", "php", "c"]
+    # ── Group by language ─────────────────────────────────────────────────────
+    # JavaScript pattern: JS/TS first; all others: Python first
+    if is_js_pattern:
+        _LANG_ORDER = ["javascript", "typescript", "python", "cpp", "java",
+                       "go", "rust", "kotlin", "swift", "ruby", "scala", "csharp", "php", "c"]
+    else:
+        _LANG_ORDER = ["python", "cpp", "java", "javascript", "typescript",
+                       "go", "rust", "kotlin", "swift", "ruby", "scala", "csharp", "php", "c"]
     lang_groups: dict = {}
     for b in all_blocks:
         lang_groups.setdefault(b.get("lang", "unknown"), []).append(b)
 
-    _langs_to_show = ["python"] if python_only else _LANG_ORDER + sorted(set(lang_groups) - set(_LANG_ORDER))
+    # python_only mode: for JS pattern show js/ts instead of python
+    if python_only and is_js_pattern:
+        _langs_to_show = ["javascript", "typescript"]
+    elif python_only:
+        _langs_to_show = ["python"]
+    else:
+        _langs_to_show = _LANG_ORDER + sorted(set(lang_groups) - set(_LANG_ORDER))
     for _lang in _langs_to_show:
         _lang_blocks = lang_groups.get(_lang)
         if not _lang_blocks:
@@ -3005,19 +3019,17 @@ if __name__ == "__main__":
         generate_pdf(questions, doocs_cache, sites_cache, lc_cache, OUTPUT_PDF_PRINT, printable=True)
     elif args.print_colored:
         out = args.output or OUTPUT_PDF_PRINT_COLORED
-        # printable=True gives light backgrounds + black body text, but we keep code colors
-        # (mono_code=False) and force bold code font (bold=True).
         generate_pdf(
             questions, doocs_cache, sites_cache, lc_cache, out,
             printable=True, bold=True, mono_code=False, show_footer=True,
-            sort_asc=args.sort_asc,
+            sort_asc=args.sort_asc, python_only=args.python_only,
         )
     elif args.print_colored_dark:
         out = args.output or OUTPUT_PDF_PRINT_COLORED_DARK
         generate_pdf(
             questions, doocs_cache, sites_cache, lc_cache, out,
             printable=True, bold=True, mono_code=False, dark_code_panels=True, show_footer=True,
-            sort_asc=args.sort_asc,
+            sort_asc=args.sort_asc, python_only=args.python_only,
         )
     elif args.printable:
         out = args.output or OUTPUT_PDF_PRINT
