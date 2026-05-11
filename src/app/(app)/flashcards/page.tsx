@@ -78,6 +78,9 @@ function FlashcardsInner() {
 
   useEffect(() => {
     let filtered = all
+    // Compute once — used for both pattern filtering and sort ordering below
+    const exclusiveMap = buildExclusivePatternMap(all)
+
     if (filterDiff !== 'All') filtered = filtered.filter(q => q.difficulty === filterDiff)
     if (filterSource !== 'All') filtered = filtered.filter(q => (q.source || []).includes(filterSource))
     if (initSearch) {
@@ -86,13 +89,25 @@ function FlashcardsInner() {
       filtered = filtered.filter(q => q.title.toLowerCase().includes(s) || String(q.id).includes(byId))
     }
     if (filterPattern) {
-      const exclusiveMap = buildExclusivePatternMap(all)
       filtered = filtered.filter(q => exclusiveMap[q.id] === filterPattern)
     }
     if (initStarred) filtered = filtered.filter(q => progress[q.id]?.starred)
     if (initSolved === true)  filtered = filtered.filter(q => progress[q.id]?.solved)
     if (initSolved === false) filtered = filtered.filter(q => !progress[q.id]?.solved)
-    const next = isShuffled ? shuffle(filtered) : filtered
+
+    let next: Question[]
+    if (isShuffled) {
+      next = shuffle(filtered)
+    } else {
+      // Sort by learning-progression pattern order, then by question ID within each pattern
+      const patternOrderIdx: Record<string, number> = {}
+      DISPLAY_PATTERN_ORDER.forEach((p, i) => { patternOrderIdx[p] = i })
+      next = [...filtered].sort((a, b) => {
+        const oa = patternOrderIdx[exclusiveMap[a.id]] ?? 999
+        const ob = patternOrderIdx[exclusiveMap[b.id]] ?? 999
+        return oa !== ob ? oa - ob : a.id - b.id
+      })
+    }
     setDeck(next)
     const navKey = `${filterDiff}|${filterSource}|${filterPattern}|${isShuffled}|${initSearch}|${initStarred}|${initSolved}|${all.length}`
     if (filterNavKeyRef.current !== navKey) {
