@@ -433,7 +433,7 @@ export default function PracticePage() {
     <div className="flex min-h-[calc(100dvh-56px)] flex-col md:h-[calc(100dvh-56px)]">
 
       {/* Top bar */}
-      <div className="flex flex-wrap items-center px-3 sm:px-4 py-2 sm:py-2.5 border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 gap-x-2 gap-y-1">
+      <div className="flex flex-wrap items-start sm:items-center px-3 sm:px-4 py-2 sm:py-2.5 border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 gap-x-2 gap-y-1.5">
         {/* Back button */}
         <button onClick={() => router.back()} className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors shrink-0">
           <ArrowLeft size={18} />
@@ -441,15 +441,15 @@ export default function PracticePage() {
 
         {/* Title — own full-width line on mobile, inline on sm+ */}
         {question ? (
-          <div className="order-last w-full sm:order-none sm:w-auto sm:flex-1 flex items-center gap-2 min-w-0">
+          <div className="order-last w-full sm:order-none sm:w-auto sm:flex-1 flex flex-wrap items-center gap-2 min-w-0">
             <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0 hidden sm:inline">#{question.id}</span>
-            <h1 className="font-bold text-[var(--text)] text-sm leading-snug">{question.title}</h1>
-            <div className="shrink-0 hidden sm:block"><DifficultyBadge difficulty={question.difficulty} /></div>
+            <h1 className="min-w-0 flex-1 font-bold text-[var(--text)] text-sm leading-snug break-words">{question.title}</h1>
+            <div className="shrink-0"><DifficultyBadge difficulty={question.difficulty} /></div>
             <a
               href={leetCodeUrl(lcTitleSlug)}
               target="_blank"
               rel="noopener noreferrer"
-              className="shrink-0 text-[var(--text-muted)] hover:text-orange-400 transition-colors hidden sm:inline"
+              className="shrink-0 text-[var(--text-muted)] hover:text-orange-400 transition-colors"
               title="Open on LeetCode"
             >
               <ExternalLink size={12} />
@@ -459,7 +459,7 @@ export default function PracticePage() {
           <div className="order-last w-full sm:order-none h-4 w-32 sm:w-48 bg-[var(--bg-muted)] rounded animate-pulse" />
         )}
 
-        <div className="ml-auto flex items-center gap-2 shrink-0 overflow-visible">
+        <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1.5 shrink overflow-visible">
           {/* Question list */}
           {planOrder.length > 0 && (() => {
             const qMap = Object.fromEntries(allQuestions.map(q => [q.id, q]))
@@ -508,7 +508,7 @@ export default function PracticePage() {
               )
             })
             return (
-              <div className="flex items-center gap-1">
+              <div className="flex max-w-full flex-wrap items-center justify-end gap-1">
                 {isDailyMode && (
                   <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold shrink-0">
                     📅 Daily
@@ -569,7 +569,7 @@ export default function PracticePage() {
           <button
             onClick={handleMarkSolved}
             disabled={!question}
-            className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-colors border disabled:opacity-40 ${
+            className={`flex min-w-0 items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-colors border disabled:opacity-40 ${
               solved
                 ? 'bg-green-50 text-green-600 border-green-200'
                 : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)] hover:border-green-500/50 hover:text-green-400'
@@ -589,18 +589,18 @@ export default function PracticePage() {
             <div className="text-xs font-semibold text-indigo-700">
               🧠 Spaced repetition review due
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full sm:w-auto items-center justify-end gap-2">
               <button
                 onClick={handleFailReview}
                 disabled={reviewDone}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-200 bg-white text-indigo-700 hover:border-indigo-300 disabled:opacity-50"
+                className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-200 bg-white text-indigo-700 hover:border-indigo-300 disabled:opacity-50"
               >
                 Again
               </button>
               <button
                 onClick={handleCompleteReview}
                 disabled={reviewDone}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
               >
                 Pass
               </button>
@@ -616,21 +616,21 @@ export default function PracticePage() {
             <div className="text-xs font-semibold text-violet-700">
               ⏩ Early review — advancing date
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full sm:w-auto items-center justify-end gap-2">
               {reviewDone
                 ? <span className="text-xs font-bold text-green-600">✓ Done — date advanced</span>
                 : <>
                     <button
                       onClick={handleFailReview}
                       disabled={reviewDone}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold border border-violet-200 bg-white text-violet-700 hover:border-violet-300 disabled:opacity-50"
+                      className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold border border-violet-200 bg-white text-violet-700 hover:border-violet-300 disabled:opacity-50"
                     >
                       Again
                     </button>
                     <button
                       onClick={handleCompleteReview}
                       disabled={reviewDone}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
+                      className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
                     >
                       Pass
                     </button>

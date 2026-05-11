@@ -6,7 +6,7 @@ export default function DifficultyBadge({ difficulty }: { difficulty: string }) 
   }
   const cls = styles[difficulty] ?? 'bg-slate-100 text-slate-600 border border-slate-200   '
   return (
-    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cls}`}>
+    <span className={`inline-flex shrink-0 items-center whitespace-nowrap text-[11px] sm:text-xs leading-none font-semibold px-2 py-1 rounded-full ${cls}`}>
       {difficulty}
     </span>
   )

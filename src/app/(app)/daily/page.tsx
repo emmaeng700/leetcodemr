@@ -1047,12 +1047,12 @@ export default function DailyPage() {
       {/* TODAY'S QUESTIONS — strict mode */}
       {!todayInfo.pending && !todayInfo.complete && todayInfo.dayNumber && !isRandomMode && (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-5 mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-[var(--text)] text-sm flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <h2 className="min-w-0 font-bold text-[var(--text)] text-sm flex items-center gap-2">
               <CalendarCheck size={15} className="text-indigo-500" />
               Today — Day {todayInfo.dayNumber}
             </h2>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+            <span className={`shrink-0 text-[11px] sm:text-xs font-bold px-2 py-1 rounded-full ${
               todayAllRepsDone ? 'bg-green-100 text-green-700' :
               todayRepsDone > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
             }`}>
@@ -1079,7 +1079,7 @@ export default function DailyPage() {
                   )}
                   <div
                     ref={el => { questionRefs.current[q.id] = el }}
-                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all mt-2 ${
+                    className={`flex flex-col items-start gap-3 sm:flex-row sm:items-center p-3 rounded-xl border transition-all mt-2 ${
                       repDone
                         ? 'bg-green-50 border-green-200'
                         : isFocus
@@ -1122,7 +1122,7 @@ export default function DailyPage() {
                     <button
                       type="button"
                       onClick={() => launchDailyQuestion(q.id)}
-                      className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                      className={`w-full sm:w-auto shrink-0 justify-center flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
                         repDone
                           ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
                           : isFocus
