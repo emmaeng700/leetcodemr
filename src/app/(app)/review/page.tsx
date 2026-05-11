@@ -280,21 +280,39 @@ export default function ReviewPage() {
         <section className="mb-7">
           {/* Section header — makes crystal clear these are today's batch */}
           <div className="mb-4">
-            <h2 className="text-sm font-bold text-[var(--text)] flex items-center gap-2">
-              <Flame size={15} className="text-orange-500" />
-              Today's Reviews
-              <span className="px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full text-xs border border-orange-200 font-bold">
-                {pendingDue.length} left
-              </span>
-              {localDoneIds.size > 0 && (
-                <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs border border-green-200 font-bold">
-                  {localDoneIds.size} done ✓
-                </span>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-[var(--text)] flex items-center gap-2">
+                  <Flame size={15} className="text-orange-500" />
+                  Today's Reviews
+                  <span className="px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full text-xs border border-orange-200 font-bold">
+                    {pendingDue.length} left
+                  </span>
+                  {localDoneIds.size > 0 && (
+                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs border border-green-200 font-bold">
+                      {localDoneIds.size} done ✓
+                    </span>
+                  )}
+                </h2>
+                <p className="text-xs text-[var(--text-subtle)] mt-1">
+                  Grouped by pattern · Again &amp; Pass appear on each question
+                </p>
+              </div>
+              {/* Start all — queues every pending question in pattern order */}
+              {pendingDue.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ordered = dueByPattern.flatMap(({ items }) => items.map(q => q.id))
+                    sessionStorage.setItem('lm_review_queue', JSON.stringify(ordered))
+                    router.push(`/practice/${ordered[0]}?from=review`)
+                  }}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-xl transition-colors"
+                >
+                  <Flame size={12} /> Start all {pendingDue.length}
+                </button>
               )}
-            </h2>
-            <p className="text-xs text-[var(--text-subtle)] mt-1">
-              Today's scheduled batch · grouped by pattern · Again &amp; Pass appear when you open a question
-            </p>
+            </div>
           </div>
 
           {/* All done celebration */}
