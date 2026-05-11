@@ -31,8 +31,27 @@ interface ProgressData {
 }
 
 type PlanMode = 'strict' | 'random'
-const PLAN_MODE_KEY    = 'lm_plan_mode_v1'
-const FOCUS_PATTERN_KEY = 'lm_focus_pattern_v1'
+const PLAN_MODE_KEY      = 'lm_plan_mode_v1'
+const FOCUS_PATTERN_KEY  = 'lm_focus_pattern_v1'
+const REPS_PER_Q_KEY     = 'lm_reps_per_q'
+const DAILY_REPS_PREFIX  = 'lm_daily_reps_'
+
+// ─── Rep dots ─────────────────────────────────────────────────────────────────
+function RepDots({ done, total }: { done: number; total: number }) {
+  const capped = Math.min(done, total)
+  return (
+    <div className="flex items-center gap-[3px]">
+      {Array.from({ length: total }).map((_, i) => (
+        <div
+          key={i}
+          className={`w-2 h-2 rounded-full transition-colors ${
+            i < capped ? 'bg-indigo-500' : 'bg-[var(--border)]'
+          }`}
+        />
+      ))}
+    </div>
+  )
+}
 const ORDERED_QUICK_PATTERNS = QUICK_PATTERNS
   .slice()
   .sort(
@@ -147,6 +166,16 @@ export default function DailyPage() {
   const [focusPattern, setFocusPattern] = useState<string | null>(null)
   const [todaySolvedCount, setTodaySolvedCount] = useState(0)
 
+  // Rep tracking
+  const [repsPerQ, setRepsPerQ] = useState(3)
+  const [dailyReps, setDailyReps] = useState<Record<string, number>>({})
+  const repsPerQRef = useRef(3)
+  const todayQsRef  = useRef<Question[]>([])
+  const questionRefs = useRef<Record<number, HTMLDivElement | null>>({})
+
+  // Setup-form reps picker
+  const [setupRepsPerQ, setSetupRepsPerQ] = useState(3)
+
   // Reset gate
   const [showResetPrompt, setShowResetPrompt] = useState(false)
   const [resetAttempt, setResetAttempt] = useState('')
@@ -170,6 +199,29 @@ export default function DailyPage() {
   const [breathers, setBreathers] = useState<ActiveBreather[]>([])
 
   const topicMap = useMemo(() => buildExclusivePatternMap(allQuestions), [allQuestions])
+
+  // incrementRep must be declared before any useEffect that references it
+  const incrementRep = useCallback((id: number) => {
+    const key = `${DAILY_REPS_PREFIX}${todayISO()}`
+    setDailyReps(prev => {
+      const prevCount = prev[String(id)] ?? 0
+      const newCount  = prevCount + 1
+      const updated   = { ...prev, [String(id)]: newCount }
+      localStorage.setItem(key, JSON.stringify(updated))
+      // Auto-advance to next question when this one hits the rep target
+      if (newCount >= repsPerQRef.current) {
+        const qs  = todayQsRef.current
+        const idx = qs.findIndex(q => q.id === id)
+        const nextQ = qs.slice(idx + 1).find(q => (updated[String(q.id)] ?? 0) < repsPerQRef.current)
+        if (nextQ) {
+          setTimeout(() => {
+            questionRefs.current[nextQ.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }, 450)
+        }
+      }
+      return updated
+    })
+  }, [])
 
   // ── Derived values that must live before any early return (Rules of Hooks) ──
   const isRandomMode = activePlanMode === 'random'
@@ -237,6 +289,14 @@ export default function DailyPage() {
       const savedFocus = localStorage.getItem(FOCUS_PATTERN_KEY)
       if (savedFocus) setFocusPattern(savedFocus)
 
+      // Load reps-per-question setting and today's rep counts
+      const savedRpq = Math.max(1, parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '3') || 3)
+      setRepsPerQ(savedRpq)
+      setSetupRepsPerQ(savedRpq)
+      repsPerQRef.current = savedRpq
+      const todayRepsRaw = localStorage.getItem(`${DAILY_REPS_PREFIX}${todayISO()}`) ?? '{}'
+      setDailyReps(JSON.parse(todayRepsRaw) as Record<string, number>)
+
       const [qs, prog, p, due, solvedToday] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getProgress(),
@@ -287,6 +347,9 @@ export default function DailyPage() {
       if (prev !== null && prev !== '/daily') {
         void refreshProgress()
         void refreshDue()
+        // Count every practice-page visit as one rep for that question
+        const m = prev?.match(/^\/practice\/(\d+)$/)
+        if (m) incrementRep(parseInt(m[1]))
         if (activePlanMode === 'random') {
           void syncStreakActivityFromGoals(activePlanMode).catch(() => {/* silent */})
         }
@@ -294,7 +357,7 @@ export default function DailyPage() {
     } else {
       prevPathRef.current = pathname
     }
-  }, [pathname, loading, refreshProgress, refreshDue, activePlanMode])
+  }, [pathname, loading, refreshProgress, refreshDue, activePlanMode, incrementRep])
 
   useEffect(() => {
     if (loading || pathname !== '/daily') return
@@ -341,6 +404,10 @@ export default function DailyPage() {
     setGenerating(false)
     if (ok) {
       localStorage.setItem(PLAN_MODE_KEY, setupMode)
+      // Persist reps-per-question choice
+      localStorage.setItem(REPS_PER_Q_KEY, String(setupRepsPerQ))
+      setRepsPerQ(setupRepsPerQ)
+      repsPerQRef.current = setupRepsPerQ
       setActivePlanMode(setupMode)
       setPlan(newPlan)
       toast.success('Study plan created!')
@@ -401,6 +468,23 @@ export default function DailyPage() {
       [String(id)]: { ...prev[String(id)], starred: n },
     }))
     updateProgress(id, { starred: n })
+  }
+
+  // ── Rep helpers ─────────────────────────────────────────────────────────────
+  function getDailyRep(id: number) { return dailyReps[String(id)] ?? 0 }
+  function isRepDone(id: number)   { return getDailyRep(id) >= repsPerQRef.current }
+
+  function saveRepsPerQ(n: number) {
+    const v = Math.max(1, Math.min(10, n))
+    setRepsPerQ(v)
+    repsPerQRef.current = v
+    localStorage.setItem(REPS_PER_Q_KEY, String(v))
+  }
+
+  function cycleRepsPerQ() {
+    const opts  = [1, 2, 3, 5]
+    const idx   = opts.indexOf(repsPerQ)
+    saveRepsPerQ(opts[(idx + 1) % opts.length])
   }
 
   function daysOverdue(nr: string) {
@@ -484,6 +568,25 @@ export default function DailyPage() {
             </div>
 
             <div>
+              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">Reps per question / day</label>
+              <div className="flex gap-2 flex-wrap">
+                {[1, 2, 3, 5].map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setSetupRepsPerQ(n)}
+                    className={`w-12 h-10 rounded-xl text-sm font-bold border-2 transition-colors ${
+                      setupRepsPerQ === n ? 'bg-indigo-600 text-white border-indigo-600' : 'border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-400'
+                    }`}
+                  >
+                    {n}×
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-[var(--text-subtle)] mt-1">Practice each question this many times before it counts as done for the day.</p>
+            </div>
+
+            <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">Start date</label>
               <input
                 type="date"
@@ -557,9 +660,13 @@ export default function DailyPage() {
               <span className="text-xs text-indigo-600  font-semibold">At {perDay}/day you finish in</span>
               <span className="text-lg font-black text-indigo-700 ">{previewDays} days</span>
             </div>
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center mb-1">
               <span className="text-xs text-indigo-500 ">Estimated finish</span>
               <span className="text-sm font-bold text-indigo-700 ">{fmtDate(previewFinish)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-indigo-500">Daily practice sessions</span>
+              <span className="text-xs font-bold text-indigo-600">{perDay} × {setupRepsPerQ} = {perDay * setupRepsPerQ} reps</span>
             </div>
           </div>
         </div>
@@ -585,7 +692,14 @@ export default function DailyPage() {
     : (todayInfo.dayNumber ? Math.round((todayInfo.dayNumber / totalDays) * 100) : 0)
 
   const todayQs    = todayInfo.questions || []
+  todayQsRef.current = todayQs   // keep ref fresh for incrementRep auto-advance
   const todayDone  = (todayInfo.questionIds || []).filter(id => isSolved(id)).length
+
+  // Rep-based day completion
+  const todayRepsDone   = todayQs.filter(q => isRepDone(q.id)).length
+  const todayAllRepsDone = todayQs.length > 0 && todayQs.every(q => isRepDone(q.id))
+  // First question that still needs more reps (for highlight + auto-advance)
+  const nextFocusId = todayQs.find(q => !isRepDone(q.id))?.id ?? null
 
   // Random mode: day goal met when per_day new questions solved today
   const randomGoalMet = isRandomMode && todaySolvedCount >= plan.per_day
@@ -659,6 +773,15 @@ export default function DailyPage() {
               )}
             </div>
           )}
+          <button
+            type="button"
+            onPointerDown={cycleRepsPerQ}
+            style={{ touchAction: 'manipulation' }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--text-subtle)] border border-[var(--border)] rounded-lg hover:bg-[var(--bg-muted)] transition-colors"
+            title="Tap to cycle reps per question"
+          >
+            Reps: {repsPerQ}×
+          </button>
           <button
             onClick={() => { setShowChangePace(v => !v); setNewPerDay(plan.per_day) }}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--text-subtle)] border border-[var(--border)] rounded-lg hover:bg-[var(--bg-muted)] transition-colors"
@@ -863,21 +986,23 @@ export default function DailyPage() {
                 <p className="text-xs text-[var(--text-subtle)] text-center py-4">No questions in this pattern.</p>
               ) : (
                 randomFocusQs.map(q => {
-                  const solved = isSolved(q.id)
+                  const solved   = isSolved(q.id)
+                  const repCount = getDailyRep(q.id)
+                  const repDone  = repCount >= repsPerQ
                   return (
                     <div
                       key={q.id}
                       className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                        solved ? 'bg-green-50 border-green-200 opacity-70' : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-purple-400/60'
+                        repDone ? 'bg-green-50 border-green-200' : solved ? 'bg-green-50 border-green-200 opacity-70' : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-purple-400/60'
                       }`}
                     >
                       <div className="shrink-0">
-                        {solved ? <CheckCircle2 size={18} className="text-green-500" /> : <Circle size={18} className="text-[var(--text-subtle)]" />}
+                        {repDone ? <CheckCircle2 size={18} className="text-green-500" /> : solved ? <CheckCircle2 size={18} className="text-indigo-400" /> : <Circle size={18} className="text-[var(--text-subtle)]" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
-                          <span className={`text-sm font-semibold truncate ${solved ? 'text-green-500 line-through' : 'text-[var(--text)]'}`}>
+                          <span className={`text-sm font-semibold truncate ${repDone ? 'text-green-600 line-through' : 'text-[var(--text)]'}`}>
                             {q.title}
                           </span>
                           <a href={leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))} target="_blank" rel="noopener noreferrer"
@@ -885,17 +1010,23 @@ export default function DailyPage() {
                             <ExternalLink size={11} />
                           </a>
                         </div>
-                        <div className="mt-1"><DifficultyBadge difficulty={q.difficulty} /></div>
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <DifficultyBadge difficulty={q.difficulty} />
+                          <RepDots done={repCount} total={repsPerQ} />
+                          <span className={`text-[10px] font-bold ${repDone ? 'text-green-600' : repCount > 0 ? 'text-purple-500' : 'text-[var(--text-subtle)]'}`}>
+                            {Math.min(repCount, repsPerQ)}/{repsPerQ}
+                          </span>
+                        </div>
                       </div>
                       <Link
                         href={`/practice/${q.id}`}
                         className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
-                          solved
+                          repDone
                             ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
                             : 'bg-purple-600 text-white hover:bg-purple-700'
                         }`}
                       >
-                        {solved ? <><RotateCcw size={11} /> Revisit</> : <>Solve <ArrowRight size={12} /></>}
+                        {repDone ? <><RotateCcw size={11} /> Extra</> : <>Solve <ArrowRight size={12} /></>}
                       </Link>
                     </div>
                   )
@@ -919,18 +1050,21 @@ export default function DailyPage() {
               Today — Day {todayInfo.dayNumber}
             </h2>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-              todayDone === todayQs.length ? 'bg-green-100  text-green-700 ' :
-              todayDone > 0 ? 'bg-yellow-100  text-yellow-700 ' : 'bg-red-100  text-red-700 '
+              todayAllRepsDone ? 'bg-green-100 text-green-700' :
+              todayRepsDone > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
             }`}>
-              {todayDone}/{todayQs.length} done
+              {todayRepsDone}/{todayQs.length} done
             </span>
           </div>
 
           <div className="space-y-3">
             {todayQs.map((q, idx) => {
-              const solved = isSolved(q.id)
-              const topic = topicMap[q.id] ?? 'Other'
-              const prev = idx > 0 ? todayQs[idx - 1] : null
+              const solved    = isSolved(q.id)
+              const repCount  = getDailyRep(q.id)
+              const repDone   = repCount >= repsPerQ
+              const isFocus   = q.id === nextFocusId
+              const topic     = topicMap[q.id] ?? 'Other'
+              const prev      = idx > 0 ? todayQs[idx - 1] : null
               const prevTopic = prev ? (topicMap[prev.id] ?? 'Other') : null
               const showTopic = idx === 0 || topic !== prevTopic
               return (
@@ -941,17 +1075,26 @@ export default function DailyPage() {
                     </div>
                   )}
                   <div
-                    className={`flex items-center gap-3 p-3 rounded-xl border transition-colors mt-2 ${
-                      solved ? 'bg-green-50  border-green-200 ' : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-indigo-400/50'
+                    ref={el => { questionRefs.current[q.id] = el }}
+                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all mt-2 ${
+                      repDone
+                        ? 'bg-green-50 border-green-200'
+                        : isFocus
+                          ? 'bg-indigo-50/60 border-indigo-400 ring-2 ring-indigo-200/50'
+                          : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-indigo-400/50'
                     }`}
                   >
                     <div className="shrink-0">
-                      {solved ? <CheckCircle2 size={20} className="text-green-500" /> : <Circle size={20} className="text-[var(--text-subtle)]" />}
+                      {repDone
+                        ? <CheckCircle2 size={20} className="text-green-500" />
+                        : solved
+                          ? <CheckCircle2 size={20} className="text-indigo-400" />
+                          : <Circle size={20} className="text-[var(--text-subtle)]" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
-                        <span className={`text-sm font-semibold truncate ${solved ? 'text-green-500  line-through' : 'text-[var(--text)]'}`}>
+                        <span className={`text-sm font-semibold truncate ${repDone ? 'text-green-600 line-through' : 'text-[var(--text)]'}`}>
                           {q.title}
                         </span>
                         <a
@@ -965,19 +1108,25 @@ export default function DailyPage() {
                           <ExternalLink size={11} />
                         </a>
                       </div>
-                      <div className="mt-1">
+                      <div className="mt-1.5 flex items-center gap-2">
                         <DifficultyBadge difficulty={q.difficulty} />
+                        <RepDots done={repCount} total={repsPerQ} />
+                        <span className={`text-[10px] font-bold ${repDone ? 'text-green-600' : repCount > 0 ? 'text-indigo-500' : 'text-[var(--text-subtle)]'}`}>
+                          {Math.min(repCount, repsPerQ)}/{repsPerQ}
+                        </span>
                       </div>
                     </div>
                     <Link
                       href={`/practice/${q.id}`}
                       className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
-                        solved
-                          ? 'bg-green-50  text-green-600  border border-green-200  hover:bg-green-100 '
-                          : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                        repDone
+                          ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
+                          : isFocus
+                            ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm'
+                            : 'bg-indigo-600 text-white hover:bg-indigo-700'
                       }`}
                     >
-                      {solved ? <><RotateCcw size={11} /> Revisit</> : <>Solve <ArrowRight size={12} /></>}
+                      {repDone ? <><RotateCcw size={11} /> Extra</> : <>Solve <ArrowRight size={12} /></>}
                     </Link>
                   </div>
                 </div>
@@ -985,9 +1134,9 @@ export default function DailyPage() {
             })}
           </div>
 
-          {todayDone === todayQs.length && todayQs.length > 0 && (
-            <div className="mt-4 text-center text-green-500  font-bold text-sm">
-              All done for today! See you tomorrow.
+          {todayAllRepsDone && todayQs.length > 0 && (
+            <div className="mt-4 text-center text-green-500 font-bold text-sm">
+              🎉 All {repsPerQ} reps done for today! See you tomorrow.
             </div>
           )}
 
@@ -1083,8 +1232,8 @@ export default function DailyPage() {
             )
           })}
 
-          {/* Do More button — only unlocked when today is fully done */}
-          {todayDone === todayQs.length && todayQs.length > 0 &&
+          {/* Do More button — only unlocked when all reps are done today */}
+          {todayAllRepsDone && todayQs.length > 0 &&
            (todayInfo.dayNumber ?? 1) - 1 + extraDays + 1 < totalDays && (
             <button
               onClick={() => setExtraDays(e => e + 1)}
