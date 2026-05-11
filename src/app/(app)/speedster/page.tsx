@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2, WifiOff, Brain } from 'lucide-react'
 import { getMasteryRunsByQuestion, getProgress, getStudyPlan, getFcVisited, addFcVisited } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -47,6 +48,7 @@ function fmtShort(iso: string) {
 }
 
 export default function SpeedsterPage() {
+  const router = useRouter()
   const [questions, setQuestions] = useState<Question[]>([])
   const [planOrder, setPlanOrder] = useState<number[]>([])
   const [progress,  setProgress]  = useState<Record<string, any>>({})
@@ -81,6 +83,15 @@ export default function SpeedsterPage() {
   const online = useOnlineStatus()
 
   const [planMode, setPlanMode] = useState<'strict' | 'random'>('strict')
+  const launchSpeedsterQuestion = useCallback((qid: number, queue: number[], mode: 'strict' | 'random') => {
+    try {
+      sessionStorage.setItem('lm_speedster_queue', JSON.stringify(queue))
+      sessionStorage.setItem('lm_speedster_queue_mode', mode)
+    } catch {
+      // Ignore storage issues and still navigate.
+    }
+    router.push(`/speedster/${qid}`)
+  }, [router])
 
   // Ref to the mobile scrollable panel so we can lock scroll position on flip
   const cardsPanelRef = useRef<HTMLDivElement>(null)
@@ -532,8 +543,10 @@ export default function SpeedsterPage() {
                       </div>
                     </div>
                   )}
-                  <Link href={`/speedster/${qid}`}
-                    className={`flex items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 transition-colors group ${i !== 0 || showTopic ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
+                  <button
+                    type="button"
+                    onClick={() => launchSpeedsterQuestion(qid, currentDay, 'strict')}
+                    className={`flex w-full items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 text-left transition-colors group ${i !== 0 || showTopic ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
                     <div className="shrink-0">
                       {solved
                         ? <CheckCircle size={18} className="text-green-500" />
@@ -546,7 +559,7 @@ export default function SpeedsterPage() {
                     </span>
                     <DifficultyBadge difficulty={q.difficulty} />
                     <ChevronRight size={14} className="text-gray-300 group-hover:text-yellow-400 shrink-0 transition-colors" />
-                  </Link>
+                  </button>
                 </div>
               )
             })}
@@ -994,8 +1007,10 @@ export default function SpeedsterPage() {
                         </div>
                       </div>
                     )}
-                    <Link href={`/speedster/${qid}`}
-                      className={`flex items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 transition-colors group ${i !== 0 || showTopic ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
+                    <button
+                      type="button"
+                      onClick={() => launchSpeedsterQuestion(qid, currentDay, 'strict')}
+                      className={`flex w-full items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 text-left transition-colors group ${i !== 0 || showTopic ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
                       <div className="shrink-0">
                         {solved
                           ? <CheckCircle size={18} className="text-green-500" />
@@ -1003,9 +1018,12 @@ export default function SpeedsterPage() {
                       </div>
                       <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
                       <span className={`flex-1 text-sm font-semibold truncate ${solved ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
+                      <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
+                        Runs {Math.min(runs[String(q.id)] ?? 0, 3)}/3
+                      </span>
                       <DifficultyBadge difficulty={q.difficulty} />
                       <ChevronRight size={14} className="text-gray-300 group-hover:text-yellow-400 shrink-0 transition-colors" />
-                    </Link>
+                    </button>
                   </div>
                 )
               })}

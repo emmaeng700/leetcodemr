@@ -9,7 +9,7 @@ import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/li
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import { ArrowLeft, ArrowRight, BookOpen, ExternalLink, Loader2, Trophy, Gauge, List, Sparkles, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
-import { getStudyPlan, getProgress, updateProgress } from '@/lib/db'
+import { addMasteryRunEvent, getMasteryRunsByQuestion, getStudyPlan, getProgress, updateProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
@@ -50,9 +50,11 @@ export default function SpeedsterQuestionPage() {
   const [question, setQuestion] = useState<Question | null>(null)
   const [allQuestions, setAllQuestions] = useState<Question[]>([])
   const [planOrder, setPlanOrder] = useState<number[]>([])
+  const [queueActive, setQueueActive] = useState(false)
   const [showList, setShowList] = useState(false)
   const [starred, setStarred] = useState(false)
   const [activeTab, setActiveTab] = useState<'description' | 'best' | 'accepted' | 'editor'>('description')
+  const [modeRuns, setModeRuns] = useState<Record<string, number>>({})
 
   const [lcContent, setLcContent] = useState<string | null>(null)
   const [lcLoading, setLcLoading] = useState(false)
@@ -69,17 +71,33 @@ export default function SpeedsterQuestionPage() {
 
   useEffect(() => {
     async function load() {
-      const [qs, plan, prog] = await Promise.all([
+      const [qs, plan, prog, masteryRuns] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getStudyPlan(),
         getProgress(),
+        getMasteryRunsByQuestion(),
       ])
       const q = (qs as Question[]).find((q: Question) => q.id === id)
       if (!q) return
       setQuestion(q)
       setAllQuestions(qs as Question[])
-      if (plan?.question_order?.length) setPlanOrder(plan.question_order)
-      else setPlanOrder((qs as Question[]).map((q: Question) => q.id))
+      setModeRuns(masteryRuns)
+      let modeQueue: number[] | null = null
+      try {
+        const stored = sessionStorage.getItem('lm_speedster_queue')
+        if (stored) {
+          const parsed = JSON.parse(stored) as number[]
+          const validIds = new Set((qs as Question[]).map((item: Question) => item.id))
+          const cleaned = parsed.filter(qid => validIds.has(qid))
+          if (cleaned.length > 0) modeQueue = cleaned
+        }
+      } catch {
+        // Ignore queue parsing issues and fall back to the default plan order.
+      }
+      setQueueActive(!!modeQueue)
+      if (modeQueue) setPlanOrder(modeQueue)
+      else if (plan?.question_order?.length) setPlanOrder(plan.question_order)
+      else setPlanOrder((qs as Question[]).map((item: Question) => item.id))
       setStarred(!!prog[String(id)]?.starred)
     }
     load()
@@ -123,10 +141,29 @@ export default function SpeedsterQuestionPage() {
     return () => { cancelled = true; controller.abort(); clearTimeout(timeout) }
   }, [question?.id, question?.slug])
 
+  useEffect(() => {
+    if (!queueActive || planOrder.length === 0) return
+    const currentIdx = planOrder.indexOf(id)
+    if (currentIdx < 0) return
+    const firstIncompleteIdx = planOrder.findIndex(qid => (modeRuns[String(qid)] ?? 0) < 3)
+    const unlockedThrough = firstIncompleteIdx === -1 ? planOrder.length - 1 : firstIncompleteIdx
+    if (currentIdx <= unlockedThrough) return
+    const fallbackId = planOrder[Math.max(0, unlockedThrough)]
+    if (fallbackId && fallbackId !== id) router.replace(`/speedster/${fallbackId}`)
+  }, [id, modeRuns, planOrder, queueActive, router])
+
   // Derive index directly from plan order — no URL param needed
   const currentIdx = planOrder.indexOf(id)
-  const prevId = currentIdx >= 0 ? planOrder[(currentIdx - 1 + planOrder.length) % planOrder.length] ?? null : null
-  const nextId = currentIdx >= 0 ? planOrder[(currentIdx + 1) % planOrder.length] ?? null : null
+  const firstIncompleteIdx = queueActive
+    ? planOrder.findIndex(qid => (modeRuns[String(qid)] ?? 0) < 3)
+    : -1
+  const unlockedThrough = !queueActive
+    ? planOrder.length - 1
+    : firstIncompleteIdx === -1
+      ? planOrder.length - 1
+      : firstIncompleteIdx
+  const prevId = currentIdx > 0 ? planOrder[currentIdx - 1] ?? null : null
+  const nextId = currentIdx >= 0 && currentIdx < unlockedThrough ? planOrder[currentIdx + 1] ?? null : null
 
   function goTo(qid: number) {
     router.push(`/speedster/${qid}`)
@@ -137,15 +174,27 @@ export default function SpeedsterQuestionPage() {
   const speedsterQuestionListItems = planOrder.map((qid) => {
     const lq = qMap[qid]
     if (!lq) return null
+    const listIdx = planOrder.indexOf(qid)
+    const unlocked = !queueActive || listIdx <= unlockedThrough
     return (
       <button
         key={qid}
         type="button"
-        onClick={() => { goTo(qid); setShowList(false) }}
-        className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-yellow-50  border-b border-[var(--border-soft)] ${qid === id ? 'bg-yellow-50 ' : ''}`}
+        disabled={!unlocked}
+        onClick={() => {
+          if (!unlocked) return
+          goTo(qid)
+          setShowList(false)
+        }}
+        className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors border-b border-[var(--border-soft)] ${unlocked ? 'hover:bg-yellow-50' : 'opacity-50 cursor-not-allowed'} ${qid === id ? 'bg-yellow-50 ' : ''}`}
       >
         <span className="shrink-0 tabular-nums text-xs font-mono text-[var(--text-subtle)]">#{lq.id}</span>
         <span className="min-w-0 flex-1 truncate text-[var(--text)]">{lq.title}</span>
+        {queueActive && (
+          <span className="shrink-0 text-[10px] font-bold text-cyan-600">
+            {Math.min(modeRuns[String(qid)] ?? 0, 3)}/3
+          </span>
+        )}
         <span
           className={`text-xs font-semibold shrink-0 ${lq.difficulty === 'Easy' ? 'text-green-600' : lq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}
         >
@@ -195,6 +244,13 @@ export default function SpeedsterQuestionPage() {
               className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-yellow-300 hover:text-yellow-600 disabled:opacity-30 transition-colors">
               <ArrowRight size={15} />
             </button>
+          </div>
+        )}
+
+        {queueActive && question && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 text-xs font-bold shrink-0">
+            <Trophy size={12} />
+            <span>{Math.min(modeRuns[String(question.id)] ?? 0, 3)}/3</span>
           </div>
         )}
 
@@ -325,6 +381,38 @@ export default function SpeedsterQuestionPage() {
               appQuestionId={question.id}
               slug={question.slug}
               preferredLangs={question.tags?.includes('JavaScript') ? ['javascript', 'python3', 'cpp'] : undefined}
+              onAccepted={async () => {
+                const before = modeRuns[String(question.id)] ?? 0
+                const res = await addMasteryRunEvent(question.id, 1)
+                if (!res.ok) {
+                  toast.error(`Couldn't save Speedster progress: ${res.error ?? 'unknown error'}`)
+                  return
+                }
+                const after = Math.min(before + 1, 3)
+                setModeRuns(prev => ({ ...prev, [String(question.id)]: (prev[String(question.id)] ?? 0) + 1 }))
+                if (after >= 3) {
+                  const remainingQueue = queueActive ? planOrder.filter(qid => qid !== question.id) : planOrder
+                  const autoAdvanceId = queueActive ? (remainingQueue[0] ?? null) : nextId
+                  if (queueActive) {
+                    sessionStorage.setItem('lm_speedster_queue', JSON.stringify(remainingQueue))
+                  }
+                  if (autoAdvanceId) {
+                    const nextQuestion = allQuestions.find(item => item.id === autoAdvanceId)
+                    toast.success(
+                      nextQuestion
+                        ? `Speedster complete: 3/3. ${nextQuestion.title} is next.`
+                        : 'Speedster complete: 3/3.',
+                      { duration: 4000 }
+                    )
+                    router.push(`/speedster/${autoAdvanceId}`)
+                  } else {
+                    toast.success('Speedster complete: 3/3. Day finished!', { duration: 4000 })
+                    if (queueActive) router.push('/speedster')
+                  }
+                } else {
+                  toast.success(`Speedster progress: ${after}/3`, { duration: 3000 })
+                }
+              }}
             />
           ) : (
             <div className="flex items-center justify-center h-full text-[var(--text-subtle)] text-sm gap-2">
