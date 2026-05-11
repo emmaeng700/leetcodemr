@@ -630,7 +630,7 @@ export default function PracticePage() {
           <span className="text-xs font-semibold text-[var(--text)]">{p}</span>
           {usesThreeSolveGate && (
             <span className="ml-auto text-[11px] font-bold text-cyan-700 shrink-0">
-              {isDailyMode ? 'Daily' : isImbibitionMode ? 'Imbibition' : 'Review'} {Math.min(modeRuns[String(question.id)] ?? 0, 3)}/3
+              {isDailyMode ? 'Daily' : isImbibitionMode ? 'Imbibition' : isEarlyReview ? 'Early' : 'Review'} {Math.min(modeRuns[String(question.id)] ?? 0, 3)}/3
             </span>
           )}
         </div>
