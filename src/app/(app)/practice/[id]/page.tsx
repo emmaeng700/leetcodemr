@@ -609,16 +609,34 @@ export default function PracticePage() {
         </div>
       )}
 
-      {/* Early review — not due yet, 3/3 advances date */}
+      {/* Early review — not due yet, same Again/Pass as due reviews */}
       {isEarlyReview && !due && (
         <div className="px-3 sm:px-4 py-2 border-b border-[var(--border)] bg-violet-50/60 shrink-0">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="text-xs font-semibold text-violet-700">
-              ⏩ Early review — complete 3 reps to advance the date
+              ⏩ Early review — advancing date
             </div>
-            {reviewDone && (
-              <span className="text-xs font-bold text-green-600">✓ Done — date advanced</span>
-            )}
+            <div className="flex items-center gap-2">
+              {reviewDone
+                ? <span className="text-xs font-bold text-green-600">✓ Done — date advanced</span>
+                : <>
+                    <button
+                      onClick={handleFailReview}
+                      disabled={reviewDone}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold border border-violet-200 bg-white text-violet-700 hover:border-violet-300 disabled:opacity-50"
+                    >
+                      Again
+                    </button>
+                    <button
+                      onClick={handleCompleteReview}
+                      disabled={reviewDone}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
+                    >
+                      Pass
+                    </button>
+                  </>
+              }
+            </div>
           </div>
         </div>
       )}
