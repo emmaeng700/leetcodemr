@@ -1,4 +1,4 @@
-const CACHE     = 'lm-v5'
+const CACHE     = 'lm-v6'
 const IMG_CACHE = 'lm-images'   // stable — never wiped on SW updates
 
 // Only cache resources that don't require auth cookies.
@@ -130,10 +130,28 @@ self.addEventListener('fetch', e => {
     return
   }
 
-  // ── Static assets: cache-first ────────────────────────────────────────────
-  const isStatic =
+  // ── Build chunks / route data: network-first to avoid stale deploys ──────
+  const isNextBuildAsset =
     url.pathname.startsWith('/_next/static/') ||
-    url.pathname.startsWith('/_next/data/')   ||
+    url.pathname.startsWith('/_next/data/')
+
+  if (isNextBuildAsset) {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()))
+          return res
+        })
+        .catch(async () => {
+          const cached = await caches.match(e.request)
+          return cached || new Response('', { status: 503 })
+        })
+    )
+    return
+  }
+
+  // ── Other static assets: cache-first ──────────────────────────────────────
+  const isStatic =
     url.pathname.startsWith('/icons/')        ||
     url.pathname.endsWith('.json')            ||
     url.pathname.endsWith('.jpg')             ||
