@@ -691,9 +691,9 @@ export default function DailyPage() {
   // Random mode: day goal met when per_day new questions solved today
   const randomGoalMet = isRandomMode && todaySolvedCount >= plan.per_day
 
-  const launchDailyQuestion = useCallback((qid: number) => {
+  function launchDailyQuestion(qid: number) {
     const strictQueue = todayQs.map(q => q.id)
-    const randomQueue = [qid, ...randomFocusQs.filter(q => q.id !== qid).map(q => q.id)].slice(0, plan.per_day)
+    const randomQueue = [qid, ...randomFocusQs.filter(q => q.id !== qid).map(q => q.id)].slice(0, plan!.per_day)
     const queue = isRandomMode ? randomQueue : strictQueue
     try {
       sessionStorage.setItem(DAILY_QUEUE_KEY, JSON.stringify(queue))
@@ -701,7 +701,7 @@ export default function DailyPage() {
       // Ignore storage issues and still navigate.
     }
     router.push(`/practice/${qid}?from=daily`)
-  }, [isRandomMode, plan.per_day, randomFocusQs, router, todayQs])
+  }
 
   const dailyListItems = todayQs.map(q => (
     <button
