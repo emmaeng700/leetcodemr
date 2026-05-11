@@ -307,7 +307,7 @@ export default function BestAnswersPanel({
       {/* ══════════════════════════════════════════════════════════════════
           FLASHCARD MODE — 3-D flip card
           Front  = study prompt
-          Back   = fetched “best answers” (includes SimplyLeet)
+          Back   = fetched “best answers” (WalkCC, LeetDoocs, LeetCode.ca)
       ══════════════════════════════════════════════════════════════════ */}
       {viewMode === 'flashcard' && (
         <div className="flex flex-col gap-3">
