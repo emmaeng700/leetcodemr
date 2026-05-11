@@ -402,10 +402,15 @@ export default function ReviewPage() {
       {/* ── Upcoming Reviews ───────────────────────────────────────────────── */}
       {upcomingByPattern.length > 0 && (
         <section className="mb-7">
-          <h2 className="text-sm font-bold text-[var(--text)] mb-4 flex items-center gap-2">
-            <Clock size={15} className="text-indigo-500" /> Upcoming Reviews
-            <span className="text-xs text-[var(--text-subtle)] font-mono">· {upcoming.length}</span>
-          </h2>
+          <div className="mb-4">
+            <h2 className="text-sm font-bold text-[var(--text)] flex items-center gap-2">
+              <Clock size={15} className="text-indigo-500" /> Upcoming Reviews
+              <span className="text-xs text-[var(--text-subtle)] font-mono">· {upcoming.length}</span>
+            </h2>
+            <p className="text-xs text-[var(--text-subtle)] mt-1">
+              Not yet due — you can preview questions but <strong>Again &amp; Pass only unlock on the scheduled date</strong>
+            </p>
+          </div>
           <div className="space-y-4">
             {upcomingByPattern.map(({ pattern, items }) => (
               <div key={pattern}>
@@ -414,23 +419,31 @@ export default function ReviewPage() {
                   <span className="text-[11px] normal-case tracking-normal font-mono">· {items.length}</span>
                 </p>
                 <div className="space-y-1.5">
-                  {items.map(q => (
-                    <div
-                      key={q.id}
-                      onClick={() => router.push(`/practice/${q.id}`)}
-                      className="flex items-center justify-between gap-2 flex-wrap bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-4 py-2.5 cursor-pointer hover:border-indigo-400/60 hover:shadow-sm transition-all group"
-                    >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
-                        <span className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-500">{q.title}</span>
-                        <DifficultyBadge difficulty={q.difficulty} />
+                  {items.map(q => {
+                    const daysLeft = daysUntil(q.p.next_review)
+                    return (
+                      <div
+                        key={q.id}
+                        onClick={() => router.push(`/practice/${q.id}`)}
+                        className="flex items-center justify-between gap-2 flex-wrap bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-4 py-2.5 cursor-pointer hover:border-indigo-400/60 hover:shadow-sm transition-all group"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
+                          <span className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-500">{q.title}</span>
+                          <DifficultyBadge difficulty={q.difficulty} />
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-[var(--text-subtle)]">
+                            📅 {formatLocalDate(q.p.next_review)}
+                            {daysLeft === 1 ? ' · tomorrow' : daysLeft > 1 ? ` · in ${daysLeft}d` : ''}
+                          </span>
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 border border-gray-200">
+                            preview only
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs text-[var(--text-subtle)]">📅 {formatLocalDate(q.p.next_review)}</span>
-                        <span className="text-xs text-indigo-500 hidden sm:inline">Review #{(q.p.review_count || 0) + 1}</span>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             ))}
