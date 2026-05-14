@@ -7,6 +7,9 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import { DISPLAY_PATTERN_ORDER } from '@/lib/constants'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { CODE_HIGHLIGHT_TOKEN_CSS } from '@/lib/codeHighlightTheme'
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
 interface Question {
@@ -28,8 +31,14 @@ type LcState =
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'done'; code: string; lang: string }
-  | { status: 'none' }     // fetched but no AC submissions
+  | { status: 'none' }
   | { status: 'error'; msg: string }
+
+/* ── Syntax highlighting style ───────────────────────────────────────────── */
+const HLJS_STYLE = `
+  .bs-hljs .hljs { background: transparent; color: #abb2bf; }
+  ${CODE_HIGHLIGHT_TOKEN_CSS}
+`
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 const DIFF_CLS: Record<string, string> = {
@@ -40,6 +49,11 @@ const DIFF_CLS: Record<string, string> = {
 
 const LANG_LABEL: Record<string, string> = {
   python3: 'Python', python: 'Python', cpp: 'C++', javascript: 'JS',
+}
+
+const HLJS_LANG: Record<string, string> = {
+  python3: 'python', python: 'python', cpp: 'cpp',
+  javascript: 'javascript', js: 'javascript',
 }
 
 function timeAgo(iso: string) {
@@ -62,16 +76,41 @@ function DiffBadge({ d }: { d: string }) {
   )
 }
 
+/* ── Highlighted code block ──────────────────────────────────────────────── */
 function CodeBlock({ code, lang }: { code: string; lang: string }) {
+  const codeRef = useRef<HTMLElement>(null)
   const [copied, setCopied] = useState(false)
+  const hlLang  = HLJS_LANG[lang] ?? 'python'
+
+  useEffect(() => {
+    const el = codeRef.current
+    if (!el || !code) return
+    el.removeAttribute('data-highlighted')
+    el.textContent = code
+
+    import('highlight.js/lib/core').then(async ({ default: hljs }) => {
+      const [py, cpp, js] = await Promise.all([
+        import('highlight.js/lib/languages/python'),
+        import('highlight.js/lib/languages/cpp'),
+        import('highlight.js/lib/languages/javascript'),
+      ])
+      if (!hljs.getLanguage('python'))     hljs.registerLanguage('python',     py.default)
+      if (!hljs.getLanguage('cpp'))        hljs.registerLanguage('cpp',        cpp.default)
+      if (!hljs.getLanguage('javascript')) hljs.registerLanguage('javascript', js.default)
+      if (el.textContent === code) hljs.highlightElement(el)
+    }).catch(() => {})
+  }, [code, hlLang])
+
   const copy = async () => {
     await navigator.clipboard.writeText(code).catch(() => {})
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
+
   return (
-    <div className="rounded-lg overflow-hidden border border-[var(--border)]">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-gray-900/60 border-b border-[var(--border)]">
+    <div className="bs-hljs rounded-lg overflow-hidden border border-gray-700/60">
+      <style>{HLJS_STYLE}</style>
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[#21252b] border-b border-gray-700/60">
         <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
           {LANG_LABEL[lang] ?? lang}
         </span>
@@ -80,20 +119,18 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
           {copied ? 'Copied!' : 'Copy'}
         </button>
       </div>
-      <pre className="p-3 text-[11px] leading-relaxed font-mono text-gray-300 overflow-x-auto whitespace-pre-wrap break-words bg-gray-950/40 max-h-64 overflow-y-auto">
-        {code}
-      </pre>
+      <div className="bg-[#282c34] overflow-x-auto max-h-72 overflow-y-auto">
+        <pre className="p-4 m-0 text-[11.5px] leading-relaxed">
+          <code ref={codeRef} className={`language-${hlLang}`}>{code}</code>
+        </pre>
+      </div>
     </div>
   )
 }
 
-/* ── Single question card ────────────────────────────────────────────────── */
+/* ── Question card ───────────────────────────────────────────────────────── */
 function QuestionCard({
-  q,
-  sol,
-  lcSession,
-  lcCsrf,
-  onSaved,
+  q, sol, lcSession, lcCsrf, onSaved,
 }: {
   q: Question
   sol: BestSolution | undefined
@@ -106,22 +143,16 @@ function QuestionCard({
   const [saving,   setSaving]   = useState(false)
   const fetchedRef = useRef(false)
 
-  /* ── Fetch latest accepted submission from LeetCode on demand ── */
   const loadFromLc = useCallback(async () => {
     if (fetchedRef.current) return
     fetchedRef.current = true
-    if (!lcSession || !lcCsrf) {
-      setLc({ status: 'none' })
-      return
-    }
+    if (!lcSession || !lcCsrf) { setLc({ status: 'none' }); return }
     setLc({ status: 'loading' })
     try {
       const r1 = await fetch('/api/leetcode', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          session: lcSession,
-          csrfToken: lcCsrf,
+          session: lcSession, csrfToken: lcCsrf,
           query: `query($slug:String!){questionSubmissionList(questionSlug:$slug,offset:0,limit:1,status:10){submissions{id lang langName}}}`,
           variables: { slug: q.slug },
         }),
@@ -130,85 +161,55 @@ function QuestionCard({
       const subs = r1?.data?.questionSubmissionList?.submissions ?? []
       if (!subs.length) { setLc({ status: 'none' }); return }
 
-      const { id, lang } = subs[0]
-
       const r2 = await fetch('/api/leetcode', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          session: lcSession,
-          csrfToken: lcCsrf,
+          session: lcSession, csrfToken: lcCsrf,
           query: `query($id:Int!){submissionDetails(submissionId:$id){code}}`,
-          variables: { id: Number(id) },
+          variables: { id: Number(subs[0].id) },
         }),
       }).then(r => r.json())
 
       const code = r2?.data?.submissionDetails?.code ?? ''
       if (!code) { setLc({ status: 'error', msg: 'Could not load code — session may be expired' }); return }
-      setLc({ status: 'done', code, lang })
-    } catch {
-      setLc({ status: 'error', msg: 'Network error' })
-    }
+      setLc({ status: 'done', code, lang: subs[0].lang })
+    } catch { setLc({ status: 'error', msg: 'Network error' }) }
   }, [q.slug, lcSession, lcCsrf])
 
   const handleToggle = () => {
     const next = !expanded
     setExpanded(next)
-    // Only fetch from LC if no manual save and not yet fetched
     if (next && !sol) loadFromLc()
   }
 
-  /* ── Save the LeetCode-fetched code as pinned best ── */
   const saveLcAsBest = async () => {
     if (lc.status !== 'done') return
     setSaving(true)
     try {
       const res = await fetch('/api/best-solutions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question_id: q.id, language: lc.lang, code: lc.code }),
       })
-      if (res.ok) {
-        onSaved(q.id, lc.lang, lc.code)
-        toast.success('Saved as your best solution ✓')
-      } else {
-        toast.error('Could not save — try again')
-      }
-    } catch {
-      toast.error('Network error')
-    } finally {
-      setSaving(false)
-    }
+      if (res.ok) { onSaved(q.id, lc.lang, lc.code); toast.success('Saved as your best solution ✓') }
+      else toast.error('Could not save — try again')
+    } catch { toast.error('Network error') }
+    finally { setSaving(false) }
   }
-
-  /* ── What to show when expanded ── */
-  const lcNone  = lc.status === 'none'
-  const waiting = !sol && lcNone   // truly never solved
 
   return (
     <div className={`rounded-xl border transition-all ${
-      sol     ? 'bg-[var(--bg-card)] border-amber-400/30 hover:border-amber-400/60'
-              : 'bg-[var(--bg-card)] border-[var(--border)] hover:border-indigo-400/40'
+      sol ? 'bg-[var(--bg-card)] border-amber-400/30 hover:border-amber-400/60'
+          : 'bg-[var(--bg-card)] border-[var(--border)] hover:border-indigo-400/40'
     }`}>
-
-      {/* ── Header ── */}
-      <div
-        className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
-        onClick={handleToggle}
-      >
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none" onClick={handleToggle}>
         <span className="text-xs font-mono text-[var(--text-subtle)] shrink-0 w-9">#{q.id}</span>
-
-        <Link
-          href={`/practice/${q.id}`}
-          onClick={e => e.stopPropagation()}
-          className="font-semibold text-sm text-[var(--text)] hover:text-amber-400 transition-colors truncate flex-1 min-w-0"
-        >
+        <Link href={`/practice/${q.id}`} onClick={e => e.stopPropagation()}
+          className="font-semibold text-sm text-[var(--text)] hover:text-amber-400 transition-colors truncate flex-1 min-w-0">
           {q.title}
         </Link>
-
         <div className="flex items-center gap-2 shrink-0">
           <DiffBadge d={q.difficulty} />
-
           {sol ? (
             <>
               <span className="text-[10px] text-gray-500 hidden sm:flex items-center gap-0.5">
@@ -216,23 +217,17 @@ function QuestionCard({
               </span>
               <Bookmark size={12} className="text-amber-400" />
             </>
-          ) : waiting ? (
+          ) : lc.status === 'none' ? (
             <span className="text-[10px] italic text-gray-600 hidden sm:inline">waiting on best answer</span>
           ) : null}
-
-          {expanded
-            ? <ChevronUp  size={14} className="text-gray-500" />
-            : <ChevronDown size={14} className="text-gray-500" />
-          }
+          {expanded ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}
         </div>
       </div>
 
-      {/* ── Expanded body ── */}
+      {/* Expanded body */}
       {expanded && (
         <div className="border-t border-[var(--border)] px-4 py-3 space-y-3">
-
-          {/* Pinned best solution */}
-          {sol && (
+          {sol ? (
             <>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-wider flex items-center gap-1">
@@ -245,10 +240,7 @@ function QuestionCard({
               </div>
               <CodeBlock code={sol.code} lang={sol.language} />
             </>
-          )}
-
-          {/* LeetCode fetch (no manual pin yet) */}
-          {!sol && (
+          ) : (
             <>
               {lc.status === 'loading' && (
                 <div className="flex items-center gap-2 py-3 text-indigo-400">
@@ -256,19 +248,12 @@ function QuestionCard({
                   <span className="text-xs">Loading latest accepted submission…</span>
                 </div>
               )}
-
-              {lc.status === 'error' && (
-                <p className="text-xs text-red-400 py-2">{lc.msg}</p>
-              )}
-
+              {lc.status === 'error' && <p className="text-xs text-red-400 py-2">{lc.msg}</p>}
               {lc.status === 'none' && (
                 <p className="text-xs text-gray-500 py-2 italic">
-                  {lcSession
-                    ? 'No accepted submissions found on LeetCode for this question.'
-                    : 'Connect your LeetCode session to load your submissions.'}
+                  {lcSession ? 'No accepted submissions on LeetCode for this question.' : 'Connect your LeetCode session to load your code.'}
                 </p>
               )}
-
               {lc.status === 'done' && (
                 <>
                   <div className="flex items-center justify-between">
@@ -281,11 +266,8 @@ function QuestionCard({
                     </Link>
                   </div>
                   <CodeBlock code={lc.code} lang={lc.lang} />
-                  <button
-                    onClick={saveLcAsBest}
-                    disabled={saving}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 border border-amber-500/20 transition-colors disabled:opacity-50"
-                  >
+                  <button onClick={saveLcAsBest} disabled={saving}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 border border-amber-500/20 transition-colors disabled:opacity-50">
                     {saving ? <Loader2 size={11} className="animate-spin" /> : <BookmarkCheck size={11} />}
                     {saving ? 'Saving…' : 'Pin as My Best'}
                   </button>
@@ -337,6 +319,37 @@ export default function BestSolutionsPage() {
     return m
   }, [solutions])
 
+  /* ── Sort questions by DISPLAY_PATTERN_ORDER, then by id within pattern ── */
+  const patternMap = useMemo(
+    () => buildExclusivePatternMap(questions.map(q => ({ ...q, tags: q.tags ?? [] }))),
+    [questions]
+  )
+
+  const sortedQuestions = useMemo(() => {
+    return [...questions].sort((a, b) => {
+      const pa = patternMap[a.id] ?? ''
+      const pb = patternMap[b.id] ?? ''
+      const ia = DISPLAY_PATTERN_ORDER.indexOf(pa as typeof DISPLAY_PATTERN_ORDER[number])
+      const ib = DISPLAY_PATTERN_ORDER.indexOf(pb as typeof DISPLAY_PATTERN_ORDER[number])
+      const ra = ia === -1 ? 999 : ia
+      const rb = ib === -1 ? 999 : ib
+      if (ra !== rb) return ra - rb
+      return a.id - b.id
+    })
+  }, [questions, patternMap])
+
+  /* ── Group into pattern sections ── */
+  const patternGroups = useMemo(() => {
+    const groups: { pattern: string; questions: Question[] }[] = []
+    for (const q of sortedQuestions) {
+      const p = patternMap[q.id] ?? 'Other'
+      const last = groups[groups.length - 1]
+      if (last && last.pattern === p) last.questions.push(q)
+      else groups.push({ pattern: p, questions: [q] })
+    }
+    return groups
+  }, [sortedQuestions, patternMap])
+
   const handleSaved = useCallback((qid: number, lang: string, code: string) => {
     const now = new Date().toISOString()
     setSolutions(prev => {
@@ -348,24 +361,32 @@ export default function BestSolutionsPage() {
 
   const savedCount = useMemo(() => questions.filter(q => solByQid.has(q.id)).length, [questions, solByQid])
 
-  const visible = useMemo(() => {
+  /* ── Filter across sorted questions ── */
+  const filteredGroups = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return questions.filter(question => {
-      const hasSol = solByQid.has(question.id)
-      if (filter === 'saved'   && !hasSol) return false
-      if (filter === 'waiting' &&  hasSol) return false
-      if (diffFilter !== 'all' && question.difficulty !== diffFilter) return false
-      if (q) {
-        return String(question.id).includes(q) ||
-               question.title.toLowerCase().includes(q) ||
-               (question.tags ?? []).some(t => t.toLowerCase().includes(q))
-      }
-      return true
-    })
-  }, [questions, solByQid, filter, diffFilter, query])
+    return patternGroups
+      .map(({ pattern, questions: qs }) => ({
+        pattern,
+        questions: qs.filter(question => {
+          const hasSol = solByQid.has(question.id)
+          if (filter === 'saved'   && !hasSol) return false
+          if (filter === 'waiting' &&  hasSol) return false
+          if (diffFilter !== 'all' && question.difficulty !== diffFilter) return false
+          if (q) {
+            return String(question.id).includes(q) ||
+                   question.title.toLowerCase().includes(q) ||
+                   (question.tags ?? []).some(t => t.toLowerCase().includes(q))
+          }
+          return true
+        }),
+      }))
+      .filter(g => g.questions.length > 0)
+  }, [patternGroups, solByQid, filter, diffFilter, query])
+
+  const totalVisible = useMemo(() => filteredGroups.reduce((s, g) => s + g.questions.length, 0), [filteredGroups])
 
   const exportPython = useCallback(() => {
-    const pythonSols = questions
+    const pythonSols = sortedQuestions
       .map(q => ({ q, sol: solByQid.get(q.id) }))
       .filter(({ sol }) => sol && ['python3', 'python'].includes(sol.language))
     if (!pythonSols.length) { alert('No Python best solutions pinned yet.'); return }
@@ -386,7 +407,7 @@ export default function BestSolutionsPage() {
     const a    = document.createElement('a')
     a.href = url; a.download = 'my_best_solutions.py'; a.click()
     URL.revokeObjectURL(url)
-  }, [questions, solByQid])
+  }, [sortedQuestions, solByQid])
 
   return (
     <div className="min-h-screen bg-[var(--bg)] pb-20">
@@ -399,8 +420,9 @@ export default function BestSolutionsPage() {
               <Bookmark size={18} className="text-amber-400" /> My Best Solutions
             </h1>
             <p className="text-xs text-[var(--text-subtle)] mt-1">
-              Click any card to see your latest accepted submission from LeetCode.
-              Hit <kbd className="bg-gray-800 text-gray-300 text-[10px] px-1.5 py-0.5 rounded font-mono">Best</kbd> in the editor to pin a specific version.
+              Click any card to see your latest accepted submission. Hit{' '}
+              <kbd className="bg-gray-800 text-gray-300 text-[10px] px-1.5 py-0.5 rounded font-mono">Best</kbd>{' '}
+              in the editor to pin a specific version.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -427,7 +449,7 @@ export default function BestSolutionsPage() {
         )}
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-2 mb-5">
+        <div className="flex flex-col sm:flex-row gap-2 mb-6">
           <div className="relative flex-1">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-subtle)]" />
             <input value={query} onChange={e => setQuery(e.target.value)}
@@ -458,28 +480,41 @@ export default function BestSolutionsPage() {
           </div>
         </div>
 
-        {/* List */}
+        {/* Pattern-grouped list */}
         {loading ? (
           <div className="flex items-center justify-center py-20 gap-2 text-[var(--text-subtle)]">
             <Loader2 size={18} className="animate-spin" /><span className="text-sm">Loading…</span>
           </div>
-        ) : visible.length === 0 ? (
+        ) : filteredGroups.length === 0 ? (
           <div className="text-center py-20">
             <Bookmark size={32} className="text-gray-600 mx-auto mb-3" />
             <p className="text-sm text-[var(--text-subtle)]">No questions match your filter.</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {visible.map(q => (
-              <QuestionCard key={q.id} q={q} sol={solByQid.get(q.id)}
-                lcSession={lcSession} lcCsrf={lcCsrf} onSaved={handleSaved} />
+          <div className="space-y-8">
+            {filteredGroups.map(({ pattern, questions: qs }) => (
+              <div key={pattern}>
+                {/* Pattern header */}
+                <div className="flex items-center gap-2 mb-3">
+                  <p className="text-xs font-bold text-[var(--text-subtle)] uppercase tracking-widest">{pattern}</p>
+                  <span className="text-[10px] font-mono text-gray-600">· {qs.length}</span>
+                  <div className="flex-1 h-px bg-[var(--border)]" />
+                </div>
+
+                <div className="space-y-2">
+                  {qs.map(q => (
+                    <QuestionCard key={q.id} q={q} sol={solByQid.get(q.id)}
+                      lcSession={lcSession} lcCsrf={lcCsrf} onSaved={handleSaved} />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}
 
-        {!loading && visible.length > 0 && (
-          <p className="text-center text-xs text-gray-600 mt-6">
-            Showing {visible.length} of {questions.length} questions
+        {!loading && totalVisible > 0 && (
+          <p className="text-center text-xs text-gray-600 mt-8">
+            {totalVisible} questions across {filteredGroups.length} patterns
           </p>
         )}
       </div>
