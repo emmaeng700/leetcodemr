@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
-  Bookmark, Search, Copy, Check, Download, ChevronDown, ChevronUp,
-  Loader2, Clock, Filter,
+  Bookmark, BookmarkCheck, Search, Copy, Check, Download,
+  ChevronDown, ChevronUp, Loader2, Clock, ExternalLink,
 } from 'lucide-react'
 import Link from 'next/link'
+import toast from 'react-hot-toast'
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
 interface Question {
@@ -23,6 +24,12 @@ interface BestSolution {
   updated_at: string
 }
 
+type LcFetch =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'done'; code: string; lang: string }
+  | { status: 'error'; msg: string }
+
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 const DIFF_CLS: Record<string, string> = {
   Easy:   'text-green-400 bg-green-500/10 border-green-500/20',
@@ -31,7 +38,7 @@ const DIFF_CLS: Record<string, string> = {
 }
 
 const LANG_LABEL: Record<string, string> = {
-  python3: 'Python', cpp: 'C++', javascript: 'JS',
+  python3: 'Python', python: 'Python', cpp: 'C++', javascript: 'JS',
 }
 
 function timeAgo(iso: string) {
@@ -39,6 +46,7 @@ function timeAgo(iso: string) {
   const mins  = Math.floor(diff / 60_000)
   const hours = Math.floor(diff / 3_600_000)
   const days  = Math.floor(diff / 86_400_000)
+  if (mins  < 2)   return 'just now'
   if (mins  < 60)  return `${mins}m ago`
   if (hours < 24)  return `${hours}h ago`
   if (days  < 30)  return `${days}d ago`
@@ -53,54 +61,158 @@ function DiffBadge({ d }: { d: string }) {
   )
 }
 
-/* ── Syntax-highlight-ish line count preview ─────────────────────────────── */
-function CodePreview({ code, expanded }: { code: string; expanded: boolean }) {
-  const lines = code.split('\n')
-  const display = expanded ? lines : lines.slice(0, 8)
+function CodeBlock({ code, lang }: { code: string; lang: string }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    await navigator.clipboard.writeText(code).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
   return (
-    <pre className="text-[11px] leading-relaxed font-mono text-gray-300 overflow-x-auto whitespace-pre-wrap break-words">
-      {display.join('\n')}
-      {!expanded && lines.length > 8 && (
-        <span className="text-gray-600"> … {lines.length - 8} more lines</span>
-      )}
-    </pre>
+    <div className="rounded-lg overflow-hidden border border-[var(--border)]">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-gray-900/60 border-b border-[var(--border)]">
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+          {LANG_LABEL[lang] ?? lang}
+        </span>
+        <button onClick={copy} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-300 transition-colors">
+          {copied ? <Check size={10} className="text-green-400" /> : <Copy size={10} />}
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+      <pre className="p-3 text-[11px] leading-relaxed font-mono text-gray-300 overflow-x-auto whitespace-pre-wrap break-words bg-gray-950/40 max-h-64 overflow-y-auto">
+        {code}
+      </pre>
+    </div>
   )
 }
 
-/* ── Single question card ────────────────────────────────────────────────── */
+/* ── Question card ───────────────────────────────────────────────────────── */
 function QuestionCard({
   q,
   sol,
+  acCount,
+  lcSession,
+  lcCsrf,
+  onSaved,
 }: {
   q: Question
   sol: BestSolution | undefined
+  acCount: number
+  lcSession: string
+  lcCsrf: string
+  onSaved: (qid: number, lang: string, code: string) => void
 }) {
-  const [expanded, setExpanded]   = useState(false)
-  const [copied,   setCopied]     = useState(false)
+  const [expanded,  setExpanded]  = useState(false)
+  const [lcFetch,   setLcFetch]   = useState<LcFetch>({ status: 'idle' })
+  const [saving,    setSaving]    = useState(false)
+  const fetchedRef  = useRef(false)
 
-  const copy = useCallback(async () => {
-    if (!sol) return
+  const hasManual = !!sol
+  const hasLc     = acCount > 0
+  const isWaiting = !hasManual && !hasLc
+
+  /* ── Lazy-fetch latest AC submission from LeetCode ── */
+  const loadFromLc = useCallback(async () => {
+    if (fetchedRef.current || !lcSession || !lcCsrf) return
+    fetchedRef.current = true
+    setLcFetch({ status: 'loading' })
     try {
-      await navigator.clipboard.writeText(sol.code)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {}
-  }, [sol])
+      // Step 1: get latest AC submission id + lang
+      const r1 = await fetch('/api/leetcode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session: lcSession,
+          csrfToken: lcCsrf,
+          query: `query($slug:String!){questionSubmissionList(questionSlug:$slug,offset:0,limit:1,status:10){submissions{id lang langName}}}`,
+          variables: { slug: q.slug },
+        }),
+      }).then(r => r.json())
+
+      const subs = r1?.data?.questionSubmissionList?.submissions ?? []
+      if (!subs.length) {
+        setLcFetch({ status: 'error', msg: 'No accepted submissions found on LeetCode' })
+        return
+      }
+
+      const { id, lang } = subs[0]
+
+      // Step 2: fetch code for that submission
+      const r2 = await fetch('/api/leetcode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session: lcSession,
+          csrfToken: lcCsrf,
+          query: `query($id:Int!){submissionDetails(submissionId:$id){code}}`,
+          variables: { id: Number(id) },
+        }),
+      }).then(r => r.json())
+
+      const code = r2?.data?.submissionDetails?.code ?? ''
+      if (!code) {
+        setLcFetch({ status: 'error', msg: 'Could not load code — session may be expired' })
+        return
+      }
+      setLcFetch({ status: 'done', code, lang })
+    } catch {
+      setLcFetch({ status: 'error', msg: 'Network error loading from LeetCode' })
+    }
+  }, [q.slug, lcSession, lcCsrf])
+
+  const handleExpand = () => {
+    const next = !expanded
+    setExpanded(next)
+    if (next && !hasManual && hasLc && lcFetch.status === 'idle') {
+      loadFromLc()
+    }
+  }
+
+  /* ── Save LC code directly as best solution ── */
+  const saveLcAsBest = async () => {
+    if (lcFetch.status !== 'done') return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/best-solutions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question_id: q.id,
+          language: lcFetch.lang,
+          code: lcFetch.code,
+        }),
+      })
+      if (res.ok) {
+        onSaved(q.id, lcFetch.lang, lcFetch.code)
+        toast.success('Saved as your best solution ✓')
+      } else {
+        toast.error('Could not save — try again')
+      }
+    } catch {
+      toast.error('Network error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  /* ── Card style based on state ── */
+  const cardCls = hasManual
+    ? 'bg-[var(--bg-card)] border-amber-400/30 hover:border-amber-400/60'
+    : hasLc
+      ? 'bg-[var(--bg-card)] border-[var(--border)] hover:border-indigo-400/50'
+      : 'bg-[var(--bg-card)]/40 border-dashed border-[var(--border)]'
+
+  const canExpand = hasManual || hasLc
 
   return (
-    <div className={`rounded-xl border transition-all ${
-      sol
-        ? 'bg-[var(--bg-card)] border-[var(--border)] hover:border-amber-400/40'
-        : 'bg-[var(--bg-card)]/50 border-dashed border-[var(--border)]'
-    }`}>
-      {/* Header row */}
+    <div className={`rounded-xl border transition-all ${cardCls}`}>
+
+      {/* ── Header row ── */}
       <div
-        className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
-        onClick={() => sol && setExpanded(v => !v)}
+        className={`flex items-center gap-2 px-4 py-3 ${canExpand ? 'cursor-pointer select-none' : ''}`}
+        onClick={canExpand ? handleExpand : undefined}
       >
-        <span className="text-xs font-mono text-[var(--text-subtle)] shrink-0 w-9">
-          #{q.id}
-        </span>
+        <span className="text-xs font-mono text-[var(--text-subtle)] shrink-0 w-9">#{q.id}</span>
 
         <Link
           href={`/practice/${q.id}`}
@@ -113,48 +225,108 @@ function QuestionCard({
         <div className="flex items-center gap-2 shrink-0">
           <DiffBadge d={q.difficulty} />
 
-          {sol ? (
+          {hasManual && (
             <>
-              <span className="text-[10px] font-mono text-gray-500 hidden sm:inline">
-                {LANG_LABEL[sol.language] ?? sol.language}
+              <span className="text-[10px] font-semibold text-amber-400/80 hidden sm:inline">
+                {LANG_LABEL[sol!.language] ?? sol!.language}
               </span>
-              <span className="text-[10px] text-gray-500 flex items-center gap-1 hidden sm:flex">
-                <Clock size={9} /> {timeAgo(sol.updated_at)}
+              <span className="text-[10px] text-gray-500 hidden sm:flex items-center gap-0.5">
+                <Clock size={9} /> {timeAgo(sol!.updated_at)}
               </span>
-              <button
-                onClick={e => { e.stopPropagation(); copy() }}
-                className="p-1.5 rounded-lg text-gray-500 hover:text-amber-300 hover:bg-amber-500/10 transition-colors"
-                title="Copy code"
-              >
-                {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
-              </button>
-              {expanded
-                ? <ChevronUp size={14} className="text-gray-500" />
-                : <ChevronDown size={14} className="text-gray-500" />
-              }
+              <Bookmark size={12} className="text-amber-400 shrink-0" />
             </>
-          ) : (
+          )}
+
+          {!hasManual && hasLc && (
+            <span className="text-[10px] font-semibold text-indigo-400 hidden sm:inline">
+              AC on LeetCode
+            </span>
+          )}
+
+          {isWaiting && (
             <span className="text-[10px] italic text-gray-600">waiting on best answer</span>
+          )}
+
+          {canExpand && (
+            expanded
+              ? <ChevronUp size={14} className="text-gray-500 shrink-0" />
+              : <ChevronDown size={14} className="text-gray-500 shrink-0" />
           )}
         </div>
       </div>
 
-      {/* Expanded code view */}
-      {sol && expanded && (
-        <div className="border-t border-[var(--border)] px-4 py-3 bg-gray-900/40 rounded-b-xl">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-wider">
-              {LANG_LABEL[sol.language] ?? sol.language} · best solution
-            </span>
-            <button
-              onClick={copy}
-              className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-amber-300 transition-colors"
-            >
-              {copied ? <Check size={10} className="text-green-400" /> : <Copy size={10} />}
-              {copied ? 'Copied!' : 'Copy all'}
-            </button>
-          </div>
-          <CodePreview code={sol.code} expanded={expanded} />
+      {/* ── Expanded body ── */}
+      {expanded && canExpand && (
+        <div className="border-t border-[var(--border)] px-4 py-3 space-y-3">
+
+          {/* Manual save */}
+          {hasManual && (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-wider flex items-center gap-1">
+                  <BookmarkCheck size={10} /> My Best Solution
+                </span>
+                <Link
+                  href={`/practice/${q.id}`}
+                  className="text-[10px] text-gray-500 hover:text-gray-300 flex items-center gap-0.5 transition-colors"
+                >
+                  Open in editor <ExternalLink size={9} />
+                </Link>
+              </div>
+              <CodeBlock code={sol!.code} lang={sol!.language} />
+            </>
+          )}
+
+          {/* LeetCode fetch (no manual save) */}
+          {!hasManual && hasLc && (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider">
+                  Latest Accepted · LeetCode
+                </span>
+                <Link
+                  href={`/practice/${q.id}`}
+                  className="text-[10px] text-gray-500 hover:text-gray-300 flex items-center gap-0.5 transition-colors"
+                >
+                  Open in editor <ExternalLink size={9} />
+                </Link>
+              </div>
+
+              {lcFetch.status === 'loading' && (
+                <div className="flex items-center gap-2 py-4 text-indigo-400">
+                  <Loader2 size={14} className="animate-spin" />
+                  <span className="text-xs">Loading from LeetCode…</span>
+                </div>
+              )}
+
+              {lcFetch.status === 'error' && (
+                <div className="text-xs text-red-400 py-2">{lcFetch.msg}</div>
+              )}
+
+              {lcFetch.status === 'done' && (
+                <>
+                  <CodeBlock code={lcFetch.code} lang={lcFetch.lang} />
+                  <button
+                    onClick={saveLcAsBest}
+                    disabled={saving}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 border border-amber-500/20 transition-colors disabled:opacity-50"
+                  >
+                    {saving
+                      ? <Loader2 size={11} className="animate-spin" />
+                      : <BookmarkCheck size={11} />
+                    }
+                    {saving ? 'Saving…' : 'Save as My Best'}
+                  </button>
+                </>
+              )}
+
+              {!lcSession && lcFetch.status === 'idle' && (
+                <p className="text-xs text-gray-500 py-2">
+                  LeetCode session not connected — open any question and connect via the Session button to load your code.
+                </p>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
@@ -165,22 +337,33 @@ function QuestionCard({
 export default function BestSolutionsPage() {
   const [questions,  setQuestions]  = useState<Question[]>([])
   const [solutions,  setSolutions]  = useState<BestSolution[]>([])
+  const [acById,     setAcById]     = useState<Record<number, number>>({})
   const [loading,    setLoading]    = useState(true)
   const [tableReady, setTableReady] = useState(true)
+  const [lcSession,  setLcSession]  = useState('')
+  const [lcCsrf,     setLcCsrf]     = useState('')
   const [query,      setQuery]      = useState('')
-  const [filter,     setFilter]     = useState<'all' | 'saved' | 'waiting'>('all')
+  const [filter,     setFilter]     = useState<'all' | 'saved' | 'lc' | 'waiting'>('all')
   const [diffFilter, setDiffFilter] = useState<'all' | 'Easy' | 'Medium' | 'Hard'>('all')
 
-  /* Load questions + solutions in parallel */
+  /* Load session from localStorage */
+  useEffect(() => {
+    setLcSession(localStorage.getItem('lc_session') ?? '')
+    setLcCsrf(localStorage.getItem('lc_csrf') ?? '')
+  }, [])
+
+  /* Load all data in parallel */
   useEffect(() => {
     setLoading(true)
     Promise.all([
       fetch('/questions_full.json').then(r => r.json()),
       fetch('/api/best-solutions').then(r => r.json()),
+      fetch('/api/ac-counts').then(r => r.json()),
     ])
-      .then(([qs, solData]) => {
+      .then(([qs, solData, acData]) => {
         setQuestions(Array.isArray(qs) ? qs : [])
         setSolutions(Array.isArray(solData.solutions) ? solData.solutions : [])
+        setAcById(acData.byId ?? {})
         setTableReady(solData.tableReady !== false)
       })
       .catch(() => {})
@@ -194,39 +377,52 @@ export default function BestSolutionsPage() {
     return m
   }, [solutions])
 
+  /* When user saves from the page itself, update local state immediately */
+  const handleSaved = useCallback((qid: number, lang: string, code: string) => {
+    const now = new Date().toISOString()
+    setSolutions(prev => {
+      const existing = prev.find(s => s.question_id === qid)
+      if (existing) return prev.map(s => s.question_id === qid ? { ...s, language: lang, code, updated_at: now } : s)
+      return [...prev, { question_id: qid, language: lang, code, updated_at: now }]
+    })
+  }, [])
+
+  /* Counts */
+  const savedCount   = useMemo(() => questions.filter(q => solByQid.has(q.id)).length, [questions, solByQid])
+  const lcOnlyCount  = useMemo(() => questions.filter(q => !solByQid.has(q.id) && (acById[q.id] ?? 0) > 0).length, [questions, solByQid, acById])
+  const waitingCount = questions.length - savedCount - lcOnlyCount
+
   /* Filtered + searched list */
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     return questions.filter(question => {
-      if (filter === 'saved'   && !solByQid.has(question.id)) return false
-      if (filter === 'waiting' &&  solByQid.has(question.id)) return false
+      const hasSol  = solByQid.has(question.id)
+      const hasAc   = (acById[question.id] ?? 0) > 0
+      if (filter === 'saved'   && !hasSol) return false
+      if (filter === 'lc'      && (hasSol || !hasAc)) return false
+      if (filter === 'waiting' && (hasSol || hasAc)) return false
       if (diffFilter !== 'all' && question.difficulty !== diffFilter) return false
       if (q) {
-        const matchId    = String(question.id).includes(q)
-        const matchTitle = question.title.toLowerCase().includes(q)
-        const matchTag   = (question.tags ?? []).some(t => t.toLowerCase().includes(q))
-        return matchId || matchTitle || matchTag
+        return String(question.id).includes(q) ||
+               question.title.toLowerCase().includes(q) ||
+               (question.tags ?? []).some(t => t.toLowerCase().includes(q))
       }
       return true
     })
-  }, [questions, solByQid, filter, diffFilter, query])
-
-  /* Counts */
-  const savedCount   = useMemo(() => questions.filter(q => solByQid.has(q.id)).length, [questions, solByQid])
-  const waitingCount = questions.length - savedCount
+  }, [questions, solByQid, acById, filter, diffFilter, query])
 
   /* Export all Python solutions as a .py file */
   const exportPython = useCallback(() => {
     const pythonSols = questions
       .map(q => ({ q, sol: solByQid.get(q.id) }))
-      .filter(({ sol }) => sol && (sol.language === 'python3' || sol.language === 'python'))
+      .filter(({ sol }) => sol && ['python3', 'python'].includes(sol.language))
 
-    if (pythonSols.length === 0) {
+    if (!pythonSols.length) {
       alert('No Python best solutions saved yet.')
       return
     }
 
-    const lines: string[] = [
+    const lines = [
       '# ═══════════════════════════════════════════════════════',
       '# My Best LeetCode Solutions (Python)',
       `# Generated: ${new Date().toLocaleDateString()}`,
@@ -234,7 +430,6 @@ export default function BestSolutionsPage() {
       '# ═══════════════════════════════════════════════════════',
       '',
     ]
-
     for (const { q, sol } of pythonSols) {
       lines.push(`# ─── #${q.id} ${q.title} [${q.difficulty}] ${'─'.repeat(Math.max(0, 48 - q.title.length))}`)
       lines.push(sol!.code)
@@ -265,16 +460,25 @@ export default function BestSolutionsPage() {
                 My Best Solutions
               </h1>
               <p className="text-xs text-[var(--text-subtle)] mt-1">
-                Code you've marked as your best answer from any editor in the app.
-                Hit <kbd className="bg-gray-800 text-gray-300 text-[10px] px-1.5 py-0.5 rounded font-mono">Save Best</kbd> in the editor toolbar to overwrite.
+                Shows your latest accepted LeetCode submission by default.
+                Click <kbd className="bg-gray-800 text-gray-300 text-[10px] px-1.5 py-0.5 rounded font-mono">Best</kbd> in the editor to override with your own preferred version.
               </p>
             </div>
-
-            {/* Stats + Export */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="text-right shrink-0">
-                <p className="text-2xl font-black text-amber-400 leading-none">{savedCount}</p>
-                <p className="text-[10px] text-[var(--text-subtle)] leading-none mt-0.5">of {questions.length} saved</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Stats */}
+              <div className="flex items-center gap-3 text-center">
+                <div>
+                  <p className="text-xl font-black text-amber-400 leading-none">{savedCount}</p>
+                  <p className="text-[10px] text-[var(--text-subtle)]">pinned</p>
+                </div>
+                <div>
+                  <p className="text-xl font-black text-indigo-400 leading-none">{lcOnlyCount}</p>
+                  <p className="text-[10px] text-[var(--text-subtle)]">from LC</p>
+                </div>
+                <div>
+                  <p className="text-xl font-black text-gray-500 leading-none">{waitingCount}</p>
+                  <p className="text-[10px] text-[var(--text-subtle)]">waiting</p>
+                </div>
               </div>
               <button
                 onClick={exportPython}
@@ -286,30 +490,21 @@ export default function BestSolutionsPage() {
           </div>
         </div>
 
-        {/* ── DB setup banner (shown if table not created yet) ── */}
+        {/* ── DB setup banner ── */}
         {!tableReady && (
           <div className="mb-5 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3">
             <p className="text-sm font-semibold text-amber-400">One-time setup needed</p>
             <p className="text-xs text-amber-300/80 mt-1">
-              The <code className="bg-black/20 px-1 rounded">best_solutions</code> table doesn't exist yet.
-              Go to your{' '}
-              <a
-                href="https://supabase.com/dashboard/project/azrokoorufejfoeddzrw/sql"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline font-semibold"
-              >
+              Run <code className="bg-black/20 px-1 rounded">supabase/create_best_solutions.sql</code> in your{' '}
+              <a href="https://supabase.com/dashboard/project/azrokoorufejfoeddzrw/sql" target="_blank" rel="noopener noreferrer" className="underline font-semibold">
                 Supabase SQL Editor
-              </a>
-              {' '}and paste the contents of{' '}
-              <code className="bg-black/20 px-1 rounded">supabase/create_best_solutions.sql</code>.
+              </a>.
             </p>
           </div>
         )}
 
         {/* ── Filter bar ── */}
         <div className="flex flex-col sm:flex-row gap-2 mb-5">
-          {/* Search */}
           <div className="relative flex-1">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-subtle)]" />
             <input
@@ -320,19 +515,22 @@ export default function BestSolutionsPage() {
             />
           </div>
 
-          {/* Saved / Waiting / All tabs */}
           <div className="flex gap-1 bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-1 shrink-0">
             {([
-              ['all',     `All ${questions.length}`],
-              ['saved',   `Saved ${savedCount}`],
+              ['all',     `All`],
+              ['saved',   `Pinned ${savedCount}`],
+              ['lc',      `LC ${lcOnlyCount}`],
               ['waiting', `Waiting ${waitingCount}`],
             ] as const).map(([k, label]) => (
               <button
                 key={k}
                 onClick={() => setFilter(k)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                   filter === k
-                    ? 'bg-amber-500 text-white'
+                    ? k === 'saved'   ? 'bg-amber-500 text-white'
+                    : k === 'lc'      ? 'bg-indigo-500 text-white'
+                    : k === 'waiting' ? 'bg-gray-600 text-white'
+                    :                   'bg-gray-700 text-white'
                     : 'text-[var(--text-subtle)] hover:text-[var(--text)]'
                 }`}
               >
@@ -341,21 +539,17 @@ export default function BestSolutionsPage() {
             ))}
           </div>
 
-          {/* Difficulty filter */}
           <div className="flex gap-1 bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-1 shrink-0">
             {(['all', 'Easy', 'Medium', 'Hard'] as const).map(d => (
               <button
                 key={d}
                 onClick={() => setDiffFilter(d)}
-                className={`px-2.5 py-1.5 text-[11px] font-semibold rounded-lg transition-colors ${
+                className={`px-2 py-1.5 text-[11px] font-semibold rounded-lg transition-colors ${
                   diffFilter === d
-                    ? d === 'all'
-                      ? 'bg-gray-600 text-white'
-                      : d === 'Easy'
-                        ? 'bg-green-500 text-white'
-                        : d === 'Medium'
-                          ? 'bg-amber-500 text-white'
-                          : 'bg-red-500 text-white'
+                    ? d === 'Easy'   ? 'bg-green-500 text-white'
+                    : d === 'Medium' ? 'bg-amber-500 text-white'
+                    : d === 'Hard'   ? 'bg-red-500 text-white'
+                    :                  'bg-gray-600 text-white'
                     : 'text-[var(--text-subtle)] hover:text-[var(--text)]'
                 }`}
               >
@@ -374,22 +568,24 @@ export default function BestSolutionsPage() {
         ) : visible.length === 0 ? (
           <div className="text-center py-20">
             <Bookmark size={32} className="text-gray-600 mx-auto mb-3" />
-            <p className="text-sm text-[var(--text-subtle)]">No solutions match your filter.</p>
-            {filter === 'saved' && savedCount === 0 && (
-              <p className="text-xs text-gray-600 mt-1">
-                Open any question and hit <strong className="text-amber-400">Best</strong> in the editor toolbar to save your first one.
-              </p>
-            )}
+            <p className="text-sm text-[var(--text-subtle)]">No questions match your filter.</p>
           </div>
         ) : (
           <div className="space-y-2">
             {visible.map(q => (
-              <QuestionCard key={q.id} q={q} sol={solByQid.get(q.id)} />
+              <QuestionCard
+                key={q.id}
+                q={q}
+                sol={solByQid.get(q.id)}
+                acCount={acById[q.id] ?? 0}
+                lcSession={lcSession}
+                lcCsrf={lcCsrf}
+                onSaved={handleSaved}
+              />
             ))}
           </div>
         )}
 
-        {/* Footer count */}
         {!loading && visible.length > 0 && (
           <p className="text-center text-xs text-gray-600 mt-6">
             Showing {visible.length} of {questions.length} questions
