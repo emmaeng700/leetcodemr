@@ -16,6 +16,7 @@ const STARRED_LINKS = [
   { href: '/review',          label: '★ Reviews',         icon: Brain },
   { href: '/imbibition',      label: '★ Imbibition',      icon: BookOpen },
   { href: '/pattern-review',  label: '★ Pattern Review',  icon: BookOpen },
+  { href: '/best-solutions',  label: '★ My Best',         icon: Bookmark },
   { href: '/downloads',       label: '★ Downloads',       icon: Download },
 ]
 const STUDY_LINKS = [
@@ -23,8 +24,7 @@ const STUDY_LINKS = [
   { href: '/speedster',    label: 'Speedster',    icon: Gauge },
   { href: '/neetcode',     label: 'NeetCode 150', icon: Rocket },
   { href: '/leetcode-api', label: 'LeetCode',     icon: Zap },
-  { href: '/answers',        label: 'Answers',      icon: Library },
-  { href: '/best-solutions', label: 'My Best',      icon: Bookmark },
+  { href: '/answers',      label: 'Answers',      icon: Library },
 ]
 const DRILL_LINKS = [
   { href: '/line-game', label: 'Game',     icon: Gamepad2 },
