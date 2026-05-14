@@ -255,9 +255,26 @@ function MobileKeybar({
 function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => void; onClose: () => void }) {
   const [s, setS] = useState('')
   const [showS, setShowS] = useState(false)
+  const [cleaned, setCleaned] = useState(false)
 
   const isCookieJar = /LEETCODE_SESSION\s*=/.test(s) && s.includes(';')
   const canSave = s.trim().length > 10
+  const isDirty = /\s{2,}|\n|\r/.test(s) || s !== s.trim()
+
+  /**
+   * Collapse all whitespace runs (newlines, tabs, multiple spaces) down to a
+   * single space, then trim leading/trailing. Also normalises "; " separators
+   * so cookie pairs are cleanly delimited.
+   */
+  const handleClean = () => {
+    const result = s
+      .replace(/\r?\n|\r/g, ' ')   // newlines → space
+      .replace(/\s+/g, ' ')        // multiple spaces → one space
+      .trim()
+    setS(result)
+    setCleaned(true)
+    setTimeout(() => setCleaned(false), 2000)
+  }
 
   const handleSave = () => {
     if (!canSave) return
@@ -286,12 +303,30 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
       {isCookieJar && (
         <p className="text-[10px] text-green-400 font-semibold">✓ Full cookie header detected — cf_clearance included</p>
       )}
+
+      {/* Clean button — shown whenever pasted text has stray whitespace */}
+      {isDirty && s.length > 0 && (
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] text-orange-300">⚠ Looks like there&apos;s extra whitespace in the text.</p>
+          <button
+            onClick={handleClean}
+            style={{ touchAction: 'manipulation' }}
+            className="text-[10px] font-bold px-2 py-0.5 rounded bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 transition shrink-0"
+          >
+            {cleaned ? '✓ Cleaned!' : 'Clean it'}
+          </button>
+        </div>
+      )}
+      {cleaned && !isDirty && (
+        <p className="text-[10px] text-green-400 font-semibold">✓ Whitespace removed — looks clean</p>
+      )}
+
       <div className="flex gap-1.5">
         <div className="relative flex-1">
           <input
             type={showS ? 'text' : 'password'}
             value={s}
-            onChange={e => setS(e.target.value)}
+            onChange={e => { setS(e.target.value); setCleaned(false) }}
             placeholder="Paste full Cookie header or LEETCODE_SESSION value"
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-gray-200 focus:outline-none focus:border-indigo-500 pr-7"
           />
