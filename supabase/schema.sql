@@ -165,6 +165,16 @@ CREATE TABLE IF NOT EXISTS ac_submit_counts (
   PRIMARY KEY (user_id, question_id)
 );
 
+-- Best solutions (user's manually marked "Make Best Solution" for each question)
+CREATE TABLE IF NOT EXISTS best_solutions (
+  user_id TEXT NOT NULL DEFAULT 'emmanuel',
+  question_id INTEGER NOT NULL,
+  language TEXT NOT NULL DEFAULT 'python3',
+  code TEXT NOT NULL DEFAULT '',
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, question_id)
+);
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- ROW LEVEL SECURITY
 -- Single-user app: all rows restricted to user_id = 'emmanuel'

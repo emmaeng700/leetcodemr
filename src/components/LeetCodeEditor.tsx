@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 import {
   Play, Send, Loader2, CheckCircle, XCircle, Clock, Cpu,
   AlertCircle, Key, ChevronDown, ChevronUp, Star, Trophy,
-  Eye, EyeOff, RotateCcw,
+  Eye, EyeOff, RotateCcw, Bookmark, BookmarkCheck,
 } from 'lucide-react'
 import { getProgress, updateProgress, incrementAcSubmitCount } from '@/lib/db'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
@@ -356,6 +356,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [solvedStatus, setSolvedStatus] = useState<'marked' | 'already' | 'not-in-library' | null>(null)
   const [showSessionHint, setShowSessionHint] = useState(false)
   const [editorExpanded,  setEditorExpanded]  = useState(false)
+  const [savingBest, setSavingBest] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [localConnector, setLocalConnector] = useState<{ ok: boolean; authed: boolean } | null>(null)
   const [extBridgeOn, setExtBridgeOn] = useState(false)
   const availableLangs = useMemo<SupportedLang[]>(() => {
@@ -367,6 +368,30 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     const unique = SUPPORTED_LANGS.filter(slug => hinted.has(slug) || found.has(slug))
     return unique.length ? unique : ['python3', 'cpp']
   }, [lcQ, preferredLangs])
+
+  const saveBest = useCallback(async () => {
+    if (!code.trim() || savingBest === 'saving') return
+    setSavingBest('saving')
+    try {
+      const res = await fetch('/api/best-solutions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question_id: appQuestionId, language: lang, code }),
+      })
+      if (res.ok) {
+        setSavingBest('saved')
+        toast.success('Saved as your best solution ✓')
+        setTimeout(() => setSavingBest('idle'), 3000)
+      } else {
+        const d = await res.json().catch(() => ({}))
+        toast.error(`Couldn't save: ${d.error ?? 'unknown error'}`)
+        setSavingBest('idle')
+      }
+    } catch {
+      toast.error('Network error — best solution not saved')
+      setSavingBest('idle')
+    }
+  }, [code, lang, appQuestionId, savingBest])
 
   const fetchQuestionPayload = useCallback(async (body: object) => {
     const viaLcFetch = await lcFetch('/api/leetcode', {
@@ -876,6 +901,18 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
               <RotateCcw size={12} />
               Reset
             </button>
+            <button onClick={saveBest}
+              disabled={savingBest === 'saving' || !code.trim()}
+              title="Save current code as your best solution for this question"
+              style={{ touchAction: 'manipulation' }}
+              className={`flex items-center gap-1.5 px-3 py-2 min-h-[36px] text-xs font-semibold rounded-lg transition cursor-pointer shrink-0 disabled:opacity-40 ${
+                savingBest === 'saved'
+                  ? 'text-amber-300 bg-amber-500/15'
+                  : 'text-gray-400 hover:text-amber-300 hover:bg-amber-500/10'
+              }`}>
+              {savingBest === 'saved' ? <BookmarkCheck size={12} /> : <Bookmark size={12} />}
+              Best
+            </button>
             <button onClick={!sessionOK ? () => setShowSessionHint(true) : runTest}
               disabled={running || (!sessionOK && false) || (sessionOK && !lcQ)}
               style={{ touchAction: 'manipulation' }}
@@ -893,7 +930,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           </div>
         </div>
 
-        {/* Row 2: Run + Submit — mobile only, full-width row */}
+        {/* Row 2: Run + Submit + Best — mobile only, full-width row */}
         <div className="flex sm:hidden gap-2 px-3 pb-2">
           <button onClick={!sessionOK ? () => setShowSessionHint(true) : runTest}
             disabled={running || (sessionOK && !lcQ)}
@@ -908,6 +945,16 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 min-h-[36px] text-xs font-semibold rounded-lg transition cursor-pointer disabled:opacity-40 ${!sessionOK ? 'bg-orange-600/80 text-white active:bg-orange-500' : 'bg-green-600 text-white active:bg-green-400'}`}>
             {running && runMode === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
             Submit
+          </button>
+          <button onClick={saveBest}
+            disabled={savingBest === 'saving' || !code.trim()}
+            style={{ touchAction: 'manipulation' }}
+            className={`flex items-center justify-center gap-1 px-3 py-2 min-h-[36px] text-xs font-semibold rounded-lg transition cursor-pointer shrink-0 disabled:opacity-40 ${
+              savingBest === 'saved'
+                ? 'text-amber-300 bg-amber-500/15'
+                : 'text-gray-400 bg-gray-800/60 active:bg-gray-700'
+            }`}>
+            {savingBest === 'saved' ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
           </button>
         </div>
       </div>
