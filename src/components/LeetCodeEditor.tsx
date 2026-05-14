@@ -493,7 +493,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         return true
       }
       const keys = Prec.highest(keymap.of([{ key: 'Enter', run: smartEnter }, indentWithTab]))
-      const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
       // Track cursor on doc changes AND on user-repositioning (native tap/drag).
       // We suppress selection-only updates that arrive within 80ms of a docChanged
       // to avoid iOS silently repositioning the cursor after a paired-bracket insert
@@ -517,7 +516,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         keys,
         indentationMarkers(),
         cursorTracker,
-        ...(isMobile ? [EditorView.lineWrapping] : []),
+        EditorView.lineWrapping,
       ])
     }
     loadExts()
@@ -791,8 +790,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           --indent-marker-bg-color: rgba(120, 140, 190, 0.35);
           --indent-marker-active-bg-color: rgba(150, 175, 255, 0.55);
         }
-        .cm-scroller { overflow-x: auto !important; overflow-y: auto !important; overscroll-behavior: contain; touch-action: pan-x pan-y; }
-        .cm-content, .cm-line { word-break: normal; white-space: pre; }
+        .cm-scroller { overflow-x: hidden !important; overflow-y: auto !important; overscroll-behavior: contain; touch-action: pan-y; }
         .cm-editor { touch-action: none; }
         .cm-editor, .cm-content { max-width: 100%; }
         .cm-tooltip {
@@ -827,8 +825,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         }
         @media (max-width: 639px) {
           .cm-editor { font-size: 11.5px !important; line-height: 1.6; }
-          .cm-scroller { overflow-x: auto !important; }
-          .cm-content, .cm-line { white-space: pre !important; word-break: normal !important; }
           .cm-tooltip,
           .cm-tooltip-autocomplete > ul {
             background: #353b49 !important;
@@ -837,10 +833,9 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
             background: #495163 !important;
           }
         }
-        /* Fullscreen portal: same small font + horizontal scroll (no wrapping) */
+        /* Fullscreen portal: same small font, wrap enabled */
         .lc-fs-portal .cm-editor { font-size: 11.5px !important; line-height: 1.6 !important; }
-        .lc-fs-portal .cm-scroller { overflow-x: auto !important; }
-        .lc-fs-portal .cm-content, .lc-fs-portal .cm-line { white-space: pre !important; word-break: normal !important; }
+        .lc-fs-portal .cm-scroller { overflow-x: hidden !important; }
       `}</style>
 
       {/* ── Toolbar ── */}
