@@ -259,12 +259,10 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
 
   const isCookieJar = /LEETCODE_SESSION\s*=/.test(s) && s.includes(';')
   const canSave = s.trim().length > 10
-  const isDirty = /\s{2,}|\n|\r/.test(s) || s !== s.trim()
 
   /**
    * Collapse all whitespace runs (newlines, tabs, multiple spaces) down to a
-   * single space, then trim leading/trailing. Also normalises "; " separators
-   * so cookie pairs are cleanly delimited.
+   * single space, then trim leading/trailing.
    */
   const handleClean = () => {
     const result = s
@@ -273,7 +271,7 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
       .trim()
     setS(result)
     setCleaned(true)
-    setTimeout(() => setCleaned(false), 2000)
+    setTimeout(() => setCleaned(false), 2500)
   }
 
   const handleSave = () => {
@@ -304,23 +302,6 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
         <p className="text-[10px] text-green-400 font-semibold">✓ Full cookie header detected — cf_clearance included</p>
       )}
 
-      {/* Clean button — shown whenever pasted text has stray whitespace */}
-      {isDirty && s.length > 0 && (
-        <div className="flex items-center gap-2">
-          <p className="text-[10px] text-orange-300">⚠ Looks like there&apos;s extra whitespace in the text.</p>
-          <button
-            onClick={handleClean}
-            style={{ touchAction: 'manipulation' }}
-            className="text-[10px] font-bold px-2 py-0.5 rounded bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 transition shrink-0"
-          >
-            {cleaned ? '✓ Cleaned!' : 'Clean it'}
-          </button>
-        </div>
-      )}
-      {cleaned && !isDirty && (
-        <p className="text-[10px] text-green-400 font-semibold">✓ Whitespace removed — looks clean</p>
-      )}
-
       <div className="flex gap-1.5">
         <div className="relative flex-1">
           <input
@@ -334,6 +315,15 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
             {showS ? <EyeOff size={11} /> : <Eye size={11} />}
           </button>
         </div>
+        {/* Clean — always visible; collapses all stray whitespace */}
+        <button
+          onClick={handleClean}
+          disabled={!s.trim()}
+          style={{ touchAction: 'manipulation' }}
+          className="px-3 py-1.5 bg-gray-700 text-gray-200 text-[11px] font-bold rounded-lg hover:bg-gray-600 disabled:opacity-40 transition shrink-0"
+        >
+          {cleaned ? '✓' : 'Clean'}
+        </button>
         <button
           onClick={handleSave}
           disabled={!canSave}
