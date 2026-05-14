@@ -130,12 +130,10 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
 
 /* ── Question card ───────────────────────────────────────────────────────── */
 function QuestionCard({
-  q, sol, lcSession, lcCsrf, onSaved,
+  q, sol, onSaved,
 }: {
   q: Question
   sol: BestSolution | undefined
-  lcSession: string
-  lcCsrf: string
   onSaved: (qid: number, lang: string, code: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -146,25 +144,32 @@ function QuestionCard({
   const loadFromLc = useCallback(async () => {
     if (fetchedRef.current) return
     fetchedRef.current = true
-    if (!lcSession || !lcCsrf) { setLc({ status: 'none' }); return }
+
+    // Read session fresh from localStorage — same as AcceptedSolutions does
+    const session   = localStorage.getItem('lc_session') ?? ''
+    const csrfToken = localStorage.getItem('lc_csrf')    ?? ''
+    if (!session || !csrfToken) { setLc({ status: 'none' }); return }
+
     setLc({ status: 'loading' })
     try {
+      // Step 1: fetch latest accepted submission id — exact same query as AcceptedSolutions
       const r1 = await fetch('/api/leetcode', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          session: lcSession, csrfToken: lcCsrf,
-          query: `query($slug:String!){questionSubmissionList(questionSlug:$slug,offset:0,limit:1,status:10){submissions{id lang langName}}}`,
-          variables: { slug: q.slug },
+          session, csrfToken,
+          query: `query($slug:String!,$offset:Int!,$limit:Int!){questionSubmissionList(questionSlug:$slug,offset:$offset,limit:$limit,status:10){submissions{id lang langName runtime memory timestamp}}}`,
+          variables: { slug: q.slug, offset: 0, limit: 1 },
         }),
       }).then(r => r.json())
 
       const subs = r1?.data?.questionSubmissionList?.submissions ?? []
       if (!subs.length) { setLc({ status: 'none' }); return }
 
+      // Step 2: fetch the code for that submission id
       const r2 = await fetch('/api/leetcode', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          session: lcSession, csrfToken: lcCsrf,
+          session, csrfToken,
           query: `query($id:Int!){submissionDetails(submissionId:$id){code}}`,
           variables: { id: Number(subs[0].id) },
         }),
@@ -174,7 +179,7 @@ function QuestionCard({
       if (!code) { setLc({ status: 'error', msg: 'Could not load code — session may be expired' }); return }
       setLc({ status: 'done', code, lang: subs[0].lang })
     } catch { setLc({ status: 'error', msg: 'Network error' }) }
-  }, [q.slug, lcSession, lcCsrf])
+  }, [q.slug])
 
   const handleToggle = () => {
     const next = !expanded
@@ -251,7 +256,7 @@ function QuestionCard({
               {lc.status === 'error' && <p className="text-xs text-red-400 py-2">{lc.msg}</p>}
               {lc.status === 'none' && (
                 <p className="text-xs text-gray-500 py-2 italic">
-                  {lcSession ? 'No accepted submissions on LeetCode for this question.' : 'Connect your LeetCode session to load your code.'}
+                  No accepted submissions found — or connect your LeetCode session first.
                 </p>
               )}
               {lc.status === 'done' && (
@@ -287,16 +292,9 @@ export default function BestSolutionsPage() {
   const [solutions,  setSolutions]  = useState<BestSolution[]>([])
   const [loading,    setLoading]    = useState(true)
   const [tableReady, setTableReady] = useState(true)
-  const [lcSession,  setLcSession]  = useState('')
-  const [lcCsrf,     setLcCsrf]     = useState('')
   const [query,      setQuery]      = useState('')
   const [filter,     setFilter]     = useState<'all' | 'saved' | 'waiting'>('all')
   const [diffFilter, setDiffFilter] = useState<'all' | 'Easy' | 'Medium' | 'Hard'>('all')
-
-  useEffect(() => {
-    setLcSession(localStorage.getItem('lc_session') ?? '')
-    setLcCsrf(localStorage.getItem('lc_csrf') ?? '')
-  }, [])
 
   useEffect(() => {
     setLoading(true)
@@ -503,8 +501,7 @@ export default function BestSolutionsPage() {
 
                 <div className="space-y-2">
                   {qs.map(q => (
-                    <QuestionCard key={q.id} q={q} sol={solByQid.get(q.id)}
-                      lcSession={lcSession} lcCsrf={lcCsrf} onSaved={handleSaved} />
+                    <QuestionCard key={q.id} q={q} sol={solByQid.get(q.id)} onSaved={handleSaved} />
                   ))}
                 </div>
               </div>
