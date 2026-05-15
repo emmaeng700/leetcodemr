@@ -341,6 +341,7 @@ export default function ReviewPage() {
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
                       <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">{pattern}</span>
+                      <PriorityBadge pattern={pattern} />
                       <span className="text-[11px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full">
                         {items.length}
                       </span>
@@ -438,6 +439,7 @@ export default function ReviewPage() {
               <div key={pattern}>
                 <p className="text-xs font-bold text-[var(--text-subtle)] uppercase tracking-wider mb-2 flex items-center gap-2">
                   {pattern}
+                  <PriorityBadge pattern={pattern} />
                   <span className="text-[11px] normal-case tracking-normal font-mono">· {items.length}</span>
                 </p>
                 <div className="space-y-1.5">
