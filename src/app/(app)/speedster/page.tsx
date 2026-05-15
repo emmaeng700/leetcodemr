@@ -116,21 +116,20 @@ export default function SpeedsterPage() {
         setRuns(mr)
         const mode = (localStorage.getItem('lm_plan_mode_v1') ?? 'strict') as 'strict' | 'random'
         setPlanMode(mode)
+        // Use plan's IDs if available, otherwise all questions — always sort by priority
+        const rawIds: number[] = plan?.question_order?.length
+          ? plan.question_order
+          : (qs as Question[]).map(q => q.id)
+        const em = buildExclusivePatternMap(qs as Question[])
+        const sorted = rawIds.slice().sort((a, b) => {
+          const ia = DISPLAY_PATTERN_ORDER.indexOf(em[a] as typeof DISPLAY_PATTERN_ORDER[number])
+          const ib = DISPLAY_PATTERN_ORDER.indexOf(em[b] as typeof DISPLAY_PATTERN_ORDER[number])
+          return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib)
+        })
+        setPlanOrder(sorted)
         if (plan?.question_order?.length) {
-          setPlanOrder(plan.question_order)
           setPerDay(plan.per_day || 3)
           if (plan?.start_date) setPlanStartISO(String(plan.start_date))
-        } else {
-          // No study plan — sort by interview priority (DISPLAY_PATTERN_ORDER: High → Mid → Low)
-          const em = buildExclusivePatternMap(qs as Question[])
-          const sorted = (qs as Question[])
-            .slice()
-            .sort((a, b) => {
-              const pi = DISPLAY_PATTERN_ORDER.indexOf(em[a.id] as typeof DISPLAY_PATTERN_ORDER[number])
-              const qi = DISPLAY_PATTERN_ORDER.indexOf(em[b.id] as typeof DISPLAY_PATTERN_ORDER[number])
-              return (pi === -1 ? 999 : pi) - (qi === -1 ? 999 : qi)
-            })
-          setPlanOrder(sorted.map(q => q.id))
         }
       } catch (e) {
         console.error('[speedster] load failed:', e)

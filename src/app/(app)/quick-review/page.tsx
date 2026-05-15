@@ -62,20 +62,17 @@ export default function QuickReviewPage() {
       getStudyPlan(),
     ]).then(([qs, plan]) => {
       setAll(qs)
-      if (plan?.question_order?.length) {
-        setPlanOrder(plan.question_order)
-      } else {
-        // Sort by interview priority (DISPLAY_PATTERN_ORDER: High → Mid → Low)
-        const em = buildExclusivePatternMap(qs as Question[])
-        const sorted = (qs as Question[])
-          .slice()
-          .sort((a, b) => {
-            const pi = DISPLAY_PATTERN_ORDER.indexOf(em[a.id] as typeof DISPLAY_PATTERN_ORDER[number])
-            const qi = DISPLAY_PATTERN_ORDER.indexOf(em[b.id] as typeof DISPLAY_PATTERN_ORDER[number])
-            return (pi === -1 ? 999 : pi) - (qi === -1 ? 999 : qi)
-          })
-        setPlanOrder(sorted.map(q => q.id))
-      }
+      // Use plan's IDs if available, otherwise all questions — then ALWAYS sort by priority
+      const rawIds: number[] = plan?.question_order?.length
+        ? plan.question_order
+        : (qs as Question[]).map(q => q.id)
+      const em = buildExclusivePatternMap(qs as Question[])
+      const sorted = rawIds.slice().sort((a, b) => {
+        const ia = DISPLAY_PATTERN_ORDER.indexOf(em[a] as typeof DISPLAY_PATTERN_ORDER[number])
+        const ib = DISPLAY_PATTERN_ORDER.indexOf(em[b] as typeof DISPLAY_PATTERN_ORDER[number])
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib)
+      })
+      setPlanOrder(sorted)
       setLoading(false)
     })
   }, [])
