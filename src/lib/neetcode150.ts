@@ -14,6 +14,7 @@ export type NC150Category = {
 }
 
 export const NEETCODE_150: NC150Category[] = [
+  // ── High priority ──────────────────────────────────────────────────────────
   {
     name: 'Arrays & Hashing', emoji: '📦', color: 'indigo',
     questions: [
@@ -50,17 +51,6 @@ export const NEETCODE_150: NC150Category[] = [
     ],
   },
   {
-    name: 'Stack', emoji: '🥞', color: 'orange',
-    questions: [
-      { id: 20,  title: 'Valid Parentheses', slug: 'valid-parentheses', difficulty: 'Easy', acceptance: 44.1 },
-      { id: 155, title: 'Min Stack', slug: 'min-stack', difficulty: 'Medium', acceptance: 58.0 },
-      { id: 150, title: 'Evaluate Reverse Polish Notation', slug: 'evaluate-reverse-polish-notation', difficulty: 'Medium', acceptance: 57.6 },
-      { id: 739, title: 'Daily Temperatures', slug: 'daily-temperatures', difficulty: 'Medium', acceptance: 68.6 },
-      { id: 853, title: 'Car Fleet', slug: 'car-fleet', difficulty: 'Medium', acceptance: 55.0 },
-      { id: 84,  title: 'Largest Rectangle in Histogram', slug: 'largest-rectangle-in-histogram', difficulty: 'Hard', acceptance: 49.7 },
-    ],
-  },
-  {
     name: 'Binary Search', emoji: '🔍', color: 'violet',
     questions: [
       { id: 704, title: 'Binary Search', slug: 'binary-search', difficulty: 'Easy', acceptance: 60.8 },
@@ -73,19 +63,14 @@ export const NEETCODE_150: NC150Category[] = [
     ],
   },
   {
-    name: 'Linked List', emoji: '🔗', color: 'teal',
+    name: 'Intervals', emoji: '📏', color: 'pink',
     questions: [
-      { id: 206, title: 'Reverse Linked List', slug: 'reverse-linked-list', difficulty: 'Easy', acceptance: 80.5 },
-      { id: 21,  title: 'Merge Two Sorted Lists', slug: 'merge-two-sorted-lists', difficulty: 'Easy', acceptance: 68.2 },
-      { id: 141, title: 'Linked List Cycle', slug: 'linked-list-cycle', difficulty: 'Easy', acceptance: 54.2 },
-      { id: 143, title: 'Reorder List', slug: 'reorder-list', difficulty: 'Medium', acceptance: 65.1 },
-      { id: 19,  title: 'Remove Nth Node From End of List', slug: 'remove-nth-node-from-end-of-list', difficulty: 'Medium', acceptance: 51.4 },
-      { id: 138, title: 'Copy List with Random Pointer', slug: 'copy-list-with-random-pointer', difficulty: 'Medium', acceptance: 62.8 },
-      { id: 2,   title: 'Add Two Numbers', slug: 'add-two-numbers', difficulty: 'Medium', acceptance: 48.3 },
-      { id: 287, title: 'Find the Duplicate Number', slug: 'find-the-duplicate-number', difficulty: 'Medium', acceptance: 64.2 },
-      { id: 146, title: 'LRU Cache', slug: 'lru-cache', difficulty: 'Medium', acceptance: 47.2 },
-      { id: 23,  title: 'Merge k Sorted Lists', slug: 'merge-k-sorted-lists', difficulty: 'Hard', acceptance: 59.4 },
-      { id: 25,  title: 'Reverse Nodes in k-Group', slug: 'reverse-nodes-in-k-group', difficulty: 'Hard', acceptance: 65.9 },
+      { id: 57,   title: 'Insert Interval', slug: 'insert-interval', difficulty: 'Medium', acceptance: 45.1 },
+      { id: 56,   title: 'Merge Intervals', slug: 'merge-intervals', difficulty: 'Medium', acceptance: 51.7 },
+      { id: 435,  title: 'Non-overlapping Intervals', slug: 'non-overlapping-intervals', difficulty: 'Medium', acceptance: 57.0 },
+      { id: 252,  title: 'Meeting Rooms', slug: 'meeting-rooms', difficulty: 'Easy', acceptance: 59.4 },
+      { id: 253,  title: 'Meeting Rooms II', slug: 'meeting-rooms-ii', difficulty: 'Medium', acceptance: 52.6 },
+      { id: 1851, title: 'Minimum Interval to Include Each Query', slug: 'minimum-interval-to-include-each-query', difficulty: 'Hard', acceptance: 54.3 },
     ],
   },
   {
@@ -106,41 +91,6 @@ export const NEETCODE_150: NC150Category[] = [
       { id: 105,  title: 'Construct Binary Tree from Preorder and Inorder Traversal', slug: 'construct-binary-tree-from-preorder-and-inorder-traversal', difficulty: 'Medium', acceptance: 68.7 },
       { id: 124,  title: 'Binary Tree Maximum Path Sum', slug: 'binary-tree-maximum-path-sum', difficulty: 'Hard', acceptance: 42.2 },
       { id: 297,  title: 'Serialize and Deserialize Binary Tree', slug: 'serialize-and-deserialize-binary-tree', difficulty: 'Hard', acceptance: 60.6 },
-    ],
-  },
-  {
-    name: 'Heap / Priority Queue', emoji: '🏔️', color: 'rose',
-    questions: [
-      { id: 703,  title: 'Kth Largest Element in a Stream', slug: 'kth-largest-element-in-a-stream', difficulty: 'Easy', acceptance: 60.9 },
-      { id: 1046, title: 'Last Stone Weight', slug: 'last-stone-weight', difficulty: 'Easy', acceptance: 66.4 },
-      { id: 973,  title: 'K Closest Points to Origin', slug: 'k-closest-points-to-origin', difficulty: 'Medium', acceptance: 68.9 },
-      { id: 215,  title: 'Kth Largest Element in an Array', slug: 'kth-largest-element-in-an-array', difficulty: 'Medium', acceptance: 68.9 },
-      { id: 621,  title: 'Task Scheduler', slug: 'task-scheduler', difficulty: 'Medium', acceptance: 63.0 },
-      { id: 355,  title: 'Design Twitter', slug: 'design-twitter', difficulty: 'Medium', acceptance: 44.5 },
-      { id: 295,  title: 'Find Median from Data Stream', slug: 'find-median-from-data-stream', difficulty: 'Hard', acceptance: 54.4 },
-    ],
-  },
-  {
-    name: 'Backtracking', emoji: '🔙', color: 'amber',
-    questions: [
-      { id: 78,  title: 'Subsets', slug: 'subsets', difficulty: 'Medium', acceptance: 82.3 },
-      { id: 39,  title: 'Combination Sum', slug: 'combination-sum', difficulty: 'Medium', acceptance: 76.4 },
-      { id: 40,  title: 'Combination Sum II', slug: 'combination-sum-ii', difficulty: 'Medium', acceptance: 59.3 },
-      { id: 46,  title: 'Permutations', slug: 'permutations', difficulty: 'Medium', acceptance: 81.9 },
-      { id: 90,  title: 'Subsets II', slug: 'subsets-ii', difficulty: 'Medium', acceptance: 61.2 },
-      { id: 22,  title: 'Generate Parentheses', slug: 'generate-parentheses', difficulty: 'Medium', acceptance: 78.6 },
-      { id: 79,  title: 'Word Search', slug: 'word-search', difficulty: 'Medium', acceptance: 47.2 },
-      { id: 131, title: 'Palindrome Partitioning', slug: 'palindrome-partitioning', difficulty: 'Medium', acceptance: 74.0 },
-      { id: 17,  title: 'Letter Combinations of a Phone Number', slug: 'letter-combinations-of-a-phone-number', difficulty: 'Medium', acceptance: 65.9 },
-      { id: 51,  title: 'N-Queens', slug: 'n-queens', difficulty: 'Hard', acceptance: 75.4 },
-    ],
-  },
-  {
-    name: 'Tries', emoji: '🔤', color: 'fuchsia',
-    questions: [
-      { id: 208, title: 'Implement Trie (Prefix Tree)', slug: 'implement-trie-prefix-tree', difficulty: 'Medium', acceptance: 69.4 },
-      { id: 211, title: 'Design Add and Search Words Data Structure', slug: 'design-add-and-search-words-data-structure', difficulty: 'Medium', acceptance: 48.4 },
-      { id: 212, title: 'Word Search II', slug: 'word-search-ii', difficulty: 'Hard', acceptance: 38.4 },
     ],
   },
   {
@@ -172,6 +122,83 @@ export const NEETCODE_150: NC150Category[] = [
       { id: 787,  title: 'Cheapest Flights Within K Stops', slug: 'cheapest-flights-within-k-stops', difficulty: 'Medium', acceptance: 41.7 },
     ],
   },
+  // ── Mid priority ───────────────────────────────────────────────────────────
+  {
+    name: 'Linked List', emoji: '🔗', color: 'teal',
+    questions: [
+      { id: 206, title: 'Reverse Linked List', slug: 'reverse-linked-list', difficulty: 'Easy', acceptance: 80.5 },
+      { id: 21,  title: 'Merge Two Sorted Lists', slug: 'merge-two-sorted-lists', difficulty: 'Easy', acceptance: 68.2 },
+      { id: 141, title: 'Linked List Cycle', slug: 'linked-list-cycle', difficulty: 'Easy', acceptance: 54.2 },
+      { id: 143, title: 'Reorder List', slug: 'reorder-list', difficulty: 'Medium', acceptance: 65.1 },
+      { id: 19,  title: 'Remove Nth Node From End of List', slug: 'remove-nth-node-from-end-of-list', difficulty: 'Medium', acceptance: 51.4 },
+      { id: 138, title: 'Copy List with Random Pointer', slug: 'copy-list-with-random-pointer', difficulty: 'Medium', acceptance: 62.8 },
+      { id: 2,   title: 'Add Two Numbers', slug: 'add-two-numbers', difficulty: 'Medium', acceptance: 48.3 },
+      { id: 287, title: 'Find the Duplicate Number', slug: 'find-the-duplicate-number', difficulty: 'Medium', acceptance: 64.2 },
+      { id: 146, title: 'LRU Cache', slug: 'lru-cache', difficulty: 'Medium', acceptance: 47.2 },
+      { id: 23,  title: 'Merge k Sorted Lists', slug: 'merge-k-sorted-lists', difficulty: 'Hard', acceptance: 59.4 },
+      { id: 25,  title: 'Reverse Nodes in k-Group', slug: 'reverse-nodes-in-k-group', difficulty: 'Hard', acceptance: 65.9 },
+    ],
+  },
+  {
+    name: 'Stack', emoji: '🥞', color: 'orange',
+    questions: [
+      { id: 20,  title: 'Valid Parentheses', slug: 'valid-parentheses', difficulty: 'Easy', acceptance: 44.1 },
+      { id: 155, title: 'Min Stack', slug: 'min-stack', difficulty: 'Medium', acceptance: 58.0 },
+      { id: 150, title: 'Evaluate Reverse Polish Notation', slug: 'evaluate-reverse-polish-notation', difficulty: 'Medium', acceptance: 57.6 },
+      { id: 739, title: 'Daily Temperatures', slug: 'daily-temperatures', difficulty: 'Medium', acceptance: 68.6 },
+      { id: 853, title: 'Car Fleet', slug: 'car-fleet', difficulty: 'Medium', acceptance: 55.0 },
+      { id: 84,  title: 'Largest Rectangle in Histogram', slug: 'largest-rectangle-in-histogram', difficulty: 'Hard', acceptance: 49.7 },
+    ],
+  },
+  {
+    name: 'Heap / Priority Queue', emoji: '🏔️', color: 'rose',
+    questions: [
+      { id: 703,  title: 'Kth Largest Element in a Stream', slug: 'kth-largest-element-in-a-stream', difficulty: 'Easy', acceptance: 60.9 },
+      { id: 1046, title: 'Last Stone Weight', slug: 'last-stone-weight', difficulty: 'Easy', acceptance: 66.4 },
+      { id: 973,  title: 'K Closest Points to Origin', slug: 'k-closest-points-to-origin', difficulty: 'Medium', acceptance: 68.9 },
+      { id: 215,  title: 'Kth Largest Element in an Array', slug: 'kth-largest-element-in-an-array', difficulty: 'Medium', acceptance: 68.9 },
+      { id: 621,  title: 'Task Scheduler', slug: 'task-scheduler', difficulty: 'Medium', acceptance: 63.0 },
+      { id: 355,  title: 'Design Twitter', slug: 'design-twitter', difficulty: 'Medium', acceptance: 44.5 },
+      { id: 295,  title: 'Find Median from Data Stream', slug: 'find-median-from-data-stream', difficulty: 'Hard', acceptance: 54.4 },
+    ],
+  },
+  {
+    name: 'Tries', emoji: '🔤', color: 'fuchsia',
+    questions: [
+      { id: 208, title: 'Implement Trie (Prefix Tree)', slug: 'implement-trie-prefix-tree', difficulty: 'Medium', acceptance: 69.4 },
+      { id: 211, title: 'Design Add and Search Words Data Structure', slug: 'design-add-and-search-words-data-structure', difficulty: 'Medium', acceptance: 48.4 },
+      { id: 212, title: 'Word Search II', slug: 'word-search-ii', difficulty: 'Hard', acceptance: 38.4 },
+    ],
+  },
+  {
+    name: 'Backtracking', emoji: '🔙', color: 'amber',
+    questions: [
+      { id: 78,  title: 'Subsets', slug: 'subsets', difficulty: 'Medium', acceptance: 82.3 },
+      { id: 39,  title: 'Combination Sum', slug: 'combination-sum', difficulty: 'Medium', acceptance: 76.4 },
+      { id: 40,  title: 'Combination Sum II', slug: 'combination-sum-ii', difficulty: 'Medium', acceptance: 59.3 },
+      { id: 46,  title: 'Permutations', slug: 'permutations', difficulty: 'Medium', acceptance: 81.9 },
+      { id: 90,  title: 'Subsets II', slug: 'subsets-ii', difficulty: 'Medium', acceptance: 61.2 },
+      { id: 22,  title: 'Generate Parentheses', slug: 'generate-parentheses', difficulty: 'Medium', acceptance: 78.6 },
+      { id: 79,  title: 'Word Search', slug: 'word-search', difficulty: 'Medium', acceptance: 47.2 },
+      { id: 131, title: 'Palindrome Partitioning', slug: 'palindrome-partitioning', difficulty: 'Medium', acceptance: 74.0 },
+      { id: 17,  title: 'Letter Combinations of a Phone Number', slug: 'letter-combinations-of-a-phone-number', difficulty: 'Medium', acceptance: 65.9 },
+      { id: 51,  title: 'N-Queens', slug: 'n-queens', difficulty: 'Hard', acceptance: 75.4 },
+    ],
+  },
+  {
+    name: 'Greedy', emoji: '💰', color: 'yellow',
+    questions: [
+      { id: 53,   title: 'Maximum Subarray', slug: 'maximum-subarray', difficulty: 'Medium', acceptance: 53.2 },
+      { id: 55,   title: 'Jump Game', slug: 'jump-game', difficulty: 'Medium', acceptance: 40.8 },
+      { id: 45,   title: 'Jump Game II', slug: 'jump-game-ii', difficulty: 'Medium', acceptance: 42.8 },
+      { id: 134,  title: 'Gas Station', slug: 'gas-station', difficulty: 'Medium', acceptance: 47.9 },
+      { id: 846,  title: 'Hand of Straights', slug: 'hand-of-straights', difficulty: 'Medium', acceptance: 57.9 },
+      { id: 1899, title: 'Merge Triplets to Form Target Triplet', slug: 'merge-triplets-to-form-target-triplet', difficulty: 'Medium', acceptance: 69.0 },
+      { id: 763,  title: 'Partition Labels', slug: 'partition-labels', difficulty: 'Medium', acceptance: 81.9 },
+      { id: 678,  title: 'Valid Parenthesis String', slug: 'valid-parenthesis-string', difficulty: 'Medium', acceptance: 40.0 },
+    ],
+  },
+  // ── Low priority ───────────────────────────────────────────────────────────
   {
     name: '1-D Dynamic Programming', emoji: '📈', color: 'emerald',
     questions: [
@@ -206,27 +233,15 @@ export const NEETCODE_150: NC150Category[] = [
     ],
   },
   {
-    name: 'Greedy', emoji: '💰', color: 'yellow',
+    name: 'Bit Manipulation', emoji: '⚡', color: 'red',
     questions: [
-      { id: 53,   title: 'Maximum Subarray', slug: 'maximum-subarray', difficulty: 'Medium', acceptance: 53.2 },
-      { id: 55,   title: 'Jump Game', slug: 'jump-game', difficulty: 'Medium', acceptance: 40.8 },
-      { id: 45,   title: 'Jump Game II', slug: 'jump-game-ii', difficulty: 'Medium', acceptance: 42.8 },
-      { id: 134,  title: 'Gas Station', slug: 'gas-station', difficulty: 'Medium', acceptance: 47.9 },
-      { id: 846,  title: 'Hand of Straights', slug: 'hand-of-straights', difficulty: 'Medium', acceptance: 57.9 },
-      { id: 1899, title: 'Merge Triplets to Form Target Triplet', slug: 'merge-triplets-to-form-target-triplet', difficulty: 'Medium', acceptance: 69.0 },
-      { id: 763,  title: 'Partition Labels', slug: 'partition-labels', difficulty: 'Medium', acceptance: 81.9 },
-      { id: 678,  title: 'Valid Parenthesis String', slug: 'valid-parenthesis-string', difficulty: 'Medium', acceptance: 40.0 },
-    ],
-  },
-  {
-    name: 'Intervals', emoji: '📏', color: 'pink',
-    questions: [
-      { id: 57,   title: 'Insert Interval', slug: 'insert-interval', difficulty: 'Medium', acceptance: 45.1 },
-      { id: 56,   title: 'Merge Intervals', slug: 'merge-intervals', difficulty: 'Medium', acceptance: 51.7 },
-      { id: 435,  title: 'Non-overlapping Intervals', slug: 'non-overlapping-intervals', difficulty: 'Medium', acceptance: 57.0 },
-      { id: 252,  title: 'Meeting Rooms', slug: 'meeting-rooms', difficulty: 'Easy', acceptance: 59.4 },
-      { id: 253,  title: 'Meeting Rooms II', slug: 'meeting-rooms-ii', difficulty: 'Medium', acceptance: 52.6 },
-      { id: 1851, title: 'Minimum Interval to Include Each Query', slug: 'minimum-interval-to-include-each-query', difficulty: 'Hard', acceptance: 54.3 },
+      { id: 136, title: 'Single Number', slug: 'single-number', difficulty: 'Easy', acceptance: 77.6 },
+      { id: 191, title: 'Number of 1 Bits', slug: 'number-of-1-bits', difficulty: 'Easy', acceptance: 76.7 },
+      { id: 338, title: 'Counting Bits', slug: 'counting-bits', difficulty: 'Easy', acceptance: 80.5 },
+      { id: 190, title: 'Reverse Bits', slug: 'reverse-bits', difficulty: 'Easy', acceptance: 68.2 },
+      { id: 268, title: 'Missing Number', slug: 'missing-number', difficulty: 'Easy', acceptance: 71.9 },
+      { id: 371, title: 'Sum of Two Integers', slug: 'sum-of-two-integers', difficulty: 'Medium', acceptance: 55.4 },
+      { id: 7,   title: 'Reverse Integer', slug: 'reverse-integer', difficulty: 'Medium', acceptance: 31.8 },
     ],
   },
   {
@@ -240,18 +255,6 @@ export const NEETCODE_150: NC150Category[] = [
       { id: 50,   title: 'Pow(x, n)', slug: 'powx-n', difficulty: 'Medium', acceptance: 38.6 },
       { id: 43,   title: 'Multiply Strings', slug: 'multiply-strings', difficulty: 'Medium', acceptance: 44.0 },
       { id: 2013, title: 'Detect Squares', slug: 'detect-squares', difficulty: 'Medium', acceptance: 52.5 },
-    ],
-  },
-  {
-    name: 'Bit Manipulation', emoji: '⚡', color: 'red',
-    questions: [
-      { id: 136, title: 'Single Number', slug: 'single-number', difficulty: 'Easy', acceptance: 77.6 },
-      { id: 191, title: 'Number of 1 Bits', slug: 'number-of-1-bits', difficulty: 'Easy', acceptance: 76.7 },
-      { id: 338, title: 'Counting Bits', slug: 'counting-bits', difficulty: 'Easy', acceptance: 80.5 },
-      { id: 190, title: 'Reverse Bits', slug: 'reverse-bits', difficulty: 'Easy', acceptance: 68.2 },
-      { id: 268, title: 'Missing Number', slug: 'missing-number', difficulty: 'Easy', acceptance: 71.9 },
-      { id: 371, title: 'Sum of Two Integers', slug: 'sum-of-two-integers', difficulty: 'Medium', acceptance: 55.4 },
-      { id: 7,   title: 'Reverse Integer', slug: 'reverse-integer', difficulty: 'Medium', acceptance: 31.8 },
     ],
   },
 ]
