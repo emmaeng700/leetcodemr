@@ -292,10 +292,11 @@ export default function BestSolutionsPage() {
   const [questions,  setQuestions]  = useState<Question[]>([])
   const [solutions,  setSolutions]  = useState<BestSolution[]>([])
   const [loading,    setLoading]    = useState(true)
-  const [tableReady, setTableReady] = useState(true)
-  const [query,      setQuery]      = useState('')
-  const [filter,     setFilter]     = useState<'all' | 'saved' | 'waiting'>('all')
-  const [diffFilter, setDiffFilter] = useState<'all' | 'Easy' | 'Medium' | 'Hard'>('all')
+  const [tableReady,      setTableReady]      = useState(true)
+  const [query,           setQuery]           = useState('')
+  const [filter,          setFilter]          = useState<'all' | 'saved' | 'waiting'>('all')
+  const [diffFilter,      setDiffFilter]      = useState<'all' | 'Easy' | 'Medium' | 'Hard'>('all')
+  const [exportProgress,  setExportProgress]  = useState<{ done: number; total: number; found: number } | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -384,29 +385,92 @@ export default function BestSolutionsPage() {
 
   const totalVisible = useMemo(() => filteredGroups.reduce((s, g) => s + g.questions.length, 0), [filteredGroups])
 
-  const exportPython = useCallback(() => {
-    const pythonSols = sortedQuestions
-      .map(q => ({ q, sol: solByQid.get(q.id) }))
-      .filter(({ sol }) => sol && ['python3', 'python'].includes(sol.language))
-    if (!pythonSols.length) { alert('No Python best solutions pinned yet.'); return }
+  const exportPython = useCallback(async () => {
+    if (exportProgress) return // already running
+
+    const session    = typeof window !== 'undefined' ? (localStorage.getItem('lc_session') ?? '') : ''
+    const csrfToken  = typeof window !== 'undefined' ? (localStorage.getItem('lc_csrf')    ?? '') : ''
+    const hasSession = !!(session && csrfToken)
+
+    // Phase 1 — pinned Python solutions (already have code, instant)
+    const codeMap = new Map<number, string>()
+    for (const sol of solutions) {
+      if (['python3', 'python'].includes(sol.language)) codeMap.set(sol.question_id, sol.code)
+    }
+
+    // Phase 2 — draft code saved in localStorage (also instant, no API calls)
+    for (const q of sortedQuestions) {
+      if (codeMap.has(q.id)) continue
+      const draft = localStorage.getItem(`lm_draft_${q.id}_python3`) ?? localStorage.getItem(`lm_draft_${q.id}_python`)
+      if (draft) codeMap.set(q.id, draft)
+    }
+
+    // Phase 3 — fetch from LeetCode for anything still missing (batch, concurrency 5)
+    if (hasSession) {
+      const toFetch = sortedQuestions.filter(q => !codeMap.has(q.id))
+      if (toFetch.length) {
+        setExportProgress({ done: 0, total: toFetch.length, found: codeMap.size })
+        const BATCH = 5
+        for (let i = 0; i < toFetch.length; i += BATCH) {
+          const batch = toFetch.slice(i, i + BATCH)
+          await Promise.allSettled(batch.map(async q => {
+            try {
+              // Step 1: get latest accepted submission ID
+              const r1 = await fetch('/api/leetcode', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  session, csrfToken,
+                  query: `query($slug:String!,$offset:Int!,$limit:Int!){questionSubmissionList(questionSlug:$slug,offset:$offset,limit:$limit,status:10){submissions{id lang}}}`,
+                  variables: { slug: q.slug, offset: 0, limit: 5 },
+                }),
+              }).then(r => r.json())
+              const subs: { id: string; lang: string }[] = r1?.data?.questionSubmissionList?.submissions ?? []
+              const pySub = subs.find(s => ['python3', 'python'].includes(s.lang))
+              if (!pySub) return
+              // Step 2: fetch code
+              const r2 = await fetch('/api/leetcode', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  session, csrfToken,
+                  query: `query($id:Int!){submissionDetails(submissionId:$id){code}}`,
+                  variables: { id: Number(pySub.id) },
+                }),
+              }).then(r => r.json())
+              const code = r2?.data?.submissionDetails?.code ?? ''
+              if (code) codeMap.set(q.id, code)
+            } catch { /* skip on error */ }
+          }))
+          setExportProgress({ done: Math.min(i + BATCH, toFetch.length), total: toFetch.length, found: codeMap.size })
+        }
+      }
+    }
+
+    setExportProgress(null)
+
+    // Generate file
+    const toExport = sortedQuestions.map(q => ({ q, code: codeMap.get(q.id) })).filter(x => x.code)
+    if (!toExport.length) { toast.error('No Python solutions found — pin some using the Best button in the editor.'); return }
+
     const lines = [
       '# ═══════════════════════════════════════════════════════',
-      '# My Best LeetCode Solutions (Python)',
+      '# My LeetCode Solutions (Python)',
       `# Generated: ${new Date().toLocaleDateString()}`,
-      `# ${pythonSols.length} questions saved`,
+      `# ${toExport.length} questions`,
       '# ═══════════════════════════════════════════════════════', '',
     ]
-    for (const { q, sol } of pythonSols) {
-      lines.push(`# ─── #${q.id} ${q.title} [${q.difficulty}] ${'─'.repeat(Math.max(0, 48 - q.title.length))}`)
-      lines.push(sol!.code)
+    for (const { q, code } of toExport) {
+      const pattern = patternMap[q.id] ?? ''
+      lines.push(`# ─── #${q.id} ${q.title} [${q.difficulty}]${pattern ? ` · ${pattern}` : ''} ${'─'.repeat(Math.max(0, 40 - q.title.length))}`)
+      lines.push(code!)
       lines.push('', '')
     }
     const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
-    a.href = url; a.download = 'my_best_solutions.py'; a.click()
+    a.href = url; a.download = 'my_solutions.py'; a.click()
     URL.revokeObjectURL(url)
-  }, [sortedQuestions, solByQid])
+    toast.success(`Exported ${toExport.length} Python solutions ✓`)
+  }, [exportProgress, solutions, sortedQuestions, patternMap])
 
   return (
     <div className="min-h-screen bg-[var(--bg)] pb-20">
@@ -429,9 +493,12 @@ export default function BestSolutionsPage() {
               <p className="text-2xl font-black text-amber-400 leading-none">{savedCount}</p>
               <p className="text-[10px] text-[var(--text-subtle)]">of {questions.length} pinned</p>
             </div>
-            <button onClick={exportPython}
-              className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-colors">
-              <Download size={13} /> Export .py
+            <button onClick={exportPython} disabled={!!exportProgress}
+              className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-60 min-w-[100px] justify-center">
+              {exportProgress
+                ? <><Loader2 size={13} className="animate-spin shrink-0" /> {exportProgress.done}/{exportProgress.total}</>
+                : <><Download size={13} /> Export .py</>
+              }
             </button>
           </div>
         </div>
