@@ -400,6 +400,7 @@ function FlashcardsInner() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
                     <DifficultyBadge difficulty={q.difficulty} />
+                    <PriorityBadge pattern={exclusiveMapAll[q.id] ?? ''} />
                     {(q.source || []).map(s => (
                       <span key={s} className="text-xs bg-indigo-50  text-indigo-600  px-2 py-0.5 rounded-full border border-indigo-200 ">{s}</span>
                     ))}
@@ -461,6 +462,7 @@ function FlashcardsInner() {
                   <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
                     <DifficultyBadge difficulty={q.difficulty} />
+                    <PriorityBadge pattern={exclusiveMapAll[q.id] ?? ''} />
                     <span className="text-sm font-bold text-indigo-700 truncate">{q.title}</span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
