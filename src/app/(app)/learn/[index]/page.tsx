@@ -17,7 +17,7 @@ import {
 import { getProgress, updateProgress, completeReview, failReview, getMasteryRunsByQuestion, addMasteryRunEvent, resetMasteryRuns } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
-import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { buildExclusivePatternMap, getPatternForQuestion } from '@/lib/patternUtils'
 import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import { isDue, formatLocalDate, nextIntervalDays, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
@@ -725,6 +725,7 @@ function LearnInner() {
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
           <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🧩</span>
           <span className="text-xs font-semibold text-[var(--text)] truncate">{currentPattern.name}</span>
+          <PriorityBadge pattern={currentPattern.name} />
           {patternPct >= 80 && <span className="text-[10px] font-bold text-green-600  shrink-0">🔥 Crushing it!</span>}
           {patternPct >= 50 && patternPct < 80 && <span className="text-[10px] font-bold text-indigo-500  shrink-0">💪 Solid progress</span>}
           {patternPct > 0 && patternPct < 50 && <span className="text-[10px] font-semibold text-amber-500 shrink-0">📈 Building momentum</span>}
@@ -880,7 +881,7 @@ function LearnInner() {
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="text-xs text-gray-400 font-mono">#{q.id}</span>
                       <DifficultyBadge difficulty={q.difficulty} />
-                      {currentPatternName && <PriorityBadge pattern={currentPatternName} />}
+                      {(() => { const p = currentPatternName ?? getPatternForQuestion(q.tags ?? []); return p ? <PriorityBadge pattern={p} /> : null })()}
                       {status && (
                         <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border capitalize ${
                           status === 'mastered' ? 'bg-green-100 text-green-700 border-green-300'
