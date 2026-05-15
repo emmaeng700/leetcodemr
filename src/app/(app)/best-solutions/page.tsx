@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { DISPLAY_PATTERN_ORDER } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, PATTERN_PRIORITY } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { CODE_HIGHLIGHT_TOKEN_CSS } from '@/lib/codeHighlightTheme'
 
@@ -496,6 +496,13 @@ export default function BestSolutionsPage() {
                 <div className="flex items-center gap-2 mb-3">
                   <p className="text-xs font-bold text-[var(--text-subtle)] uppercase tracking-widest">{pattern}</p>
                   <span className="text-[10px] font-mono text-gray-600">· {qs.length}</span>
+                  {PATTERN_PRIORITY[pattern] && (
+                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full border ${
+                      PATTERN_PRIORITY[pattern] === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                      PATTERN_PRIORITY[pattern] === 'Mid'  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                             'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                    }`}>{PATTERN_PRIORITY[pattern]}</span>
+                  )}
                   <div className="flex-1 h-px bg-[var(--border)]" />
                 </div>
 

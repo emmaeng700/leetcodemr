@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { getProgress, getPatternFcVisited, addPatternFcVisited } from '@/lib/db'
 import { shuffle, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
-import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import CodePanel from '@/components/CodePanel'
@@ -375,7 +375,16 @@ export default function PatternsPage() {
                 <span className="text-2xl shrink-0">{p.icon}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-3 mb-1.5">
-                    <span className="font-bold text-[var(--text)] text-sm">{p.name}</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="font-bold text-[var(--text)] text-sm">{p.name}</span>
+                      {PATTERN_PRIORITY[p.name] && (
+                        <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full border ${
+                          PATTERN_PRIORITY[p.name] === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                          PATTERN_PRIORITY[p.name] === 'Mid'  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                                 'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                        }`}>{PATTERN_PRIORITY[p.name]}</span>
+                      )}
+                    </div>
                     <span className="text-xs text-[var(--text-muted)] shrink-0 font-mono">
                       {p.solved}/{p.total} · {pct}%
                     </span>

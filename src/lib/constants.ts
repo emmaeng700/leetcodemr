@@ -68,3 +68,32 @@ export const DISPLAY_PATTERN_ORDER = [
   'Math',                // 12
   'JavaScript',          // 7
 ] as const
+
+export type PatternPriority = 'High' | 'Mid' | 'Low'
+
+export const PATTERN_PRIORITY: Record<string, PatternPriority> = {
+  // High
+  'Arrays & Hashing':    'High',
+  'String':              'High',
+  'Two Pointers':        'High',
+  'Sliding Window':      'High',
+  'Sorting':             'High',
+  'Binary Search':       'High',
+  'Matrix':              'High',
+  'Trees & BST':         'High',
+  'DFS':                 'High',
+  'Graphs':              'High',
+  'BFS':                 'High',
+  // Mid
+  'Linked List':         'Mid',
+  'Stack':               'Mid',
+  'Heap':                'Mid',
+  'Trie':                'Mid',
+  'Backtracking':        'Mid',
+  'Greedy':              'Mid',
+  // Low
+  'Dynamic Programming': 'Low',
+  'Bit Manipulation':    'Low',
+  'Math':                'Low',
+  'JavaScript':          'Low',
+}

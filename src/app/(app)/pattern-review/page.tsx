@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BookOpen, ExternalLink, Layers, X, ChevronRight } from 'lucide-react'
-import { DISPLAY_PATTERN_ORDER } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, PATTERN_PRIORITY } from '@/lib/constants'
 import DifficultyBadge from '@/components/DifficultyBadge'
 
 interface ReviewQuestion {
@@ -126,14 +126,23 @@ export default function PatternReviewPage() {
                   : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
               }`}
             >
-              <span className="truncate">{pattern}</span>
-              <span className={`shrink-0 font-mono text-[10px] px-1.5 py-0.5 rounded-full ${
-                activePattern === pattern
-                  ? 'bg-indigo-100 text-indigo-600'
-                  : 'bg-[var(--bg-muted)] text-[var(--text-subtle)]'
-              }`}>
-                {questions.length}
-              </span>
+              <span className="truncate flex-1">{pattern}</span>
+              <div className="flex items-center gap-1 shrink-0">
+                {PATTERN_PRIORITY[pattern] && (
+                  <span className={`text-[8px] font-black px-1 py-0.5 rounded border ${
+                    PATTERN_PRIORITY[pattern] === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                    PATTERN_PRIORITY[pattern] === 'Mid'  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                           'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                  }`}>{PATTERN_PRIORITY[pattern]}</span>
+                )}
+                <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-full ${
+                  activePattern === pattern
+                    ? 'bg-indigo-100 text-indigo-600'
+                    : 'bg-[var(--bg-muted)] text-[var(--text-subtle)]'
+                }`}>
+                  {questions.length}
+                </span>
+              </div>
             </button>
           ))}
         </nav>
@@ -162,6 +171,13 @@ export default function PatternReviewPage() {
               {/* Pattern heading */}
               <div className="sticky top-0 z-10 bg-[var(--bg)] -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 mb-3 sm:mb-4 flex items-center gap-2 sm:gap-3 border-b border-[var(--border)]">
                 <h2 className="text-sm sm:text-base font-black text-[var(--text)] truncate">{pattern}</h2>
+                {PATTERN_PRIORITY[pattern] && (
+                  <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full border ${
+                    PATTERN_PRIORITY[pattern] === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                    PATTERN_PRIORITY[pattern] === 'Mid'  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                           'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                  }`}>{PATTERN_PRIORITY[pattern]}</span>
+                )}
                 <span className="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200">
                   {questions.length}
                 </span>
