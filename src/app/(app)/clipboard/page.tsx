@@ -1,7 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Copy, Check, Trash2, Plus, Loader2, Eye, EyeOff, ClipboardList } from 'lucide-react'
+import {
+  Copy, Check, Trash2, Plus, Loader2, Eye, EyeOff,
+  ClipboardList, Key, Sparkles,
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface ClipItem {
@@ -20,6 +23,127 @@ function timeAgo(iso: string) {
   if (mins  < 60) return `${mins}m ago`
   if (hours < 24) return `${hours}h ago`
   return `${days}d ago`
+}
+
+/** Collapse all whitespace runs + trim → one clean line */
+function cleanToken(raw: string) {
+  return raw.replace(/\r?\n|\r/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/* ── Token cleaner section ───────────────────────────────────────────────── */
+function TokenCleaner({ onSaved }: { onSaved: (item: ClipItem) => void }) {
+  const [raw,     setRaw]     = useState('')
+  const [cleaned, setCleaned] = useState('')
+  const [copied,  setCopied]  = useState(false)
+  const [saving,  setSaving]  = useState(false)
+  const [label,   setLabel]   = useState('LeetCode Session')
+
+  const handleClean = () => {
+    const result = cleanToken(raw)
+    setCleaned(result)
+    setCopied(false)
+  }
+
+  const copy = async (text: string) => {
+    await navigator.clipboard.writeText(text).catch(() => {})
+    setCopied(true)
+    toast.success('Copied!')
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const save = async () => {
+    const toSave = cleaned || cleanToken(raw)
+    if (!toSave) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/clipboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label, content: toSave }),
+      })
+      const d = await res.json()
+      if (res.ok && d.item) {
+        onSaved(d.item)
+        setRaw('')
+        setCleaned('')
+        toast.success('Token saved!')
+      } else {
+        toast.error(d.error ?? 'Could not save')
+      }
+    } catch { toast.error('Network error') }
+    finally { setSaving(false) }
+  }
+
+  const isDirty = raw.length > 0
+  const hasClean = cleaned.length > 0
+
+  return (
+    <div className="rounded-2xl border border-orange-500/30 bg-orange-500/5 p-4 space-y-3 mb-6">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <Key size={14} className="text-orange-400 shrink-0" />
+        <span className="text-sm font-bold text-orange-300">Token / Session Cleaner</span>
+        <span className="text-[10px] text-orange-400/60 font-normal">
+          — paste messy, get clean
+        </span>
+      </div>
+
+      {/* Label */}
+      <input
+        value={label}
+        onChange={e => setLabel(e.target.value)}
+        placeholder="Label — e.g. LeetCode Session"
+        className="w-full px-3 py-2 text-xs bg-black/20 border border-orange-500/20 rounded-xl text-orange-200 placeholder-orange-400/40 focus:outline-none focus:border-orange-400/50"
+      />
+
+      {/* Paste area */}
+      <textarea
+        value={raw}
+        onChange={e => { setRaw(e.target.value); setCleaned('') }}
+        placeholder="Paste raw token or cookie header here — spaces, newlines, anything…"
+        rows={3}
+        className="w-full px-3 py-2 text-[11px] font-mono bg-black/20 border border-orange-500/20 rounded-xl text-gray-300 placeholder-orange-400/30 focus:outline-none focus:border-orange-400/50 resize-none"
+      />
+
+      {/* Clean button */}
+      {isDirty && (
+        <button
+          onClick={handleClean}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 border border-orange-500/20 transition-colors"
+        >
+          <Sparkles size={12} /> Clean
+        </button>
+      )}
+
+      {/* Cleaned output */}
+      {hasClean && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-green-400 uppercase tracking-wider">
+              ✓ Cleaned — {cleaned.length} chars
+            </span>
+            <button onClick={() => copy(cleaned)}
+              className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-green-300 transition-colors">
+              {copied ? <Check size={10} className="text-green-400" /> : <Copy size={10} />}
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+          <div className="font-mono text-[10px] text-green-300/80 bg-black/30 border border-green-500/20 rounded-xl px-3 py-2 break-all leading-relaxed max-h-20 overflow-y-auto">
+            {cleaned}
+          </div>
+
+          {/* Save to clipboard */}
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button onClick={save} disabled={saving}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-orange-500 hover:bg-orange-400 text-white transition-colors disabled:opacity-50">
+              {saving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+              {saving ? 'Saving…' : 'Save to Clipboard'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 /* ── Single item card ────────────────────────────────────────────────────── */
@@ -49,7 +173,6 @@ function ItemCard({ item, onDelete }: { item: ClipItem; onDelete: (id: number) =
     finally { setDeleting(false) }
   }
 
-  /* Detect if content looks sensitive (long token / cookie string) */
   const isSensitive = item.content.length > 40 && !item.content.includes('\n')
   const displayContent = isSensitive && !revealed
     ? item.content.slice(0, 24) + '••••••••••••••••'
@@ -57,7 +180,6 @@ function ItemCard({ item, onDelete }: { item: ClipItem; onDelete: (id: number) =
 
   return (
     <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-4 py-3 space-y-2">
-      {/* Top row: label + time + actions */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           {item.label && (
@@ -67,7 +189,6 @@ function ItemCard({ item, onDelete }: { item: ClipItem; onDelete: (id: number) =
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          {/* Reveal toggle for sensitive content */}
           {isSensitive && (
             <button onClick={() => setRevealed(v => !v)}
               className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
@@ -75,15 +196,11 @@ function ItemCard({ item, onDelete }: { item: ClipItem; onDelete: (id: number) =
               {revealed ? <EyeOff size={13} /> : <Eye size={13} />}
             </button>
           )}
-
-          {/* Copy */}
           <button onClick={copy}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">
             {copied ? <Check size={12} /> : <Copy size={12} />}
             {copied ? 'Copied!' : 'Copy'}
           </button>
-
-          {/* Delete */}
           <button onClick={del} disabled={deleting}
             className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40">
             {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
@@ -91,7 +208,6 @@ function ItemCard({ item, onDelete }: { item: ClipItem; onDelete: (id: number) =
         </div>
       </div>
 
-      {/* Content preview */}
       <div className="font-mono text-[11px] text-gray-400 break-all leading-relaxed bg-black/20 rounded-lg px-3 py-2 select-all">
         {displayContent}
       </div>
@@ -109,7 +225,6 @@ export default function ClipboardPage() {
   const [saving,     setSaving]     = useState(false)
   const textareaRef  = useRef<HTMLTextAreaElement>(null)
 
-  /* Load */
   useEffect(() => {
     fetch('/api/clipboard')
       .then(r => r.json())
@@ -121,7 +236,8 @@ export default function ClipboardPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  /* Save */
+  const handleTokenSaved = (item: ClipItem) => setItems(prev => [item, ...prev])
+
   const save = async () => {
     if (!content.trim() || saving) return
     setSaving(true)
@@ -157,7 +273,7 @@ export default function ClipboardPage() {
             <ClipboardList size={18} className="text-indigo-400" /> Clipboard
           </h1>
           <p className="text-xs text-[var(--text-subtle)] mt-1">
-            Paste anything here — session tokens, codes, notes. Copy on any device, delete when done.
+            Paste anything here — synced across all devices. Copy when needed, delete when done.
           </p>
         </div>
 
@@ -172,7 +288,7 @@ export default function ClipboardPage() {
                 Supabase SQL Editor
               </a>:
             </p>
-            <pre className="mt-2 text-[10px] text-amber-200/70 bg-black/30 rounded-lg p-2 overflow-x-auto">{`CREATE TABLE IF NOT EXISTS clipboard_items (
+            <pre className="mt-2 text-[10px] text-amber-200/70 bg-black/30 rounded-lg p-2 overflow-x-auto whitespace-pre">{`CREATE TABLE IF NOT EXISTS clipboard_items (
   id         SERIAL PRIMARY KEY,
   user_id    TEXT        NOT NULL DEFAULT 'emmanuel',
   label      TEXT        NOT NULL DEFAULT '',
@@ -182,12 +298,18 @@ export default function ClipboardPage() {
           </div>
         )}
 
-        {/* Add form */}
+        {/* ── Token / Session cleaner ── */}
+        <TokenCleaner onSaved={handleTokenSaved} />
+
+        {/* ── General clipboard ── */}
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 mb-6 space-y-3">
+          <p className="text-xs font-semibold text-[var(--text-subtle)] flex items-center gap-1.5">
+            <ClipboardList size={12} /> General Clipboard
+          </p>
           <input
             value={label}
             onChange={e => setLabel(e.target.value)}
-            placeholder="Label (optional) — e.g. LeetCode Session"
+            placeholder="Label (optional)"
             className="w-full px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl text-[var(--text)] placeholder-[var(--text-subtle)] focus:outline-none focus:border-indigo-400/60"
           />
           <textarea
@@ -196,7 +318,7 @@ export default function ClipboardPage() {
             onChange={e => setContent(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save() }}
             placeholder="Paste anything here…"
-            rows={4}
+            rows={3}
             className="w-full px-3 py-2 text-sm font-mono bg-[var(--bg)] border border-[var(--border)] rounded-xl text-[var(--text)] placeholder-[var(--text-subtle)] focus:outline-none focus:border-indigo-400/60 resize-none"
           />
           <div className="flex items-center justify-between">
@@ -209,17 +331,16 @@ export default function ClipboardPage() {
           </div>
         </div>
 
-        {/* Items list */}
+        {/* Saved items */}
         {loading ? (
           <div className="flex items-center justify-center py-16 gap-2 text-[var(--text-subtle)]">
             <Loader2 size={18} className="animate-spin" />
             <span className="text-sm">Loading…</span>
           </div>
         ) : items.length === 0 ? (
-          <div className="text-center py-16">
-            <ClipboardList size={32} className="text-gray-600 mx-auto mb-3" />
+          <div className="text-center py-12">
+            <ClipboardList size={28} className="text-gray-600 mx-auto mb-3" />
             <p className="text-sm text-[var(--text-subtle)]">Nothing saved yet.</p>
-            <p className="text-xs text-gray-600 mt-1">Paste something above and hit Save.</p>
           </div>
         ) : (
           <div className="space-y-3">
