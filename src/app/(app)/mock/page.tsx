@@ -453,6 +453,11 @@ export default function MockInterviewPage() {
           <div className="flex-1 overflow-y-auto p-4">
             {leftTab === 'description' && (
               <div>
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <span className="text-xs text-[var(--text-subtle)] font-mono">#{question.id}</span>
+                  <DifficultyBadge difficulty={question.difficulty} />
+                  <PriorityBadge pattern={getPatternForQuestion(question.tags ?? []) ?? ''} />
+                </div>
                 <h2 className="font-bold text-[var(--text)] text-base mb-2">{question.title}</h2>
                 {(question.tags || []).length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-4">
