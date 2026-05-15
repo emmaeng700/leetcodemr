@@ -5,6 +5,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Brain, ChevronRight, Loader2, Calendar, Clock, Play } from 'lucide-react'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import PriorityBadge from '@/components/PriorityBadge'
+import { getPatternForQuestion } from '@/lib/patternUtils'
+import { PATTERN_PRIORITY } from '@/lib/constants'
 import { getSrScheduleWindow } from '@/lib/db'
 
 type Question = { id: number; title: string; slug: string; difficulty: string; tags: string[] }
@@ -39,8 +42,18 @@ export default function PileupPage() {
 
   const qMap = useMemo(() => Object.fromEntries(questions.map(q => [q.id, q])), [questions])
   const today = todayISOChicago()
-  const due = rows.filter(r => r.next_review <= today)
-  const upcoming = rows.filter(r => r.next_review > today)
+
+  const PRIORITY_RANK: Record<string, number> = { High: 0, Mid: 1, Low: 2 }
+  const byPriority = (a: { id: number }, b: { id: number }) => {
+    const pa = getPatternForQuestion(qMap[a.id]?.tags ?? [])
+    const pb = getPatternForQuestion(qMap[b.id]?.tags ?? [])
+    const ra = pa ? (PRIORITY_RANK[PATTERN_PRIORITY[pa] ?? ''] ?? 3) : 3
+    const rb = pb ? (PRIORITY_RANK[PATTERN_PRIORITY[pb] ?? ''] ?? 3) : 3
+    return ra - rb
+  }
+
+  const due = rows.filter(r => r.next_review <= today).sort(byPriority)
+  const upcoming = rows.filter(r => r.next_review > today).sort(byPriority)
 
   if (loading) {
     return (
@@ -164,6 +177,7 @@ function Section({
                     </p>
                   </div>
                   {q?.difficulty && <DifficultyBadge difficulty={q.difficulty} />}
+                  {q && <PriorityBadge pattern={getPatternForQuestion(q.tags ?? []) ?? ''} />}
                   <ChevronRight size={14} className="text-[var(--text-subtle)] shrink-0" />
                 </Link>
               )

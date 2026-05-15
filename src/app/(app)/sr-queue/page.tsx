@@ -7,6 +7,7 @@ import { getDailyReviewCapChicago, getDueReviews, getProgress, getStudyPlan, com
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import { getPatternForQuestion } from '@/lib/patternUtils'
+import { PATTERN_PRIORITY } from '@/lib/constants'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 
@@ -198,11 +199,18 @@ function SRQueueInner() {
     return String(q.id).includes(byId) || q.title.toLowerCase().includes(search)
   }
 
-  const overdueF  = overdue.filter(matchesSearch)
-  const dueTodayF = dueToday.filter(matchesSearch)
-  const soonF     = soon.filter(matchesSearch)
-  const laterF    = later.filter(matchesSearch)
-  const noneF     = none.filter(matchesSearch)
+  const PRIORITY_RANK: Record<string, number> = { High: 0, Mid: 1, Low: 2 }
+  const byPriority = (a: RowItem, b: RowItem) => {
+    const pa = PATTERN_PRIORITY[getPatternForQuestion(a.q.tags ?? []) ?? ''] ?? ''
+    const pb = PATTERN_PRIORITY[getPatternForQuestion(b.q.tags ?? []) ?? ''] ?? ''
+    return (PRIORITY_RANK[pa] ?? 3) - (PRIORITY_RANK[pb] ?? 3)
+  }
+
+  const overdueF  = overdue.filter(matchesSearch).sort(byPriority)
+  const dueTodayF = dueToday.filter(matchesSearch).sort(byPriority)
+  const soonF     = soon.filter(matchesSearch).sort(byPriority)
+  const laterF    = later.filter(matchesSearch).sort(byPriority)
+  const noneF     = none.filter(matchesSearch).sort(byPriority)
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
