@@ -11,8 +11,9 @@ const USER_ID = 'emmanuel'
 export async function GET() {
   const { data, error } = await supabase
     .from('clipboard_items')
-    .select('id, label, content, created_at')
+    .select('id, label, content, is_token, created_at')
     .eq('user_id', USER_ID)
+    .order('is_token', { ascending: false })
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -27,15 +28,15 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { label, content } = await req.json().catch(() => ({}))
+  const { label, content, is_token } = await req.json().catch(() => ({}))
   if (!content?.trim()) {
     return NextResponse.json({ error: 'content required' }, { status: 400 })
   }
 
   const { data, error } = await supabase
     .from('clipboard_items')
-    .insert({ user_id: USER_ID, label: (label ?? '').trim(), content: content.trim() })
-    .select('id, label, content, created_at')
+    .insert({ user_id: USER_ID, label: (label ?? '').trim(), content: content.trim(), is_token: is_token === true })
+    .select('id, label, content, is_token, created_at')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

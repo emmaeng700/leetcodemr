@@ -11,6 +11,7 @@ interface ClipItem {
   id: number
   label: string
   content: string
+  is_token: boolean
   created_at: string
 }
 
@@ -59,7 +60,7 @@ function TokenCleaner({ onSaved }: { onSaved: (item: ClipItem) => void }) {
       const res = await fetch('/api/clipboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label, content: toSave }),
+        body: JSON.stringify({ label, content: toSave, is_token: true }),
       })
       const d = await res.json()
       if (res.ok && d.item) {
@@ -342,13 +343,43 @@ export default function ClipboardPage() {
             <ClipboardList size={28} className="text-gray-600 mx-auto mb-3" />
             <p className="text-sm text-[var(--text-subtle)]">Nothing saved yet.</p>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {items.map(item => (
-              <ItemCard key={item.id} item={item} onDelete={handleDelete} />
-            ))}
-          </div>
-        )}
+        ) : (() => {
+          const tokens  = items.filter(i => i.is_token)
+          const general = items.filter(i => !i.is_token)
+          return (
+            <div className="space-y-6">
+              {tokens.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Key size={12} className="text-orange-400" />
+                    <span className="text-[10px] font-black text-orange-400/80 uppercase tracking-widest">
+                      Tokens &amp; Sessions
+                    </span>
+                    <span className="text-[10px] text-gray-600">— newest first</span>
+                  </div>
+                  {tokens.map(item => (
+                    <ItemCard key={item.id} item={item} onDelete={handleDelete} />
+                  ))}
+                </div>
+              )}
+              {general.length > 0 && (
+                <div className="space-y-3">
+                  {tokens.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <ClipboardList size={12} className="text-gray-500" />
+                      <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                        General
+                      </span>
+                    </div>
+                  )}
+                  {general.map(item => (
+                    <ItemCard key={item.id} item={item} onDelete={handleDelete} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </div>
     </div>
   )

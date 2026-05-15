@@ -43,25 +43,28 @@ export const QUICK_PATTERNS = [
 // Ascending question-count order (fewest → most). Computed from questions_full.json.
 // Graphs(5) first, Trees & BST(37) last — consistent ordering throughout the app.
 export const DISPLAY_PATTERN_ORDER = [
-  'Graphs',              // 5
-  'Greedy',              // 6
-  'JavaScript',          // 7
+  // ── High priority ────────────────────────────────────────
+  'Arrays & Hashing',    // 18
   'String',              // 8
+  'Two Pointers',        // 19
   'Sliding Window',      // 9
   'Sorting',             // 9
-  'Backtracking',        // 10
-  'Bit Manipulation',    // 10
-  'BFS',                 // 10
-  'Math',                // 12
-  'Trie',                // 12
-  'Arrays & Hashing',    // 18
-  'Two Pointers',        // 19
-  'Heap',                // 20
-  'Matrix',              // 20
-  'Linked List',         // 23
-  'DFS',                 // 23
   'Binary Search',       // 24
-  'Dynamic Programming', // 24
-  'Stack',               // 25
+  'Matrix',              // 20
   'Trees & BST',         // 37
+  'DFS',                 // 23
+  'Graphs',              // 5
+  'BFS',                 // 10
+  // ── Mid priority ─────────────────────────────────────────
+  'Linked List',         // 23
+  'Stack',               // 25
+  'Heap',                // 20
+  'Trie',                // 12
+  'Backtracking',        // 10
+  'Greedy',              // 6
+  // ── Low priority ─────────────────────────────────────────
+  'Dynamic Programming', // 24
+  'Bit Manipulation',    // 10
+  'Math',                // 12
+  'JavaScript',          // 7
 ] as const
