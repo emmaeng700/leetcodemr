@@ -215,19 +215,17 @@ function AnswersPageInner() {
         </div>
 
         {selected && (
-          <div className="flex items-center gap-2 flex-wrap mb-4">
-            <p className="text-xs text-gray-500">
-              Showing answers for{' '}
-              <span className="text-gray-300 font-semibold">
-                #{selected.id} {selected.title ?? selected.slug}
-              </span>
-            </p>
+          <p className="text-xs text-gray-500 mb-4 flex items-center gap-2 flex-wrap">
+            Showing answers for{' '}
+            <span className="text-gray-300 font-semibold">
+              #{selected.id} {selected.title ?? selected.slug}
+            </span>
             {(() => {
               const full = questions.find(q => q.id === selected.id)
               const p = getPatternForQuestion(full?.tags ?? selected.tags ?? [])
               return p ? <PriorityBadge pattern={p} /> : null
             })()}
-          </div>
+          </p>
         )}
 
         {selected ? (
