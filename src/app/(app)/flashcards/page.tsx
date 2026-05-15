@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Shuffle, RotateCcw, Layers, CheckCircle, Circle } from 'lucide-react'
 import { getFcVisited, addFcVisited, getProgress } from '@/lib/db'
 import { shuffle, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
-import { DIFFICULTY_LEVELS, DISPLAY_PATTERN_ORDER, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
+import { DIFFICULTY_LEVELS, DISPLAY_PATTERN_ORDER, QUESTION_SOURCES, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import QuestionImage from '@/components/QuestionImage'
@@ -66,12 +66,15 @@ function FlashcardsInner() {
     }
     return counts
   }, [all, exclusiveMapAll])
-  // Pattern filter buttons sorted ascending by question count (fewest first)
+  // Pattern filter buttons sorted by interview priority (High → Mid → Low)
   const sortedPatterns = useMemo(
     () => (QUICK_PATTERNS as unknown as { name: string; tags: readonly string[] }[])
       .slice()
-      .sort((a, b) => (patternCounts[a.name] ?? 0) - (patternCounts[b.name] ?? 0)),
-    [patternCounts]
+      .sort((a, b) =>
+        DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
+        DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
+      ),
+    []
   )
 
   useEffect(() => {
@@ -109,11 +112,15 @@ function FlashcardsInner() {
     if (isShuffled) {
       next = shuffle(filtered)
     } else {
-      // Sort by ascending pattern question-count, then by question ID within each pattern
+      // Sort by interview priority order, then by question ID within each pattern
       next = [...filtered].sort((a, b) => {
-        const ca = patternCounts[exclusiveMapAll[a.id]] ?? 999
-        const cb = patternCounts[exclusiveMapAll[b.id]] ?? 999
-        return ca !== cb ? ca - cb : a.id - b.id
+        const pa = exclusiveMapAll[a.id] ?? ''
+        const pb = exclusiveMapAll[b.id] ?? ''
+        const ia = DISPLAY_PATTERN_ORDER.indexOf(pa as typeof DISPLAY_PATTERN_ORDER[number])
+        const ib = DISPLAY_PATTERN_ORDER.indexOf(pb as typeof DISPLAY_PATTERN_ORDER[number])
+        const orderA = ia === -1 ? 999 : ia
+        const orderB = ib === -1 ? 999 : ib
+        return orderA !== orderB ? orderA - orderB : a.id - b.id
       })
     }
     setDeck(next)
@@ -363,10 +370,18 @@ function FlashcardsInner() {
           </button>
           {sortedPatterns.map(p => (
             <button key={p.name} onClick={() => setFilterPattern(filterPattern === p.name ? null : p.name)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
                 filterPattern === p.name ? 'bg-cyan-700 text-white border-cyan-500' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:border-cyan-500/50'
               }`}>
               {p.name}
+              {PATTERN_PRIORITY[p.name] && (
+                <span className={`text-[8px] font-black px-1 py-0.5 rounded border ${
+                  filterPattern === p.name ? 'bg-white/20 text-white border-white/30' :
+                  PATTERN_PRIORITY[p.name] === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                  PATTERN_PRIORITY[p.name] === 'Mid'  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                         'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                }`}>{PATTERN_PRIORITY[p.name]}</span>
+              )}
             </button>
           ))}
         </div>
