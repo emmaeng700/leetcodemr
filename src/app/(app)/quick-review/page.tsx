@@ -2,9 +2,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Pause, Play, SkipForward, RotateCcw, Zap, CheckCircle } from 'lucide-react'
 import { shuffle, stripScripts } from '@/lib/utils'
-import { DIFFICULTY_LEVELS, QUESTION_SOURCES } from '@/lib/constants'
+import { DIFFICULTY_LEVELS, DISPLAY_PATTERN_ORDER, QUESTION_SOURCES } from '@/lib/constants'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import PriorityBadge from '@/components/PriorityBadge'
+import { getPatternForQuestion } from '@/lib/patternUtils'
 import CodePanel from '@/components/CodePanel'
 import QuestionImage from '@/components/QuestionImage'
 
@@ -62,7 +65,16 @@ export default function QuickReviewPage() {
       if (plan?.question_order?.length) {
         setPlanOrder(plan.question_order)
       } else {
-        setPlanOrder((qs as Question[]).map((q: Question) => q.id))
+        // Sort by interview priority (DISPLAY_PATTERN_ORDER: High → Mid → Low)
+        const em = buildExclusivePatternMap(qs as Question[])
+        const sorted = (qs as Question[])
+          .slice()
+          .sort((a, b) => {
+            const pi = DISPLAY_PATTERN_ORDER.indexOf(em[a.id] as typeof DISPLAY_PATTERN_ORDER[number])
+            const qi = DISPLAY_PATTERN_ORDER.indexOf(em[b.id] as typeof DISPLAY_PATTERN_ORDER[number])
+            return (pi === -1 ? 999 : pi) - (qi === -1 ? 999 : qi)
+          })
+        setPlanOrder(sorted.map(q => q.id))
       }
       setLoading(false)
     })
@@ -353,6 +365,7 @@ export default function QuickReviewPage() {
                   {isQuestion ? '📖 Question' : '💡 Solution'}
                 </span>
                 <DifficultyBadge difficulty={q.difficulty} />
+                <PriorityBadge pattern={getPatternForQuestion(q.tags ?? []) ?? ''} />
                 <span className="text-xs text-[var(--text-subtle)] font-mono truncate hidden sm:inline">#{q.id} {q.title}</span>
               </div>
               <span className={`text-2xl font-black tabular-nums shrink-0 ml-3 ${
