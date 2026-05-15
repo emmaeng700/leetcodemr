@@ -34,6 +34,8 @@ import {
   type BlankPick,
 } from '@/lib/line-game/pickBlankLines'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import PriorityBadge from '@/components/PriorityBadge'
+import { getPatternForQuestion } from '@/lib/patternUtils'
 import LineGameCodeInput from '@/components/LineGameCodeInput'
 
 interface Question {
@@ -155,6 +157,7 @@ function LineGameQuestionPanel({
         <div className="flex flex-wrap items-center gap-2 min-w-0">
           <span className="text-xs text-gray-400 font-mono">#{question.id}</span>
           <DifficultyBadge difficulty={question.difficulty} />
+          <PriorityBadge pattern={getPatternForQuestion(question.tags ?? []) ?? ''} />
           <span className="text-sm font-bold text-indigo-700 truncate">{question.title}</span>
         </div>
         <a
