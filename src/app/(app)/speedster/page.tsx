@@ -121,7 +121,16 @@ export default function SpeedsterPage() {
           setPerDay(plan.per_day || 3)
           if (plan?.start_date) setPlanStartISO(String(plan.start_date))
         } else {
-          setPlanOrder((qs as Question[]).map(q => q.id))
+          // No study plan — sort by interview priority (DISPLAY_PATTERN_ORDER: High → Mid → Low)
+          const em = buildExclusivePatternMap(qs as Question[])
+          const sorted = (qs as Question[])
+            .slice()
+            .sort((a, b) => {
+              const pi = DISPLAY_PATTERN_ORDER.indexOf(em[a.id] as typeof DISPLAY_PATTERN_ORDER[number])
+              const qi = DISPLAY_PATTERN_ORDER.indexOf(em[b.id] as typeof DISPLAY_PATTERN_ORDER[number])
+              return (pi === -1 ? 999 : pi) - (qi === -1 ? 999 : qi)
+            })
+          setPlanOrder(sorted.map(q => q.id))
         }
       } catch (e) {
         console.error('[speedster] load failed:', e)
@@ -756,6 +765,7 @@ export default function SpeedsterPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs text-[var(--text-subtle)] font-mono">#{currentQ.id}</span>
                       <DifficultyBadge difficulty={currentQ.difficulty} />
+                      <PriorityBadge pattern={patternMap?.[currentQ.id] ?? ''} />
                       {(currentQ.source || []).map(s => (
                         <span key={s} className="text-xs bg-indigo-50  text-indigo-500  px-2 py-0.5 rounded-full border border-indigo-100 ">{s}</span>
                       ))}
@@ -1123,6 +1133,7 @@ export default function SpeedsterPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs text-[var(--text-subtle)] font-mono">#{currentQ.id}</span>
                       <DifficultyBadge difficulty={currentQ.difficulty} />
+                      <PriorityBadge pattern={patternMap?.[currentQ.id] ?? ''} />
                       {(currentQ.source || []).map(s => (
                         <span key={s} className="text-xs bg-indigo-50  text-indigo-500  px-2 py-0.5 rounded-full border border-indigo-100 ">{s}</span>
                       ))}
