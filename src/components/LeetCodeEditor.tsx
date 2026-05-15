@@ -364,6 +364,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [editorTheme, setTheme]      = useState<any>(null)
   const editorViewRef  = useRef<any>(null)
   const cursorPosRef   = useRef<{ from: number; to: number }>({ from: 0, to: 0 })
+  const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /* Bottom panel */
   const [bottomTab,        setBottomTab]        = useState<'testcase' | 'result'>('testcase')
@@ -645,14 +646,25 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           || 'python3'
         if (nextLang !== lang) setLang(nextLang)
         const raw = q.codeSnippets?.find(s => s.langSlug === nextLang)?.code ?? ''
-        setCode(raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\t/g, '    '))
+        const starter = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\t/g, '    ')
+        // Restore in-progress draft if the user had one; fall back to LeetCode starter code
+        const savedDraft = typeof window !== 'undefined' ? localStorage.getItem(`lm_draft_${appQuestionId}_${nextLang}`) : null
+        setCode(savedDraft ?? starter)
       })
       .catch(e => setLcErr(String(e)))
       .finally(() => setLcLoad(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lcSlug, retryKey, sessionReady, session, effectiveCsrf, fetchQuestionPayload])
 
-  const handleCodeChange = (val: string) => setCode(val)
+  const handleCodeChange = (val: string) => {
+    setCode(val)
+    // Persist draft to localStorage so switching tabs / navigating away doesn't lose work.
+    // Cleared explicitly on Reset or Accepted submission.
+    if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current)
+    draftSaveTimer.current = setTimeout(() => {
+      try { localStorage.setItem(`lm_draft_${appQuestionId}_${lang}`, val) } catch { /* ignore quota errors */ }
+    }, 400)
+  }
 
   // Normalize code from LeetCode: \r\n → \n, tabs → 4 spaces.
   // Design questions often have mixed line endings / tab indentation
@@ -664,6 +676,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     if (!lcQ) return
     const raw = lcQ.codeSnippets?.find(s => s.langSlug === lang)?.code ?? ''
     const starter = normalizeCode(raw)
+    // Clear the saved draft — user explicitly reset or got Accepted (they like the clean slate)
+    try { localStorage.removeItem(`lm_draft_${appQuestionId}_${lang}`) } catch { /* ignore */ }
     setCode(starter)
     setEditorResetKey(k => k + 1)
     const view = editorViewRef.current
@@ -683,7 +697,11 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
   const switchLang = (l: SupportedLang) => {
     setLang(l)
-    if (lcQ) setCode(normalizeCode(lcQ.codeSnippets?.find(s => s.langSlug === l)?.code ?? ''))
+    if (lcQ) {
+      const starter = normalizeCode(lcQ.codeSnippets?.find(s => s.langSlug === l)?.code ?? '')
+      const savedDraft = typeof window !== 'undefined' ? localStorage.getItem(`lm_draft_${appQuestionId}_${l}`) : null
+      setCode(savedDraft ?? starter)
+    }
     setResult(null)
   }
 
