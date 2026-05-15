@@ -68,6 +68,8 @@ function TokenCleaner({ onSaved }: { onSaved: (item: ClipItem) => void }) {
         setRaw('')
         setCleaned('')
         toast.success('Token saved!')
+      } else if (res.status === 409 && d.error === 'duplicate') {
+        toast.error('This token is already saved — no duplicate added.')
       } else {
         toast.error(d.error ?? 'Could not save')
       }

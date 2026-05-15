@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation'
 import { RefreshCw, CheckCircle, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getDailyReviewCapChicago, getDueReviews, getProgress, getStudyPlan, completeReview } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import PriorityBadge from '@/components/PriorityBadge'
+import { getPatternForQuestion } from '@/lib/patternUtils'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 
@@ -34,6 +36,7 @@ function QuestionRow({ q, p, urgency, completing, onDone }: {
           <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
           <Link href={`/practice/${q.id}`} className="font-semibold text-sm text-[var(--text)] hover:text-indigo-500 truncate transition-colors">{q.title}</Link>
           <DifficultyBadge difficulty={q.difficulty} />
+          <PriorityBadge pattern={getPatternForQuestion(q.tags ?? []) ?? ''} />
         </div>
         <div className="flex items-center gap-3 mt-0.5 text-[11px] flex-wrap">
           <span className="text-[var(--text-subtle)]">Review #{(p.review_count ?? 0) + 1}</span>

@@ -33,6 +33,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'content required' }, { status: 400 })
   }
 
+  // Reject duplicate tokens — same content already saved as a token
+  if (is_token === true) {
+    const { data: existing } = await supabase
+      .from('clipboard_items')
+      .select('id')
+      .eq('user_id', USER_ID)
+      .eq('is_token', true)
+      .eq('content', content.trim())
+      .maybeSingle()
+    if (existing) {
+      return NextResponse.json({ error: 'duplicate', message: 'This token is already saved' }, { status: 409 })
+    }
+  }
+
   const { data, error } = await supabase
     .from('clipboard_items')
     .insert({ user_id: USER_ID, label: (label ?? '').trim(), content: content.trim(), is_token: is_token === true })
