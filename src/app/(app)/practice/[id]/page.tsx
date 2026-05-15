@@ -11,6 +11,7 @@ import DescriptionRenderer from '@/components/DescriptionRenderer'
 import { getPatternForQuestion } from '@/lib/patternUtils'
 import { checkAndRecordBreather } from '@/lib/breatherUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import PriorityBadge from '@/components/PriorityBadge'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import toast from 'react-hot-toast'
@@ -445,6 +446,7 @@ export default function PracticePage() {
             <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0 hidden sm:inline">#{question.id}</span>
             <h1 className="min-w-0 flex-1 font-bold text-[var(--text)] text-sm leading-snug break-words">{question.title}</h1>
             <div className="shrink-0"><DifficultyBadge difficulty={question.difficulty} /></div>
+            <PriorityBadge pattern={getPatternForQuestion(question.tags ?? []) ?? ''} />
             <a
               href={leetCodeUrl(lcTitleSlug)}
               target="_blank"
@@ -646,6 +648,7 @@ export default function PracticePage() {
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
           <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🧩</span>
           <span className="text-xs font-semibold text-[var(--text)]">{p}</span>
+          <PriorityBadge pattern={p} />
           {usesThreeSolveGate && (
             <span className="ml-auto text-[11px] font-bold text-cyan-700 shrink-0">
               {isDailyMode ? 'Daily' : isImbibitionMode ? 'Imbibition' : isEarlyReview ? 'Early' : 'Review'} {Math.min(modeRuns[String(question.id)] ?? 0, 3)}/3
