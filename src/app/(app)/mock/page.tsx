@@ -7,10 +7,11 @@ import {
 } from 'lucide-react'
 import { getProgress, updateProgress, getMockSessions, saveMockSession, type MockSessionRecord } from '@/lib/db'
 import { formatTime, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
-import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import PriorityBadge from '@/components/PriorityBadge'
 import CodePanel from '@/components/CodePanel'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
@@ -300,14 +301,7 @@ export default function MockInterviewPage() {
               <button key={p.name} onClick={() => setSelectedPattern(selectedPattern === p.name ? null : p.name)}
                 className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${selectedPattern === p.name ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-300'}`}>
                 {p.name}
-                {PATTERN_PRIORITY[p.name] && (
-                  <span className={`text-[8px] font-black px-1 py-0.5 rounded border ${
-                    selectedPattern === p.name ? 'bg-white/20 text-white border-white/30' :
-                    PATTERN_PRIORITY[p.name] === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                    PATTERN_PRIORITY[p.name] === 'Mid'  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                                                           'bg-gray-500/10 text-gray-400 border-gray-500/20'
-                  }`}>{PATTERN_PRIORITY[p.name]}</span>
-                )}
+                <PriorityBadge pattern={p.name} active={selectedPattern === p.name} />
               </button>
             ))}
           </div>

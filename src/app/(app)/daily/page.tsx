@@ -9,9 +9,10 @@ import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, Che
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount, syncStreakActivityFromGoals } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
 import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
-import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import PriorityBadge from '@/components/PriorityBadge'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
@@ -630,14 +631,7 @@ export default function DailyPage() {
                     }`}
                   >
                     {i + 1}. {p.name}
-                    {PATTERN_PRIORITY[p.name] && (
-                      <span className={`text-[8px] font-black px-1 py-0.5 rounded border ${
-                        startFromPattern === p.name ? 'bg-white/20 text-white border-white/30' :
-                        PATTERN_PRIORITY[p.name] === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                        PATTERN_PRIORITY[p.name] === 'Mid'  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                                                               'bg-gray-500/10 text-gray-400 border-gray-500/20'
-                      }`}>{PATTERN_PRIORITY[p.name]}</span>
-                    )}
+                    <PriorityBadge pattern={p.name} active={startFromPattern === p.name} />
                   </button>
                 ))}
               </div>
@@ -983,15 +977,7 @@ export default function DailyPage() {
                   }`}
                 >
                   {p.name}
-                  {PATTERN_PRIORITY[p.name] && (
-                    <span className={`text-[8px] font-black px-1 py-0.5 rounded border ${
-                      active ? 'bg-white/20 text-white border-white/30' :
-                      unsolved === 0 ? 'bg-green-500/10 text-green-500 border-green-500/20' :
-                      PATTERN_PRIORITY[p.name] === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                      PATTERN_PRIORITY[p.name] === 'Mid'  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                                                             'bg-gray-500/10 text-gray-400 border-gray-500/20'
-                    }`}>{PATTERN_PRIORITY[p.name]}</span>
-                  )}
+                  <PriorityBadge pattern={p.name} active={active} />
                   {unsolved > 0 && <span className={`ml-0.5 ${active ? 'text-purple-200' : 'text-[var(--text-subtle)]'}`}>({unsolved})</span>}
                 </button>
               )

@@ -7,7 +7,8 @@ import { getMasteryRunsByQuestion, getProgress, getDueReviews, completeReview } 
 import { isDue, formatLocalDate } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
-import { DISPLAY_PATTERN_ORDER, PATTERN_PRIORITY } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER } from '@/lib/constants'
+import PriorityBadge from '@/components/PriorityBadge'
 import { Brain, CheckCircle, Clock, CalendarCheck, Flame, Trophy, TrendingUp, Home } from 'lucide-react'
 
 interface Question {
@@ -106,13 +107,7 @@ function StatusBucket({
                 <p className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wider">
                   {pattern} · {items.length}
                 </p>
-                {PATTERN_PRIORITY[pattern] && (
-                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full border ${
-                    PATTERN_PRIORITY[pattern] === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                    PATTERN_PRIORITY[pattern] === 'Mid'  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                                                           'bg-gray-500/10 text-gray-400 border-gray-500/20'
-                  }`}>{PATTERN_PRIORITY[pattern]}</span>
-                )}
+                <PriorityBadge pattern={pattern} />
               </div>
               <div className="space-y-1.5">
                 {visible.map(q => (

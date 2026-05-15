@@ -4,9 +4,10 @@ import { useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Shuffle, RotateCcw, Layers, CheckCircle, Circle } from 'lucide-react'
 import { getFcVisited, addFcVisited, getProgress } from '@/lib/db'
 import { shuffle, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
-import { DIFFICULTY_LEVELS, DISPLAY_PATTERN_ORDER, QUESTION_SOURCES, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
+import { DIFFICULTY_LEVELS, DISPLAY_PATTERN_ORDER, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import PriorityBadge from '@/components/PriorityBadge'
 import QuestionImage from '@/components/QuestionImage'
 import BestAnswersDeck from '@/components/BestAnswersDeck'
 
@@ -374,14 +375,7 @@ function FlashcardsInner() {
                 filterPattern === p.name ? 'bg-cyan-700 text-white border-cyan-500' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:border-cyan-500/50'
               }`}>
               {p.name}
-              {PATTERN_PRIORITY[p.name] && (
-                <span className={`text-[8px] font-black px-1 py-0.5 rounded border ${
-                  filterPattern === p.name ? 'bg-white/20 text-white border-white/30' :
-                  PATTERN_PRIORITY[p.name] === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                  PATTERN_PRIORITY[p.name] === 'Mid'  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                                                         'bg-gray-500/10 text-gray-400 border-gray-500/20'
-                }`}>{PATTERN_PRIORITY[p.name]}</span>
-              )}
+              <PriorityBadge pattern={p.name} active={filterPattern === p.name} />
             </button>
           ))}
         </div>
