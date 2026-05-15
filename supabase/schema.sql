@@ -165,6 +165,15 @@ CREATE TABLE IF NOT EXISTS ac_submit_counts (
   PRIMARY KEY (user_id, question_id)
 );
 
+-- Clipboard items (cross-device scratchpad for pasting sensitive strings)
+CREATE TABLE IF NOT EXISTS clipboard_items (
+  id         SERIAL PRIMARY KEY,
+  user_id    TEXT        NOT NULL DEFAULT 'emmanuel',
+  label      TEXT        NOT NULL DEFAULT '',
+  content    TEXT        NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ          DEFAULT NOW()
+);
+
 -- Best solutions (user's manually marked "Make Best Solution" for each question)
 CREATE TABLE IF NOT EXISTS best_solutions (
   user_id TEXT NOT NULL DEFAULT 'emmanuel',

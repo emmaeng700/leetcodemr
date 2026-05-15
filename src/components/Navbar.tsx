@@ -7,7 +7,7 @@ import {
   Menu, X, LogOut, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
   Calendar, Info, Timer, Code2, Zap, Gauge, Gamepad2, RefreshCw, Library,
-  BookOpen, Swords, Rocket, Download, Bookmark,
+  BookOpen, Swords, Rocket, Download, Bookmark, ClipboardList,
 } from 'lucide-react'
 
 const STARRED_LINKS = [
@@ -17,6 +17,7 @@ const STARRED_LINKS = [
   { href: '/imbibition',      label: '★ Imbibition',      icon: BookOpen },
   { href: '/pattern-review',  label: '★ Pattern Review',  icon: BookOpen },
   { href: '/best-solutions',  label: '★ My Best',         icon: Bookmark },
+  { href: '/clipboard',       label: '★ Clipboard',       icon: ClipboardList },
   { href: '/downloads',       label: '★ Downloads',       icon: Download },
 ]
 const STUDY_LINKS = [
