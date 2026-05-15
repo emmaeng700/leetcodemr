@@ -8,7 +8,7 @@ import {
 import { getProgress, updateProgress, getMockSessions, saveMockSession, type MockSessionRecord } from '@/lib/db'
 import { formatTime, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
-import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { buildExclusivePatternMap, getPatternForQuestion } from '@/lib/patternUtils'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
@@ -375,6 +375,7 @@ export default function MockInterviewPage() {
         <div className="hidden sm:flex items-center gap-2 shrink-0">
           <span className="text-xs text-[var(--text-muted)] font-mono">#{question.id}</span>
           <DifficultyBadge difficulty={question.difficulty} />
+          <PriorityBadge pattern={getPatternForQuestion(question.tags ?? []) ?? ''} />
           <a href={leetCodeUrl(resolveLeetCodeSlug(question.id, question.slug))} target="_blank" rel="noopener noreferrer"
             className="text-[var(--text-subtle)] hover:text-orange-400 transition-colors"><ExternalLink size={12} /></a>
         </div>
@@ -528,6 +529,7 @@ export default function MockInterviewPage() {
           <div className="bg-[var(--bg-muted)] rounded-xl p-3 text-left">
             <div className="flex items-center gap-2 flex-wrap">
               <DifficultyBadge difficulty={question.difficulty} />
+              <PriorityBadge pattern={getPatternForQuestion(question.tags ?? []) ?? ''} />
               <span className="text-sm font-semibold text-[var(--text)]">{question.title}</span>
             </div>
             {sessions[0] && (
