@@ -7,6 +7,7 @@ import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { getProgress } from '@/lib/db'
 import { ensureImbibitionIsolationMigration, getImbibitionRunsByQuestion, resetImbibitionRuns } from '@/lib/imbibitionRuns'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import PriorityBadge from '@/components/PriorityBadge'
 import toast from 'react-hot-toast'
 
 // ─── Level definitions ────────────────────────────────────────────────────────
@@ -396,6 +397,7 @@ export default function ImbibitionPage() {
                 >
                   {isMax && <span>👑</span>}
                   <span className="max-w-[10rem] truncate">{row.pattern}</span>
+                  <PriorityBadge pattern={row.pattern} />
                   <span className="opacity-60">·</span>
                   <span>Lv {lv}</span>
                   <span className="opacity-70 font-normal">{name}</span>
@@ -430,6 +432,7 @@ export default function ImbibitionPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h2 className="text-sm sm:text-base font-bold text-[var(--text)]">{row.pattern}</h2>
+                      <PriorityBadge pattern={row.pattern} />
                       {/* Level badge */}
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${colours.bg} ${colours.text} ${colours.border}`}>
                         {isMax ? '👑 ' : ''}Lv {currentLevel} · {levelName}
