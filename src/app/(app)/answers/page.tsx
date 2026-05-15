@@ -4,8 +4,10 @@ import { useSearchParams } from 'next/navigation'
 import { Loader2, Search } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { getOpenQuestionContext, setOpenQuestionContext } from '@/lib/openQuestionContext'
+import PriorityBadge from '@/components/PriorityBadge'
+import { getPatternForQuestion } from '@/lib/patternUtils'
 
-type QuestionRow = { id: number; slug: string; title?: string }
+type QuestionRow = { id: number; slug: string; title?: string; tags?: string[] }
 
 const SEARCH_Q = `query($q:String!){problemsetQuestionListV2(categorySlug:"",limit:15,skip:0,searchKeyword:$q,filters:{filterCombineType:ALL}){questions{titleSlug title questionFrontendId}}}`
 
@@ -213,12 +215,19 @@ function AnswersPageInner() {
         </div>
 
         {selected && (
-          <p className="text-xs text-gray-500 mb-4">
-            Showing answers for{' '}
-            <span className="text-gray-300 font-semibold">
-              #{selected.id} {selected.title ?? selected.slug}
-            </span>
-          </p>
+          <div className="flex items-center gap-2 flex-wrap mb-4">
+            <p className="text-xs text-gray-500">
+              Showing answers for{' '}
+              <span className="text-gray-300 font-semibold">
+                #{selected.id} {selected.title ?? selected.slug}
+              </span>
+            </p>
+            {(() => {
+              const full = questions.find(q => q.id === selected.id)
+              const p = getPatternForQuestion(full?.tags ?? selected.tags ?? [])
+              return p ? <PriorityBadge pattern={p} /> : null
+            })()}
+          </div>
         )}
 
         {selected ? (
