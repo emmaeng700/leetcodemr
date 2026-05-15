@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useMemo, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp, RotateCcw, RefreshCw } from 'lucide-react'
-import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 
 const ORDERED_QUICK_PATTERNS = QUICK_PATTERNS
@@ -357,7 +357,16 @@ function PatternCoverageGrid({ questions, progress }: { questions: Question[]; p
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-[var(--text)] truncate">{p.name}</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-xs font-semibold text-[var(--text)] truncate">{p.name}</span>
+                      {PATTERN_PRIORITY[p.name] && (
+                        <span className={`shrink-0 text-[8px] font-black px-1 py-0.5 rounded border ${
+                          PATTERN_PRIORITY[p.name] === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                          PATTERN_PRIORITY[p.name] === 'Mid'  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                                 'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                        }`}>{PATTERN_PRIORITY[p.name]}</span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span className="text-[11px] font-mono text-[var(--text-subtle)]">{p.solved}/{p.total}</span>
                       <span className={`text-[11px] font-bold ${pctColor}`}>{p.pct}%</span>

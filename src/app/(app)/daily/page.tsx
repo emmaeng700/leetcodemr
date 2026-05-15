@@ -9,7 +9,7 @@ import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, Che
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount, syncStreakActivityFromGoals } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
 import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
-import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import toast from 'react-hot-toast'
@@ -623,13 +623,21 @@ export default function DailyPage() {
                   <button
                     key={p.name}
                     onClick={() => setStartFromPattern(startFromPattern === p.name ? null : p.name)}
-                    className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
                       startFromPattern === p.name
                         ? 'bg-violet-600 text-white border-violet-600'
                         : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-violet-400'
                     }`}
                   >
                     {i + 1}. {p.name}
+                    {PATTERN_PRIORITY[p.name] && (
+                      <span className={`text-[8px] font-black px-1 py-0.5 rounded border ${
+                        startFromPattern === p.name ? 'bg-white/20 text-white border-white/30' :
+                        PATTERN_PRIORITY[p.name] === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                        PATTERN_PRIORITY[p.name] === 'Mid'  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                               'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                      }`}>{PATTERN_PRIORITY[p.name]}</span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -975,6 +983,15 @@ export default function DailyPage() {
                   }`}
                 >
                   {p.name}
+                  {PATTERN_PRIORITY[p.name] && (
+                    <span className={`text-[8px] font-black px-1 py-0.5 rounded border ${
+                      active ? 'bg-white/20 text-white border-white/30' :
+                      unsolved === 0 ? 'bg-green-500/10 text-green-500 border-green-500/20' :
+                      PATTERN_PRIORITY[p.name] === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                      PATTERN_PRIORITY[p.name] === 'Mid'  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                             'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                    }`}>{PATTERN_PRIORITY[p.name]}</span>
+                  )}
                   {unsolved > 0 && <span className={`ml-0.5 ${active ? 'text-purple-200' : 'text-[var(--text-subtle)]'}`}>({unsolved})</span>}
                 </button>
               )

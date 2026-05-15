@@ -10,7 +10,7 @@ import LeetCodeEditor from '@/components/LeetCodeEditor'
 import QuestionImage from '@/components/QuestionImage'
 import BestAnswersDeck from '@/components/BestAnswersDeck'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { DISPLAY_PATTERN_ORDER, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUESTION_SOURCES, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdropDense, listDropdownMobilePanelViewportOnly } from '@/lib/listDropdownUi'
@@ -384,10 +384,18 @@ export default function SpeedsterPage() {
         </button>
         {orderedPatterns.map(p => (
           <button key={p.name} onClick={() => setFilterPattern(filterPattern === p.name ? null : p.name)} style={{ touchAction: 'manipulation' }}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
               filterPattern === p.name ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'
             }`}>
             {p.name}
+            {PATTERN_PRIORITY[p.name] && (
+              <span className={`text-[8px] font-black px-1 py-0.5 rounded border ${
+                filterPattern === p.name ? 'bg-white/20 text-white border-white/30' :
+                PATTERN_PRIORITY[p.name] === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                PATTERN_PRIORITY[p.name] === 'Mid'  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                       'bg-gray-500/10 text-gray-400 border-gray-500/20'
+              }`}>{PATTERN_PRIORITY[p.name]}</span>
+            )}
           </button>
         ))}
       </div>

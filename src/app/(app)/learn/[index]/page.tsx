@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { getProgress, updateProgress, completeReview, failReview, getMasteryRunsByQuestion, addMasteryRunEvent, resetMasteryRuns } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
-import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import { isDue, formatLocalDate, nextIntervalDays, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
@@ -815,6 +815,14 @@ function LearnInner() {
                   }}
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${isActive ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'}`}>
                   <span>{p.name}</span>
+                  {PATTERN_PRIORITY[p.name] && (
+                    <span className={`text-[8px] font-black px-1 py-0.5 rounded border ${
+                      isActive ? 'bg-white/20 text-white border-white/30' :
+                      PATTERN_PRIORITY[p.name] === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                      PATTERN_PRIORITY[p.name] === 'Mid'  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                             'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                    }`}>{PATTERN_PRIORITY[p.name]}</span>
+                  )}
                   {pp.total > 0 && (
                     <span className={`font-mono text-[10px] ${isActive ? 'text-white/70' : 'text-gray-400'}`}>
                       {pp.solved}/{pp.total}
