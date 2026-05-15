@@ -4,6 +4,29 @@ import Link from 'next/link'
 import { CheckCircle, Circle, ChevronDown, ChevronUp, Search, ExternalLink } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
 import { NEETCODE_150, type NC150Category } from '@/lib/neetcode150'
+import PriorityBadge from '@/components/PriorityBadge'
+
+// Maps NeetCode category names → our PATTERN_PRIORITY keys
+const NC_PATTERN_MAP: Record<string, string> = {
+  'Arrays & Hashing':        'Arrays & Hashing',
+  'Two Pointers':             'Two Pointers',
+  'Sliding Window':           'Sliding Window',
+  'Stack':                    'Stack',
+  'Binary Search':            'Binary Search',
+  'Linked List':              'Linked List',
+  'Trees':                    'Trees & BST',
+  'Heap / Priority Queue':    'Heap',
+  'Backtracking':             'Backtracking',
+  'Tries':                    'Trie',
+  'Graphs':                   'Graphs',
+  'Advanced Graphs':          'Graphs',
+  '1-D Dynamic Programming':  'Dynamic Programming',
+  '2-D Dynamic Programming':  'Dynamic Programming',
+  'Greedy':                   'Greedy',
+  'Intervals':                'Sorting',
+  'Math & Geometry':          'Math',
+  'Bit Manipulation':         'Bit Manipulation',
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -200,6 +223,7 @@ export default function NeetCode150Page() {
                   <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${CAT_COLOR[cat.color]}`}>
                     {cat.name}
                   </span>
+                  <PriorityBadge pattern={NC_PATTERN_MAP[cat.name] ?? ''} />
                   <div className="flex-1 flex items-center gap-2 ml-1">
                     <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
                       <div
