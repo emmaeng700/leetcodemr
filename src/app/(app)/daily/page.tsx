@@ -159,6 +159,7 @@ export default function DailyPage() {
   // Setup form
   const [startDate, setStartDate] = useState(todayISO())
   const [perDay, setPerDay] = useState(3)
+  const [perDayStr, setPerDayStr] = useState('3')
   const [planCode, setPlanCode] = useState('')
   const [generating, setGenerating] = useState(false)
   const [startFromPattern, setStartFromPattern] = useState<string | null>(null)
@@ -187,6 +188,7 @@ export default function DailyPage() {
   // Change pace
   const [showChangePace, setShowChangePace] = useState(false)
   const [newPerDay, setNewPerDay] = useState(5)
+  const [newPerDayStr, setNewPerDayStr] = useState('5')
   const [savingPace, setSavingPace] = useState(false)
 
   // Past days (accordion per day + global “show more” for long plans)
@@ -405,13 +407,14 @@ export default function DailyPage() {
   }
 
   async function handleChangePace() {
-    if (!plan || newPerDay < 1 || newPerDay > 50) return
+    const val = Math.max(1, Math.min(50, parseInt(newPerDayStr) || newPerDay))
+    if (!plan || val < 1 || val > 50) return
     setSavingPace(true)
-    const ok = await saveStudyPlan({ ...plan, per_day: newPerDay, mode: activePlanMode })
+    const ok = await saveStudyPlan({ ...plan, per_day: val, mode: activePlanMode })
     if (ok) {
-      setPlan({ ...plan, per_day: newPerDay })
+      setPlan({ ...plan, per_day: val })
       setShowChangePace(false)
-      toast.success(`Pace updated to ${newPerDay}/day!`)
+      toast.success(`Pace updated to ${val}/day!`)
     } else {
       toast.error('Failed to update pace.')
     }
@@ -533,10 +536,10 @@ export default function DailyPage() {
             <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">Questions per day</label>
               <div className="flex gap-2 flex-wrap">
-                {[1, 2, 3, 5, 7].map(n => (
+                {[1, 2, 3, 4, 5, 6, 7].map(n => (
                   <button
                     key={n}
-                    onClick={() => setPerDay(n)}
+                    onClick={() => { setPerDay(n); setPerDayStr(String(n)) }}
                     className={`w-10 h-10 rounded-xl text-sm font-bold border-2 transition-colors ${
                       perDay === n ? 'bg-indigo-600 text-white border-indigo-600' : 'border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-400'
                     }`}
@@ -546,10 +549,16 @@ export default function DailyPage() {
                 ))}
                 <input
                   type="number"
+                  inputMode="numeric"
                   min="1"
                   max="20"
-                  value={perDay}
-                  onChange={e => setPerDay(Math.max(1, parseInt(e.target.value) || 1))}
+                  value={perDayStr}
+                  onChange={e => setPerDayStr(e.target.value)}
+                  onBlur={() => {
+                    const v = Math.max(1, Math.min(20, parseInt(perDayStr) || 1))
+                    setPerDay(v)
+                    setPerDayStr(String(v))
+                  }}
                   className="w-16 px-2 py-1.5 border-2 border-[var(--border)] rounded-xl text-sm text-center text-[var(--text)] bg-[var(--bg-input)] focus:outline-none focus:border-indigo-400"
                 />
               </div>
@@ -787,7 +796,7 @@ export default function DailyPage() {
             Reps: {repsPerQ}×
           </button>
           <button
-            onClick={() => { setShowChangePace(v => !v); setNewPerDay(plan.per_day) }}
+            onClick={() => { setShowChangePace(v => !v); setNewPerDay(plan.per_day); setNewPerDayStr(String(plan.per_day)) }}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--text-subtle)] border border-[var(--border)] rounded-lg hover:bg-[var(--bg-muted)] transition-colors"
           >
             Pace: {plan.per_day}/day
@@ -809,10 +818,16 @@ export default function DailyPage() {
           <div className="flex flex-wrap gap-2 items-center">
             <input
               type="number"
+              inputMode="numeric"
               min={1}
               max={50}
-              value={newPerDay}
-              onChange={e => setNewPerDay(Math.max(1, Math.min(50, Number(e.target.value))))}
+              value={newPerDayStr}
+              onChange={e => setNewPerDayStr(e.target.value)}
+              onBlur={() => {
+                const v = Math.max(1, Math.min(50, parseInt(newPerDayStr) || 1))
+                setNewPerDay(v)
+                setNewPerDayStr(String(v))
+              }}
               onKeyDown={e => e.key === 'Enter' && handleChangePace()}
               className="w-20 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-input)] text-[var(--text)] text-sm focus:outline-none focus:border-indigo-400"
             />
