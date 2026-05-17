@@ -247,7 +247,7 @@ function FlashcardsInner() {
             {deck.length === 0 ? '0 / 0' : `${idx + 1} / ${deck.length}`}
           </span>
           <span className="bg-green-50  text-green-600  border border-green-200  px-3 py-1.5 rounded-full flex items-center gap-1">
-            <CheckCircle size={11} /> {sessionSeen.size}/{deck.length} seen
+            <CheckCircle size={11} /> {deck.filter(dq => visited.has(dq.id)).length}/{deck.length} visited
           </span>
           <button
             onClick={() => setIsShuffled(s => !s)}
