@@ -81,7 +81,7 @@ function FlashcardsInner() {
     []
   )
   // Learn page default order — used to compute the right /learn/{idx} URL
-  const learnOrderedIds = useMemo(() => defaultStudyQuestionOrder(all).map(q => q.id), [all])
+  const learnOrderedIds = useMemo(() => defaultStudyQuestionOrder(all), [all])
 
   useEffect(() => {
     async function load() {
