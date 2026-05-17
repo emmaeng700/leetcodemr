@@ -393,6 +393,56 @@ function FlashcardsInner() {
 
       {q && (
         <>
+          {/* Navigation — above the card so always visible */}
+          <div className="flex items-center justify-between mb-3">
+            <button
+              onClick={() => go(-1)}
+              disabled={idx === 0}
+              className="flex items-center gap-1 px-3 sm:px-5 py-2.5 rounded-xl bg-[var(--bg-muted)] border border-[var(--border)] text-sm font-semibold text-[var(--text-muted)] hover:border-indigo-500/50 hover:text-indigo-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft size={16} /> Prev
+            </button>
+
+            {/* Progress dots / counter */}
+            <div className="flex items-center gap-1.5 overflow-x-auto max-w-[160px] sm:max-w-none">
+              {deck.length <= 15 ? (
+                deck.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setIdx(i); setFlipped(false) }}
+                    className={`rounded-full transition-all ${
+                      i === idx ? 'w-4 h-4 bg-indigo-500' : 'w-3 h-3 bg-[var(--bg-muted)] hover:brightness-125'
+                    }`}
+                  />
+                ))
+              ) : (
+                <span className="text-xs text-[var(--text-subtle)] font-mono">{idx + 1} / {deck.length}</span>
+              )}
+            </div>
+
+            <button
+              onClick={() => go(1)}
+              disabled={idx === deck.length - 1}
+              className="flex items-center gap-1 px-3 sm:px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Next <ChevronRight size={16} />
+            </button>
+          </div>
+
+          {/* Code it — jump to this question in Learn for /3 submissions */}
+          {(() => {
+            const learnIdx = learnOrderedIds.indexOf(q.id)
+            const href = learnIdx >= 0 ? `/learn/${learnIdx}?from=flashcards` : `/learn/0?from=flashcards`
+            return (
+              <Link
+                href={href}
+                className="mb-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-indigo-300 text-indigo-600 text-sm font-semibold hover:bg-indigo-50 transition-colors"
+              >
+                <Code2 size={15} /> Code it →
+              </Link>
+            )
+          })()}
+
           {/* Card */}
           <div
             onClick={handleFlip}
@@ -506,55 +556,6 @@ function FlashcardsInner() {
             )}
           </div>
 
-          {/* Navigation */}
-          <div className="flex items-center justify-between mt-5">
-            <button
-              onClick={() => go(-1)}
-              disabled={idx === 0}
-              className="flex items-center gap-1 px-3 sm:px-5 py-2.5 rounded-xl bg-[var(--bg-muted)] border border-[var(--border)] text-sm font-semibold text-[var(--text-muted)] hover:border-indigo-500/50 hover:text-indigo-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronLeft size={16} /> Prev
-            </button>
-
-            {/* Progress dots */}
-            <div className="flex items-center gap-1.5 overflow-x-auto max-w-[160px] sm:max-w-none">
-              {deck.length <= 15 ? (
-                deck.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => { setIdx(i); setFlipped(false) }}
-                    className={`rounded-full transition-all ${
-                      i === idx ? 'w-4 h-4 bg-indigo-500' : 'w-3 h-3 bg-[var(--bg-muted)] hover:brightness-125'
-                    }`}
-                  />
-                ))
-              ) : (
-                <span className="text-xs text-[var(--text-subtle)] font-mono">{idx + 1} / {deck.length}</span>
-              )}
-            </div>
-
-            <button
-              onClick={() => go(1)}
-              disabled={idx === deck.length - 1}
-              className="flex items-center gap-1 px-3 sm:px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              Next <ChevronRight size={16} />
-            </button>
-          </div>
-
-          {/* Code it — jump to this question in Learn for /3 submissions */}
-          {(() => {
-            const learnIdx = learnOrderedIds.indexOf(q.id)
-            const href = learnIdx >= 0 ? `/learn/${learnIdx}?from=flashcards` : `/learn/0?from=flashcards`
-            return (
-              <Link
-                href={href}
-                className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-indigo-300 text-indigo-600 text-sm font-semibold hover:bg-indigo-50 transition-colors"
-              >
-                <Code2 size={15} /> Code it →
-              </Link>
-            )
-          })()}
         </>
       )}
     </div>
