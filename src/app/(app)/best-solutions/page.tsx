@@ -326,6 +326,7 @@ export default function BestSolutionsPage() {
   )
 
   const sortedQuestions = useMemo(() => {
+    const DIFF_RANK: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
     return [...questions].sort((a, b) => {
       const pa = patternMap[a.id] ?? ''
       const pb = patternMap[b.id] ?? ''
@@ -334,7 +335,9 @@ export default function BestSolutionsPage() {
       const ra = ia === -1 ? 999 : ia
       const rb = ib === -1 ? 999 : ib
       if (ra !== rb) return ra - rb
-      return a.id - b.id
+      const da = DIFF_RANK[a.difficulty] ?? 1
+      const db = DIFF_RANK[b.difficulty] ?? 1
+      return da !== db ? da - db : a.id - b.id
     })
   }, [questions, patternMap])
 

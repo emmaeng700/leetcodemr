@@ -67,10 +67,14 @@ export default function QuickReviewPage() {
         ? plan.question_order
         : (qs as Question[]).map(q => q.id)
       const em = buildExclusivePatternMap(qs as Question[])
+      const diffMap: Record<number, string> = Object.fromEntries((qs as Question[]).map(q => [q.id, q.difficulty]))
+      const DIFF_RANK: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
       const sorted = rawIds.slice().sort((a, b) => {
         const ia = DISPLAY_PATTERN_ORDER.indexOf(em[a] as typeof DISPLAY_PATTERN_ORDER[number])
         const ib = DISPLAY_PATTERN_ORDER.indexOf(em[b] as typeof DISPLAY_PATTERN_ORDER[number])
-        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib)
+        const ra = (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib)
+        if (ra !== 0) return ra
+        return (DIFF_RANK[diffMap[a]] ?? 1) - (DIFF_RANK[diffMap[b]] ?? 1)
       })
       setPlanOrder(sorted)
       setLoading(false)
