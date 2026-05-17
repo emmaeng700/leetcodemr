@@ -118,6 +118,7 @@ function LearnInner() {
   const initTags    = initTagsRaw ? initTagsRaw.split(',') : []
   const initSolvedParam = searchParams.get('solved')
   const initSolved: null | boolean = initSolvedParam === 'true' ? true : initSolvedParam === 'false' ? false : null
+  const fromFlashcards = searchParams.get('from') === 'flashcards'
 
   const [questions, setQuestions]   = useState<Question[]>([])
   const [planOrder, setPlanOrder]   = useState<number[]>([])
@@ -632,6 +633,17 @@ function LearnInner() {
           title="Back to questions">
           <ChevronLeft size={15} />
         </button>
+
+        {/* Back to Flashcards — shown when arriving from flashcard page */}
+        {fromFlashcards && (
+          <button
+            onClick={() => router.push('/flashcards')}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-600 text-xs font-semibold hover:bg-indigo-100 transition-colors"
+          >
+            <ChevronLeft size={12} /> Flashcards
+          </button>
+        )}
+
         <span className="text-xs text-gray-300 font-medium hidden sm:inline">Learn</span>
         <span className="w-px h-4 bg-gray-200 hidden sm:inline-block" />
 

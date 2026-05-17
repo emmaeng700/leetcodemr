@@ -1,11 +1,13 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Shuffle, RotateCcw, Layers, CheckCircle, Circle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Shuffle, RotateCcw, Layers, CheckCircle, Circle, Code2 } from 'lucide-react'
 import { getFcVisited, addFcVisited, getProgress } from '@/lib/db'
 import { shuffle, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { DIFFICULTY_LEVELS, DISPLAY_PATTERN_ORDER, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import QuestionImage from '@/components/QuestionImage'
@@ -78,6 +80,8 @@ function FlashcardsInner() {
       ),
     []
   )
+  // Learn page default order — used to compute the right /learn/{idx} URL
+  const learnOrderedIds = useMemo(() => defaultStudyQuestionOrder(all).map(q => q.id), [all])
 
   useEffect(() => {
     async function load() {
@@ -537,6 +541,20 @@ function FlashcardsInner() {
               Next <ChevronRight size={16} />
             </button>
           </div>
+
+          {/* Code it — jump to this question in Learn for /3 submissions */}
+          {(() => {
+            const learnIdx = learnOrderedIds.indexOf(q.id)
+            const href = learnIdx >= 0 ? `/learn/${learnIdx}?from=flashcards` : `/learn/0?from=flashcards`
+            return (
+              <Link
+                href={href}
+                className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-indigo-300 text-indigo-600 text-sm font-semibold hover:bg-indigo-50 transition-colors"
+              >
+                <Code2 size={15} /> Code it →
+              </Link>
+            )
+          })()}
         </>
       )}
     </div>
