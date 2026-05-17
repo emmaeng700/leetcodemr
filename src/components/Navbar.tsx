@@ -15,7 +15,6 @@ const STARRED_LINKS = [
   { href: '/review',          label: '★ Reviews',         icon: Brain },
   { href: '/learn/0',         label: '★ Learn',           icon: BookOpen },
   { href: '/flashcards',      label: '★ Flashcards',      icon: Layers },
-  { href: '/quick-review',    label: '★ Quick Review',    icon: Clock },
   { href: '/best-solutions',  label: '★ My Best',         icon: Bookmark },
   { href: '/imbibition',      label: '★ Imbibition',      icon: BookOpen },
   { href: '/pattern-review',  label: '★ Pattern Review',  icon: BookOpen },
@@ -25,6 +24,7 @@ const STARRED_LINKS = [
 const STUDY_LINKS = [
   { href: '/',             label: 'Questions',    icon: Home,     also: ['/practice', '/question'] },
   { href: '/speedster',    label: 'Speedster',    icon: Gauge },
+  { href: '/quick-review', label: 'Quick Review', icon: Clock },
   { href: '/neetcode',     label: 'NeetCode 150', icon: Rocket },
   { href: '/leetcode-api', label: 'LeetCode',     icon: Zap },
   { href: '/answers',      label: 'Answers',      icon: Library },
@@ -35,7 +35,6 @@ const DRILL_LINKS = [
   { href: '/patterns',  label: 'Patterns', icon: GitBranch },
 ]
 const PRACTICE_LINKS = [...STUDY_LINKS, ...DRILL_LINKS]
-// Flashcards + Quick Review moved into STARRED_LINKS (see above)
 const TOPIC_LINKS = [
   { href: '/behavioral',    label: 'Behavioral',    icon: MessageSquare },
   { href: '/system-design', label: 'System Design', icon: Server },
@@ -51,7 +50,7 @@ const META_LINKS = [
 
 const MOBILE_SECTIONS = [
   { emoji: '⭐', label: 'Core',   group: STARRED_LINKS },
-  { emoji: '⚔️', label: 'Study',  group: STUDY_LINKS },
+  { emoji: '⚔️', label: 'Study',  group: STUDY_LINKS },   // includes Quick Review
   { emoji: '🎯', label: 'Drill',  group: DRILL_LINKS },
   { emoji: '📚', label: 'Topics', group: TOPIC_LINKS },
   { emoji: '⚙️', label: 'More',   group: META_LINKS },
