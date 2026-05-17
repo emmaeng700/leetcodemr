@@ -56,6 +56,7 @@ function FlashcardsInner() {
   const [lcLoading, setLcLoading] = useState(false)
   const [isPremium, setIsPremium] = useState(false)
   const lcCacheRef = useRef<Record<string, string>>({})
+  const [cardExpanded, setCardExpanded] = useState(false)
 
   // Exclusive pattern map and per-pattern counts — used for deck sort and filter buttons
   const exclusiveMapAll = useMemo(() => buildExclusivePatternMap(all), [all])
@@ -172,12 +173,13 @@ function FlashcardsInner() {
     if (q?.id != null) setSessionSeen(prev => new Set([...prev, q.id]))
   }, [q?.id])
 
-  // Reset description when card changes
+  // Reset description + expand state when card changes
   useEffect(() => {
     if (!q?.slug) return
     const titleSlug = resolveLeetCodeSlug(q.id, q.slug)
     setLcContent(lcCacheRef.current[titleSlug] ?? null)
     setIsPremium(false)
+    setCardExpanded(false)
   }, [q?.id, q?.slug])
 
   // Fetch live LeetCode description (same pattern as learn page)
@@ -438,8 +440,21 @@ function FlashcardsInner() {
                 {/* Live LeetCode description (same as learn page) */}
                 <div className="px-5 pb-4 mt-2" onClick={e => e.stopPropagation()}>
                   {lcContent ? (
-                    <div className="lc-description text-sm text-[var(--text)]"
-                      dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+                    <>
+                      <div className={`relative ${!cardExpanded ? 'max-h-[200px] overflow-hidden' : ''}`}>
+                        <div className="lc-description text-sm text-[var(--text)]"
+                          dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+                        {!cardExpanded && (
+                          <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[var(--bg-card)] to-transparent pointer-events-none" />
+                        )}
+                      </div>
+                      <button
+                        onClick={e => { e.stopPropagation(); setCardExpanded(v => !v) }}
+                        className="mt-2 text-xs font-semibold text-indigo-500 hover:text-indigo-600 transition-colors"
+                      >
+                        {cardExpanded ? '↑ Show less' : '↓ Show more'}
+                      </button>
+                    </>
                   ) : lcLoading ? (
                     <div className="space-y-2 animate-pulse">
                       <div className="h-3 bg-[var(--bg-muted)] rounded w-full" />

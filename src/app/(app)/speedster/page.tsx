@@ -81,6 +81,7 @@ export default function SpeedsterPage() {
   const [lcLoading, setLcLoading] = useState(false)
   const [isPremium, setIsPremium] = useState(false)
   const lcCacheRef = useRef<Record<string, string>>({})
+  const [cardExpanded, setCardExpanded] = useState(false)
   const online = useOnlineStatus()
 
   const [planMode, setPlanMode] = useState<'strict' | 'random'>('strict')
@@ -230,6 +231,8 @@ export default function SpeedsterPage() {
 
   // Reset to first card when filters change
   useEffect(() => { setCardIdx(0); setFlipped(false) }, [filterDiff, filterSolved, filterSource, filterPattern])
+  // Collapse expanded description when card changes
+  useEffect(() => { setCardExpanded(false) }, [cardIdx])
 
   // Fetch live LeetCode description when card changes
   useEffect(() => {
@@ -800,8 +803,21 @@ export default function SpeedsterPage() {
                   </div>
                   <div className="px-3 sm:px-5 pb-3 sm:pb-5 mt-2" onClick={e => e.stopPropagation()}>
                     {lcContent ? (
-                      <div className="lc-description text-sm text-[var(--text)]"
-                        dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+                      <>
+                        <div className={`relative ${!cardExpanded ? 'max-h-[200px] overflow-hidden' : ''}`}>
+                          <div className="lc-description text-sm text-[var(--text)]"
+                            dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+                          {!cardExpanded && (
+                            <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[var(--bg-card)] to-transparent pointer-events-none" />
+                          )}
+                        </div>
+                        <button
+                          onClick={e => { e.stopPropagation(); setCardExpanded(v => !v) }}
+                          className="mt-2 text-xs font-semibold text-indigo-500 hover:text-indigo-600 transition-colors"
+                        >
+                          {cardExpanded ? '↑ Show less' : '↓ Show more'}
+                        </button>
+                      </>
                     ) : lcLoading ? (
                       <div className="space-y-2 animate-pulse">
                         <div className="h-3 bg-[var(--bg-muted)] rounded w-full" />
@@ -1149,8 +1165,21 @@ export default function SpeedsterPage() {
                   </div>
                   <div className="px-3 sm:px-5 pb-3 sm:pb-5 mt-2" onClick={e => e.stopPropagation()}>
                     {lcContent ? (
-                      <div className="lc-description text-sm text-[var(--text)]"
-                        dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+                      <>
+                        <div className={`relative ${!cardExpanded ? 'max-h-[200px] overflow-hidden' : ''}`}>
+                          <div className="lc-description text-sm text-[var(--text)]"
+                            dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+                          {!cardExpanded && (
+                            <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[var(--bg-card)] to-transparent pointer-events-none" />
+                          )}
+                        </div>
+                        <button
+                          onClick={e => { e.stopPropagation(); setCardExpanded(v => !v) }}
+                          className="mt-2 text-xs font-semibold text-indigo-500 hover:text-indigo-600 transition-colors"
+                        >
+                          {cardExpanded ? '↑ Show less' : '↓ Show more'}
+                        </button>
+                      </>
                     ) : lcLoading ? (
                       <div className="space-y-2 animate-pulse">
                         <div className="h-3 bg-[var(--bg-muted)] rounded w-full" />
