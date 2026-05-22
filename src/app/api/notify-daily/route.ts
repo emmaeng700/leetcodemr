@@ -18,6 +18,12 @@ function todayCT() {
   return new Date().toLocaleDateString('en-CA', { timeZone: TZ })
 }
 
+function addDays(iso: string, days: number): string {
+  const d = new Date(iso + 'T12:00:00')
+  d.setDate(d.getDate() + days)
+  return d.toLocaleDateString('en-CA', { timeZone: TZ })
+}
+
 function daysBetween(fromISO: string, toISO: string): number {
   const a = new Date(fromISO + 'T12:00:00')
   const b = new Date(toISO   + 'T12:00:00')
@@ -99,15 +105,17 @@ export async function GET(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
 
-  // ── Check email enabled ───────────────────────────────────────────────────────
+  // ── Check email enabled + load review_start_days ────────────────────────────
   const { data: settings } = await supabase
     .from('user_settings')
-    .select('email_enabled')
+    .select('email_enabled,review_start_days')
     .eq('user_id', USER_ID)
     .maybeSingle()
   if (settings?.email_enabled === false) {
     return NextResponse.json({ skipped: 'Email disabled by user' })
   }
+  // How many days after plan start the user configured reviews to begin (14/21/30)
+  const reviewStartDays: number = (settings?.review_start_days as number | null) ?? 14
 
   const todayStr = todayCT()
   const qMap     = loadQuestionMap()
@@ -150,20 +158,21 @@ export async function GET(req: NextRequest) {
   }
 
   // ── When do reviews start? (if none yet) ─────────────────────────────────────
+  // Use the user-configured review_start_days + plan start_date, NOT next_review
+  // from the DB (which is set to srInterval(0)=1 day when a question is first
+  // solved — it doesn't reflect the user's chosen review delay at all).
   let reviewsStartIn: number | null = null
   if (!reviewsActive) {
-    const { data: nextRow } = await supabase
-      .from('progress')
-      .select('next_review')
+    const { data: planRow } = await supabase
+      .from('study_plan')
+      .select('start_date')
       .eq('user_id', USER_ID)
-      .eq('solved', true)
-      .not('next_review', 'is', null)
-      .gt('next_review', todayStr)
-      .order('next_review', { ascending: true })
-      .limit(1)
       .maybeSingle()
-    if (nextRow?.next_review) {
-      reviewsStartIn = daysBetween(todayStr, nextRow.next_review as string)
+    if (planRow?.start_date) {
+      const reviewWindowOpens = addDays(planRow.start_date as string, reviewStartDays)
+      const daysUntilOpen     = daysBetween(todayStr, reviewWindowOpens)
+      // Only show the countdown if the window hasn't opened yet
+      reviewsStartIn = daysUntilOpen > 0 ? daysUntilOpen : null
     }
   }
 
