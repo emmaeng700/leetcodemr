@@ -410,7 +410,7 @@ export default function ImbibitionPage() {
 
       {rows.length === 0 ? (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-8 text-center">
-          <p className="text-sm text-[var(--text-muted)]">No solved questions yet. Mark questions solved and they'll appear here by topic.</p>
+          <p className="text-sm text-[var(--text-muted)]">No solved questions yet. Mark questions solved and they&apos;ll appear here by topic.</p>
         </div>
       ) : (
         <div ref={rowsTopRef}>

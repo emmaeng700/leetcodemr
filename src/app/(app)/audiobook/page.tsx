@@ -101,31 +101,7 @@ export default function AudiobookPage() {
     return () => window.speechSynthesis.removeEventListener('voiceschanged', loadVoices)
   }, [])
 
-  // Build playlist whenever filters change
-  useEffect(() => {
-    if (loading) return
-    const items: PlaylistItem[] = []
-
-    if (section !== 'sd') {
-      const filtered = bCat === BCAT_ALL ? allBehavioral : allBehavioral.filter(q => q.category === bCat)
-      filtered.forEach(data => items.push({ type: 'behavioral', data }))
-    }
-
-    if (section !== 'behavioral') {
-      const sdFiltered = sdCat === SDCAT_ALL
-        ? (SD_CARDS as SDCard[])
-        : (SD_CARDS as SDCard[]).filter(c => c.category === sdCat)
-      sdFiltered.forEach(data => items.push({ type: 'sd', data }))
-    }
-
-    stopSpeaking()
-    setPlaylist(items)
-    setIdx(0)
-    setPlaying(false)
-    setPaused(false)
-  }, [section, bCat, sdCat, allBehavioral, loading])
-
-  // ── Speech helpers ────────────────────────────────────────────────────────
+  // ── Speech helpers — declared before any effect that calls them ───────────
 
   const stopSpeaking = useCallback(() => {
     stopFlag.current = true
@@ -144,6 +120,7 @@ export default function AudiobookPage() {
     const utt = new SpeechSynthesisUtterance(text)
     utt.rate = spd
     if (voice) utt.voice = voice
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     utt.onend = () => speakNext(queue, pos + 1, spd, voice, onDone)
     utt.onerror = () => { if (!stopFlag.current) onDone() }
     window.speechSynthesis.speak(utt)
@@ -166,6 +143,7 @@ export default function AudiobookPage() {
       setCurrentText('')
       if (autoAdvance && i + 1 < items.length) {
         setIdx(i + 1)
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
         playItem(items, i + 1, spd, selectedVoiceIdx, md)
       } else {
         setPlaying(false)
@@ -174,6 +152,30 @@ export default function AudiobookPage() {
       }
     })
   }, [voices, autoAdvance, speakNext])
+
+  // Build playlist whenever filters change
+  useEffect(() => {
+    if (loading) return
+    const items: PlaylistItem[] = []
+
+    if (section !== 'sd') {
+      const filtered = bCat === BCAT_ALL ? allBehavioral : allBehavioral.filter(q => q.category === bCat)
+      filtered.forEach(data => items.push({ type: 'behavioral', data }))
+    }
+
+    if (section !== 'behavioral') {
+      const sdFiltered = sdCat === SDCAT_ALL
+        ? (SD_CARDS as SDCard[])
+        : (SD_CARDS as SDCard[]).filter(c => c.category === sdCat)
+      sdFiltered.forEach(data => items.push({ type: 'sd', data }))
+    }
+
+    stopSpeaking()
+    setPlaylist(items)
+    setIdx(0)
+    setPlaying(false)
+    setPaused(false)
+  }, [section, bCat, sdCat, allBehavioral, loading, stopSpeaking])
 
   // ── Controls ──────────────────────────────────────────────────────────────
 

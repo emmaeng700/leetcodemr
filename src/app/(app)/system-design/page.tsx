@@ -86,7 +86,7 @@ function SDFlashcards() {
   }, [])
 
   const buildDeck = useCallback((category: string, doShuffle: boolean) => {
-    let cards = category === 'All' ? (SD_CARDS as SDCard[]) : (SD_CARDS as SDCard[]).filter(c => c.category === category)
+    const cards = category === 'All' ? (SD_CARDS as SDCard[]) : (SD_CARDS as SDCard[]).filter(c => c.category === category)
     return doShuffle ? sdShuffle(cards) : cards
   }, [])
 

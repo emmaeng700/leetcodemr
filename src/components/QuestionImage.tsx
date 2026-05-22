@@ -17,7 +17,6 @@ export default function QuestionImage({
 }) {
   const [hidden, setHidden] = useState(false)
   const [open, setOpen] = useState(false)
-  if (hidden) return null
 
   useEffect(() => {
     if (!open) return
@@ -32,6 +31,8 @@ export default function QuestionImage({
       document.body.style.overflow = prevOverflow
     }
   }, [open])
+
+  if (hidden) return null
 
   // eslint-disable-next-line @next/next/no-img-element
   return (

@@ -1807,7 +1807,8 @@ def tok_color(ttype):
         ttype = ttype.parent
     return ONE_DARK[Token]
 
-# ── 21 QUICK_PATTERNS ─────────────────────────────────────────────────────────
+# ── 21 QUICK_PATTERNS — matching priority (specific first, Arrays & Hashing last)
+# NOTE: this order controls TAG ASSIGNMENT only. Display order is PATTERN_DISPLAY_ORDER below.
 QUICK_PATTERNS = [
     {"name":"Bit Manipulation",    "tags":["Bit Manipulation"],                                        "color":HexColor("#0F172A"),"hex":"#0F172A"},
     {"name":"Trie",                "tags":["Trie"],                                                    "color":HexColor("#7C3AED"),"hex":"#7C3AED"},
@@ -1830,6 +1831,14 @@ QUICK_PATTERNS = [
     {"name":"String",              "tags":["String"],                                                  "color":HexColor("#0EA5E9"),"hex":"#0EA5E9"},
     {"name":"JavaScript",          "tags":["JavaScript","Concurrency"],                               "color":HexColor("#EAB308"),"hex":"#EAB308"},
     {"name":"Arrays & Hashing",    "tags":["Array","Hash Table","Prefix Sum"],                        "color":INDIGO,             "hex":"#4F46E5"},
+]
+
+# ── Display order — High → Mid → Low interview priority ──────────────────────
+PATTERN_DISPLAY_ORDER = [
+    "Arrays & Hashing","String","Two Pointers","Sliding Window","Sorting",
+    "Binary Search","Matrix","Trees & BST","DFS","Graphs","BFS",
+    "Linked List","Stack","Heap","Trie","Backtracking","Greedy",
+    "Dynamic Programming","Bit Manipulation","Math","JavaScript",
 ]
 DIFF_ORDER = {"Easy":0,"Medium":1,"Hard":2}
 
@@ -2752,6 +2761,10 @@ def generate_pdf(
     groups = build_groups(questions)
     if sort_asc:
         groups.sort(key=lambda g: len(g[1]))   # ascending question count
+    else:
+        # Sort by interview-priority display order (High → Mid → Low)
+        _disp_idx = {n: i for i, n in enumerate(PATTERN_DISPLAY_ORDER)}
+        groups.sort(key=lambda g: _disp_idx.get(g[0]["name"], 99))
     styles = build_styles(printable, code_size=code_size, bold=bold, dark_code_panels=dark_code_panels)
 
     doc = SimpleDocTemplate(

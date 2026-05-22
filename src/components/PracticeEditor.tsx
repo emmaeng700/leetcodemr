@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import { RotateCcw, Code2, Play, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import { getPracticeSession, savePracticeSession } from '@/lib/db'
@@ -573,7 +574,6 @@ int main() {
 
       {/* ── Fullscreen portal — escapes any overflow:hidden ancestor ── */}
       {editorExpanded && typeof document !== 'undefined' && (() => {
-        const { createPortal } = require('react-dom')
         return createPortal(
           <div className="practice-fs-portal fixed inset-0 flex flex-col bg-[#1e1e2e]" style={{ zIndex: 9999 }}>
             {/* Mini header */}

@@ -729,9 +729,11 @@ if __name__ == "__main__":
     doocs     = load_doocs()
     print(f"  {len(questions)} questions · sites: {len(sites)} · doocs: {len(doocs)}")
 
-    print("Grouping by pattern (ascending question count)…")
+    print("Grouping by pattern (interview priority: High → Mid → Low)…")
+    from generate_patterns_pdf import PATTERN_DISPLAY_ORDER
     groups = build_groups(questions)
-    groups.sort(key=lambda g: len(g[1]))
+    _disp = {n: i for i, n in enumerate(PATTERN_DISPLAY_ORDER)}
+    groups.sort(key=lambda g: _disp.get(g[0]["name"], 99))
     for rank, (pat, qs) in enumerate(groups, 1):
         e = sum(1 for q in qs if q.get("difficulty") == "Easy")
         m = sum(1 for q in qs if q.get("difficulty") == "Medium")

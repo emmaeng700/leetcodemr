@@ -288,7 +288,7 @@ export default function ReviewPage() {
               <div>
                 <h2 className="flex flex-wrap items-center gap-2 text-sm font-bold text-[var(--text)]">
                   <Flame size={15} className="text-orange-500" />
-                  Today's Reviews
+                  Today&apos;s Reviews
                   <span className="px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full text-xs border border-orange-200 font-bold">
                     {pendingDue.length} left
                   </span>

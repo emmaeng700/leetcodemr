@@ -75,7 +75,7 @@ function resolveSupportedLang(code: string, declared: string): 'python' | 'cpp' 
   const meta = normalizeLang(declared)
   if (meta === 'python' || meta === 'cpp' || meta === 'javascript') return meta
 
-  let inferred = detectLangFromCode(code)
+  const inferred = detectLangFromCode(code)
   // Java vs C++: LeetCode C++ uses Map in comments rarely; prefer symbols
   if (inferred === 'java') {
     if (/#include|std::|vector\s*<|unordered_map|unordered_set|public\s*:\s*$/m.test(code)) return 'cpp'

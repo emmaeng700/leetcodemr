@@ -243,7 +243,7 @@ function SRQueueInner() {
       {solved.length === 0 ? (
         <div className="text-center py-20 text-[var(--text-subtle)]">
           <p className="text-4xl mb-3">📭</p>
-          <p className="text-sm">No solved questions yet — solve some and they'll appear here on a review schedule.</p>
+          <p className="text-sm">No solved questions yet — solve some and they&apos;ll appear here on a review schedule.</p>
         </div>
       ) : (
         <>

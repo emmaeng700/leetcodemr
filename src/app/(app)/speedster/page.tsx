@@ -468,7 +468,7 @@ export default function SpeedsterPage() {
             <p className="text-sm font-bold text-purple-800">Random mode active</p>
           </div>
           <p className="text-xs text-purple-600 leading-snug">
-            No fixed daily order — use the pattern filter in the flashcards below to focus your practice, or head to Daily to pick today's pattern.
+            No fixed daily order — use the pattern filter in the flashcards below to focus your practice, or head to Daily to pick today&apos;s pattern.
           </p>
           <Link
             href="/daily"
@@ -888,7 +888,7 @@ export default function SpeedsterPage() {
       <div className="flex flex-col flex-1 min-h-0 bg-[#1a1a2e] overflow-y-auto">
         <div className="flex items-center gap-2 px-4 py-3 bg-[#16213e] border-b border-gray-700/50 shrink-0">
           <WifiOff size={13} className="text-amber-400 shrink-0" />
-          <p className="text-xs text-amber-300 font-semibold">You're offline — live editor unavailable</p>
+          <p className="text-xs text-amber-300 font-semibold">You&apos;re offline — live editor unavailable</p>
         </div>
         <div className="p-4 min-w-0 w-full">
           <p className="text-xs text-gray-400 mb-3">Showing saved solution for #{currentQ.id} · {currentQ.title}</p>
@@ -953,7 +953,7 @@ export default function SpeedsterPage() {
               <p className="text-sm font-bold text-purple-800">Random mode active</p>
             </div>
             <p className="text-xs text-purple-600 leading-snug">
-              No fixed daily order — use the pattern filter in the flashcards below to focus your practice, or head to Daily to pick today's pattern.
+              No fixed daily order — use the pattern filter in the flashcards below to focus your practice, or head to Daily to pick today&apos;s pattern.
             </p>
             <Link
               href="/daily"
@@ -1254,7 +1254,7 @@ export default function SpeedsterPage() {
               <div className="rounded-xl overflow-hidden border border-gray-200">
                 <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border-b border-amber-200">
                   <WifiOff size={13} className="text-amber-500 shrink-0" />
-                  <p className="text-xs text-amber-700 font-semibold">You're offline — live editor unavailable. Showing saved solution.</p>
+                  <p className="text-xs text-amber-700 font-semibold">You&apos;re offline — live editor unavailable. Showing saved solution.</p>
                 </div>
                 <div className="p-4">
                   <CodePanel pythonCode={currentQ.python_solution} cppCode={currentQ.cpp_solution} />

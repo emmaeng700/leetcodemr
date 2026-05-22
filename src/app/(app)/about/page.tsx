@@ -212,7 +212,7 @@ export default function AboutPage() {
           <p>All progress -- solved status, notes, spaced repetition schedules, practice code, mock sessions, mastery run events, imbibition levels, and daily plan -- is stored in Supabase, private to your account.</p>
           <p>Questions data is loaded from a static JSON file bundled with the app -- no external API calls for question content.</p>
           <p>Some pages show an offline banner when the network is unavailable; Supabase-backed features (daily plan order, progress) need connectivity.</p>
-          <p>Code execution goes directly to LeetCode's own judge using your personal LeetCode session cookie. Your code is run on LeetCode's servers exactly as if you submitted on the site -- no third-party execution engine involved.</p>
+          <p>Code execution goes directly to LeetCode&apos;s own judge using your personal LeetCode session cookie. Your code is run on LeetCode&apos;s servers exactly as if you submitted on the site -- no third-party execution engine involved.</p>
           <p>Your LeetCode session token is stored in your browser only and never sent to our servers beyond proxying the request.</p>
         </div>
       </div>

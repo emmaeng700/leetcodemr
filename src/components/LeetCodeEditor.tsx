@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import {
   Play, Send, Loader2, CheckCircle, XCircle, Clock, Cpu,
@@ -1034,7 +1035,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
               <div className="text-2xl">⚠️</div>
               <p className="text-sm text-gray-200 font-semibold">Session token may have expired</p>
               <p className="text-xs text-gray-400 max-w-xs">
-                Your LeetCode session is saved but this premium question couldn't load.
+                Your LeetCode session is saved but this premium question couldn&apos;t load.
                 Your token may have expired — go to LeetCode, copy a fresh
                 <code className="mx-1 px-1 py-0.5 bg-gray-800 rounded text-orange-300">LEETCODE_SESSION</code>
                 and update it on the LeetCode page.
@@ -1177,7 +1178,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
       {/* ── Fullscreen portal — mounts at document.body to escape overflow:hidden parents ── */}
       {!lcLoad && !lcErr && editorExpanded && typeof document !== 'undefined' && (() => {
-        const { createPortal } = require('react-dom')
         return createPortal(
           <div className="lc-fs-portal fixed inset-0 flex flex-col bg-[#1a1a2e]" style={{ zIndex: 9999 }}>
             {/* Session panel (if open) */}

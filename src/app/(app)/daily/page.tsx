@@ -777,7 +777,7 @@ export default function DailyPage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--text-muted)] border border-[var(--border)] rounded-lg hover:border-indigo-400 hover:text-indigo-500 transition-colors font-semibold"
               >
                 <List size={12} />
-                Today's Qs
+                Today&apos;s Qs
               </button>
               {showList && (
                 <>
@@ -969,7 +969,7 @@ export default function DailyPage() {
 
           {randomGoalMet && (
             <div className="mb-4 text-center text-green-600 font-bold text-sm bg-green-50 border border-green-200 rounded-xl py-2">
-              🎉 Daily quota hit! Reviews next, then you're done for today.
+              🎉 Daily quota hit! Reviews next, then you&apos;re done for today.
             </div>
           )}
 
@@ -1288,7 +1288,7 @@ export default function DailyPage() {
         {dueOpen && (
           <div className="px-4 pb-3">
             {dueReviews.length === 0 ? (
-              <p className="text-xs text-indigo-500">You're all caught up — no spaced repetition reviews due.</p>
+              <p className="text-xs text-indigo-500">You&apos;re all caught up — no spaced repetition reviews due.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 <Link

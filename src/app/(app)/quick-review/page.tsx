@@ -91,6 +91,7 @@ export default function QuickReviewPage() {
     if (filterSrc !== 'All') filtered = filtered.filter(q => (q.source || []).includes(filterSrc))
     setDeck(filtered)
     deckRef.current = filtered
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     resetSession(filtered)
   }, [filterDiff, filterSrc, all, planOrder])
 

@@ -513,6 +513,7 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
     await clearInterviewDate()
     setEditing(false)
   }
+  // eslint-disable-next-line react-compiler/react-compiler
   const daysLeft = date ? Math.ceil((new Date(date + 'T12:00:00').getTime() - Date.now()) / 86400000) : null
   const diffColor: Record<string, string> = {
     Easy: 'bg-green-100  text-green-700  border-green-300 ',
@@ -799,7 +800,7 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
       {/* Only show random daily question when no study plan is active — plan already answers "what should I do today" */}
       {!planNorm && (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg p-4">
-          <div className="text-xs font-bold text-[var(--text-muted)] mb-3 flex items-center gap-1">⭐ Today's Question</div>
+          <div className="text-xs font-bold text-[var(--text-muted)] mb-3 flex items-center gap-1">⭐ Today&apos;s Question</div>
           {dailyQ ? (
             <div>
               <div className="flex items-start gap-2 mb-2">
@@ -935,7 +936,7 @@ function TodayPlanCard({ questions, progress }: { questions: Question[]; progres
                 </button>
               </div>
             )) : (
-              <div className="text-xs text-[var(--text-subtle)]">No reboot items yet. Add any "few days ago" question IDs below.</div>
+              <div className="text-xs text-[var(--text-subtle)]">No reboot items yet. Add any &quot;few days ago&quot; question IDs below.</div>
             )}
           </div>
         </div>
