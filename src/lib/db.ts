@@ -1001,6 +1001,110 @@ export async function syncStreakActivityFromGoals(modeOverride?: string): Promis
   }
 }
 
+// ─── User Profile (email schedule, review settings) ─────────────────────────
+
+export interface UserProfile {
+  emailEnabled?: boolean
+  emailTimes?: string[]
+  timezone?: string
+  reviewStartDays?: number
+  revisionCap?: number
+  repsPerQ?: number
+}
+
+export async function getUserProfile(): Promise<UserProfile | null> {
+  const { data, error } = await supabase
+    .from('user_settings')
+    .select('email_enabled,email_times,timezone,review_start_days,revision_cap,reps_per_q')
+    .eq('user_id', USER_ID)
+    .maybeSingle()
+  if (error) {
+    if (isMissingTableError(error.message)) return null
+    console.error('[db] getUserProfile:', error.message)
+    return null
+  }
+  if (!data) return null
+  const row = data as Record<string, unknown>
+  return {
+    emailEnabled:    (row.email_enabled    as boolean  | undefined) ?? true,
+    emailTimes:      (row.email_times      as string[] | undefined) ?? [],
+    timezone:        (row.timezone         as string   | undefined) ?? 'America/Chicago',
+    reviewStartDays: (row.review_start_days as number  | undefined) ?? 14,
+    revisionCap:     (row.revision_cap     as number   | undefined) ?? 3,
+    repsPerQ:        (row.reps_per_q       as number   | undefined) ?? 3,
+  }
+}
+
+export async function saveUserProfile(profile: UserProfile): Promise<boolean> {
+  const payload: Record<string, unknown> = {
+    user_id: USER_ID,
+    updated_at: new Date().toISOString(),
+  }
+  if (profile.emailEnabled  !== undefined) payload.email_enabled    = profile.emailEnabled
+  if (profile.emailTimes    !== undefined) payload.email_times      = profile.emailTimes
+  if (profile.timezone      !== undefined) payload.timezone         = profile.timezone
+  if (profile.reviewStartDays !== undefined) payload.review_start_days = profile.reviewStartDays
+  if (profile.revisionCap   !== undefined) payload.revision_cap    = profile.revisionCap
+  if (profile.repsPerQ      !== undefined) payload.reps_per_q      = profile.repsPerQ
+
+  const { error } = await supabase
+    .from('user_settings')
+    .upsert(payload, { onConflict: 'user_id' })
+  if (error) {
+    if (isMissingTableError(error.message)) return false
+    console.error('[db] saveUserProfile:', error.message)
+    return false
+  }
+  return true
+}
+
+// ─── Speedster Runs (isolated — never marks questions as solved) ──────────────
+
+export async function getSpeedsterRuns(): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from('speedster_runs')
+    .select('question_id,run_count')
+    .eq('user_id', USER_ID)
+  if (error) {
+    if (isMissingTableError(error.message) || isFetchTransportError(error.message)) return {}
+    console.error('[db] getSpeedsterRuns:', error.message)
+    return {}
+  }
+  const out: Record<string, number> = {}
+  for (const row of data ?? []) {
+    const r = row as Record<string, unknown>
+    out[String(r.question_id)] = Number(r.run_count ?? 0)
+  }
+  return out
+}
+
+export async function addSpeedsterRunEvent(questionId: number): Promise<{ ok: boolean }> {
+  // Read current count, then upsert with +1
+  const { data: existing } = await supabase
+    .from('speedster_runs')
+    .select('run_count')
+    .eq('user_id', USER_ID)
+    .eq('question_id', questionId)
+    .maybeSingle()
+
+  const next = ((existing as Record<string, unknown> | null)?.run_count as number ?? 0) + 1
+  const { error } = await supabase
+    .from('speedster_runs')
+    .upsert({
+      user_id: USER_ID,
+      question_id: questionId,
+      run_count: next,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,question_id' })
+
+  if (error) {
+    if (isMissingTableError(error.message)) return { ok: false }
+    console.error('[db] addSpeedsterRunEvent:', error.message)
+    return { ok: false }
+  }
+  return { ok: true }
+}
+
 // ─── Pattern FC Visited ───────────────────────────────────────────────────────
 export async function getPatternFcVisited(): Promise<Set<number>> {
   const { data } = await supabase

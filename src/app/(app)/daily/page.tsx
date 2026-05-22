@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
-import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List, Brain, Star, Wind } from 'lucide-react'
+import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List, Brain, Star, Wind, Bell, BookOpen, Settings } from 'lucide-react'
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount, syncStreakActivityFromGoals } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
 import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
@@ -56,6 +56,7 @@ function RepDots({ done, total }: { done: number; total: number }) {
 }
 const ORDERED_QUICK_PATTERNS = QUICK_PATTERNS
   .slice()
+  .filter(p => p.name !== 'JavaScript')
   .sort(
     (a, b) =>
       DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
@@ -180,6 +181,15 @@ export default function DailyPage() {
 
   // Setup-form reps picker
   const [setupRepsPerQ, setSetupRepsPerQ] = useState(3)
+
+  // Setup-form review + email settings
+  const [setupReviewStartDays, setSetupReviewStartDays] = useState(14)
+  const [setupRevisionCap,     setSetupRevisionCap]     = useState(3)
+  const [setupEmailEnabled,    setSetupEmailEnabled]     = useState(true)
+  const [setupEmailTimes,      setSetupEmailTimes]       = useState(['08:00', '13:00', '19:00'])
+  const [setupTimezone] = useState(() => {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone } catch { return 'America/Chicago' }
+  })
 
   // Reset gate
   const [showResetPrompt, setShowResetPrompt] = useState(false)
@@ -391,9 +401,24 @@ export default function DailyPage() {
       question_order: order,
       lock_code: planCode.trim(),
     }
-    const ok = await saveStudyPlan({ ...newPlan, mode: setupMode })
+    const [planOk] = await Promise.all([
+      saveStudyPlan({ ...newPlan, mode: setupMode }),
+      // Save email + review settings alongside plan creation
+      fetch('/api/user/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emailEnabled: setupEmailEnabled,
+          emailTimes: setupEmailTimes.slice(0, setupRevisionCap),
+          timezone: setupTimezone,
+          reviewStartDays: setupReviewStartDays,
+          revisionCap: setupRevisionCap,
+          repsPerQ: setupRepsPerQ,
+        }),
+      }).catch(() => null),
+    ])
     setGenerating(false)
-    if (ok) {
+    if (planOk) {
       localStorage.setItem(PLAN_MODE_KEY, setupMode)
       // Persist reps-per-question choice
       localStorage.setItem(REPS_PER_Q_KEY, String(setupRepsPerQ))
@@ -537,7 +562,7 @@ export default function DailyPage() {
             <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">Questions per day</label>
               <div className="flex gap-2 flex-wrap">
-                {[1, 2, 3, 4, 5, 6, 7].map(n => (
+                {[1, 2, 3].map(n => (
                   <button
                     key={n}
                     onClick={() => { setPerDay(n); setPerDayStr(String(n)) }}
@@ -568,7 +593,7 @@ export default function DailyPage() {
             <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">Reps per question / day</label>
               <div className="flex gap-2 flex-wrap">
-                {[1, 2, 3, 5].map(n => (
+                {[1, 2, 3].map(n => (
                   <button
                     key={n}
                     type="button"
@@ -593,6 +618,78 @@ export default function DailyPage() {
                 onChange={e => setStartDate(e.target.value)}
                 className="w-full px-3 py-2.5 border-2 border-[var(--border)] rounded-xl text-sm text-[var(--text)] bg-[var(--bg-input)] focus:outline-none focus:border-indigo-400"
               />
+            </div>
+
+            {/* ── When do reviews start? ── */}
+            <div className="border-t border-[var(--border)] pt-4">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] mb-1">
+                <BookOpen size={11} /> When do reviews start?
+              </label>
+              <p className="text-[11px] text-[var(--text-subtle)] mb-2">After solving a question, when should your first review be scheduled?</p>
+              <div className="grid grid-cols-3 gap-2">
+                {[{ days: 14, label: '2 weeks' }, { days: 21, label: '3 weeks' }, { days: 30, label: '1 month' }].map(opt => (
+                  <button
+                    key={opt.days}
+                    type="button"
+                    onClick={() => setSetupReviewStartDays(opt.days)}
+                    className={`py-2 rounded-xl border-2 text-sm font-bold transition-colors ${
+                      setupReviewStartDays === opt.days
+                        ? 'border-violet-500 bg-violet-500/10 text-violet-700'
+                        : 'border-[var(--border)] text-[var(--text-muted)] hover:border-violet-300'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Daily revision limit ── */}
+            <div className="border-t border-[var(--border)] pt-4">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] mb-1">
+                <RotateCcw size={11} /> Daily revision limit
+              </label>
+              <p className="text-[11px] text-[var(--text-subtle)] mb-2">Max spaced-repetition reviews per day (separate from new questions).</p>
+              <div className="grid grid-cols-3 gap-2">
+                {[1, 2, 3].map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setSetupRevisionCap(n)}
+                    className={`py-2 rounded-xl border-2 text-sm font-bold transition-colors ${
+                      setupRevisionCap === n
+                        ? 'border-green-500 bg-green-500/10 text-green-700'
+                        : 'border-[var(--border)] text-[var(--text-muted)] hover:border-green-300'
+                    }`}
+                  >
+                    {n} {n === 1 ? 'review' : 'reviews'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Email reminders ── */}
+            <div className="border-t border-[var(--border)] pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] mb-0.5">
+                    <Bell size={11} /> Email reminders
+                  </label>
+                  {setupEmailEnabled && (
+                    <p className="text-[11px] text-[var(--text-subtle)]">
+                      {setupRevisionCap === 1 ? '1 reminder/day (8 am)' : setupRevisionCap === 2 ? '2 reminders/day (8 am & 1 pm)' : '3 reminders/day (8 am, 1 pm, 7 pm)'}
+                      {' '}· stops once quota is done. Adjust times in Settings.
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSetupEmailEnabled(v => !v)}
+                  className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${setupEmailEnabled ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${setupEmailEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                </button>
+              </div>
             </div>
 
             <div>
@@ -630,7 +727,7 @@ export default function DailyPage() {
                 >
                   From beginning
                 </button>
-                {QUICK_PATTERNS.map((p, i) => (
+                {ORDERED_QUICK_PATTERNS.map((p, i) => (
                   <button
                     key={p.name}
                     onClick={() => setStartFromPattern(startFromPattern === p.name ? null : p.name)}
@@ -802,6 +899,13 @@ export default function DailyPage() {
           >
             Pace: {plan.per_day}/day
           </button>
+          <Link
+            href="/settings"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--text-subtle)] border border-[var(--border)] rounded-lg hover:bg-[var(--bg-muted)] transition-colors"
+            title="Review start delay, revision limit, email reminders"
+          >
+            <Settings size={12} />
+          </Link>
           <button
             onClick={() => setShowResetPrompt(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--text-subtle)] border border-[var(--border)] rounded-lg hover:bg-[var(--bg-muted)] transition-colors"
