@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
 
-  // ── Check email enabled + load review_start_days ────────────────────────────
+  // ── Check email enabled ───────────────────────────────────────────────────────
   const { data: settings } = await supabase
     .from('user_settings')
     .select('email_enabled,review_start_days')
@@ -114,8 +114,10 @@ export async function GET(req: NextRequest) {
   if (settings?.email_enabled === false) {
     return NextResponse.json({ skipped: 'Email disabled by user' })
   }
-  // How many days after plan start the user configured reviews to begin (14/21/30)
-  const reviewStartDays: number = (settings?.review_start_days as number | null) ?? 14
+  // review_start_days: read from study_plan first (always saved there now),
+  // fall back to user_settings (if table exists), then hard default 14
+  // — resolved later once we have the plan row
+  const settingsReviewDays = (settings?.review_start_days as number | null) ?? null
 
   const todayStr = todayCT()
   const qMap     = loadQuestionMap()
@@ -158,20 +160,23 @@ export async function GET(req: NextRequest) {
   }
 
   // ── When do reviews start? (if none yet) ─────────────────────────────────────
-  // Use the user-configured review_start_days + plan start_date, NOT next_review
-  // from the DB (which is set to srInterval(0)=1 day when a question is first
-  // solved — it doesn't reflect the user's chosen review delay at all).
+  // Read review_start_days from study_plan (saved there since latest build),
+  // fall back to user_settings value, then default 14.
   let reviewsStartIn: number | null = null
   if (!reviewsActive) {
     const { data: planRow } = await supabase
       .from('study_plan')
-      .select('start_date')
+      .select('start_date,review_start_days')
       .eq('user_id', USER_ID)
       .maybeSingle()
     if (planRow?.start_date) {
+      // Priority: study_plan column → user_settings → default 14
+      const reviewStartDays: number =
+        (planRow.review_start_days as number | null) ??
+        settingsReviewDays ??
+        14
       const reviewWindowOpens = addDays(planRow.start_date as string, reviewStartDays)
       const daysUntilOpen     = daysBetween(todayStr, reviewWindowOpens)
-      // Only show the countdown if the window hasn't opened yet
       reviewsStartIn = daysUntilOpen > 0 ? daysUntilOpen : null
     }
   }

@@ -412,6 +412,7 @@ export async function saveStudyPlan(plan: {
   question_order: number[]
   lock_code: string
   mode?: string
+  review_start_days?: number
 }) {
   const { error } = await supabase.from('study_plan').upsert({
     user_id: USER_ID,

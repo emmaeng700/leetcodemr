@@ -402,7 +402,7 @@ export default function DailyPage() {
       lock_code: planCode.trim(),
     }
     const [planOk] = await Promise.all([
-      saveStudyPlan({ ...newPlan, mode: setupMode }),
+      saveStudyPlan({ ...newPlan, mode: setupMode, review_start_days: setupReviewStartDays }),
       // Save email + review settings alongside plan creation
       fetch('/api/user/profile', {
         method: 'POST',
