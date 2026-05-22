@@ -433,9 +433,13 @@ export default function SpeedsterPage() {
       >
         <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{q.id}</span>
         <span className="min-w-0 flex-1 truncate text-gray-700">{q.title}</span>
-        <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
-          {Math.min(runs[String(q.id)] ?? 0, 3)}/3
-        </span>
+        {(done || (runs[String(q.id)] ?? 0) >= 3) ? (
+          <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Solved</span>
+        ) : (
+          <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
+            {runs[String(q.id)] ?? 0}/3
+          </span>
+        )}
         <span className={`text-xs font-semibold shrink-0 ${q.difficulty === 'Easy' ? 'text-green-600' : q.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
           {q.difficulty[0]}
         </span>
@@ -455,7 +459,7 @@ export default function SpeedsterPage() {
         </div>
         <div>
           <h1 className="font-black text-gray-900 text-lg leading-tight">Speedster</h1>
-          <p className="text-xs text-gray-400">Practice daily questions — Accepted submit marks solved in your app</p>
+          <p className="text-xs text-gray-400">Practice daily questions — submissions here don&apos;t mark questions as solved</p>
         </div>
       </div>
 
@@ -571,9 +575,13 @@ export default function SpeedsterPage() {
                     </div>
                     <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
                     <span className={`flex-1 text-sm font-semibold truncate ${solved ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
-                    <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
-                      Runs {Math.min(runs[String(q.id)] ?? 0, 3)}/3
-                    </span>
+                    {(solved || (runs[String(q.id)] ?? 0) >= 3) ? (
+                      <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Solved</span>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
+                        Runs {runs[String(q.id)] ?? 0}/3
+                      </span>
+                    )}
                     <DifficultyBadge difficulty={q.difficulty} />
                     <ChevronRight size={14} className="text-gray-300 group-hover:text-yellow-400 shrink-0 transition-colors" />
                   </button>
@@ -946,7 +954,7 @@ export default function SpeedsterPage() {
           </div>
           <div>
             <h1 className="font-black text-gray-900 text-lg leading-tight">Speedster</h1>
-            <p className="text-xs text-gray-400">Practice daily questions — Accepted submit marks solved in your app</p>
+            <p className="text-xs text-gray-400">Practice daily questions — submissions here don&apos;t mark questions as solved</p>
           </div>
         </div>
 
@@ -1055,9 +1063,13 @@ export default function SpeedsterPage() {
                       </div>
                       <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
                       <span className={`flex-1 text-sm font-semibold truncate ${solved ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
-                      <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
-                        Runs {Math.min(runs[String(q.id)] ?? 0, 3)}/3
-                      </span>
+                      {(solved || (runs[String(q.id)] ?? 0) >= 3) ? (
+                        <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Solved</span>
+                      ) : (
+                        <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
+                          Runs {runs[String(q.id)] ?? 0}/3
+                        </span>
+                      )}
                       <DifficultyBadge difficulty={q.difficulty} />
                       <ChevronRight size={14} className="text-gray-300 group-hover:text-yellow-400 shrink-0 transition-colors" />
                     </button>
@@ -1163,7 +1175,26 @@ export default function SpeedsterPage() {
                         <span key={s} className="text-xs bg-indigo-50  text-indigo-500  px-2 py-0.5 rounded-full border border-indigo-100 ">{s}</span>
                       ))}
                     </div>
-                    <span className="text-xs text-[var(--text-subtle)] font-medium">Tap to reveal →</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-[var(--text-subtle)] bg-[var(--bg-muted)] border border-[var(--border)] px-2 py-0.5 rounded-full">
+                        Speedster runs: {Math.min(currentRuns, 3)}/3
+                      </span>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          const next = new Set(visited)
+                          if (next.has(currentQ.id)) { next.delete(currentQ.id) } else { next.add(currentQ.id); addFcVisited(currentQ.id) }
+                          setVisited(next)
+                        }}
+                        style={{ touchAction: 'manipulation' }}
+                        className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors ${
+                          visited.has(currentQ.id) ? 'bg-green-50  text-green-600  border-green-300 ' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)] hover:border-green-300 hover:text-green-500'
+                        }`}
+                      >
+                        {visited.has(currentQ.id) ? <><CheckCircle size={11} /> Visited</> : <><Circle size={11} /> Mark visited</>}
+                      </button>
+                      <span className="hidden sm:inline text-xs text-[var(--text-subtle)] font-medium">Tap to reveal →</span>
+                    </div>
                   </div>
                   <div className="px-3 sm:px-5 pt-2 sm:pt-3 pb-1">
                     <h3 className="text-base font-bold text-[var(--text)]">{currentQ.title}</h3>
@@ -1241,7 +1272,7 @@ export default function SpeedsterPage() {
               <div>
                 <h2 className="text-base font-bold text-gray-800">Code Editor</h2>
                 <p className="text-xs text-gray-400">
-                  #{currentQ.id} · {currentQ.title} — Accepted submit marks solved in your app
+                  #{currentQ.id} · {currentQ.title} — submissions here don&apos;t mark questions as solved
                 </p>
               </div>
             </div>
