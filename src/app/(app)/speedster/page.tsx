@@ -881,6 +881,7 @@ export default function SpeedsterPage() {
         key={currentQ.slug}
         appQuestionId={currentQ.id}
         slug={currentQ.slug}
+        syncToApp={false}
       />
     ) : (
       /* Offline fallback — show cached solution instead of broken editor */
@@ -1246,6 +1247,7 @@ export default function SpeedsterPage() {
                   key={currentQ.slug}
                   appQuestionId={currentQ.id}
                   slug={currentQ.slug}
+                  syncToApp={false}
                 />
               </div>
             ) : (

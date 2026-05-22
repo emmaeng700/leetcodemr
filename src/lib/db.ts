@@ -705,10 +705,9 @@ export async function recalibrateSRDates() {
     const base = new Date(row.last_reviewed + 'T12:00:00') // noon local avoids DST edge
     base.setDate(base.getDate() + interval)
     const expected = localDateISO(base)
-    // Only fix if next_review is EARLIER than the formula date (timezone drift made it
-    // appear overdue too soon). Never pull a question back from a future date that
-    // spreadOverdueReviews intentionally placed it on.
-    if (row.next_review < expected) {
+    // Fix in both directions: pull forward if overdue too soon (timezone drift),
+    // or pull back if drifted to an unreasonably far future date (!== expected).
+    if (row.next_review !== expected) {
       updates.push({ question_id: row.question_id, next_review: expected })
     }
   }
@@ -988,11 +987,8 @@ export async function syncStreakActivityFromGoals(modeOverride?: string): Promis
   // Priority: explicit override → localStorage → plan.mode from DB → 'strict'
   const mode = modeOverride ?? localMode ?? (plan as any)?.mode ?? 'strict'
 
-  const clearToday = async () => {
-    await supabase.from('activity_log').delete().eq('user_id', USER_ID).eq('date', today)
-  }
-
-  // Day is done when all due reviews are cleared
+  // Day is done when all due reviews are cleared — only write, never delete
+  // (deleting mid-session would wipe a streak that was already earned today)
   const goalsMet = dueCount === 0
 
   if (goalsMet) {
@@ -1002,8 +998,6 @@ export async function syncStreakActivityFromGoals(modeOverride?: string): Promis
       count: 1,
     }, { onConflict: 'user_id,date' })
     if (error) console.error('[db] syncStreak: activity_log upsert failed:', error.message)
-  } else {
-    await clearToday()
   }
 }
 

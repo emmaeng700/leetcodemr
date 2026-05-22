@@ -74,7 +74,8 @@ function todayISO() {
 }
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  // Add T12:00:00 to avoid midnight UTC → previous-day local timezone drift
+  return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 function calcFinish(startDate: string, perDay: number, total: number) {

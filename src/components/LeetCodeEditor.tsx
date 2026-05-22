@@ -1452,9 +1452,9 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         </div>
       </div>
 
-      {/* ── My Solutions modal ── */}
+      {/* ── My Solutions modal — absolute so it's scoped to the editor pane, not the full viewport ── */}
       {showSolutionsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-3 sm:px-4">
+        <div className="absolute inset-0 z-50 flex items-center justify-center px-3 sm:px-4">
           {/* Backdrop */}
           <button
             type="button"
