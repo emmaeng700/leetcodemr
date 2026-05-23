@@ -140,7 +140,15 @@ export async function updateProgress(questionId: number, data: any) {
   if (data.solved === true && !existing?.solved) {
     reviewCount = 0
     const todayCT = todayISOChicago()
-    nextReview = addDaysISO(todayCT, srInterval(0))
+    // Use review_start_days from study_plan (set at plan creation) for the
+    // first review delay — NOT srInterval(0) which is only 1 day.
+    const { data: planRow } = await supabase
+      .from('study_plan')
+      .select('review_start_days')
+      .eq('user_id', USER_ID)
+      .maybeSingle()
+    const firstReviewDelay: number = (planRow?.review_start_days as number | null) ?? srInterval(0)
+    nextReview = addDaysISO(todayCT, firstReviewDelay)
     lastReviewed = todayCT
     await logSolvedToday()
   }
