@@ -105,6 +105,22 @@ export async function GET(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
 
+  // ── Cooldown guard: never send more than once per 90 minutes ─────────────────
+  // Prevents duplicate emails if the cron fires twice or interval is too short.
+  const COOLDOWN_MS = 90 * 60 * 1000 // 90 minutes
+  const { data: planMeta } = await supabase
+    .from('study_plan')
+    .select('last_notified_at')
+    .eq('user_id', USER_ID)
+    .maybeSingle()
+  if (planMeta?.last_notified_at) {
+    const msSinceLast = Date.now() - new Date(planMeta.last_notified_at as string).getTime()
+    if (msSinceLast < COOLDOWN_MS) {
+      const minsLeft = Math.ceil((COOLDOWN_MS - msSinceLast) / 60000)
+      return NextResponse.json({ skipped: `Cooldown active — ${minsLeft} min until next allowed email` })
+    }
+  }
+
   // ── Check email enabled ───────────────────────────────────────────────────────
   const { data: settings } = await supabase
     .from('user_settings')
@@ -317,6 +333,12 @@ export async function GET(req: NextRequest) {
     console.error('[notify-daily] Resend error:', error)
     return NextResponse.json({ error }, { status: 500 })
   }
+
+  // ── Stamp last_notified_at so the cooldown guard works next time ──────────────
+  await supabase
+    .from('study_plan')
+    .update({ last_notified_at: new Date().toISOString() })
+    .eq('user_id', USER_ID)
 
   return NextResponse.json({
     sent:         true,
