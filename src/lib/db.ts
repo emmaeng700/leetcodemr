@@ -710,6 +710,11 @@ export async function recalibrateSRDates() {
   const updates: Array<{ question_id: number; next_review: string }> = []
 
   for (const row of data) {
+    // Skip review_count=0 rows — their next_review is set to the user's
+    // configured review_start_days delay (14/21/30), not srInterval(0)=1.
+    // Recalibrating would overwrite the custom delay with 1 day.
+    if ((row.review_count ?? 0) === 0) continue
+
     const interval = srInterval(row.review_count ?? 0)
     const base = new Date(row.last_reviewed + 'T12:00:00') // noon local avoids DST edge
     base.setDate(base.getDate() + interval)
