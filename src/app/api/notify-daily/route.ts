@@ -107,19 +107,20 @@ export async function GET(req: NextRequest) {
 
   // ── Cooldown guard: never send more than once per 90 minutes ─────────────────
   // Prevents duplicate emails if the cron fires twice or interval is too short.
-  const COOLDOWN_MS = 90 * 60 * 1000 // 90 minutes
-  const { data: planMeta } = await supabase
-    .from('study_plan')
-    .select('last_notified_at')
-    .eq('user_id', USER_ID)
-    .maybeSingle()
-  if (planMeta?.last_notified_at) {
-    const msSinceLast = Date.now() - new Date(planMeta.last_notified_at as string).getTime()
-    if (msSinceLast < COOLDOWN_MS) {
-      const minsLeft = Math.ceil((COOLDOWN_MS - msSinceLast) / 60000)
-      return NextResponse.json({ skipped: `Cooldown active — ${minsLeft} min until next allowed email` })
-    }
-  }
+  // TEMPORARILY DISABLED FOR TESTING
+  // const COOLDOWN_MS = 90 * 60 * 1000 // 90 minutes
+  // const { data: planMeta } = await supabase
+  //   .from('study_plan')
+  //   .select('last_notified_at')
+  //   .eq('user_id', USER_ID)
+  //   .maybeSingle()
+  // if (planMeta?.last_notified_at) {
+  //   const msSinceLast = Date.now() - new Date(planMeta.last_notified_at as string).getTime()
+  //   if (msSinceLast < COOLDOWN_MS) {
+  //     const minsLeft = Math.ceil((COOLDOWN_MS - msSinceLast) / 60000)
+  //     return NextResponse.json({ skipped: `Cooldown active — ${minsLeft} min until next allowed email` })
+  //   }
+  // }
 
   // ── Check email enabled ───────────────────────────────────────────────────────
   const { data: settings } = await supabase
