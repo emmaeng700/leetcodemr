@@ -205,11 +205,11 @@ export default function SpeedsterPage() {
 
   const totalDays  = days.length
   const currentDay = days[dayIdx] ?? []
-  const daySolved  = currentDay.filter(id => !!progress[String(id)]?.solved).length
+  const daySolved  = currentDay.filter(id => (runs[String(id)] ?? 0) >= 3).length
   const currentDayFiltered = currentDay.filter(id => {
-    const solved = !!progress[String(id)]?.solved
-    if (filterSolved === 'Unsolved' && solved) return false
-    if (filterSolved === 'Solved' && !solved) return false
+    const mastered = (runs[String(id)] ?? 0) >= 3
+    if (filterSolved === 'Unsolved' && mastered) return false
+    if (filterSolved === 'Solved' && !mastered) return false
     return true
   })
 
@@ -218,9 +218,9 @@ export default function SpeedsterPage() {
     const q = qMap[id]
     if (!q) return false
     if (filterDiff !== 'All' && q.difficulty !== filterDiff) return false
-    const solved = !!progress[String(id)]?.solved
-    if (filterSolved === 'Unsolved' && solved) return false
-    if (filterSolved === 'Solved'   && !solved) return false
+    const mastered = (runs[String(id)] ?? 0) >= 3
+    if (filterSolved === 'Unsolved' && mastered) return false
+    if (filterSolved === 'Solved'   && !mastered) return false
     if (filterSource !== 'All' && !(q.source || []).includes(filterSource)) return false
     if (filterPattern) {
       if (!patternMap || patternMap[id] !== filterPattern) return false
@@ -230,7 +230,7 @@ export default function SpeedsterPage() {
   const total          = filteredOrder.length
   const currentQ       = qMap[filteredOrder[cardIdx]]
   const currentRuns    = currentQ ? (runs[String(currentQ.id)] ?? 0) : 0
-  const solvedCount    = planOrder.filter(id => !!progress[String(id)]?.solved).length
+  const solvedCount    = planOrder.filter(id => (runs[String(id)] ?? 0) >= 3).length
   const filteredVisited = filteredOrder.filter(id => visited.has(id)).length
 
   // Reset to first card when filters change
@@ -423,7 +423,7 @@ export default function SpeedsterPage() {
   const cardListDropdownRows = filteredOrder.map((qid, i) => {
     const q = qMap[qid]
     if (!q) return null
-    const done = !!progress[String(qid)]?.solved
+    const mastered = (runs[String(q.id)] ?? 0) >= 3
     return (
       <button
         key={qid}
@@ -433,8 +433,8 @@ export default function SpeedsterPage() {
       >
         <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{q.id}</span>
         <span className="min-w-0 flex-1 truncate text-gray-700">{q.title}</span>
-        {(done || (runs[String(q.id)] ?? 0) >= 3) ? (
-          <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Solved</span>
+        {mastered ? (
+          <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Mastered</span>
         ) : (
           <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
             {runs[String(q.id)] ?? 0}/3
@@ -443,7 +443,7 @@ export default function SpeedsterPage() {
         <span className={`text-xs font-semibold shrink-0 ${q.difficulty === 'Easy' ? 'text-green-600' : q.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
           {q.difficulty[0]}
         </span>
-        {done && <CheckCircle size={11} className="text-green-500 shrink-0" />}
+        {mastered && <CheckCircle size={11} className="text-green-500 shrink-0" />}
       </button>
     )
   })
@@ -550,7 +550,7 @@ export default function SpeedsterPage() {
             {currentDayFiltered.map((qid, i) => {
               const q = qMap[qid]
               if (!q) return null
-              const solved = !!progress[String(qid)]?.solved
+              const mastered = (runs[String(qid)] ?? 0) >= 3
               const topic = patternMap?.[qid] ?? 'Other'
               const prevId = i > 0 ? currentDayFiltered[i - 1] : null
               const prevTopic = prevId != null ? (patternMap?.[prevId] ?? 'Other') : null
@@ -567,16 +567,16 @@ export default function SpeedsterPage() {
                   <button
                     type="button"
                     onClick={() => launchSpeedsterQuestion(qid, currentDay, 'strict')}
-                    className={`flex w-full items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 text-left transition-colors group ${i !== 0 || showTopic ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
+                    className={`flex w-full items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 text-left transition-colors group ${i !== 0 || showTopic ? 'border-t border-gray-100' : ''} ${mastered ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
                     <div className="shrink-0">
-                      {solved
+                      {mastered
                         ? <CheckCircle size={18} className="text-green-500" />
                         : <Circle size={18} className="text-gray-200 group-hover:text-yellow-300 transition-colors" />}
                     </div>
                     <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
-                    <span className={`flex-1 text-sm font-semibold truncate ${solved ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
-                    {(solved || (runs[String(q.id)] ?? 0) >= 3) ? (
-                      <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Solved</span>
+                    <span className={`flex-1 text-sm font-semibold truncate ${mastered ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
+                    {mastered ? (
+                      <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Mastered</span>
                     ) : (
                       <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
                         Runs {runs[String(q.id)] ?? 0}/3
@@ -1038,7 +1038,7 @@ export default function SpeedsterPage() {
               {currentDayFiltered.map((qid, i) => {
                 const q = qMap[qid]
                 if (!q) return null
-                const solved = !!progress[String(qid)]?.solved
+                const mastered = (runs[String(qid)] ?? 0) >= 3
                 const topic = patternMap?.[qid] ?? 'Other'
                 const prevId = i > 0 ? currentDayFiltered[i - 1] : null
                 const prevTopic = prevId != null ? (patternMap?.[prevId] ?? 'Other') : null
@@ -1055,16 +1055,16 @@ export default function SpeedsterPage() {
                     <button
                       type="button"
                       onClick={() => launchSpeedsterQuestion(qid, currentDay, 'strict')}
-                      className={`flex w-full items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 text-left transition-colors group ${i !== 0 || showTopic ? 'border-t border-gray-100' : ''} ${solved ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
+                      className={`flex w-full items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 text-left transition-colors group ${i !== 0 || showTopic ? 'border-t border-gray-100' : ''} ${mastered ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
                       <div className="shrink-0">
-                        {solved
+                        {mastered
                           ? <CheckCircle size={18} className="text-green-500" />
                           : <Circle size={18} className="text-gray-200 group-hover:text-yellow-300 transition-colors" />}
                       </div>
                       <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
-                      <span className={`flex-1 text-sm font-semibold truncate ${solved ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
-                      {(solved || (runs[String(q.id)] ?? 0) >= 3) ? (
-                        <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Solved</span>
+                      <span className={`flex-1 text-sm font-semibold truncate ${mastered ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
+                      {mastered ? (
+                        <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Mastered</span>
                       ) : (
                         <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
                           Runs {runs[String(q.id)] ?? 0}/3
