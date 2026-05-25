@@ -13,7 +13,7 @@ const ORDERED_QUICK_PATTERNS = QUICK_PATTERNS
       DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
       DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
   )
-import { getProgress, updateProgress, getActivityLog, getDueReviews, getReviewsCompletedToday, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getDailyReviewCapChicago, getTodaySolvedCount } from '@/lib/db'
+import { getProgress, updateProgress, getActivityLog, getDueReviews, getReviewsCompletedToday, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getDailyReviewCapChicago, getTodaySolvedCount, getSolvedLog } from '@/lib/db'
 import { computeDailyGoalsMetToday, computePlanStreakDisplayNumber, normalizeStudyPlanRow } from '@/lib/streakGoals'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
@@ -389,6 +389,7 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
   const [dueReviews, setDueReviews] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
   const [reviewsCompletedToday, setReviewsCompletedToday] = useState(0)
   const [solvedTodayCount, setSolvedTodayCount] = useState(0)
+  const [solvedLog, setSolvedLog] = useState<Record<string, number>>({})
   const [dailyQ, setDailyQ] = useState<Question | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [frozenDate, setFrozenDate] = useState<string | null>(null)
@@ -397,13 +398,14 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const [log, interviewData, plan, due, reviewsDone, solvedToday] = await Promise.all([
+      const [log, interviewData, plan, due, reviewsDone, solvedToday, solvedLogData] = await Promise.all([
         getActivityLog(),
         getInterviewDate(),
         getStudyPlan(),
         getDueReviews(),
         getReviewsCompletedToday(),
         getTodaySolvedCount(),
+        getSolvedLog(),
       ])
       if (cancelled) return
       setActivityLog(log)
@@ -411,6 +413,7 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
       setDueReviews(due)
       setReviewsCompletedToday(reviewsDone)
       setSolvedTodayCount(solvedToday)
+      setSolvedLog(solvedLogData)
       if (interviewData?.target_date) setDate(interviewData.target_date)
       setLoaded(true)
     }
@@ -425,17 +428,19 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
     }
     let cancelled = false
     ;(async () => {
-      const [log, due, reviewsDone, solvedToday] = await Promise.all([
+      const [log, due, reviewsDone, solvedToday, solvedLogData] = await Promise.all([
         getActivityLog(),
         getDueReviews(),
         getReviewsCompletedToday(),
         getTodaySolvedCount(),
+        getSolvedLog(),
       ])
       if (cancelled) return
       setActivityLog(log)
       setDueReviews(due)
       setReviewsCompletedToday(reviewsDone)
       setSolvedTodayCount(solvedToday)
+      setSolvedLog(solvedLogData)
     })()
     return () => { cancelled = true }
   }, [progress, loaded])
@@ -529,7 +534,18 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
     const today = todayISOChicago()
 
     if (planMode === 'random') {
-      const dailiesHit = solvedTodayCount >= planNorm.per_day
+      // Cumulative deficit: count total solved since plan start vs total expected by now
+      const planStart = new Date(planNorm.start_date + 'T12:00:00')
+      const nowDate   = new Date(today + 'T12:00:00')
+      const diffDaysR = Math.round((nowDate.getTime() - planStart.getTime()) / 86400000)
+      const totalDaysR = Math.ceil(planNorm.question_order.length / planNorm.per_day)
+      const daysElapsed = Math.max(1, Math.min(diffDaysR + 1, totalDaysR))
+      const totalExpected = daysElapsed * planNorm.per_day
+      const totalSolved = Object.entries(solvedLog)
+        .filter(([d]) => d >= planNorm.start_date && d <= today)
+        .reduce((sum, [, c]) => sum + (typeof c === 'number' ? c : 0), 0)
+      const deficit = Math.max(0, totalExpected - totalSolved)
+      const dailiesHit = deficit === 0
       const allDone = dailiesHit && dueReviews.length === 0
       return (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-5">
@@ -539,13 +555,16 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
             </h2>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
               allDone ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-            }`}>{allDone ? '✓ Done' : `${solvedTodayCount}/${planNorm.per_day} done`}</span>
+            }`}>{allDone ? '✓ Done' : `${solvedTodayCount}/${planNorm.per_day} today`}</span>
           </div>
           {allDone ? (
             <p className="text-sm font-bold text-green-500">All done — day complete! 🎉</p>
           ) : !dailiesHit ? (
             <>
-              <p className="text-xs text-[var(--text-subtle)] mb-2">{solvedTodayCount}/{planNorm.per_day} questions solved today.</p>
+              <p className="text-xs text-[var(--text-subtle)] mb-1">{solvedTodayCount}/{planNorm.per_day} solved today.</p>
+              {deficit > planNorm.per_day && (
+                <p className="text-xs font-semibold text-orange-500 mb-2">⚠️ {deficit - solvedTodayCount} overdue from previous days</p>
+              )}
               <Link href="/daily" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
                 Go to Daily <ChevronRight size={12} />
               </Link>
@@ -589,21 +608,26 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
     if (!dayQs.length) return null
     const doneCnt = dayIds.filter((id: number) => progress[String(id)]?.solved).length
     const allDone = doneCnt === dayIds.length && dueReviews.length === 0
+    const isOverdue = activeDayIndex < diffDays // active day is behind today's scheduled day
     return (
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-5">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold text-[var(--text)] flex items-center gap-1.5">
-            <Calendar size={14} className="text-indigo-500" /> Today
+            <Calendar size={14} className={isOverdue ? 'text-orange-500' : 'text-indigo-500'} />
+            {isOverdue ? <span className="text-orange-600">Overdue · Day {activeDayIndex + 1}</span> : 'Today'}
           </h2>
           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-            allDone ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+            allDone ? 'bg-green-100 text-green-700' : isOverdue ? 'bg-orange-100 text-orange-700' : 'bg-amber-100 text-amber-700'
           }`}>{allDone ? '✓ Done' : `${doneCnt}/${dayIds.length} done`}</span>
         </div>
         {allDone ? (
           <p className="text-sm font-bold text-green-500">All done — day complete! 🎉</p>
         ) : doneCnt < dayIds.length ? (
           <>
-            <p className="text-xs text-[var(--text-subtle)] mb-2">{doneCnt}/{dayIds.length} questions solved today.</p>
+            {isOverdue && (
+              <p className="text-xs font-semibold text-orange-500 mb-1">⚠️ Day {activeDayIndex + 1} is overdue — finish it to catch up</p>
+            )}
+            <p className="text-xs text-[var(--text-subtle)] mb-2">{doneCnt}/{dayIds.length} questions solved.</p>
             <Link href="/daily" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
               Go to Daily <ChevronRight size={12} />
             </Link>
