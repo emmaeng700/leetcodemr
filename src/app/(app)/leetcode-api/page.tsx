@@ -25,6 +25,7 @@ hljs.registerLanguage('cpp', cppLang)
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
+import CompanyBrowser from '@/components/CompanyBrowser'
 function EditorialCodeBlock({ code, lang }: { code: string; lang: string }) {
   const codeRef = useRef<HTMLElement>(null)
   const [copied, setCopied] = useState(false)
@@ -627,26 +628,34 @@ export default function LeetCodePage() {
       {/* ── Main area ────────────────────────────────────── */}
       {!question && !qLoad ? (
         /* Welcome state */
-        <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
-          {daily && (
-            <div className="w-full max-w-sm bg-[#16213e] rounded-2xl border border-gray-700/50 p-4">
-              <p className="text-xs text-orange-400 font-semibold mb-2 flex items-center gap-1.5">
-                <Calendar size={11} /> Today&apos;s Daily Challenge — {daily.date}
-              </p>
-              <p className="font-bold text-gray-100 text-sm mb-2">{daily.question.questionId}. {daily.question.title}</p>
-              <div className="flex items-center gap-2 mb-3 flex-wrap">
-                <span className={`text-xs font-semibold ${DIFF_CLS[daily.question.difficulty]}`}>{daily.question.difficulty}</span>
-                {daily.question.topicTags.slice(0, 3).map(t => (
-                  <span key={t.name} className="text-xs text-gray-500 flex items-center gap-0.5"><Tag size={9} /> {t.name}</span>
-                ))}
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-2xl px-4 py-6 flex flex-col gap-6">
+            {daily && (
+              <div className="bg-[#16213e] rounded-2xl border border-gray-700/50 p-4">
+                <p className="text-xs text-orange-400 font-semibold mb-2 flex items-center gap-1.5">
+                  <Calendar size={11} /> Today&apos;s Daily Challenge — {daily.date}
+                </p>
+                <p className="font-bold text-gray-100 text-sm mb-2">{daily.question.questionId}. {daily.question.title}</p>
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                  <span className={`text-xs font-semibold ${DIFF_CLS[daily.question.difficulty]}`}>{daily.question.difficulty}</span>
+                  {daily.question.topicTags.slice(0, 3).map(t => (
+                    <span key={t.name} className="text-xs text-gray-500 flex items-center gap-0.5"><Tag size={9} /> {t.name}</span>
+                  ))}
+                </div>
+                <button onClick={() => loadQuestion(daily.question.titleSlug)}
+                  className="w-full py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-500 transition flex items-center justify-center gap-1.5">
+                  <Play size={12} /> Solve Daily Challenge
+                </button>
               </div>
-              <button onClick={() => loadQuestion(daily.question.titleSlug)}
-                className="w-full py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-500 transition flex items-center justify-center gap-1.5">
-                <Play size={12} /> Solve Daily Challenge
-              </button>
-            </div>
-          )}
-          <p className="text-gray-600 text-sm">or paste any LeetCode URL in the search bar above</p>
+            )}
+
+            <CompanyBrowser
+              onSolve={(slug) => {
+                setSlugInput(slug)
+                loadQuestion(slug)
+              }}
+            />
+          </div>
         </div>
       ) : qLoad ? (
         <div className="flex-1 flex items-center justify-center">
