@@ -116,163 +116,22 @@ export async function GET(req: NextRequest) {
   // Hoist todayStr so the preview mock can use addDays() without forward-ref errors
   const todayStr = todayCT()
 
-  // ── Preview mock: skip all DB calls and render sample email ──────────────────
-  if (isPreview) {
-    const mockAbsent  = req.nextUrl.searchParams.get('absent')  === '1'
-    const mockNoPlan  = req.nextUrl.searchParams.get('noplan')  === '1'
-    const mockDaysAbs = mockAbsent ? 3 : 0
-
-    const mockUnsolved = mockNoPlan ? [] : [
-      { id: 1, title: 'Two Sum',             difficulty: 'Easy',   slug: 'two-sum',             solved: false },
-      { id: 3, title: 'Longest Substring Without Repeating Characters', difficulty: 'Medium', slug: 'longest-substring-without-repeating-characters', solved: false },
-      { id: 53, title: 'Maximum Subarray',   difficulty: 'Medium', slug: 'maximum-subarray',    solved: false },
-    ]
-    const mockSolvedCount = mockNoPlan ? 0 : 1
-    const mockTotalCount  = mockUnsolved.length + mockSolvedCount
-    // next_review is past-due: #2 was due 3 days ago, #21 is due today
-    const mockReviews = [
-      { question_id: 2,  review_count: 1, next_review: addDays(todayStr, -3), title: 'Add Two Numbers',        difficulty: 'Medium', slug: 'add-two-numbers' },
-      { question_id: 21, review_count: 3, next_review: todayStr,              title: 'Merge Two Sorted Lists', difficulty: 'Easy',   slug: 'merge-two-sorted-lists' },
-    ]
-
-    // Subject
-    const pendingParts: string[] = []
-    if (!mockNoPlan) pendingParts.push(`${mockUnsolved.length} questions left`)
-    pendingParts.push(`${mockReviews.length} reviews due`)
-    if (mockNoPlan) pendingParts.push('no daily plan set')
-    const mockSubject = mockDaysAbs >= 2
-      ? `🚨 ${mockDaysAbs} days away — get back on track`
-      : `🧠 ${pendingParts.join(' · ')} — finish the day`
-
-    const mockHeaderSubtitle = mockDaysAbs >= 2
-      ? `${mockDaysAbs} days away — come back strong 💪`
-      : 'Finish the day strong'
-
-    const mockBodyText = mockDaysAbs >= 2
-      ? `You haven't practiced in ${mockDaysAbs} days. Here's what's waiting for you today — let's get back on track.`
-      : mockNoPlan
-        ? 'You have SR reviews due. Clear them below — and set up your daily plan to start getting question reminders too.'
-        : 'Solve your daily questions and clear your reviews to finish the day.'
-
-    const mockAbsenceBanner = mockDaysAbs >= 2
-      ? `<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:14px 18px;margin-bottom:20px;">
-          <p style="margin:0;font-size:14px;font-weight:700;color:#dc2626;">🚨 You haven't practiced in ${mockDaysAbs} days!</p>
-          <p style="margin:4px 0 0;font-size:12px;color:#ef4444;line-height:1.5;">Don't let all that progress slip — even one session gets you back on track.</p>
-        </div>`
-      : ''
-
-    const mockNoPlanBanner = mockNoPlan
-      ? `<div style="margin-bottom:20px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;padding:16px 18px;">
-          <p style="margin:0;font-size:14px;font-weight:700;color:#92400e;">📅 No daily plan set up yet</p>
-          <p style="margin:6px 0 8px;font-size:12px;color:#b45309;line-height:1.5;">Create a daily plan to get personalised question reminders every day — choose how many questions per day, your start date, and a lock code to keep yourself accountable.</p>
-          <div style="text-align:center;">
-            <a href="${APP_URL}/daily" style="display:inline-block;background:#d97706;color:#fff;font-weight:700;text-decoration:none;padding:10px 22px;border-radius:10px;font-size:13px;">Set up daily plan →</a>
-          </div>
-        </div>`
-      : ''
-
-    const mockQRows = mockUnsolved.map(q => {
-      const lcLink = `https://leetcode.com/problems/${q.slug}/`
-      return `
-        <tr>
-          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;vertical-align:middle;">
-            <span style="font-size:13px;margin-right:6px;">📝</span>
-            <a href="${APP_URL}/question/${q.id}" style="color:#1d4ed8;text-decoration:none;font-weight:600;">#${q.id} ${q.title}</a>
-            &nbsp;<a href="${lcLink}" style="color:#9ca3af;font-size:12px;text-decoration:none;">[LC ↗]</a>
-          </td>
-          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right;vertical-align:middle;">
-            <span style="color:${diffColor[q.difficulty] ?? '#6b7280'};font-weight:700;font-size:12px;">${q.difficulty}</span>
-          </td>
-        </tr>`
-    }).join('')
-
-    const mockQSection = mockNoPlan
-      ? mockNoPlanBanner
-      : `<div style="margin-bottom:20px;">
-          <div style="display:flex;align-items:center;margin-bottom:10px;">
-            <span style="font-size:16px;margin-right:8px;">📝</span>
-            <span style="font-size:14px;font-weight:700;color:#111827;">Today&apos;s Questions</span>
-            <span style="margin-left:auto;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;">${mockSolvedCount}/${mockTotalCount} done</span>
-          </div>
-          <table style="width:100%;border-collapse:collapse;">${mockQRows}</table>
-          <div style="margin-top:12px;text-align:center;">
-            <a href="${APP_URL}/daily" style="display:inline-block;background:#2563eb;color:#fff;font-weight:700;text-decoration:none;padding:11px 24px;border-radius:10px;font-size:13px;">Go solve →</a>
-          </div>
-        </div>`
-
-    const mockRRows = mockReviews.map(r => {
-      const lcLink      = `https://leetcode.com/problems/${r.slug}/`
-      const overdueDays = r.next_review ? daysBetween(r.next_review, todayStr) : 0
-      const overdueLabel = overdueDays === 0 ? 'Due today' : `${overdueDays}d overdue`
-      const overdueColor = overdueDays === 0 ? '#7c3aed' : '#dc2626'
-      const overdueBg    = overdueDays === 0 ? '#ede9fe'  : '#fee2e2'
-      return `
-        <tr>
-          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;vertical-align:middle;">
-            <span style="font-size:13px;margin-right:6px;">🔁</span>
-            <a href="${APP_URL}/review" style="color:#7c3aed;text-decoration:none;font-weight:600;">#${r.question_id} ${r.title}</a>
-            &nbsp;<a href="${lcLink}" style="color:#9ca3af;font-size:12px;text-decoration:none;">[LC ↗]</a>
-          </td>
-          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right;vertical-align:middle;white-space:nowrap;">
-            <span style="color:${diffColor[r.difficulty] ?? '#6b7280'};font-weight:700;font-size:12px;margin-right:6px;">${r.difficulty}</span>
-            <span style="background:${overdueBg};color:${overdueColor};font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;">${overdueLabel}</span>
-          </td>
-        </tr>`
-    }).join('')
-
-    const mockRSection = `
-      <div style="border-top:1.5px solid #f3f4f6;padding-top:20px;">
-        <div style="display:flex;align-items:center;margin-bottom:10px;">
-          <span style="font-size:16px;margin-right:8px;">🔁</span>
-          <span style="font-size:14px;font-weight:700;color:#111827;">Due Reviews</span>
-          <span style="margin-left:auto;background:#ede9fe;color:#7c3aed;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;">${mockReviews.length} remaining</span>
-        </div>
-        <table style="width:100%;border-collapse:collapse;">${mockRRows}</table>
-        <div style="margin-top:14px;text-align:center;">
-          <a href="${APP_URL}/review" style="display:inline-block;background:#7c3aed;color:#fff;font-weight:700;text-decoration:none;padding:11px 24px;border-radius:10px;font-size:13px;">Start Reviews →</a>
-        </div>
-      </div>`
-
-    const mockHtml = `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>${mockSubject}</title></head>
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;margin:0;padding:24px;">
-  <!-- PREVIEW MODE — Subject: ${mockSubject} -->
-  <p style="text-align:center;font-size:11px;color:#9ca3af;font-family:monospace;margin-bottom:16px;">📧 PREVIEW · subject: <strong>${mockSubject}</strong> · scenario: ${mockAbsent ? 'absent 3 days' : mockNoPlan ? 'no daily plan' : 'normal'}</p>
-  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-    <div style="background:linear-gradient(135deg,#7c3aed,#a78bfa);padding:26px 30px;">
-      <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px;">🧠 LeetMastery</div>
-      <div style="color:#ede9fe;font-size:13px;margin-top:4px;">${mockHeaderSubtitle}</div>
-    </div>
-    <div style="padding:26px 30px;">
-      ${mockAbsenceBanner}
-      <p style="color:#6b7280;margin:0 0 22px;font-size:14px;line-height:1.5;">${mockBodyText}</p>
-      ${mockQSection}
-      ${mockRSection}
-    </div>
-    <div style="padding:14px 30px;background:#f9fafb;text-align:center;border-top:1px solid #f3f4f6;">
-      <p style="color:#9ca3af;font-size:12px;margin:0;">LeetMastery · reminders stop once your day is complete</p>
-    </div>
-  </div>
-</body>
-</html>`
-    return new Response(mockHtml, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
-  }
-
   // ── Cooldown guard: never send more than once per 90 minutes ─────────────────
   // Prevents duplicate emails if the cron fires twice or interval is too short.
+  // Skipped in preview mode so you always get the HTML.
   const COOLDOWN_MS = 90 * 60 * 1000 // 90 minutes
-  const { data: planMeta } = await supabase
-    .from('study_plan')
-    .select('last_notified_at')
-    .eq('user_id', USER_ID)
-    .maybeSingle()
-  if (planMeta?.last_notified_at) {
-    const msSinceLast = Date.now() - new Date(planMeta.last_notified_at as string).getTime()
-    if (msSinceLast < COOLDOWN_MS) {
-      const minsLeft = Math.ceil((COOLDOWN_MS - msSinceLast) / 60000)
-      return NextResponse.json({ skipped: `Cooldown active — ${minsLeft} min until next allowed email` })
+  if (!isPreview) {
+    const { data: planMeta } = await supabase
+      .from('study_plan')
+      .select('last_notified_at')
+      .eq('user_id', USER_ID)
+      .maybeSingle()
+    if (planMeta?.last_notified_at) {
+      const msSinceLast = Date.now() - new Date(planMeta.last_notified_at as string).getTime()
+      if (msSinceLast < COOLDOWN_MS) {
+        const minsLeft = Math.ceil((COOLDOWN_MS - msSinceLast) / 60000)
+        return NextResponse.json({ skipped: `Cooldown active — ${minsLeft} min until next allowed email` })
+      }
     }
   }
 
@@ -282,7 +141,7 @@ export async function GET(req: NextRequest) {
     .select('email_enabled,review_start_days')
     .eq('user_id', USER_ID)
     .maybeSingle()
-  if (settings?.email_enabled === false) {
+  if (!isPreview && settings?.email_enabled === false) {
     return NextResponse.json({ skipped: 'Email disabled by user' })
   }
   // review_start_days: read from study_plan first (always saved there now),
@@ -325,11 +184,14 @@ export async function GET(req: NextRequest) {
   // ── Nothing to do? ────────────────────────────────────────────────────────────
   // No plan + no reviews = nothing to surface; skip entirely.
   // Day complete (plan + reviews both done) = skip too.
-  if (!hasPlan && !reviewsActive) {
-    return NextResponse.json({ skipped: 'No study plan set and no SR reviews due' })
-  }
-  if (hasPlan && dailiesDone && !reviewsActive) {
-    return NextResponse.json({ skipped: 'Day complete — all dailies done, no reviews due' })
+  // Both checks bypassed in preview so you always see the rendered HTML.
+  if (!isPreview) {
+    if (!hasPlan && !reviewsActive) {
+      return NextResponse.json({ skipped: 'No study plan set and no SR reviews due' })
+    }
+    if (hasPlan && dailiesDone && !reviewsActive) {
+      return NextResponse.json({ skipped: 'Day complete — all dailies done, no reviews due' })
+    }
   }
 
   // ── Absence detection: how many days since last activity? ─────────────────────
@@ -550,12 +412,14 @@ export async function GET(req: NextRequest) {
 </body>
 </html>`
 
-  // ── Preview mode: return raw HTML so you can inspect in a browser ────────────
+  // ── Preview mode: return real HTML without sending ───────────────────────────
   if (isPreview) {
-    return new Response(
-      `<!-- Subject: ${subject} -->\n` + html,
-      { headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+    const previewLabel = `<p style="text-align:center;font-size:11px;color:#9ca3af;font-family:monospace;margin-bottom:16px;">📧 PREVIEW · subject: <strong>${subject}</strong></p>`
+    const previewHtml  = html.replace(
+      '<div style="max-width:480px',
+      previewLabel + '<div style="max-width:480px',
     )
+    return new Response(previewHtml, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
   }
 
   // ── Send ─────────────────────────────────────────────────────────────────────
