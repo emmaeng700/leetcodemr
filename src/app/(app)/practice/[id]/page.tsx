@@ -59,6 +59,12 @@ function todayDailyRepsKey() {
   return `lm_daily_reps_${new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })}`
 }
 
+function getDailyRepTarget() {
+  const raw = localStorage.getItem('lm_reps_per_q')
+  const parsed = Number.parseInt(raw ?? '3', 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 3
+}
+
 function readDailyRuns() {
   try {
     return JSON.parse(localStorage.getItem(todayDailyRepsKey()) ?? '{}') as Record<string, number>
@@ -94,6 +100,7 @@ export default function PracticePage() {
   const [queuedNextId, setQueuedNextId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<'description' | 'best' | 'accepted' | 'editor'>('description')
   const [modeRuns, setModeRuns] = useState<Record<string, number>>({})
+  const [dailyRepTarget, setDailyRepTarget] = useState(3)
 
   const lcTitleSlug = question ? resolveLeetCodeSlug(question.id, question.slug) : undefined
 
@@ -158,6 +165,7 @@ export default function PracticePage() {
       setStarred(!!prog[String(id)]?.starred)
       setNextReview(prog[String(id)]?.next_review ?? null)
       progressRef.current = prog
+      if (isDailyMode) setDailyRepTarget(getDailyRepTarget())
       if (usesThreeSolveGate) {
         const masteryRuns = isDailyMode
           ? readDailyRuns()
@@ -175,6 +183,8 @@ export default function PracticePage() {
     setOpenQuestionContext({ id: question.id, slug: question.slug, title: question.title })
   }, [question])
 
+  const targetReps = isDailyMode ? dailyRepTarget : 3
+
   useEffect(() => {
     setQueuedNextId(null)
   }, [id])
@@ -183,13 +193,13 @@ export default function PracticePage() {
     if (!usesThreeSolveGate || planOrder.length === 0) return
     const currentIdx = planOrder.indexOf(id)
     if (currentIdx < 0) return
-    const firstIncompleteIdx = planOrder.findIndex(qid => (modeRuns[String(qid)] ?? 0) < 3)
+    const firstIncompleteIdx = planOrder.findIndex(qid => (modeRuns[String(qid)] ?? 0) < targetReps)
     const unlockedThrough = firstIncompleteIdx === -1 ? planOrder.length - 1 : firstIncompleteIdx
     if (currentIdx <= unlockedThrough) return
     const fallbackId = planOrder[unlockedThrough]
     const navSuffix = isDailyMode ? '?from=daily' : isReviewMode ? '?from=review' : '?from=imbibition'
     router.replace(`/practice/${fallbackId}${navSuffix}`)
-  }, [id, isDailyMode, isReviewMode, modeRuns, planOrder, router, usesThreeSolveGate])
+  }, [id, isDailyMode, isReviewMode, modeRuns, planOrder, router, targetReps, usesThreeSolveGate])
 
   // Fetch real LeetCode description in the background once we have the slug.
   // Reads session from localStorage first; if empty falls back to Supabase
@@ -273,12 +283,12 @@ export default function PracticePage() {
   async function forceCurrentRunsComplete() {
     if (!question || !usesThreeSolveGate) return
     const current = modeRuns[String(question.id)] ?? 0
-    if (current >= 3) return
-    const missing = 3 - current
-    setModeRuns(prev => ({ ...prev, [String(question.id)]: 3 }))
+    if (current >= targetReps) return
+    const missing = targetReps - current
+    setModeRuns(prev => ({ ...prev, [String(question.id)]: targetReps }))
     if (isDailyMode) {
       const updated = readDailyRuns()
-      updated[String(question.id)] = 3
+      updated[String(question.id)] = targetReps
       writeDailyRuns(updated)
       return
     }
@@ -334,14 +344,14 @@ export default function PracticePage() {
         return
       }
     }
-    const after = Math.min(before + 1, 3)
+    const after = Math.min(before + 1, targetReps)
     setModeRuns(prev => ({ ...prev, [String(question.id)]: (prev[String(question.id)] ?? 0) + 1 }))
 
     const nextQuestion = nextQuestionId ? allQuestions.find(q => q.id === nextQuestionId) ?? null : null
     const modeLabel = isDailyMode ? 'Daily' : isImbibitionMode ? 'Imbibition' : isEarlyReview ? 'Early review' : 'Review'
     let autoAdvanceId: number | null = null
 
-    if (after >= 3) {
+    if (after >= targetReps) {
       if (isDailyMode) {
         const remainingQueue = planOrder.filter(qid => qid !== question.id)
         sessionStorage.setItem('lm_daily_queue', JSON.stringify(remainingQueue))
@@ -362,22 +372,22 @@ export default function PracticePage() {
       }
       toast.success(
         nextQuestion
-          ? `${modeLabel} complete: 3/3. ${nextQuestion.title} is next.`
-          : `${modeLabel} complete: 3/3. All done!`,
+          ? `${modeLabel} complete: ${targetReps}/${targetReps}. ${nextQuestion.title} is next.`
+          : `${modeLabel} complete: ${targetReps}/${targetReps}. All done!`,
         { duration: 4500 }
       )
     } else {
-      toast.success(`${modeLabel} progress: ${after}/3`, { duration: 3000 })
+      toast.success(`${modeLabel} progress: ${after}/${targetReps}`, { duration: 3000 })
     }
 
-    // Complete the review at 3/3: for due reviews (due=true) or early reviews
-    if ((isReviewMode && due || isEarlyReview) && !reviewDone && after >= 3) {
+    // Complete the review at target reps: for due reviews (due=true) or early reviews
+    if ((isReviewMode && due || isEarlyReview) && !reviewDone && after >= targetReps) {
       await handleCompleteReview()
     }
 
     if (autoAdvanceId) {
       router.push(`/practice/${autoAdvanceId}${navSuffix}`)
-    } else if (isDailyMode && after >= 3) {
+    } else if (isDailyMode && after >= targetReps) {
       router.push('/daily')
     }
   }
@@ -467,7 +477,7 @@ export default function PracticePage() {
             const qMap = Object.fromEntries(allQuestions.map(q => [q.id, q]))
             const currentIdx = planOrder.indexOf(id)
             const firstIncompleteIdx = usesThreeSolveGate
-              ? planOrder.findIndex(qid => (modeRuns[String(qid)] ?? 0) < 3)
+              ? planOrder.findIndex(qid => (modeRuns[String(qid)] ?? 0) < targetReps)
               : -1
             const unlockedThrough = !usesThreeSolveGate
               ? planOrder.length - 1
@@ -503,7 +513,7 @@ export default function PracticePage() {
                   </span>
                   {usesThreeSolveGate && (
                     <span className="shrink-0 text-[10px] font-bold text-cyan-600">
-                      {Math.min(modeRuns[String(qid)] ?? 0, 3)}/3
+                      {Math.min(modeRuns[String(qid)] ?? 0, targetReps)}/{targetReps}
                     </span>
                   )}
                 </button>
@@ -553,7 +563,7 @@ export default function PracticePage() {
           {usesThreeSolveGate && question && (
             <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 text-xs font-bold shrink-0">
               <Trophy size={12} />
-              <span>{Math.min(modeRuns[String(question.id)] ?? 0, 3)}/3</span>
+              <span>{Math.min(modeRuns[String(question.id)] ?? 0, targetReps)}/{targetReps}</span>
             </div>
           )}
           <div className="hidden sm:flex items-center gap-1.5 bg-[var(--bg-muted)] border border-[var(--border)] px-3 py-1.5 rounded-lg text-sm font-mono font-semibold text-[var(--text-muted)]">
@@ -651,7 +661,7 @@ export default function PracticePage() {
           <PriorityBadge pattern={p} />
           {usesThreeSolveGate && (
             <span className="ml-auto text-[11px] font-bold text-cyan-700 shrink-0">
-              {isDailyMode ? 'Daily' : isImbibitionMode ? 'Imbibition' : isEarlyReview ? 'Early' : 'Review'} {Math.min(modeRuns[String(question.id)] ?? 0, 3)}/3
+              {isDailyMode ? 'Daily' : isImbibitionMode ? 'Imbibition' : isEarlyReview ? 'Early' : 'Review'} {Math.min(modeRuns[String(question.id)] ?? 0, targetReps)}/{targetReps}
             </span>
           )}
         </div>
