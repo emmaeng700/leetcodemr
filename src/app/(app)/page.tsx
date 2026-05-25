@@ -534,20 +534,19 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
     const today = todayISOChicago()
 
     if (planMode === 'random') {
-      // Cumulative deficit: count total solved since plan start vs total expected by now
-      const planStart = new Date(planNorm.start_date + 'T12:00:00')
-      const nowDate   = new Date(today + 'T12:00:00')
-      const diffDaysR = Math.round((nowDate.getTime() - planStart.getTime()) / 86400000)
-      const totalDaysR = Math.ceil(planNorm.question_order.length / planNorm.per_day)
-      const daysElapsed = Math.max(1, Math.min(diffDaysR + 1, totalDaysR))
-      const totalExpected = daysElapsed * planNorm.per_day
-      // Cap each day at per_day so a bulk LC Sync on one day doesn't
-      // erase the deficit from other missed days.
-      const totalSolved = Object.entries(solvedLog)
-        .filter(([d]) => d >= planNorm.start_date && d <= today)
-        .reduce((sum, [, c]) => sum + Math.min(typeof c === 'number' ? c : 0, planNorm.per_day), 0)
-      const deficit = Math.max(0, totalExpected - totalSolved)
-      const dailiesHit = deficit === 0
+      // Check today AND yesterday independently.
+      // LC Sync bypasses updateProgress() so it never touches solved_log —
+      // solved_log is purely in-app solves, making it a clean signal.
+      const yd = new Date(today + 'T12:00:00')
+      yd.setDate(yd.getDate() - 1)
+      const isoYesterday = yd.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
+      // Yesterday only counts if the plan was already running then
+      const planIncludesYesterday = isoYesterday >= planNorm.start_date
+      const yesterdaySolved = planIncludesYesterday ? ((solvedLog[isoYesterday] ?? 0) as number) : planNorm.per_day
+      const yesterdayDone = yesterdaySolved >= planNorm.per_day
+
+      const todayDone = solvedTodayCount >= planNorm.per_day
+      const dailiesHit = todayDone && yesterdayDone
       const allDone = dailiesHit && dueReviews.length === 0
       return (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-5">
@@ -561,22 +560,28 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
           </div>
           {allDone ? (
             <p className="text-sm font-bold text-green-500">All done — day complete! 🎉</p>
-          ) : !dailiesHit ? (
-            <>
-              <p className="text-xs text-[var(--text-subtle)] mb-1">{solvedTodayCount}/{planNorm.per_day} solved today.</p>
-              {deficit > planNorm.per_day && (
-                <p className="text-xs font-semibold text-orange-500 mb-2">⚠️ {deficit - solvedTodayCount} overdue from previous days</p>
-              )}
-              <Link href="/daily" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
-                Go to Daily <ChevronRight size={12} />
-              </Link>
-            </>
-          ) : (
+          ) : dailiesHit ? (
+            // Both today + yesterday done but reviews still pending
             <>
               <p className="text-xs text-[var(--text-subtle)] mb-2">Questions done — clear your reviews to finish.</p>
               <Link href="/review" className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:underline">
                 Open reviews <ChevronRight size={12} />
               </Link>
+            </>
+          ) : (
+            // Daily questions not caught up
+            <>
+              {!yesterdayDone && (
+                <p className="text-xs font-semibold text-orange-500 mb-1">⚠️ Yesterday&apos;s {planNorm.per_day} questions weren&apos;t done</p>
+              )}
+              <p className="text-xs text-[var(--text-subtle)] mb-2">{solvedTodayCount}/{planNorm.per_day} solved today.</p>
+              {todayDone && !yesterdayDone ? (
+                <p className="text-xs text-[var(--text-subtle)]">Today&apos;s quota met — yesterday&apos;s still missing.</p>
+              ) : (
+                <Link href="/daily" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
+                  Go to Daily <ChevronRight size={12} />
+                </Link>
+              )}
             </>
           )}
           <div className="mt-3 pt-3 border-t border-[var(--border-soft)]">
