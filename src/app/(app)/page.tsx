@@ -37,7 +37,6 @@ interface ProgressData {
   solved: boolean
   starred: boolean
   notes: string
-  status?: string | null
   review_count?: number
   next_review?: string | null
 }
@@ -242,9 +241,8 @@ function PatternCoverageGrid({ questions, progress }: { questions: Question[]; p
   const patternStats = useMemo(() => ORDERED_QUICK_PATTERNS.map(p => {
     const qs = questions.filter(q => exclusiveMap[q.id] === p.name)
     const solved = qs.filter(q => progress[String(q.id)]?.solved).length
-    const mastered = qs.filter(q => progress[String(q.id)]?.status === 'mastered').length
     const pct = qs.length ? Math.round((solved / qs.length) * 100) : 0
-    return { name: p.name, tags: p.tags, total: qs.length, solved, mastered, pct }
+    return { name: p.name, tags: p.tags, total: qs.length, solved, pct }
   }).filter(p => p.total > 0), [questions, progress, exclusiveMap])
 
   const weakest = [...patternStats].filter(p => p.total >= 3).sort((a, b) => a.pct - b.pct)[0]
@@ -1225,12 +1223,6 @@ function HomeInner() {
               const today = new Date(); today.setHours(0, 0, 0, 0)
               return rev <= today
             }
-            const STATUS_STYLES: Record<string, string> = {
-              learnt: 'bg-blue-100  text-blue-600 ',
-              reviewed: 'bg-yellow-100  text-yellow-600 ',
-              revised: 'bg-orange-100  text-orange-600 ',
-              mastered: 'bg-green-100  text-green-600 ',
-            }
             return (
               <Link key={q.id} href={'/practice/' + q.id} className={'group block rounded-xl border p-4 transition-all duration-150 hover:shadow-xl hover:shadow-indigo-900/20 hover:border-indigo-500/50 ' + (p.solved ? 'bg-green-50  border-green-300 ' : 'bg-[var(--bg-card)] border-[var(--border-soft)]')}>
                 <div className="flex items-start justify-between gap-2">
@@ -1241,9 +1233,6 @@ function HomeInner() {
                   <div className="flex items-center gap-1 shrink-0">
                     {p.starred && <Star size={14} className="text-yellow-400 fill-yellow-400" />}
                     {p.solved && <CheckCircle size={14} className="text-green-400" />}
-                    {p.status === 'mastered' && isDue(p.next_review) && (
-                      <Brain size={14} className="text-indigo-400" />
-                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -1254,21 +1243,6 @@ function HomeInner() {
                   {q.python_solution && <span className="text-xs bg-blue-100  text-blue-600  px-2 py-0.5 rounded-full">Py ✓</span>}
                   {q.cpp_solution && <span className="text-xs bg-purple-100  text-purple-600  px-2 py-0.5 rounded-full">C++ ✓</span>}
                 </div>
-                {p.status && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className={'text-xs px-2 py-0.5 rounded-full font-semibold ' + (STATUS_STYLES[p.status] || '')}>
-                      {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
-                    </span>
-                    {p.status === 'mastered' && p.next_review && !isDue(p.next_review) && (
-                      <span className="text-xs text-slate-500">
-                        📅 Review {(() => { const [y,mo,d] = (p.next_review as string).split('-').map(Number); return new Date(y,mo-1,d).toLocaleDateString(undefined,{month:'short',day:'numeric'}) })()}
-                      </span>
-                    )}
-                    {p.status === 'mastered' && isDue(p.next_review) && (
-                      <span className="text-xs text-indigo-600  font-semibold">🧠 Review due!</span>
-                    )}
-                  </div>
-                )}
                 {p.notes && <p className="text-xs text-[var(--text-subtle)] mt-2 italic truncate">📝 {p.notes}</p>}
               </Link>
             )
