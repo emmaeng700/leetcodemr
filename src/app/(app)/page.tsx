@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useMemo, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp, RotateCcw, RefreshCw } from 'lucide-react'
+import { Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp, RotateCcw } from 'lucide-react'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 
@@ -374,7 +374,7 @@ function PatternCoverageGrid({ questions, progress }: { questions: Question[]; p
   )
 }
 
-function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { questions: Question[]; progress: Record<string, ProgressData>; onSync: () => void; syncing: boolean }) {
+function InterviewCountdownWidget({ questions, progress }: { questions: Question[]; progress: Record<string, ProgressData> }) {
   const router = useRouter()
   const [date, setDate] = useState('')
   const [editing, setEditing] = useState(false)
@@ -557,13 +557,7 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
                 </Link>
               </>
             ) : (
-              <p className="text-xs text-[var(--text-subtle)]">Solve on LeetCode, then{' '}
-                <button onClick={onSync} disabled={syncing}
-                  className="font-semibold text-indigo-500 hover:text-indigo-400 underline underline-offset-2 transition-colors disabled:opacity-50">
-                  {syncing ? 'Syncing…' : 'LC Sync'}
-                </button>
-                {' '}to mark solved.
-              </p>
+              <p className="text-xs text-[var(--text-subtle)]">Solve your questions and mark them done in the app.</p>
             )}
           </div>
         </div>
@@ -618,17 +612,6 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
             </Link>
           </>
         )}
-        <div className="mt-3 pt-3 border-t border-[var(--border-soft)]">
-          <p className="text-xs text-[var(--text-subtle)]">Solve on LeetCode, then{' '}
-            <button
-              onClick={onSync}
-              disabled={syncing}
-              className="font-semibold text-indigo-500 hover:text-indigo-400 underline underline-offset-2 transition-colors disabled:opacity-50"
-            >
-              {syncing ? 'Syncing…' : 'LC Sync'}
-            </button>
-            {' '}to mark problems solved.</p>
-        </div>
       </div>
     )
   })()
@@ -1116,35 +1099,6 @@ function HomeInner() {
   const paginated = filtered.slice((qPage - 1) * PAGE_SIZE, qPage * PAGE_SIZE)
 
   const solved = Object.values(progress).filter(p => p.solved).length
-  const [syncing, setSyncing] = useState(false)
-
-  async function syncFromLeetCode() {
-    setSyncing(true)
-    try {
-      const res = await fetch('/api/lc-sync', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error || 'Sync failed')
-        return
-      }
-      const newlySynced = data.synced ?? 0
-      const backfilled = data.backfilled ?? 0
-      if (newlySynced === 0 && backfilled === 0) {
-        toast.success('Already up to date — nothing new to sync')
-      } else {
-        const parts: string[] = []
-        if (newlySynced > 0) parts.push(`${newlySynced} newly solved problem${newlySynced !== 1 ? 's' : ''}`)
-        if (backfilled > 0) parts.push(`${backfilled} older solve${backfilled !== 1 ? 's' : ''} added to review queue`)
-        toast.success(parts.join(' · ') + ' ✓')
-        const prog = await getProgress()
-        setProgress(prog)
-      }
-    } catch {
-      toast.error('Could not reach sync API')
-    } finally {
-      setSyncing(false)
-    }
-  }
 
   async function toggleSolved(e: React.MouseEvent, q: Question) {
     e.preventDefault()
@@ -1175,19 +1129,9 @@ function HomeInner() {
             style={{ width: (questions.length ? Math.round((solved / questions.length) * 100) : 0) + '%' }} />
         </div>
         <span className="text-sm font-semibold text-indigo-400">{questions.length ? Math.round((solved / questions.length) * 100) : 0}%</span>
-        <button
-          onClick={syncFromLeetCode}
-          style={{ touchAction: 'manipulation' }}
-          title="Sync solved problems from LeetCode"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 transition-colors shrink-0 disabled:opacity-50"
-          disabled={syncing}
-        >
-          <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
-          {syncing ? 'Syncing…' : 'LC Sync'}
-        </button>
       </div>
 
-      {!loading && <InterviewCountdownWidget questions={questions} progress={progress} onSync={syncFromLeetCode} syncing={syncing} />}
+      {!loading && <InterviewCountdownWidget questions={questions} progress={progress} />}
       {!loading && <TodayPlanCard questions={questions} progress={progress} />}
       <DueReviewBanner />
       {!loading && <PatternCoverageGrid questions={questions} progress={progress} />}
