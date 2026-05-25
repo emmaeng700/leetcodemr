@@ -529,7 +529,8 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
     const today = todayISOChicago()
 
     if (planMode === 'random') {
-      const allDone = dueReviews.length === 0
+      const dailiesHit = solvedTodayCount >= planNorm.per_day
+      const allDone = dailiesHit && dueReviews.length === 0
       return (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-5">
           <div className="flex items-center justify-between mb-3">
@@ -538,13 +539,20 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
             </h2>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
               allDone ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-            }`}>{allDone ? '✓ Done' : `${dueReviews.length} reviews left`}</span>
+            }`}>{allDone ? '✓ Done' : `${solvedTodayCount}/${planNorm.per_day} done`}</span>
           </div>
           {allDone ? (
-            <p className="text-sm font-bold text-green-500">All reviews cleared — day done! 🎉</p>
+            <p className="text-sm font-bold text-green-500">All done — day complete! 🎉</p>
+          ) : !dailiesHit ? (
+            <>
+              <p className="text-xs text-[var(--text-subtle)] mb-2">{solvedTodayCount}/{planNorm.per_day} questions solved today.</p>
+              <Link href="/daily" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
+                Go to Daily <ChevronRight size={12} />
+              </Link>
+            </>
           ) : (
             <>
-              <p className="text-xs text-[var(--text-subtle)] mb-2">Clear all your reviews to finish the day.</p>
+              <p className="text-xs text-[var(--text-subtle)] mb-2">Questions done — clear your reviews to finish.</p>
               <Link href="/review" className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:underline">
                 Open reviews <ChevronRight size={12} />
               </Link>
@@ -580,7 +588,7 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
     const dayQs = dayIds.map((id: number) => qMap[id]).filter(Boolean)
     if (!dayQs.length) return null
     const doneCnt = dayIds.filter((id: number) => progress[String(id)]?.solved).length
-    const allDone = dueReviews.length === 0
+    const allDone = doneCnt === dayIds.length && dueReviews.length === 0
     return (
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-5">
         <div className="flex items-center justify-between mb-3">
@@ -589,13 +597,20 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
           </h2>
           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
             allDone ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-          }`}>{allDone ? '✓ Done' : `${dueReviews.length} reviews left`}</span>
+          }`}>{allDone ? '✓ Done' : `${doneCnt}/${dayIds.length} done`}</span>
         </div>
         {allDone ? (
-          <p className="text-sm font-bold text-green-500">All reviews cleared — day done! 🎉</p>
+          <p className="text-sm font-bold text-green-500">All done — day complete! 🎉</p>
+        ) : doneCnt < dayIds.length ? (
+          <>
+            <p className="text-xs text-[var(--text-subtle)] mb-2">{doneCnt}/{dayIds.length} questions solved today.</p>
+            <Link href="/daily" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
+              Go to Daily <ChevronRight size={12} />
+            </Link>
+          </>
         ) : (
           <>
-            <p className="text-xs text-[var(--text-subtle)] mb-2">Clear all your reviews to finish the day.</p>
+            <p className="text-xs text-[var(--text-subtle)] mb-2">Questions done — clear your reviews to finish.</p>
             <Link href="/review" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
               Open reviews <ChevronRight size={12} />
             </Link>
