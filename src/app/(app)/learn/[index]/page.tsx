@@ -27,7 +27,6 @@ import StatusRadio from '@/components/StatusRadio'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
-import LearnAcSubmitTable from '@/components/learn/LearnAcSubmitTable'
 import { CODE_HIGHLIGHT_TOKEN_CSS } from '@/lib/codeHighlightTheme'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 
@@ -1123,12 +1122,7 @@ function LearnInner() {
       {/* lc-description styles live in globals.css — no inline override needed */}
     </div>
 
-    <section className="border-t border-gray-100 bg-gray-50/90">
-      <div className="mx-auto max-w-6xl px-3 py-6 pb-10">
-        <LearnAcSubmitTable onSolve={openQuestionInLearn} />
-      </div>
-    </section>
-    </>
+</>
   )
 }
 
