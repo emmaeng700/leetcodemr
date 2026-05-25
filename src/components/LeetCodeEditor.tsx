@@ -846,6 +846,45 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     } catch (e) { setResultErr(String(e)); setRunning(false); setPollMsg('') }
   }
 
+  /* ── Keyboard shortcuts ── */
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const view = editorViewRef.current
+      const target = e.target as HTMLElement | null
+      const insideCodeMirror = !!target?.closest?.('.cm-editor')
+      const focusedInEditor = !!view?.hasFocus || insideCodeMirror
+      if (!focusedInEditor || showSolutionsModal) return
+
+      const modifier = e.metaKey || e.ctrlKey
+      if (!modifier || e.altKey) return
+
+      // Match LeetCode-style shortcuts while typing:
+      // Cmd/Ctrl + ' => Run
+      // Cmd/Ctrl + Enter => Submit
+      if ((e.key === "'" || e.code === 'Quote') && !running) {
+        e.preventDefault()
+        if (!sessionOK) {
+          setShowSessionHint(true)
+          return
+        }
+        void runTest()
+        return
+      }
+
+      if (e.key === 'Enter' && !running) {
+        e.preventDefault()
+        if (!sessionOK) {
+          setShowSessionHint(true)
+          return
+        }
+        void runSubmit()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [runSubmit, runTest, running, sessionOK, showSolutionsModal])
+
   const isAC = result?.status_code === 10
 
   /* ══ RENDER ══════════════════════════════════════════════ */
