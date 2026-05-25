@@ -541,9 +541,11 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
       const totalDaysR = Math.ceil(planNorm.question_order.length / planNorm.per_day)
       const daysElapsed = Math.max(1, Math.min(diffDaysR + 1, totalDaysR))
       const totalExpected = daysElapsed * planNorm.per_day
+      // Cap each day at per_day so a bulk LC Sync on one day doesn't
+      // erase the deficit from other missed days.
       const totalSolved = Object.entries(solvedLog)
         .filter(([d]) => d >= planNorm.start_date && d <= today)
-        .reduce((sum, [, c]) => sum + (typeof c === 'number' ? c : 0), 0)
+        .reduce((sum, [, c]) => sum + Math.min(typeof c === 'number' ? c : 0, planNorm.per_day), 0)
       const deficit = Math.max(0, totalExpected - totalSolved)
       const dailiesHit = deficit === 0
       const allDone = dailiesHit && dueReviews.length === 0
