@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Settings, Bell, Clock, Globe, Save, Loader2, Check, BookOpen, RefreshCw } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Settings, Bell, Clock, Globe, Save, Loader2, Check, BookOpen, RefreshCw, Smartphone } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const TIMEZONES = [
@@ -41,6 +41,7 @@ export default function SettingsPage() {
   const [loading,         setLoading]         = useState(true)
   const [saving,          setSaving]          = useState(false)
   const [saved,           setSaved]           = useState(false)
+  const [updateStatus,    setUpdateStatus]    = useState<'idle' | 'checking' | 'uptodate'>('idle')
   const [emailEnabled,    setEmailEnabled]    = useState(true)
   const [timezone,        setTimezone]        = useState('America/Chicago')
   const [emailTimes,      setEmailTimes]      = useState<(string | null)[]>([null, null, null])
@@ -70,6 +71,33 @@ export default function SettingsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
+  }, [])
+
+  const checkForUpdate = useCallback(async () => {
+    if (!('serviceWorker' in navigator)) {
+      toast('Service worker not supported on this browser')
+      return
+    }
+    setUpdateStatus('checking')
+    try {
+      const reg = await navigator.serviceWorker.getRegistration()
+      if (!reg) {
+        toast('No service worker registered yet — try reloading the app first')
+        setUpdateStatus('idle')
+        return
+      }
+      // If a new SW activates, SwRegister's controllerchange listener will
+      // reload the page automatically. We just need to trigger the network fetch.
+      await reg.update()
+      // Give it 4 seconds for the SW to install + activate. If still here,
+      // we're already on the latest version.
+      await new Promise(r => setTimeout(r, 4000))
+      setUpdateStatus('uptodate')
+      setTimeout(() => setUpdateStatus('idle'), 3000)
+    } catch {
+      toast.error('Could not check for updates')
+      setUpdateStatus('idle')
+    }
   }, [])
 
   const updateSlot = (i: number, val: string) => {
@@ -313,6 +341,35 @@ export default function SettingsPage() {
               <p className="text-[11px] text-[var(--text-subtle)] italic">Enable reminders to edit times.</p>
             )}
           </div>
+        </div>
+
+        {/* ── App update ── */}
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 space-y-4 mb-4">
+          <div className="flex items-center gap-2">
+            <Smartphone size={14} className="text-sky-500" />
+            <span className="text-sm font-bold text-[var(--text)]">App Version</span>
+          </div>
+          <p className="text-[11px] text-[var(--text-subtle)]">
+            If your home screen app is showing an old version, tap below to pull the latest and reload.
+          </p>
+          <button
+            type="button"
+            onClick={checkForUpdate}
+            disabled={updateStatus === 'checking'}
+            className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border font-semibold text-sm transition-colors ${
+              updateStatus === 'uptodate'
+                ? 'border-green-400 bg-green-50 text-green-700'
+                : 'border-sky-400 bg-sky-50 text-sky-700 hover:bg-sky-100 disabled:opacity-60'
+            }`}
+          >
+            {updateStatus === 'checking' ? (
+              <><Loader2 size={14} className="animate-spin" /> Checking…</>
+            ) : updateStatus === 'uptodate' ? (
+              <><Check size={14} /> Already up to date</>
+            ) : (
+              <><RefreshCw size={14} /> Get Latest Version</>
+            )}
+          </button>
         </div>
 
         {/* Save */}
