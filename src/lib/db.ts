@@ -614,6 +614,7 @@ export async function clearInterviewDate() {
 // ─── Reset ───────────────────────────────────────────────────────────────────
 
 export async function resetAllProgress(): Promise<{ error?: string }> {
+  // 1. Reset the progress table
   const { error } = await supabase
     .from('progress')
     .update({
@@ -621,11 +622,16 @@ export async function resetAllProgress(): Promise<{ error?: string }> {
       review_count: 0,
       next_review: null,
       last_reviewed: null,
+      status: null,
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', USER_ID)
 
   if (error) return { error: error.message }
+
+  // 2. Clear mastery run events so SR tier labels reset to zero
+  await resetMasteryRuns()
+
   return {}
 }
 

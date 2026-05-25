@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { Trophy, TrendingUp, Download, Upload, CheckCircle, AlertTriangle, Lock, Unlock } from 'lucide-react'
-import { getProgress, getSolvedLog, getTimeTracking, getDailyTarget, setDailyTarget, getStudyPlan, resetAllProgress } from '@/lib/db'
+import { getProgress, getSolvedLog, getTimeTracking, getDailyTarget, setDailyTarget, getStudyPlan, resetAllProgress, getMasteryRunsByQuestion } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import StreakCalendar from '@/components/StreakCalendar'
 import StudyPaceCalculator from '@/components/StudyPaceCalculator'
@@ -42,19 +42,27 @@ export default function StatsPage() {
 
   useEffect(() => {
     async function load() {
-      const [qs, prog, sl, td, plan, dt] = await Promise.all([
+      const [qs, prog, sl, td, plan, dt, masteryRuns] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getProgress(),
         getSolvedLog(),
         getTimeTracking(),
         getStudyPlan(),
         getDailyTarget(),
+        getMasteryRunsByQuestion(),
       ])
       setQuestions(qs)
       setProgress(prog)
       setSolvedLog(sl)
       setTimeData(td)
       setLoading(false)
+
+      // Auto-clear stale mastery run data if no questions are solved but runs exist
+      const hasSolved = Object.values(prog).some((p: any) => p?.solved)
+      const hasRuns = Object.keys(masteryRuns).length > 0
+      if (!hasSolved && hasRuns) {
+        fetch('/api/user/clear-mastery', { method: 'POST' }).catch(() => {})
+      }
 
       // Store plan per_day as the source-of-truth target
       if (plan?.per_day) setPlanPerDay(plan.per_day)

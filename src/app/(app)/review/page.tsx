@@ -229,7 +229,8 @@ export default function ReviewPage() {
   const statusCounts = Object.keys(STATUS_META).reduce((acc: Record<string, number>, k) => {
     acc[k] = 0; return acc
   }, {})
-  for (const q of withProgress) {
+  // Only count questions that are actually solved — unsolved questions have no SR tier
+  for (const q of withProgress.filter(q => q.p.solved)) {
     const b = masteryBucket(runs[String(q.id)] ?? 0)
     statusCounts[b] = (statusCounts[b] || 0) + 1
   }
@@ -484,7 +485,7 @@ export default function ReviewPage() {
           <TrendingUp size={15} className="text-[var(--text-muted)]" /> All Questions by Status
         </h2>
         {(['mastered', 'revised', 'reviewed', 'learnt'] as const).map(st => {
-          const qs = withProgress.filter(q => masteryBucket(runs[String(q.id)] ?? 0) === st)
+          const qs = withProgress.filter(q => q.p.solved && masteryBucket(runs[String(q.id)] ?? 0) === st)
           return (
             <StatusBucket
               key={st}
