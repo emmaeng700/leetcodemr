@@ -556,7 +556,6 @@ export default function LineGamePage() {
         >
           {pq.difficulty[0]}
         </span>
-        {m === 'mastered' && <span title="Mastered">🔥</span>}
         {m === 'solved' && <span title="Solved">✓</span>}
         {m === 'revealed' && <span title="Needs work">👀</span>}
       </button>
@@ -689,7 +688,6 @@ export default function LineGamePage() {
                   <span className={`text-[10px] font-bold shrink-0 ${q.difficulty === 'Easy' ? 'text-green-600' : q.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
                     {q.difficulty[0]}
                   </span>
-                  {m === 'mastered' && <span title="Mastered" className="shrink-0">🔥</span>}
                   {m === 'solved' && <span title="Solved" className="text-green-600 shrink-0 text-xs">✓</span>}
                   {m === 'revealed' && <span title="Needs work" className="shrink-0">👀</span>}
                 </button>

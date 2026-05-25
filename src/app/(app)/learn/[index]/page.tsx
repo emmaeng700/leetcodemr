@@ -23,7 +23,6 @@ import { isDue, formatLocalDate, nextIntervalDays, stripScripts, leetCodeUrl, re
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
-import StatusRadio from '@/components/StatusRadio'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
@@ -284,7 +283,6 @@ function LearnInner() {
   const p         = q ? (progress[String(q.id)] || {}) : {}
   const solved    = p.solved    || false
   const starred   = p.starred   || false
-  const status    = p.status    || null
   const reviewCount = p.review_count || 0
   const nextReview  = p.next_review  || null
   const due = isDue(nextReview) && solved
@@ -514,7 +512,7 @@ function LearnInner() {
 
   const save = async (patch: any = {}) => {
     if (!q) return
-    const updated = { solved, starred, status, ...patch, question_id: q.id }
+    const updated = { solved, starred, ...patch, question_id: q.id }
     await updateProgress(q.id, updated)
     setProgress(prev => ({ ...prev, [String(q.id)]: { ...prev[String(q.id)], ...updated } }))
   }
@@ -893,14 +891,6 @@ function LearnInner() {
                       <span className="text-xs text-gray-400 font-mono">#{q.id}</span>
                       <DifficultyBadge difficulty={q.difficulty} />
                       {(() => { const p = currentPatternName ?? getPatternForQuestion(q.tags ?? []); return p ? <PriorityBadge pattern={p} /> : null })()}
-                      {status && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border capitalize ${
-                          status === 'mastered' ? 'bg-green-100 text-green-700 border-green-300'
-                          : status === 'revised' ? 'bg-orange-100 text-orange-700 border-orange-300'
-                          : status === 'reviewed' ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
-                          : 'bg-blue-100 text-blue-700 border-blue-300'
-                        }`}>{status}</span>
-                      )}
                     </div>
                     <h1 className="font-bold text-gray-800 text-base leading-snug">{q.title}</h1>
                     {solved && nextReview && !due && (
@@ -987,32 +977,14 @@ function LearnInner() {
                     </div>
                   )}
 
-                  {/* Knowledge level */}
-                  <div className="pt-3 border-t border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-gray-600 flex items-center gap-1.5">
-                        <Brain size={12} className="text-indigo-500" /> How well do you know this?
-                      </span>
-                      {solved && nextReview && (
-                        <span className="text-xs text-green-600 font-medium">{formatLocalDate(nextReview)}</span>
-                      )}
-                    </div>
-                    <StatusRadio
-                      value={status}
-                      onChange={s => {
-                        if (s === 'mastered' && !solved) save({ status: s, solved: true })
-                        else if (s === null && status === 'mastered') save({ status: null, solved: false })
-                        else save({ status: s })
-                      }}
-                    />
-                    {solved && nextReview ? (
-                      <p className="text-xs text-green-600 mt-2">
+                  {/* SR next review info */}
+                  {solved && nextReview && (
+                    <div className="pt-3 border-t border-gray-100">
+                      <p className="text-xs text-green-600">
                         ✅ Review #{reviewCount + 1} in {nextIntervalDays(reviewCount)} day{nextIntervalDays(reviewCount) !== 1 ? 's' : ''} · {formatLocalDate(nextReview)}
                       </p>
-                    ) : (
-                      <p className="text-xs text-gray-400 mt-2">Mark Solved to start spaced repetition.</p>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               )}
 

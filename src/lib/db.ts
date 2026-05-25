@@ -2,7 +2,6 @@ import { supabase } from './supabase'
 import { computeDailyGoalsMetToday } from './streakGoals'
 import { todayISOChicago } from './studyPlanDay'
 import { srInterval } from './utils'
-import { deriveMasteryStatus } from './masteryStatus'
 
 const USER_ID = 'emmanuel'
 const MOCK_SESSIONS_LOCAL_KEY = 'leetcodemr_mock_sessions'
@@ -69,7 +68,6 @@ export async function getProgress() {
         review_count: row.review_count,
         next_review: row.next_review,
         last_reviewed: row.last_reviewed,
-        status: deriveMasteryStatus(!!row.solved, runs),
       }
     }
     return result

@@ -82,7 +82,7 @@ const FEATURES = [
     icon: Brain,
     color: 'text-teal-500',
     label: 'Spaced Repetition (SR)',
-    desc: 'Mark questions solved to start a personalised review schedule. Intervals grow by alternating +5/+9 days (no cap): 7 -> 12 -> 21 -> 26 -> 35 -> 40 -> 49 ... Each solved question earns a mastery tier -- Learnt, Reviewed, Revised, or Mastered -- based on how many times it has been reviewed. Accepting a submission on a due problem auto-completes the review.',
+    desc: 'Mark questions solved to start a personalised review schedule. Intervals grow by alternating +5/+9 days (no cap): 7 -> 12 -> 21 -> 26 -> 35 -> 40 -> 49 ... Accepting a submission on a due problem auto-completes the review.',
   },
   {
     icon: RefreshCw,

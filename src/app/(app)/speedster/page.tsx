@@ -434,7 +434,7 @@ export default function SpeedsterPage() {
         <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{q.id}</span>
         <span className="min-w-0 flex-1 truncate text-gray-700">{q.title}</span>
         {mastered ? (
-          <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Mastered</span>
+          <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Done</span>
         ) : (
           <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
             {runs[String(q.id)] ?? 0}/3
@@ -576,7 +576,7 @@ export default function SpeedsterPage() {
                     <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
                     <span className={`flex-1 text-sm font-semibold truncate ${mastered ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
                     {mastered ? (
-                      <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Mastered</span>
+                      <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Done</span>
                     ) : (
                       <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
                         Runs {runs[String(q.id)] ?? 0}/3
@@ -1064,7 +1064,7 @@ export default function SpeedsterPage() {
                       <span className="text-xs text-gray-400 font-mono shrink-0">#{q.id}</span>
                       <span className={`flex-1 text-sm font-semibold truncate ${mastered ? 'text-green-700' : 'text-gray-800'}`}>{q.title}</span>
                       {mastered ? (
-                        <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Mastered</span>
+                        <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Done</span>
                       ) : (
                         <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
                           Runs {runs[String(q.id)] ?? 0}/3

@@ -3,13 +3,13 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { getMasteryRunsByQuestion, getProgress, getDueReviews, completeReview } from '@/lib/db'
+import { getProgress, getDueReviews, completeReview } from '@/lib/db'
 import { isDue, formatLocalDate } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { DISPLAY_PATTERN_ORDER } from '@/lib/constants'
 import PriorityBadge from '@/components/PriorityBadge'
-import { Brain, CheckCircle, Clock, CalendarCheck, Flame, Trophy, TrendingUp, Home } from 'lucide-react'
+import { Brain, CheckCircle, Clock, CalendarCheck, Flame, Trophy, Home } from 'lucide-react'
 
 interface Question {
   id: number
@@ -23,20 +23,6 @@ function daysUntil(nextReview: string) {
   const rev = new Date(y, m - 1, d)
   const today = new Date(); today.setHours(0, 0, 0, 0)
   return Math.round((rev.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-}
-
-const STATUS_STYLE: Record<string, string> = {
-  mastered: 'bg-green-100  text-green-700  border-green-300 ',
-  revised:  'bg-orange-100  text-orange-700  border-orange-300 ',
-  reviewed: 'bg-yellow-100  text-yellow-700  border-yellow-300 ',
-  learnt:   'bg-blue-100  text-blue-700  border-blue-300 ',
-}
-
-const STATUS_META: Record<string, { bg: string; text: string; label: string; emoji: string }> = {
-  learnt:   { bg: 'bg-blue-50  border-blue-200 ',    text: 'text-blue-600 ',   label: 'Hard for me', emoji: '📘' },
-  reviewed: { bg: 'bg-yellow-50  border-yellow-200 ', text: 'text-yellow-600 ', label: 'Getting there', emoji: '📙' },
-  revised:  { bg: 'bg-orange-50  border-orange-200 ', text: 'text-orange-600 ', label: 'Easy for me', emoji: '📒' },
-  mastered: { bg: 'bg-green-50  border-green-200 ',   text: 'text-green-600 ',  label: 'Mastered', emoji: '📗' },
 }
 
 // ─── Utility: group any question array by pattern in DISPLAY_PATTERN_ORDER ────
@@ -61,110 +47,12 @@ function groupByPattern<T extends { id: number }>(
     .map(([pattern, items]) => ({ pattern, items }))
 }
 
-// ─── Status bucket with pattern sub-groups ────────────────────────────────────
-
-const STATUS_PATTERN_PAGE = 4
-
-function StatusBucket({
-  status,
-  questions,
-  exclusiveMap,
-  runs,
-  onNavigate,
-}: {
-  status: string
-  questions: any[]
-  exclusiveMap: Record<number, string>
-  runs: Record<string, number>
-  onNavigate: (id: number) => void
-}) {
-  const meta = STATUS_META[status]
-  const patternGroups = useMemo(() => groupByPattern(questions, exclusiveMap), [questions, exclusiveMap])
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
-
-  if (!questions.length) return null
-
-  return (
-    <div className="mb-6">
-      <div className="flex items-center gap-2 mb-3">
-        <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[var(--text-subtle)]">
-          <span>{meta.emoji}</span>
-          <span>{meta.label}</span>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${meta.bg} ${meta.text}`}>
-            {questions.length}
-          </span>
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        {patternGroups.map(({ pattern, items }) => {
-          const isExpanded = expanded.has(pattern)
-          const visible = isExpanded ? items : items.slice(0, STATUS_PATTERN_PAGE)
-          const hidden = items.length - STATUS_PATTERN_PAGE
-          return (
-            <div key={pattern}>
-              <div className="flex items-center gap-1.5 mb-1.5 px-1">
-                <p className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wider">
-                  {pattern} · {items.length}
-                </p>
-                <PriorityBadge pattern={pattern} />
-              </div>
-              <div className="space-y-1.5">
-                {visible.map(q => (
-                  <div
-                    key={q.id}
-                    onClick={() => onNavigate(q.id)}
-                    className="flex flex-col gap-1 bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-4 py-3 cursor-pointer hover:border-indigo-400/60 hover:shadow-md hover:shadow-[var(--accent-glow)] transition-all group"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
-                      <span className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-500 transition-colors">{q.title}</span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <DifficultyBadge difficulty={q.difficulty} />
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${STATUS_STYLE[status]}`}>
-                        {meta.label}
-                      </span>
-                      <span className="text-xs text-[var(--text-subtle)]">
-                        {Math.min(runs[String(q.id)] ?? 0, 3)}/3
-                      </span>
-                      {q.p?.solved && q.p?.next_review && (
-                        <span className="text-xs text-[var(--text-subtle)]">
-                          {isDue(q.p.next_review) ? '🔴 Due' : `📅 ${formatLocalDate(q.p.next_review)}`}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {items.length > STATUS_PATTERN_PAGE && (
-                <button
-                  type="button"
-                  onClick={() => setExpanded(prev => {
-                    const next = new Set(prev)
-                    next.has(pattern) ? next.delete(pattern) : next.add(pattern)
-                    return next
-                  })}
-                  className="mt-1.5 ml-1 text-xs font-semibold text-[var(--text-subtle)] hover:text-indigo-400 transition-colors"
-                >
-                  {isExpanded ? 'Show less ↑' : `Show ${hidden} more ↓`}
-                </button>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ReviewPage() {
   const online = useOnlineStatus()
   const [allQ, setAllQ] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, any>>({})
-  const [runs, setRuns] = useState<Record<string, number>>({})
   const [dueList, setDueList] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState<number | null>(null)
@@ -175,12 +63,10 @@ export default function ReviewPage() {
     Promise.all([
       fetch('/questions_full.json').then(r => r.json()),
       getProgress(),
-      getMasteryRunsByQuestion(),
       getDueReviews(),
-    ]).then(([qs, prog, mr, due]) => {
+    ]).then(([qs, prog, due]) => {
       setAllQ(qs)
       setProgress(prog)
-      setRuns(mr)
       setDueList(due)
       setLoading(false)
     }).catch(e => {
@@ -223,18 +109,6 @@ export default function ReviewPage() {
   const upcoming = inSR.filter(q => !isDue(q.p.next_review))
     .sort((a, b) => a.p.next_review.localeCompare(b.p.next_review))
 
-  const masteryBucket = (n: number) =>
-    n >= 3 ? 'mastered' : n >= 2 ? 'revised' : n >= 1 ? 'reviewed' : 'learnt'
-
-  const statusCounts = Object.keys(STATUS_META).reduce((acc: Record<string, number>, k) => {
-    acc[k] = 0; return acc
-  }, {})
-  // Only count questions that are actually solved — unsolved questions have no SR tier
-  for (const q of withProgress.filter(q => q.p.solved)) {
-    const b = masteryBucket(runs[String(q.id)] ?? 0)
-    statusCounts[b] = (statusCounts[b] || 0) + 1
-  }
-
   // Pre-compute pattern groups for due and upcoming sections
   const pendingDue = due.filter(q => !localDoneIds.has(q.id))
   const dueByPattern = groupByPattern(pendingDue, exclusiveMap)
@@ -250,16 +124,6 @@ export default function ReviewPage() {
       <p className="text-sm text-[var(--text-subtle)] mb-7">
         SR starts automatically when you mark a question <strong className="text-[var(--text-muted)]">Solved</strong>.
       </p>
-
-      {/* Status counts */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {Object.entries(STATUS_META).map(([key, meta]) => (
-          <div key={key} className={`rounded-xl border p-4 text-center ${meta.bg}`}>
-            <div className={`text-3xl font-black ${meta.text}`}>{statusCounts[key] || 0}</div>
-            <div className="text-xs text-[var(--text-subtle)] mt-1 font-medium">{meta.label}</div>
-          </div>
-        ))}
-      </div>
 
       {/* SR stats */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-7">
@@ -361,10 +225,7 @@ export default function ReviewPage() {
 
                   {/* Questions */}
                   <div className="space-y-2">
-                    {items.map(q => {
-                      const reps = Math.min(runs[String(q.id)] ?? 0, 3)
-                      const canFinishFromHere = reps >= 3
-                      return (
+                    {items.map(q => (
                         <div
                           key={q.id}
                           onClick={() => {
@@ -382,29 +243,17 @@ export default function ReviewPage() {
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <span className="text-xs text-indigo-500 hidden sm:inline">Review #{(q.p.review_count || 0) + 1}</span>
-                            <span className="text-xs font-bold text-cyan-600">{reps}/3</span>
                             <button
-                              onClick={e => {
-                                if (!canFinishFromHere) {
-                                  e.stopPropagation()
-                                  sessionStorage.setItem('lm_review_queue', JSON.stringify(
-                                    due.filter(d => !localDoneIds.has(d.id)).map(d => d.id)
-                                  ))
-                                  router.push(`/practice/${q.id}?from=review`)
-                                  return
-                                }
-                                handleCompleteReview(q.id, e)
-                              }}
+                              onClick={e => handleCompleteReview(q.id, e)}
                               disabled={completing === q.id}
                               className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                             >
                               <CalendarCheck size={12} />
-                              {completing === q.id ? 'Saving…' : canFinishFromHere ? 'Done' : 'Open'}
+                              {completing === q.id ? 'Saving…' : 'Done'}
                             </button>
                           </div>
                         </div>
-                      )
-                    })}
+                    ))}
                   </div>
                 </div>
               ))}
@@ -479,25 +328,6 @@ export default function ReviewPage() {
         </section>
       )}
 
-      {/* ── All Questions by Status → Pattern ──────────────────────────────── */}
-      <section>
-        <h2 className="text-sm font-bold text-[var(--text)] mb-4 flex items-center gap-2">
-          <TrendingUp size={15} className="text-[var(--text-muted)]" /> All Questions by Status
-        </h2>
-        {(['mastered', 'revised', 'reviewed', 'learnt'] as const).map(st => {
-          const qs = withProgress.filter(q => q.p.solved && masteryBucket(runs[String(q.id)] ?? 0) === st)
-          return (
-            <StatusBucket
-              key={st}
-              status={st}
-              questions={qs}
-              exclusiveMap={exclusiveMap}
-              runs={runs}
-              onNavigate={id => router.push(`/practice/${id}`)}
-            />
-          )
-        })}
-      </section>
     </div>
   )
 }
