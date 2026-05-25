@@ -273,12 +273,12 @@ function LearnInner() {
     return true
   })
 
-  const firstIncompleteIdx = filtered.findIndex(fq => (runs[String(fq.id)] ?? 0) < 3)
+  const firstIncompleteIdx = filtered.findIndex(fq => (runs[String(fq.id)] ?? 0) < 2)
   const unlockedThrough = firstIncompleteIdx === -1 ? filtered.length - 1 : firstIncompleteIdx
   const safeIdx = Math.min(routeIndex, Math.max(filtered.length - 1, 0))
   const gatedIdx = filtered.length ? Math.min(safeIdx, Math.max(unlockedThrough, 0)) : safeIdx
   const q         = filtered[gatedIdx] || null
-  const currentRuns = q ? Math.min(runs[String(q.id)] ?? 0, 3) : 0
+  const currentRuns = q ? Math.min(runs[String(q.id)] ?? 0, 2) : 0
   const lcTitleSlug = q ? resolveLeetCodeSlug(q.id, q.slug) : undefined
   const p         = q ? (progress[String(q.id)] || {}) : {}
   const solved    = p.solved    || false
@@ -452,33 +452,33 @@ function LearnInner() {
       return
     }
     const rawAfter = before + 1
-    const after = Math.min(rawAfter, 3)
+    const after = Math.min(rawAfter, 2)
     setRuns(prev => ({ ...prev, [String(q.id)]: rawAfter }))
-    if (after >= 3) {
+    if (after >= 2) {
       toast.success(
         nextQuestion
-          ? `Learn complete: 3/3. ${nextQuestion.title} is now unlocked.`
-          : 'Learn complete: 3/3. This lane is fully unlocked.',
+          ? `Learn complete: 2/2. ${nextQuestion.title} is now unlocked.`
+          : 'Learn complete: 2/2. This lane is fully unlocked.',
         { duration: 4500 }
       )
     } else {
-      toast.success(`Learn progress: ${after}/3`, { duration: 3000 })
+      toast.success(`Learn progress: ${after}/2`, { duration: 3000 })
     }
 
-    if (after >= 3 && nextQuestion) {
+    if (after >= 2 && nextQuestion) {
       router.push(`/learn/${gatedIdx + 1}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
     }
   }
 
   const handleResetRuns = async () => {
     if (resettingRuns || filtered.length === 0) return
-    const ok = window.confirm('Reset the current Learn /3 progress for the questions in this lane/filter?')
+    const ok = window.confirm('Reset the current Learn /2 progress for the questions in this lane/filter?')
     if (!ok) return
     setResettingRuns(true)
     const ids = filtered.map(item => item.id)
     const res = await resetMasteryRuns(ids)
     if (!res.ok) {
-      toast.error(`Couldn't reset Learn /3 progress: ${res.error ?? 'unknown error'}`)
+      toast.error(`Couldn't reset Learn /2 progress: ${res.error ?? 'unknown error'}`)
       setResettingRuns(false)
       return
     }
@@ -487,7 +487,7 @@ function LearnInner() {
       for (const id of ids) delete next[String(id)]
       return next
     })
-    toast.success('Learn /3 progress reset for this lane')
+    toast.success('Learn /2 progress reset for this lane')
     setResettingRuns(false)
   }
 
@@ -569,7 +569,7 @@ function LearnInner() {
               {fq.difficulty[0]}
             </span>
             <span className="shrink-0 text-[10px] font-bold text-cyan-600">
-              {Math.min(runs[String(fq.id)] ?? 0, 3)}/3
+              {Math.min(runs[String(fq.id)] ?? 0, 2)}/2
             </span>
             {fp.solved && <CheckCircle size={11} className="text-green-500 shrink-0" />}
           </button>
@@ -660,7 +660,7 @@ function LearnInner() {
             <span className="font-mono">{gatedIdx + 1}/{filtered.length}</span>
             <span className="hidden sm:inline text-gray-400">·</span>
             <span className="hidden sm:inline text-green-600">{solvedCount} solved</span>
-            {q && <span className="hidden sm:inline text-cyan-600">· {currentRuns}/3</span>}
+            {q && <span className="hidden sm:inline text-cyan-600">· {currentRuns}/2</span>}
           </button>
 
           {/* Question list: mobile = fixed, centered on viewport; sm+ = under button */}
@@ -698,7 +698,7 @@ function LearnInner() {
           disabled={resettingRuns || filtered.length === 0}
           className="px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs font-semibold transition-colors hover:bg-rose-100 disabled:opacity-40"
         >
-          {resettingRuns ? 'Resetting…' : 'Reset /3'}
+          {resettingRuns ? 'Resetting…' : 'Reset /2'}
         </button>
 
         {q && (
@@ -739,7 +739,7 @@ function LearnInner() {
           {patternPct >= 50 && patternPct < 80 && <span className="text-[10px] font-bold text-indigo-500  shrink-0">💪 Solid progress</span>}
           {patternPct > 0 && patternPct < 50 && <span className="text-[10px] font-semibold text-amber-500 shrink-0">📈 Building momentum</span>}
           {patternPct === 0 && <span className="text-[10px] font-semibold text-[var(--text-subtle)] shrink-0">🧩 Fresh territory</span>}
-          <span className="text-[11px] font-bold text-cyan-700 shrink-0">{currentRuns}/3</span>
+          <span className="text-[11px] font-bold text-cyan-700 shrink-0">{currentRuns}/2</span>
           <div className="flex items-center gap-1.5 ml-auto shrink-0">
             <div className="w-16 sm:w-24 h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
               <div
