@@ -35,6 +35,8 @@ const REVIEW_DELAYS = [
   { days: 30, label: '1 month',  desc: 'Start reviews 1 month after solving' },
 ]
 
+const REPS_PER_Q_KEY = 'lm_reps_per_q'
+
 export default function SettingsPage() {
   const [loading,         setLoading]         = useState(true)
   const [saving,          setSaving]          = useState(false)
@@ -44,6 +46,7 @@ export default function SettingsPage() {
   const [emailTimes,      setEmailTimes]      = useState<(string | null)[]>([null, null, null])
   const [reviewStartDays, setReviewStartDays] = useState(14)
   const [revisionCap,     setRevisionCap]     = useState(3)
+  const [repsPerQ,        setRepsPerQ]        = useState(3)
 
   useEffect(() => {
     fetch('/api/user/profile')
@@ -51,10 +54,14 @@ export default function SettingsPage() {
       .then(pd => {
         const p = pd.profile ?? {}
         const cap: number = Math.min(Math.max(p.revisionCap ?? 3, 1), 3)
+        const localReps = Number.parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '', 10)
+        const resolvedReps = Number.isFinite(localReps) && localReps > 0 ? localReps : (p.repsPerQ ?? 3)
         setEmailEnabled(p.emailEnabled ?? true)
         setTimezone(p.timezone ?? 'America/Chicago')
         setReviewStartDays(p.reviewStartDays ?? 14)
         setRevisionCap(cap)
+        setRepsPerQ(resolvedReps)
+        localStorage.setItem(REPS_PER_Q_KEY, String(resolvedReps))
 
         const savedTimes: string[] = p.emailTimes ?? []
         const slots: (string | null)[] = [null, null, null]
@@ -78,9 +85,10 @@ export default function SettingsPage() {
       const r = await fetch('/api/user/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailEnabled, emailTimes: enabledTimes, timezone, reviewStartDays, revisionCap }),
+        body: JSON.stringify({ emailEnabled, emailTimes: enabledTimes, timezone, reviewStartDays, revisionCap, repsPerQ }),
       })
       if (!r.ok) throw new Error('Profile save failed')
+      localStorage.setItem(REPS_PER_Q_KEY, String(repsPerQ))
       setSaved(true)
       toast.success('Settings saved!')
       setTimeout(() => setSaved(false), 2500)
@@ -181,6 +189,40 @@ export default function SettingsPage() {
 
           <p className="text-[10px] text-[var(--text-subtle)]">
             This is separate from your daily new questions target — both need to be done for the full day to be complete.
+          </p>
+        </div>
+
+        {/* ── Daily reps target ── */}
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 space-y-4 mb-4">
+          <div className="flex items-center gap-2">
+            <RefreshCw size={14} className="text-indigo-500" />
+            <span className="text-sm font-bold text-[var(--text)]">Daily Reps Per Question</span>
+          </div>
+
+          <p className="text-[11px] text-[var(--text-subtle)]">
+            How many accepted solves a Daily question needs before it counts as done and moves to the next one.
+          </p>
+
+          <div className="grid grid-cols-4 gap-2">
+            {[1, 2, 3, 5].map(n => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setRepsPerQ(n)}
+                className={`flex flex-col items-center justify-center gap-0.5 px-3 py-3 rounded-xl border text-center transition-colors ${
+                  repsPerQ === n
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-subtle)] hover:border-indigo-300'
+                }`}
+              >
+                <span className="text-lg font-black">{n}</span>
+                <span className="text-[10px]">rep{n === 1 ? '' : 's'}</span>
+              </button>
+            ))}
+          </div>
+
+          <p className="text-[10px] text-[var(--text-subtle)]">
+            This setting is shared with the Daily page’s top reps control and the Daily practice auto-advance flow.
           </p>
         </div>
 

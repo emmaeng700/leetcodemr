@@ -291,20 +291,33 @@ export default function DailyPage() {
       const savedFocus = localStorage.getItem(FOCUS_PATTERN_KEY)
       if (savedFocus) setFocusPattern(savedFocus)
 
-      // Load reps-per-question setting and today's rep counts
-      const savedRpq = Math.max(1, parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '3') || 3)
-      setRepsPerQ(savedRpq)
-      setSetupRepsPerQ(savedRpq)
-      repsPerQRef.current = savedRpq
-      refreshDailyReps()
-
-      const [qs, prog, p, due, solvedToday] = await Promise.all([
+      const [qs, prog, p, due, solvedToday, profileRes] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getProgress(),
         getStudyPlan(),
         getDueReviews(),
         getTodaySolvedCount(),
+        fetch('/api/user/profile')
+          .then(r => (r.ok ? r.json() : null))
+          .catch(() => null),
       ])
+
+      // Load reps-per-question setting and today's rep counts.
+      // LocalStorage wins for immediate on-device changes, but profile data
+      // provides the durable fallback across Daily + Settings.
+      const profileRpq = Math.max(
+        1,
+        parseInt(String(profileRes?.profile?.repsPerQ ?? '3'), 10) || 3
+      )
+      const savedRpq = Math.max(
+        1,
+        parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? String(profileRpq), 10) || profileRpq
+      )
+      setRepsPerQ(savedRpq)
+      setSetupRepsPerQ(savedRpq)
+      repsPerQRef.current = savedRpq
+      localStorage.setItem(REPS_PER_Q_KEY, String(savedRpq))
+      refreshDailyReps()
 
       // Resolve mode: localStorage wins; fall back to plan.mode from DB (once
       // that column is populated), then to 'strict'. Write back to localStorage
@@ -494,8 +507,16 @@ export default function DailyPage() {
   function saveRepsPerQ(n: number) {
     const v = Math.max(1, Math.min(10, n))
     setRepsPerQ(v)
+    setSetupRepsPerQ(v)
     repsPerQRef.current = v
     localStorage.setItem(REPS_PER_Q_KEY, String(v))
+    void fetch('/api/user/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repsPerQ: v }),
+    }).catch(() => {
+      // Local persistence is already updated; silent fail keeps the UI snappy.
+    })
   }
 
   function cycleRepsPerQ() {
