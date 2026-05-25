@@ -128,13 +128,11 @@ function StreakCard({
   streak,
   log,
   goalsMetToday,
-  frozenDate,
 }: {
   streak: number
   log: Record<string, number>
   /** Today's dot uses live daily+SR rules; stale activity_log rows can't show "done" early. */
   goalsMetToday: boolean
-  frozenDate?: string | null
 }) {
   // Build Mon→Sun for the current ISO week
   const today = new Date()
@@ -148,9 +146,8 @@ function StreakCard({
     const key = chicagoISO(d)
     const isToday = key === todayISOChicago()
     const isFuture = d > today && !isToday
-    const frozen = key === frozenDate
-    const active = isToday ? goalsMetToday : (!!log[key] || frozen)
-    return { label: ['M','T','W','T','F','S','S'][i], key, active, isToday, isFuture, frozen }
+    const active = isToday ? goalsMetToday : !!log[key]
+    return { label: ['M','T','W','T','F','S','S'][i], key, active, isToday, isFuture }
   })
 
   const weekActive = weekDays.filter(d => d.active).length
@@ -175,9 +172,6 @@ function StreakCard({
               <Flame size={20} className="text-orange-300 streak-glow" />
               <span className="text-3xl font-black text-white leading-none">{streak}</span>
               <span className="text-sm font-bold text-orange-300 leading-none">{streak === 1 ? 'day' : 'days'}</span>
-              {frozenDate && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/40 text-blue-200 font-bold shrink-0">❄️ Freeze</span>
-              )}
             </div>
             <p className="text-xs text-orange-200 font-medium leading-snug max-w-[200px]">{message}</p>
           </div>
@@ -218,12 +212,12 @@ function StreakCard({
             <div key={i} className="flex flex-col items-center gap-1 flex-1">
               <div className={`w-full aspect-square rounded-full max-w-[28px] transition-all duration-300 ${
                 d.active
-                  ? (d.frozen ? 'shadow-[0_0_8px_rgba(96,165,250,0.7)]' : 'shadow-[0_0_8px_rgba(251,146,60,0.7)]')
+                  ? 'shadow-[0_0_8px_rgba(251,146,60,0.7)]'
                   : ''
               }`}
                 style={{
                   background: d.active
-                    ? (d.frozen ? 'linear-gradient(135deg,#60a5fa,#3b82f6)' : 'linear-gradient(135deg,#fb923c,#f97316)')
+                    ? 'linear-gradient(135deg,#fb923c,#f97316)'
                     : d.isToday
                       ? 'transparent'
                       : d.isFuture
@@ -392,7 +386,6 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
   const [solvedLog, setSolvedLog] = useState<Record<string, number>>({})
   const [dailyQ, setDailyQ] = useState<Question | null>(null)
   const [loaded, setLoaded] = useState(false)
-  const [frozenDate, setFrozenDate] = useState<string | null>(null)
   const [showAllReviews, setShowAllReviews] = useState(false)
   const streakHydratedRef = useRef(false)
   useEffect(() => {
@@ -445,38 +438,6 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
     return () => { cancelled = true }
   }, [progress, loaded])
 
-  // Streak freeze — one per week, auto-activates when the previous day was missed
-  useEffect(() => {
-    if (!loaded) return
-    try {
-      const weekKey = currentWeekKey()
-      const raw = localStorage.getItem('lm_streak_freeze_v1')
-      let freeze: { grantedWeek: string; usedDate: string | null } =
-        raw ? JSON.parse(raw) : { grantedWeek: '', usedDate: null }
-      if (freeze.grantedWeek !== weekKey) {
-        freeze = { grantedWeek: weekKey, usedDate: null }
-      }
-      if (freeze.usedDate) {
-        setFrozenDate(freeze.usedDate)
-        localStorage.setItem('lm_streak_freeze_v1', JSON.stringify(freeze))
-        return
-      }
-      const yest = new Date(); yest.setDate(yest.getDate() - 1)
-      const dby  = new Date(); dby.setDate(dby.getDate()  - 2)
-      const yKey = chicagoISO(yest)
-      const dKey = chicagoISO(dby)
-      const startDate = (studyPlan as any)?.start_date as string | undefined
-      const logRef = startDate
-        ? Object.fromEntries(Object.entries(activityLog).filter(([d]) => d >= startDate))
-        : activityLog
-      if (!logRef[yKey] && logRef[dKey]) {
-        freeze = { grantedWeek: weekKey, usedDate: yKey }
-        setFrozenDate(yKey)
-      }
-      localStorage.setItem('lm_streak_freeze_v1', JSON.stringify(freeze))
-    } catch { /* ignore */ }
-  }, [loaded, activityLog, studyPlan])
-
   const planNorm = normalizeStudyPlanRow(studyPlan)
   // Avoid type drift issues (mode may not exist in older StudyPlanForStreak typings).
   const planMode = (studyPlan as any)?.mode ?? (planNorm as any)?.mode
@@ -490,11 +451,9 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
   const planFilteredLog = planNorm?.start_date
     ? Object.fromEntries(Object.entries(activityLog).filter(([date]) => date >= planNorm.start_date))
     : activityLog
-  // If freeze is active for a past day, include it in the virtual log so the streak is preserved.
-  const virtualLog = frozenDate ? { ...planFilteredLog, [frozenDate]: 1 } : planFilteredLog
   const streakDisplay = planNorm
     ? (computePlanStreakDisplayNumber(studyPlan, progress, dueReviews.length) ?? 0)
-    : computeStreak(virtualLog)
+    : computeStreak(planFilteredLog)
   useEffect(() => {
     if (!questions.length) return
     const todayKey = 'daily_q_' + todayISOChicago()
@@ -768,7 +727,7 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
           <ChevronRight size={18} className="text-white shrink-0" />
         </Link>
       )}
-      <StreakCard streak={streakDisplay} log={planFilteredLog} goalsMetToday={goalsMetToday} frozenDate={frozenDate} />
+      <StreakCard streak={streakDisplay} log={planFilteredLog} goalsMetToday={goalsMetToday} />
       {todayDailyCard}
       {planNorm && (
         <div className="bg-indigo-50  border border-indigo-200  rounded-xl mb-5 overflow-hidden">
