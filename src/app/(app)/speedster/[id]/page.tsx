@@ -14,6 +14,13 @@ import DifficultyBadge from '@/components/DifficultyBadge'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 
+const REPS_PER_Q_KEY = 'lm_reps_per_q'
+
+function readSavedRepsTarget() {
+  if (typeof window === 'undefined') return 3
+  return Math.max(1, parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '3', 10) || 3)
+}
+
 interface Question {
   id: number
   title: string
@@ -55,6 +62,7 @@ export default function SpeedsterQuestionPage() {
   const [starred, setStarred] = useState(false)
   const [activeTab, setActiveTab] = useState<'description' | 'best' | 'accepted' | 'editor'>('description')
   const [modeRuns, setModeRuns] = useState<Record<string, number>>({})
+  const [repsTarget, setRepsTarget] = useState(3)
 
   const [lcContent, setLcContent] = useState<string | null>(null)
   const [lcLoading, setLcLoading] = useState(false)
@@ -82,6 +90,7 @@ export default function SpeedsterQuestionPage() {
       setQuestion(q)
       setAllQuestions(qs as Question[])
       setModeRuns(masteryRuns)
+      setRepsTarget(readSavedRepsTarget())
       let modeQueue: number[] | null = null
       try {
         const stored = sessionStorage.getItem('lm_speedster_queue')
@@ -102,6 +111,16 @@ export default function SpeedsterQuestionPage() {
     }
     load()
   }, [id])
+
+  useEffect(() => {
+    const refreshRepsTarget = () => setRepsTarget(readSavedRepsTarget())
+    window.addEventListener('focus', refreshRepsTarget)
+    document.addEventListener('visibilitychange', refreshRepsTarget)
+    return () => {
+      window.removeEventListener('focus', refreshRepsTarget)
+      document.removeEventListener('visibilitychange', refreshRepsTarget)
+    }
+  }, [])
 
   useEffect(() => {
     if (!question) return
@@ -145,17 +164,17 @@ export default function SpeedsterQuestionPage() {
     if (!queueActive || planOrder.length === 0) return
     const currentIdx = planOrder.indexOf(id)
     if (currentIdx < 0) return
-    const firstIncompleteIdx = planOrder.findIndex(qid => (modeRuns[String(qid)] ?? 0) < 3)
+    const firstIncompleteIdx = planOrder.findIndex(qid => (modeRuns[String(qid)] ?? 0) < repsTarget)
     const unlockedThrough = firstIncompleteIdx === -1 ? planOrder.length - 1 : firstIncompleteIdx
     if (currentIdx <= unlockedThrough) return
     const fallbackId = planOrder[Math.max(0, unlockedThrough)]
     if (fallbackId && fallbackId !== id) router.replace(`/speedster/${fallbackId}`)
-  }, [id, modeRuns, planOrder, queueActive, router])
+  }, [id, modeRuns, planOrder, queueActive, repsTarget, router])
 
   // Derive index directly from plan order — no URL param needed
   const currentIdx = planOrder.indexOf(id)
   const firstIncompleteIdx = queueActive
-    ? planOrder.findIndex(qid => (modeRuns[String(qid)] ?? 0) < 3)
+    ? planOrder.findIndex(qid => (modeRuns[String(qid)] ?? 0) < repsTarget)
     : -1
   const unlockedThrough = !queueActive
     ? planOrder.length - 1
@@ -192,7 +211,7 @@ export default function SpeedsterQuestionPage() {
         <span className="min-w-0 flex-1 truncate text-[var(--text)]">{lq.title}</span>
         {queueActive && (
           <span className="shrink-0 text-[10px] font-bold text-cyan-600">
-            {Math.min(modeRuns[String(qid)] ?? 0, 3)}/3
+            {Math.min(modeRuns[String(qid)] ?? 0, repsTarget)}/{repsTarget}
           </span>
         )}
         <span
@@ -250,7 +269,7 @@ export default function SpeedsterQuestionPage() {
         {queueActive && question && (
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 text-xs font-bold shrink-0">
             <Trophy size={12} />
-            <span>{Math.min(modeRuns[String(question.id)] ?? 0, 3)}/3</span>
+            <span>{Math.min(modeRuns[String(question.id)] ?? 0, repsTarget)}/{repsTarget}</span>
           </div>
         )}
 
@@ -388,9 +407,9 @@ export default function SpeedsterQuestionPage() {
                   toast.error(`Couldn't save Speedster progress: ${res.error ?? 'unknown error'}`)
                   return
                 }
-                const after = Math.min(before + 1, 3)
+                const after = Math.min(before + 1, repsTarget)
                 setModeRuns(prev => ({ ...prev, [String(question.id)]: (prev[String(question.id)] ?? 0) + 1 }))
-                if (after >= 3) {
+                if (after >= repsTarget) {
                   const remainingQueue = queueActive ? planOrder.filter(qid => qid !== question.id) : planOrder
                   const autoAdvanceId = queueActive ? (remainingQueue[0] ?? null) : nextId
                   if (queueActive) {
@@ -400,17 +419,17 @@ export default function SpeedsterQuestionPage() {
                     const nextQuestion = allQuestions.find(item => item.id === autoAdvanceId)
                     toast.success(
                       nextQuestion
-                        ? `Speedster complete: 3/3. ${nextQuestion.title} is next.`
-                        : 'Speedster complete: 3/3.',
+                        ? `Speedster complete: ${repsTarget}/${repsTarget}. ${nextQuestion.title} is next.`
+                        : `Speedster complete: ${repsTarget}/${repsTarget}.`,
                       { duration: 4000 }
                     )
                     router.push(`/speedster/${autoAdvanceId}`)
                   } else {
-                    toast.success('Speedster complete: 3/3. Day finished!', { duration: 4000 })
+                    toast.success(`Speedster complete: ${repsTarget}/${repsTarget}. Day finished!`, { duration: 4000 })
                     if (queueActive) router.push('/speedster')
                   }
                 } else {
-                  toast.success(`Speedster progress: ${after}/3`, { duration: 3000 })
+                  toast.success(`Speedster progress: ${after}/${repsTarget}`, { duration: 3000 })
                 }
               }}
             />

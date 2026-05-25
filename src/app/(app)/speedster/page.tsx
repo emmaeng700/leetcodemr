@@ -48,12 +48,20 @@ function fmtShort(iso: string) {
   return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
+const REPS_PER_Q_KEY = 'lm_reps_per_q'
+
+function readSavedRepsTarget() {
+  if (typeof window === 'undefined') return 3
+  return Math.max(1, parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '3', 10) || 3)
+}
+
 export default function SpeedsterPage() {
   const router = useRouter()
   const [questions, setQuestions] = useState<Question[]>([])
   const [planOrder, setPlanOrder] = useState<number[]>([])
   const [progress,  setProgress]  = useState<Record<string, any>>({})
   const [perDay,    setPerDay]    = useState(3)
+  const [repsTarget, setRepsTarget] = useState(3)
   const [loading,   setLoading]  = useState(true)
 
   // Day card state
@@ -104,6 +112,7 @@ export default function SpeedsterPage() {
   useEffect(() => {
     async function load() {
       try {
+        setRepsTarget(readSavedRepsTarget())
         const [qs, plan, prog, vis, mr] = await Promise.all([
           fetch('/questions_full.json').then(r => r.json()),
           getStudyPlan(),
@@ -144,6 +153,16 @@ export default function SpeedsterPage() {
       }
     }
     load()
+  }, [])
+
+  useEffect(() => {
+    const refreshRepsTarget = () => setRepsTarget(readSavedRepsTarget())
+    window.addEventListener('focus', refreshRepsTarget)
+    document.addEventListener('visibilitychange', refreshRepsTarget)
+    return () => {
+      window.removeEventListener('focus', refreshRepsTarget)
+      document.removeEventListener('visibilitychange', refreshRepsTarget)
+    }
   }, [])
 
   const isRandomMode = planMode === 'random'
@@ -205,9 +224,9 @@ export default function SpeedsterPage() {
 
   const totalDays  = days.length
   const currentDay = days[dayIdx] ?? []
-  const daySolved  = currentDay.filter(id => (runs[String(id)] ?? 0) >= 3).length
+  const daySolved  = currentDay.filter(id => (runs[String(id)] ?? 0) >= repsTarget).length
   const currentDayFiltered = currentDay.filter(id => {
-    const mastered = (runs[String(id)] ?? 0) >= 3
+    const mastered = (runs[String(id)] ?? 0) >= repsTarget
     if (filterSolved === 'Unsolved' && mastered) return false
     if (filterSolved === 'Solved' && !mastered) return false
     return true
@@ -218,7 +237,7 @@ export default function SpeedsterPage() {
     const q = qMap[id]
     if (!q) return false
     if (filterDiff !== 'All' && q.difficulty !== filterDiff) return false
-    const mastered = (runs[String(id)] ?? 0) >= 3
+    const mastered = (runs[String(id)] ?? 0) >= repsTarget
     if (filterSolved === 'Unsolved' && mastered) return false
     if (filterSolved === 'Solved'   && !mastered) return false
     if (filterSource !== 'All' && !(q.source || []).includes(filterSource)) return false
@@ -230,7 +249,7 @@ export default function SpeedsterPage() {
   const total          = filteredOrder.length
   const currentQ       = qMap[filteredOrder[cardIdx]]
   const currentRuns    = currentQ ? (runs[String(currentQ.id)] ?? 0) : 0
-  const solvedCount    = planOrder.filter(id => (runs[String(id)] ?? 0) >= 3).length
+  const solvedCount    = planOrder.filter(id => (runs[String(id)] ?? 0) >= repsTarget).length
   const filteredVisited = filteredOrder.filter(id => visited.has(id)).length
 
   // Reset to first card when filters change
@@ -423,7 +442,7 @@ export default function SpeedsterPage() {
   const cardListDropdownRows = filteredOrder.map((qid, i) => {
     const q = qMap[qid]
     if (!q) return null
-    const mastered = (runs[String(q.id)] ?? 0) >= 3
+    const mastered = (runs[String(q.id)] ?? 0) >= repsTarget
     return (
       <button
         key={qid}
@@ -437,7 +456,7 @@ export default function SpeedsterPage() {
           <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Done</span>
         ) : (
           <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
-            {runs[String(q.id)] ?? 0}/3
+            {Math.min(runs[String(q.id)] ?? 0, repsTarget)}/{repsTarget}
           </span>
         )}
         <span className={`text-xs font-semibold shrink-0 ${q.difficulty === 'Easy' ? 'text-green-600' : q.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
@@ -550,7 +569,7 @@ export default function SpeedsterPage() {
             {currentDayFiltered.map((qid, i) => {
               const q = qMap[qid]
               if (!q) return null
-              const mastered = (runs[String(qid)] ?? 0) >= 3
+              const mastered = (runs[String(qid)] ?? 0) >= repsTarget
               const topic = patternMap?.[qid] ?? 'Other'
               const prevId = i > 0 ? currentDayFiltered[i - 1] : null
               const prevTopic = prevId != null ? (patternMap?.[prevId] ?? 'Other') : null
@@ -579,7 +598,7 @@ export default function SpeedsterPage() {
                       <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Done</span>
                     ) : (
                       <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
-                        Runs {runs[String(q.id)] ?? 0}/3
+                        Runs {Math.min(runs[String(q.id)] ?? 0, repsTarget)}/{repsTarget}
                       </span>
                     )}
                     <DifficultyBadge difficulty={q.difficulty} />
@@ -786,7 +805,7 @@ export default function SpeedsterPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-[var(--text-subtle)] bg-[var(--bg-muted)] border border-[var(--border)] px-2 py-0.5 rounded-full">
-                        Mastery runs: {Math.min(currentRuns, 3)}/3
+                        Mastery runs: {Math.min(currentRuns, repsTarget)}/{repsTarget}
                       </span>
                       <button
                         onClick={e => {
@@ -1038,7 +1057,7 @@ export default function SpeedsterPage() {
               {currentDayFiltered.map((qid, i) => {
                 const q = qMap[qid]
                 if (!q) return null
-                const mastered = (runs[String(qid)] ?? 0) >= 3
+                const mastered = (runs[String(qid)] ?? 0) >= repsTarget
                 const topic = patternMap?.[qid] ?? 'Other'
                 const prevId = i > 0 ? currentDayFiltered[i - 1] : null
                 const prevTopic = prevId != null ? (patternMap?.[prevId] ?? 'Other') : null
@@ -1067,7 +1086,7 @@ export default function SpeedsterPage() {
                         <span className="text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full shrink-0">✓ Done</span>
                       ) : (
                         <span className="text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full shrink-0">
-                          Runs {runs[String(q.id)] ?? 0}/3
+                          Runs {Math.min(runs[String(q.id)] ?? 0, repsTarget)}/{repsTarget}
                         </span>
                       )}
                       <DifficultyBadge difficulty={q.difficulty} />
@@ -1177,7 +1196,7 @@ export default function SpeedsterPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-[var(--text-subtle)] bg-[var(--bg-muted)] border border-[var(--border)] px-2 py-0.5 rounded-full">
-                        Speedster runs: {Math.min(currentRuns, 3)}/3
+                        Speedster runs: {Math.min(currentRuns, repsTarget)}/{repsTarget}
                       </span>
                       <button
                         onClick={e => {
