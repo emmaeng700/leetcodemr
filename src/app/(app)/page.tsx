@@ -534,66 +534,78 @@ function InterviewCountdownWidget({ questions, progress, onSync, syncing }: { qu
     const today = todayISOChicago()
 
     if (planMode === 'random') {
-      // Check today AND yesterday independently.
-      // LC Sync bypasses updateProgress() so it never touches solved_log —
-      // solved_log is purely in-app solves, making it a clean signal.
       const yd = new Date(today + 'T12:00:00')
       yd.setDate(yd.getDate() - 1)
       const isoYesterday = yd.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
-      // Yesterday only counts if the plan was already running then
       const planIncludesYesterday = isoYesterday >= planNorm.start_date
-      const yesterdaySolved = planIncludesYesterday ? ((solvedLog[isoYesterday] ?? 0) as number) : planNorm.per_day
-      const yesterdayDone = yesterdaySolved >= planNorm.per_day
-
-      const todayDone = solvedTodayCount >= planNorm.per_day
-      const dailiesHit = todayDone && yesterdayDone
-      const allDone = dailiesHit && dueReviews.length === 0
+      const ydSolved = planIncludesYesterday ? Math.min((solvedLog[isoYesterday] ?? 0) as number, planNorm.per_day) : planNorm.per_day
+      const tdSolved = Math.min(solvedTodayCount, planNorm.per_day)
+      const yesterdayDone = ydSolved >= planNorm.per_day
+      const todayDone     = tdSolved  >= planNorm.per_day
+      const dailiesHit    = todayDone && yesterdayDone
+      const allDone       = dailiesHit && dueReviews.length === 0
       return (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-5">
+          {/* Header */}
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-bold text-[var(--text)] flex items-center gap-1.5">
-              <Calendar size={14} className="text-purple-500" /> Today
+              <Calendar size={14} className="text-purple-500" /> Daily Progress
             </h2>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
               allDone ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-            }`}>{allDone ? '✓ Done' : `${solvedTodayCount}/${planNorm.per_day} today`}</span>
+            }`}>{allDone ? '✓ Done' : 'In progress'}</span>
           </div>
-          {allDone ? (
-            <p className="text-sm font-bold text-green-500">All done — day complete! 🎉</p>
-          ) : dailiesHit ? (
-            // Both today + yesterday done but reviews still pending
-            <>
-              <p className="text-xs text-[var(--text-subtle)] mb-2">Questions done — clear your reviews to finish.</p>
-              <Link href="/review" className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:underline">
-                Open reviews <ChevronRight size={12} />
-              </Link>
-            </>
-          ) : (
-            // Daily questions not caught up
-            <>
-              {!yesterdayDone && (
-                <p className="text-xs font-semibold text-orange-500 mb-1">⚠️ Yesterday&apos;s {planNorm.per_day} questions weren&apos;t done</p>
-              )}
-              <p className="text-xs text-[var(--text-subtle)] mb-2">{solvedTodayCount}/{planNorm.per_day} solved today.</p>
-              {todayDone && !yesterdayDone ? (
-                <p className="text-xs text-[var(--text-subtle)]">Today&apos;s quota met — yesterday&apos;s still missing.</p>
-              ) : (
-                <Link href="/daily" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
-                  Go to Daily <ChevronRight size={12} />
-                </Link>
-              )}
-            </>
+
+          {/* Yesterday row — only if plan was running yesterday */}
+          {planIncludesYesterday && (
+            <div className={`flex items-center justify-between py-2 border-b border-[var(--border-soft)] mb-2`}>
+              <span className="text-xs text-[var(--text-subtle)]">Yesterday</span>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold ${yesterdayDone ? 'text-green-600' : 'text-orange-500'}`}>
+                  {ydSolved}/{planNorm.per_day}
+                </span>
+                {yesterdayDone
+                  ? <CheckCircle2 size={13} className="text-green-500" />
+                  : <Link href="/daily" className="text-xs font-semibold text-indigo-600 hover:underline">Go complete →</Link>
+                }
+              </div>
+            </div>
           )}
+
+          {/* Today row */}
+          <div className="flex items-center justify-between py-2">
+            <span className="text-xs font-semibold text-[var(--text)]">Today</span>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-bold ${todayDone ? 'text-green-600' : 'text-[var(--text-subtle)]'}`}>
+                {tdSolved}/{planNorm.per_day}
+              </span>
+              {todayDone
+                ? <CheckCircle2 size={13} className="text-green-500" />
+                : <Link href="/daily" className="text-xs font-semibold text-indigo-600 hover:underline">Go complete →</Link>
+              }
+            </div>
+          </div>
+
+          {/* Status message */}
           <div className="mt-3 pt-3 border-t border-[var(--border-soft)]">
-            <p className="text-xs text-[var(--text-subtle)]">Solve on LeetCode, then{' '}
-            <button
-              onClick={onSync}
-              disabled={syncing}
-              className="font-semibold text-indigo-500 hover:text-indigo-400 underline underline-offset-2 transition-colors disabled:opacity-50"
-            >
-              {syncing ? 'Syncing…' : 'LC Sync'}
-            </button>
-            {' '}to mark problems solved.</p>
+            {allDone ? (
+              <p className="text-sm font-bold text-green-500">All done — day complete! 🎉</p>
+            ) : dailiesHit ? (
+              <>
+                <p className="text-xs text-[var(--text-subtle)] mb-1">Questions done — clear your reviews.</p>
+                <Link href="/review" className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:underline">
+                  Open reviews <ChevronRight size={12} />
+                </Link>
+              </>
+            ) : (
+              <p className="text-xs text-[var(--text-subtle)]">Solve on LeetCode, then{' '}
+                <button onClick={onSync} disabled={syncing}
+                  className="font-semibold text-indigo-500 hover:text-indigo-400 underline underline-offset-2 transition-colors disabled:opacity-50">
+                  {syncing ? 'Syncing…' : 'LC Sync'}
+                </button>
+                {' '}to mark solved.
+              </p>
+            )}
           </div>
         </div>
       )
