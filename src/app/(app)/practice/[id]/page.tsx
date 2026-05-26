@@ -100,7 +100,7 @@ export default function PracticePage() {
   const [queuedNextId, setQueuedNextId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<'description' | 'best' | 'accepted' | 'editor'>('description')
   const [modeRuns, setModeRuns] = useState<Record<string, number>>({})
-  const [dailyRepTarget, setDailyRepTarget] = useState(3)
+  const [dailyRepTarget, setDailyRepTarget] = useState(2)
 
   const lcTitleSlug = question ? resolveLeetCodeSlug(question.id, question.slug) : undefined
 
@@ -165,7 +165,7 @@ export default function PracticePage() {
       setStarred(!!prog[String(id)]?.starred)
       setNextReview(prog[String(id)]?.next_review ?? null)
       progressRef.current = prog
-      if (isDailyMode) setDailyRepTarget(getDailyRepTarget())
+      if (isDailyMode || isEarlyReview || isReviewMode || isImbibitionMode) setDailyRepTarget(getDailyRepTarget())
       if (usesThreeSolveGate) {
         const masteryRuns = isDailyMode
           ? readDailyRuns()
@@ -183,7 +183,7 @@ export default function PracticePage() {
     setOpenQuestionContext({ id: question.id, slug: question.slug, title: question.title })
   }, [question])
 
-  const targetReps = isDailyMode ? dailyRepTarget : 3
+  const targetReps = dailyRepTarget
 
   useEffect(() => {
     setQueuedNextId(null)

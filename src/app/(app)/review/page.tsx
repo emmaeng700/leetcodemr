@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { getProgress, getDueReviews, completeReview } from '@/lib/db'
+import { getProgress, getDueReviews, completeReview, getUserProfile } from '@/lib/db'
 import { isDue, formatLocalDate } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
@@ -57,6 +57,7 @@ export default function ReviewPage() {
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState<number | null>(null)
   const [localDoneIds, setLocalDoneIds] = useState<Set<number>>(new Set())
+  const [repsPerQ, setRepsPerQ] = useState(2)
   const router = useRouter()
 
   useEffect(() => {
@@ -64,10 +65,12 @@ export default function ReviewPage() {
       fetch('/questions_full.json').then(r => r.json()),
       getProgress(),
       getDueReviews(),
-    ]).then(([qs, prog, due]) => {
+      getUserProfile(),
+    ]).then(([qs, prog, due, profile]) => {
       setAllQ(qs)
       setProgress(prog)
       setDueList(due)
+      if (profile?.repsPerQ && profile.repsPerQ > 0) setRepsPerQ(profile.repsPerQ)
       setLoading(false)
     }).catch(e => {
       console.error('[review] load failed:', e)
@@ -281,7 +284,7 @@ export default function ReviewPage() {
               <span className="text-xs text-[var(--text-subtle)] font-mono">· {upcoming.length}</span>
             </h2>
             <p className="text-xs text-[var(--text-subtle)] mt-1">
-              Not yet due — tap to do an <strong>early review</strong>: complete 3 reps and the date advances automatically
+              Not yet due — tap to do an <strong>early review</strong>: complete {repsPerQ} reps and the date advances automatically
             </p>
           </div>
           <div className="space-y-4">
