@@ -345,9 +345,24 @@ export default function SettingsPage() {
 
         {/* ── App update ── */}
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 space-y-4 mb-4">
-          <div className="flex items-center gap-2">
-            <Smartphone size={14} className="text-sky-500" />
-            <span className="text-sm font-bold text-[var(--text)]">App Version</span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Smartphone size={14} className="text-sky-500" />
+              <span className="text-sm font-bold text-[var(--text)]">App Version</span>
+            </div>
+            {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA && (
+              <a
+                href={`https://github.com/emmaeng700/leetcodemr/commit/${process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-[11px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-lg hover:text-indigo-600 transition-colors"
+              >
+                {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.slice(0, 7)}
+              </a>
+            )}
+            {!process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA && (
+              <span className="font-mono text-[11px] bg-gray-100 text-gray-400 px-2 py-0.5 rounded-lg">dev</span>
+            )}
           </div>
           <p className="text-[11px] text-[var(--text-subtle)]">
             If your home screen app is showing an old version, tap below to pull the latest and reload.
