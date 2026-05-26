@@ -146,19 +146,17 @@ function SRQueueInner() {
 
   useEffect(() => {
     async function load() {
-      const [qs, prog, plan, userCap] = await Promise.all([
+      // Fetch things that don't depend on review dates first.
+      const [qs, plan, userCap] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
-        getProgress(),
         getStudyPlan(),
         getUserRevisionCap(),
       ])
       setCap(userCap)
       setQuestions(qs)
-      setProgress(prog)
       setPlanOrder(plan?.question_order?.length ? plan.question_order : (qs as Question[]).map(q => q.id))
-      setLoading(false)
 
-      // Rebalance whenever cap changes — same guard as daily page.
+      // Rebalance whenever cap changes BEFORE reading progress/due, so dates are correct.
       const REBALANCE_KEY = `lm_rebalanced_cap_${userCap}`
       if (!localStorage.getItem(REBALANCE_KEY)) {
         for (const k of [...Object.keys(localStorage)]) {
@@ -168,8 +166,11 @@ function SRQueueInner() {
         localStorage.setItem(REBALANCE_KEY, '1')
       }
 
-      // Load due list after rebalance so the cap is already applied.
-      getDueReviews().then(setDueList).catch(() => {})
+      // Now fetch progress and due list with up-to-date review dates.
+      const [prog, due] = await Promise.all([getProgress(), getDueReviews()])
+      setProgress(prog)
+      setDueList(due)
+      setLoading(false)
     }
     load()
   }, [])

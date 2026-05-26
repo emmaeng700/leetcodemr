@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { getProgress, getDueReviews, completeReview, getUserProfile } from '@/lib/db'
+import { getProgress, getDueReviews, completeReview, getUserProfile, rebalanceReviews, getUserRevisionCap } from '@/lib/db'
 import { isDue, formatLocalDate } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
@@ -61,21 +61,36 @@ export default function ReviewPage() {
   const router = useRouter()
 
   useEffect(() => {
-    Promise.all([
-      fetch('/questions_full.json').then(r => r.json()),
-      getProgress(),
-      getDueReviews(),
-      getUserProfile(),
-    ]).then(([qs, prog, due, profile]) => {
-      setAllQ(qs)
-      setProgress(prog)
-      setDueList(due)
-      if (profile?.repsPerQ && profile.repsPerQ > 0) setRepsPerQ(profile.repsPerQ)
-      setLoading(false)
-    }).catch(e => {
-      console.error('[review] load failed:', e)
-      setLoading(false)
-    })
+    async function load() {
+      try {
+        const [qs, profile, userCap] = await Promise.all([
+          fetch('/questions_full.json').then(r => r.json()),
+          getUserProfile(),
+          getUserRevisionCap(),
+        ])
+        setAllQ(qs)
+        if (profile?.repsPerQ && profile.repsPerQ > 0) setRepsPerQ(profile.repsPerQ)
+
+        // Rebalance before reading progress/due so next_review dates reflect current cap.
+        const REBALANCE_KEY = `lm_rebalanced_cap_${userCap}`
+        if (!localStorage.getItem(REBALANCE_KEY)) {
+          for (const k of [...Object.keys(localStorage)]) {
+            if (k.startsWith('lm_rebalanced_')) localStorage.removeItem(k)
+          }
+          await rebalanceReviews()
+          localStorage.setItem(REBALANCE_KEY, '1')
+        }
+
+        const [prog, due] = await Promise.all([getProgress(), getDueReviews()])
+        setProgress(prog)
+        setDueList(due)
+        setLoading(false)
+      } catch (e) {
+        console.error('[review] load failed:', e)
+        setLoading(false)
+      }
+    }
+    load()
   }, [])
 
   useEffect(() => {
