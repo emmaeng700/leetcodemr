@@ -13,7 +13,7 @@ const ORDERED_QUICK_PATTERNS = QUICK_PATTERNS
       DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
       DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
   )
-import { getProgress, updateProgress, getActivityLog, getDueReviews, getReviewsCompletedToday, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getDailyReviewCapChicago, getTodaySolvedCount, getSolvedLog } from '@/lib/db'
+import { getProgress, updateProgress, getActivityLog, getDueReviews, getReviewsCompletedToday, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getUserRevisionCap, getTodaySolvedCount, getSolvedLog } from '@/lib/db'
 import { computeDailyGoalsMetToday, computePlanStreakDisplayNumber, normalizeStudyPlanRow } from '@/lib/streakGoals'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
@@ -872,20 +872,20 @@ function TodayPlanCard({ questions, progress }: { questions: Question[]; progres
   const [due, setDue] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
   const [reboot, setReboot] = useState<number[]>([])
   const [showAllDuePick, setShowAllDuePick] = useState(false)
+  const [reviewSlots, setReviewSlots] = useState(3)
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const d = await getDueReviews()
+      const [d, userCap] = await Promise.all([getDueReviews(), getUserRevisionCap()])
       if (cancelled) return
       setDue(d)
+      setReviewSlots(userCap)
       setReboot(getRebootQueue())
     })()
     return () => { cancelled = true }
   }, [progress])
 
-  const reviewSlots = getDailyReviewCapChicago()
-  // Default: 2/day. Weekend catch-up: +4 extra (6 total).
   const duePick = due.slice(0, reviewSlots)
   const duePickSet = new Set(duePick.map(d => d.id))
   const rebootPick = reboot.filter(id => !duePickSet.has(id)).slice(0, Math.max(0, reviewSlots - duePick.length))

@@ -783,7 +783,7 @@ export async function fixFirstReviewDates(): Promise<void> {
 export async function getDueReviews(): Promise<Array<{ id: number; review_count: number; next_review: string }>> {
   await fixFirstReviewDates()   // correct any review_count=0 rows set too soon
   await recalibrateSRDates()
-  const cap = getDailyReviewCapChicago()
+  const cap = await getUserRevisionCap()
   await spreadOverdueReviews({ maxPerDay: cap })
   const today = todayISOChicago()
   const { data } = await supabase
@@ -841,9 +841,20 @@ function isWeekendChicago(dateISOChicago: string): boolean {
   return weekday === 'Sat' || weekday === 'Sun'
 }
 
-export function getDailyReviewCapChicago(dateISOChicago = todayISOChicago()): number {
-  // Weekdays: 35 reviews/day. Weekends: 60 reviews/day.
-  return isWeekendChicago(dateISOChicago) ? 60 : 35
+/** @deprecated Hard-coded fallback — prefer getUserRevisionCap() for real cap. */
+export function getDailyReviewCapChicago(_dateISOChicago = todayISOChicago()): number {
+  return 3 // kept for any legacy callers; real cap comes from getUserRevisionCap()
+}
+
+/** Read the user's configured daily review limit from user_settings (default 3). */
+export async function getUserRevisionCap(): Promise<number> {
+  const { data } = await supabase
+    .from('user_settings')
+    .select('revision_cap')
+    .eq('user_id', USER_ID)
+    .maybeSingle()
+  const cap = (data as any)?.revision_cap as number | null | undefined
+  return typeof cap === 'number' && cap > 0 ? cap : 3
 }
 
 /**
@@ -923,8 +934,8 @@ export async function spreadOverdueReviews(opts?: { maxPerDay?: number; horizonD
     let placed = false
     for (let offset = 1; offset <= horizonDays; offset++) {
       const day = addDaysISO(today, offset)
-      const dayCapacity = getDailyReviewCapChicago(day)
-      if ((counts[day] ?? 0) < dayCapacity) {
+      // Use the same user-configured cap for every future day.
+      if ((counts[day] ?? 0) < maxPerDay) {
         counts[day] = (counts[day] ?? 0) + 1
         updates.push({ question_id: r.question_id, next_review: day })
         placed = true
@@ -955,6 +966,7 @@ export async function spreadOverdueReviews(opts?: { maxPerDay?: number; horizonD
  * sitting far in the future even though today has spare capacity.
  */
 export async function rebalanceReviews(horizonDays = 60): Promise<void> {
+  const userCap = await getUserRevisionCap()
   const today = todayISOChicago()
   const horizonDate = addDaysISO(today, horizonDays)
 
@@ -993,8 +1005,7 @@ export async function rebalanceReviews(horizonDays = 60): Promise<void> {
     // Search from today forward for the earliest day with capacity
     for (let offset = 0; offset <= horizonDays + 60; offset++) {
       const day = addDaysISO(today, offset)
-      const cap = getDailyReviewCapChicago(day)
-      if ((counts[day] ?? 0) < cap) {
+      if ((counts[day] ?? 0) < userCap) {
         counts[day] = (counts[day] ?? 0) + 1
         if (row.next_review !== day) {
           updates.push({ question_id: row.question_id, next_review: day })

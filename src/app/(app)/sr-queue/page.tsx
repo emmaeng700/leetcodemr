@@ -3,7 +3,7 @@ import { Suspense, useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { RefreshCw, CheckCircle, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
-import { getDailyReviewCapChicago, getDueReviews, getProgress, getStudyPlan, completeReview } from '@/lib/db'
+import { getUserRevisionCap, getDueReviews, getProgress, getStudyPlan, completeReview } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import { getPatternForQuestion } from '@/lib/patternUtils'
@@ -140,6 +140,7 @@ function SRQueueInner() {
   const [progress, setProgress] = useState<Record<string, any>>({})
   const [planOrder, setPlanOrder] = useState<number[]>([])
   const [dueList, setDueList] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
+  const [cap, setCap] = useState(3)
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState<number | null>(null)
 
@@ -148,7 +149,9 @@ function SRQueueInner() {
       fetch('/questions_full.json').then(r => r.json()),
       getProgress(),
       getStudyPlan(),
-    ]).then(([qs, prog, plan]) => {
+      getUserRevisionCap(),
+    ]).then(([qs, prog, plan, userCap]) => {
+      setCap(userCap)
       setQuestions(qs)
       setProgress(prog)
       setPlanOrder(plan?.question_order?.length ? plan.question_order : (qs as Question[]).map(q => q.id))
@@ -184,7 +187,6 @@ function SRQueueInner() {
     .map(id => ({ q: qMap[id], p: progress[String(id)] }))
     .filter(({ q, p }) => q && p?.solved)
 
-  const cap = getDailyReviewCapChicago()
   const dueIds = new Set(dueList.map(d => d.id))
   const todayQueue = solved.filter(({ q }) => dueIds.has(q.id))
   const overdue    = todayQueue.filter(({ p }) => p.next_review && daysUntil(p.next_review) < 0)
