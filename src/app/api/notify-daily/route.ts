@@ -183,16 +183,16 @@ export async function GET(req: NextRequest) {
 
   // ── Nothing to do? ────────────────────────────────────────────────────────────
   // No plan + no reviews = nothing to surface; skip entirely.
-  // Day complete (plan + reviews both done) = skip too.
-  // Both checks bypassed in preview so you always see the rendered HTML.
+  // Day complete = send a congratulatory email (not a skip — handled below).
   if (!isPreview) {
     if (!hasPlan && !reviewsActive) {
       return NextResponse.json({ skipped: 'No study plan set and no SR reviews due' })
     }
-    if (hasPlan && dailiesDone && !reviewsActive) {
-      return NextResponse.json({ skipped: 'Day complete — all dailies done, no reviews due' })
-    }
   }
+
+  // Flag: the day is fully done — no pending dailies AND no due reviews.
+  // Drives whether we send a congrats email vs a reminder email.
+  const isDayComplete = hasPlan && dailiesDone && !reviewsActive
 
   // ── Absence detection: how many days since last activity? ─────────────────────
   // Check both solved_log (new solves) and progress.last_reviewed (SR reviews).
@@ -250,144 +250,239 @@ export async function GET(req: NextRequest) {
 
   // ── Build email HTML ─────────────────────────────────────────────────────────
 
-  // Subject
-  const pendingParts: string[] = []
-  if (hasPlan && !dailiesDone) pendingParts.push(`${unsolvedQs.length} question${unsolvedQs.length !== 1 ? 's' : ''} left`)
-  if (reviewsActive) pendingParts.push(`${dueReviews.length} review${dueReviews.length !== 1 ? 's' : ''} due`)
-  if (!hasPlan) pendingParts.push('no daily plan set')
-  const subject = daysAbsent >= 2
-    ? `🚨 ${daysAbsent} day${daysAbsent !== 1 ? 's' : ''} away — get back on track`
-    : pendingParts.length
-      ? `🧠 ${pendingParts.join(' · ')} — finish the day`
-      : `🧠 ${solvedCount}/${totalCount} done — day in progress`
+  let subject: string
+  let html: string
 
-  // Header subtitle
-  const headerSubtitle = daysAbsent >= 2
-    ? `${daysAbsent} days away — come back strong 💪`
-    : 'Finish the day strong'
+  // ── CONGRATS EMAIL (day complete) ─────────────────────────────────────────────
+  if (isDayComplete) {
+    // Two flavours:
+    //   reviewsDone > 0  → both dailies AND reviews were cleared today
+    //   reviewsStartIn   → only dailies done, reviews haven't started yet
+    //   otherwise        → dailies done, reviews started but nothing was due today
+    const bothDone    = reviewsDone > 0
+    const preReviews  = !bothDone && reviewsStartIn !== null
 
-  // Body intro text
-  const bodyText = daysAbsent >= 2
-    ? `You haven't practiced in ${daysAbsent} days. Here's what's waiting for you today — let's get back on track.`
-    : !hasPlan
-      ? reviewsActive
-        ? 'You have SR reviews due. Clear them below — and set up your daily plan to start getting question reminders too.'
-        : 'Set up your daily plan to start getting daily question reminders.'
-      : dailiesDone
-        ? 'Your questions are done — clear your reviews to finish the day.'
-        : reviewsActive
-          ? 'Solve your daily questions and clear your reviews to finish the day.'
-          : 'Solve your daily questions to finish the day.'
+    if (bothDone) {
+      subject = `🎉 Day complete — questions & reviews done!`
+    } else if (preReviews) {
+      subject = `🎉 Daily questions done — reviews start in ${reviewsStartIn} day${reviewsStartIn !== 1 ? 's' : ''}!`
+    } else {
+      subject = `🎉 Daily questions done — great work!`
+    }
 
-  // Absence banner (shown at top of email body when away 2+ days)
-  const absenceBanner = daysAbsent >= 2
-    ? `<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:14px 18px;margin-bottom:20px;">
-        <p style="margin:0;font-size:14px;font-weight:700;color:#dc2626;">🚨 You haven't practiced in ${daysAbsent} day${daysAbsent !== 1 ? 's' : ''}!</p>
-        <p style="margin:4px 0 0;font-size:12px;color:#ef4444;line-height:1.5;">Don't let all that progress slip — even one session gets you back on track.</p>
-      </div>`
-    : ''
+    const congratsHeadline = bothDone
+      ? 'All done for today! 🎉'
+      : 'Daily questions done! 🎉'
 
-  // No-plan banner (shown instead of the questions block when there's no daily plan)
-  const noPlanBanner = !hasPlan
-    ? `<div style="margin-bottom:20px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;padding:16px 18px;">
-        <p style="margin:0;font-size:14px;font-weight:700;color:#92400e;">📅 No daily plan set up yet</p>
-        <p style="margin:6px 0 8px;font-size:12px;color:#b45309;line-height:1.5;">Create a daily plan to get personalised question reminders every day — choose how many questions per day, your start date, and a lock code to keep yourself accountable.</p>
-        <div style="text-align:center;">
-          <a href="${APP_URL}/daily" style="display:inline-block;background:#d97706;color:#fff;font-weight:700;text-decoration:none;padding:10px 22px;border-radius:10px;font-size:13px;">Set up daily plan →</a>
-        </div>
-      </div>`
-    : ''
+    const congratsBody = bothDone
+      ? `Amazing work — you finished all ${totalCount} daily question${totalCount !== 1 ? 's' : ''} AND cleared your ${reviewsDone} review${reviewsDone !== 1 ? 's' : ''} today. Take a well-earned break and see you tomorrow! 💪`
+      : preReviews
+        ? `You finished all ${totalCount} question${totalCount !== 1 ? 's' : ''} for today — great consistency! Your first spaced-repetition reviews are scheduled to start in ${reviewsStartIn} day${reviewsStartIn !== 1 ? 's' : ''}. Keep solving daily and they'll be ready for you.`
+        : `You finished all ${totalCount} question${totalCount !== 1 ? 's' : ''} for today and no reviews were due. Keep the streak going — see you tomorrow!`
 
-  // Daily questions block (only shown when a plan exists)
-  const questionRows = unsolvedQs.map(q => {
-    const lcLink = q.slug ? leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug)) : null
-    return `
-      <tr>
-        <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;vertical-align:middle;">
-          <span style="font-size:13px;margin-right:6px;">📝</span>
-          <a href="${APP_URL}/question/${q.id}" style="color:#1d4ed8;text-decoration:none;font-weight:600;">#${q.id} ${q.title}</a>
-          ${lcLink ? `&nbsp;<a href="${lcLink}" style="color:#9ca3af;font-size:12px;text-decoration:none;">[LC ↗]</a>` : ''}
-        </td>
-        <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right;vertical-align:middle;">
-          <span style="color:${diffColor[q.difficulty] ?? '#6b7280'};font-weight:700;font-size:12px;">${q.difficulty}</span>
-        </td>
-      </tr>`
-  }).join('')
-
-  const questionsSection = !hasPlan
-    ? noPlanBanner
-    : !dailiesDone
-      ? `<div style="margin-bottom:20px;">
-          <div style="display:flex;align-items:center;margin-bottom:10px;">
-            <span style="font-size:16px;margin-right:8px;">📝</span>
-            <span style="font-size:14px;font-weight:700;color:#111827;">Today&apos;s Questions</span>
-            <span style="margin-left:auto;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;">${solvedCount}/${totalCount} done</span>
-          </div>
-          <table style="width:100%;border-collapse:collapse;">${questionRows}</table>
-          <div style="margin-top:12px;text-align:center;">
-            <a href="${APP_URL}/daily" style="display:inline-block;background:#2563eb;color:#fff;font-weight:700;text-decoration:none;padding:11px 24px;border-radius:10px;font-size:13px;">Go solve →</a>
-          </div>
-        </div>`
-      : `<div style="margin-bottom:20px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px 18px;">
-          <p style="margin:0;font-size:14px;font-weight:700;color:#15803d;">✅ All ${totalCount} questions done!</p>
-          <p style="margin:4px 0 0;font-size:12px;color:#16a34a;">Great work — now clear your reviews below.</p>
-        </div>`
-
-  // Reviews block
-  let reviewsSection = ''
-  if (reviewsActive) {
-    const reviewRows = dueReviews.map(r => {
-      const q           = qMap[r.question_id]
-      const diff        = q?.difficulty ?? ''
-      const lcLink      = q?.slug ? leetCodeUrl(resolveLeetCodeSlug(r.question_id, q.slug)) : null
-      const overdueDays = r.next_review ? daysBetween(r.next_review, todayStr) : 0
-      const overdueLabel = overdueDays === 0
-        ? 'Due today'
-        : `${overdueDays}d overdue`
-      const overdueColor = overdueDays === 0 ? '#7c3aed' : '#dc2626'
-      const overdueBg    = overdueDays === 0 ? '#ede9fe'  : '#fee2e2'
+    // Show the questions that were completed today
+    const solvedTodayRows = todayPlanQs.map(q => {
+      const lcLink = q.slug ? leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug)) : null
       return `
         <tr>
-          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;vertical-align:middle;">
-            <span style="font-size:13px;margin-right:6px;">🔁</span>
-            <a href="${APP_URL}/review" style="color:#7c3aed;text-decoration:none;font-weight:600;">#${r.question_id} ${q?.title ?? `Question ${r.question_id}`}</a>
+          <td style="padding:9px 0;border-bottom:1px solid #f0fdf4;vertical-align:middle;">
+            <span style="font-size:12px;margin-right:6px;">✅</span>
+            <a href="${APP_URL}/question/${q.id}" style="color:#15803d;text-decoration:none;font-weight:600;">#${q.id} ${q.title}</a>
             ${lcLink ? `&nbsp;<a href="${lcLink}" style="color:#9ca3af;font-size:12px;text-decoration:none;">[LC ↗]</a>` : ''}
           </td>
-          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right;vertical-align:middle;white-space:nowrap;">
-            <span style="color:${diffColor[diff] ?? '#6b7280'};font-weight:700;font-size:12px;margin-right:6px;">${diff}</span>
-            <span style="background:${overdueBg};color:${overdueColor};font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;">${overdueLabel}</span>
+          <td style="padding:9px 0;border-bottom:1px solid #f0fdf4;text-align:right;vertical-align:middle;">
+            <span style="color:${diffColor[q.difficulty] ?? '#6b7280'};font-weight:700;font-size:12px;">${q.difficulty}</span>
           </td>
         </tr>`
     }).join('')
 
-    const doneLabel = reviewsDone > 0
-      ? `<span style="margin-left:8px;color:#9ca3af;font-size:11px;">(${reviewsDone} done today)</span>`
+    const reviewsSummary = bothDone
+      ? `<div style="margin-top:16px;background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:12px;padding:13px 16px;">
+          <p style="margin:0;font-size:13px;font-weight:700;color:#6d28d9;">🔁 ${reviewsDone} review${reviewsDone !== 1 ? 's' : ''} cleared today</p>
+          <p style="margin:4px 0 0;font-size:12px;color:#7c3aed;">Next reviews will be rescheduled and ready when due.</p>
+        </div>`
+      : preReviews
+        ? `<div style="margin-top:16px;background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:12px;padding:13px 16px;">
+            <p style="margin:0;font-size:13px;font-weight:700;color:#6d28d9;">🔁 Reviews start in ${reviewsStartIn} day${reviewsStartIn !== 1 ? 's' : ''}</p>
+            <p style="margin:4px 0 0;font-size:12px;color:#7c3aed;">Spaced-repetition reviews will kick in automatically once the window opens.</p>
+          </div>`
+        : ''
+
+    html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;margin:0;padding:24px;">
+  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+    <div style="background:linear-gradient(135deg,#16a34a,#4ade80);padding:26px 30px;">
+      <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px;">🧠 LeetMastery</div>
+      <div style="color:#dcfce7;font-size:13px;margin-top:4px;">${congratsHeadline}</div>
+    </div>
+
+    <div style="padding:26px 30px;">
+      <p style="color:#374151;margin:0 0 20px;font-size:14px;line-height:1.6;">${congratsBody}</p>
+
+      <div style="margin-bottom:4px;">
+        <div style="display:flex;align-items:center;margin-bottom:10px;">
+          <span style="font-size:15px;margin-right:8px;">📝</span>
+          <span style="font-size:14px;font-weight:700;color:#111827;">Today&apos;s Questions</span>
+          <span style="margin-left:auto;background:#dcfce7;color:#15803d;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;">${totalCount}/${totalCount} done</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">${solvedTodayRows}</table>
+      </div>
+
+      ${reviewsSummary}
+
+      <div style="margin-top:20px;text-align:center;">
+        <a href="${APP_URL}/daily" style="display:inline-block;background:#16a34a;color:#fff;font-weight:700;text-decoration:none;padding:11px 28px;border-radius:10px;font-size:13px;">View Progress →</a>
+      </div>
+    </div>
+
+    <div style="padding:14px 30px;background:#f9fafb;text-align:center;border-top:1px solid #f3f4f6;">
+      <p style="color:#9ca3af;font-size:12px;margin:0;">LeetMastery · keep the streak going 🔥</p>
+    </div>
+  </div>
+</body>
+</html>`
+
+  } else {
+    // ── REMINDER EMAIL (work still pending) ───────────────────────────────────
+
+    // Subject
+    const pendingParts: string[] = []
+    if (hasPlan && !dailiesDone) pendingParts.push(`${unsolvedQs.length} question${unsolvedQs.length !== 1 ? 's' : ''} left`)
+    if (reviewsActive) pendingParts.push(`${dueReviews.length} review${dueReviews.length !== 1 ? 's' : ''} due`)
+    if (!hasPlan) pendingParts.push('no daily plan set')
+    subject = daysAbsent >= 2
+      ? `🚨 ${daysAbsent} day${daysAbsent !== 1 ? 's' : ''} away — get back on track`
+      : pendingParts.length
+        ? `🧠 ${pendingParts.join(' · ')} — finish the day`
+        : `🧠 ${solvedCount}/${totalCount} done — day in progress`
+
+    // Header subtitle
+    const headerSubtitle = daysAbsent >= 2
+      ? `${daysAbsent} days away — come back strong 💪`
+      : 'Finish the day strong'
+
+    // Body intro text
+    const bodyText = daysAbsent >= 2
+      ? `You haven't practiced in ${daysAbsent} days. Here's what's waiting for you today — let's get back on track.`
+      : !hasPlan
+        ? reviewsActive
+          ? 'You have SR reviews due. Clear them below — and set up your daily plan to start getting question reminders too.'
+          : 'Set up your daily plan to start getting daily question reminders.'
+        : dailiesDone
+          ? 'Your questions are done — clear your reviews to finish the day.'
+          : reviewsActive
+            ? 'Solve your daily questions and clear your reviews to finish the day.'
+            : 'Solve your daily questions to finish the day.'
+
+    // Absence banner
+    const absenceBanner = daysAbsent >= 2
+      ? `<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:14px 18px;margin-bottom:20px;">
+          <p style="margin:0;font-size:14px;font-weight:700;color:#dc2626;">🚨 You haven't practiced in ${daysAbsent} day${daysAbsent !== 1 ? 's' : ''}!</p>
+          <p style="margin:4px 0 0;font-size:12px;color:#ef4444;line-height:1.5;">Don't let all that progress slip — even one session gets you back on track.</p>
+        </div>`
       : ''
 
-    reviewsSection = `
-      <div style="border-top:1.5px solid #f3f4f6;padding-top:20px;">
-        <div style="display:flex;align-items:center;margin-bottom:10px;">
-          <span style="font-size:16px;margin-right:8px;">🔁</span>
-          <span style="font-size:14px;font-weight:700;color:#111827;">Due Reviews</span>${doneLabel}
-          <span style="margin-left:auto;background:#ede9fe;color:#7c3aed;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;">${dueReviews.length} remaining</span>
-        </div>
-        <table style="width:100%;border-collapse:collapse;">${reviewRows}</table>
-        <div style="margin-top:14px;text-align:center;">
-          <a href="${APP_URL}/review" style="display:inline-block;background:#7c3aed;color:#fff;font-weight:700;text-decoration:none;padding:11px 24px;border-radius:10px;font-size:13px;">Start Reviews →</a>
-        </div>
-      </div>`
-  } else if (reviewsStartIn !== null) {
-    // Reviews haven't started yet — show when they will
-    reviewsSection = `
-      <div style="border-top:1.5px solid #f3f4f6;padding-top:20px;margin-top:4px;">
-        <div style="background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:12px;padding:14px 18px;">
-          <p style="margin:0;font-size:13px;font-weight:700;color:#6d28d9;">🔁 Spaced repetition reviews start in ${reviewsStartIn} day${reviewsStartIn !== 1 ? 's' : ''}</p>
-          <p style="margin:6px 0 0;font-size:12px;color:#7c3aed;line-height:1.5;">Keep solving — once your first review window opens, reminders will include them too.</p>
-        </div>
-      </div>`
-  }
+    // No-plan banner
+    const noPlanBanner = !hasPlan
+      ? `<div style="margin-bottom:20px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;padding:16px 18px;">
+          <p style="margin:0;font-size:14px;font-weight:700;color:#92400e;">📅 No daily plan set up yet</p>
+          <p style="margin:6px 0 8px;font-size:12px;color:#b45309;line-height:1.5;">Create a daily plan to get personalised question reminders every day — choose how many questions per day, your start date, and a lock code to keep yourself accountable.</p>
+          <div style="text-align:center;">
+            <a href="${APP_URL}/daily" style="display:inline-block;background:#d97706;color:#fff;font-weight:700;text-decoration:none;padding:10px 22px;border-radius:10px;font-size:13px;">Set up daily plan →</a>
+          </div>
+        </div>`
+      : ''
 
-  const html = `<!DOCTYPE html>
+    // Daily questions block
+    const questionRows = unsolvedQs.map(q => {
+      const lcLink = q.slug ? leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug)) : null
+      return `
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;vertical-align:middle;">
+            <span style="font-size:13px;margin-right:6px;">📝</span>
+            <a href="${APP_URL}/question/${q.id}" style="color:#1d4ed8;text-decoration:none;font-weight:600;">#${q.id} ${q.title}</a>
+            ${lcLink ? `&nbsp;<a href="${lcLink}" style="color:#9ca3af;font-size:12px;text-decoration:none;">[LC ↗]</a>` : ''}
+          </td>
+          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right;vertical-align:middle;">
+            <span style="color:${diffColor[q.difficulty] ?? '#6b7280'};font-weight:700;font-size:12px;">${q.difficulty}</span>
+          </td>
+        </tr>`
+    }).join('')
+
+    const questionsSection = !hasPlan
+      ? noPlanBanner
+      : !dailiesDone
+        ? `<div style="margin-bottom:20px;">
+            <div style="display:flex;align-items:center;margin-bottom:10px;">
+              <span style="font-size:16px;margin-right:8px;">📝</span>
+              <span style="font-size:14px;font-weight:700;color:#111827;">Today&apos;s Questions</span>
+              <span style="margin-left:auto;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;">${solvedCount}/${totalCount} done</span>
+            </div>
+            <table style="width:100%;border-collapse:collapse;">${questionRows}</table>
+            <div style="margin-top:12px;text-align:center;">
+              <a href="${APP_URL}/daily" style="display:inline-block;background:#2563eb;color:#fff;font-weight:700;text-decoration:none;padding:11px 24px;border-radius:10px;font-size:13px;">Go solve →</a>
+            </div>
+          </div>`
+        : `<div style="margin-bottom:20px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px 18px;">
+            <p style="margin:0;font-size:14px;font-weight:700;color:#15803d;">✅ All ${totalCount} questions done!</p>
+            <p style="margin:4px 0 0;font-size:12px;color:#16a34a;">Great work — now clear your reviews below.</p>
+          </div>`
+
+    // Reviews block
+    let reviewsSection = ''
+    if (reviewsActive) {
+      const reviewRows = dueReviews.map(r => {
+        const q           = qMap[r.question_id]
+        const diff        = q?.difficulty ?? ''
+        const lcLink      = q?.slug ? leetCodeUrl(resolveLeetCodeSlug(r.question_id, q.slug)) : null
+        const overdueDays = r.next_review ? daysBetween(r.next_review, todayStr) : 0
+        const overdueLabel = overdueDays === 0 ? 'Due today' : `${overdueDays}d overdue`
+        const overdueColor = overdueDays === 0 ? '#7c3aed' : '#dc2626'
+        const overdueBg    = overdueDays === 0 ? '#ede9fe'  : '#fee2e2'
+        return `
+          <tr>
+            <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;vertical-align:middle;">
+              <span style="font-size:13px;margin-right:6px;">🔁</span>
+              <a href="${APP_URL}/review" style="color:#7c3aed;text-decoration:none;font-weight:600;">#${r.question_id} ${q?.title ?? `Question ${r.question_id}`}</a>
+              ${lcLink ? `&nbsp;<a href="${lcLink}" style="color:#9ca3af;font-size:12px;text-decoration:none;">[LC ↗]</a>` : ''}
+            </td>
+            <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right;vertical-align:middle;white-space:nowrap;">
+              <span style="color:${diffColor[diff] ?? '#6b7280'};font-weight:700;font-size:12px;margin-right:6px;">${diff}</span>
+              <span style="background:${overdueBg};color:${overdueColor};font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;">${overdueLabel}</span>
+            </td>
+          </tr>`
+      }).join('')
+
+      const doneLabel = reviewsDone > 0
+        ? `<span style="margin-left:8px;color:#9ca3af;font-size:11px;">(${reviewsDone} done today)</span>`
+        : ''
+
+      reviewsSection = `
+        <div style="border-top:1.5px solid #f3f4f6;padding-top:20px;">
+          <div style="display:flex;align-items:center;margin-bottom:10px;">
+            <span style="font-size:16px;margin-right:8px;">🔁</span>
+            <span style="font-size:14px;font-weight:700;color:#111827;">Due Reviews</span>${doneLabel}
+            <span style="margin-left:auto;background:#ede9fe;color:#7c3aed;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;">${dueReviews.length} remaining</span>
+          </div>
+          <table style="width:100%;border-collapse:collapse;">${reviewRows}</table>
+          <div style="margin-top:14px;text-align:center;">
+            <a href="${APP_URL}/review" style="display:inline-block;background:#7c3aed;color:#fff;font-weight:700;text-decoration:none;padding:11px 24px;border-radius:10px;font-size:13px;">Start Reviews →</a>
+          </div>
+        </div>`
+    } else if (reviewsStartIn !== null) {
+      reviewsSection = `
+        <div style="border-top:1.5px solid #f3f4f6;padding-top:20px;margin-top:4px;">
+          <div style="background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:12px;padding:14px 18px;">
+            <p style="margin:0;font-size:13px;font-weight:700;color:#6d28d9;">🔁 Spaced repetition reviews start in ${reviewsStartIn} day${reviewsStartIn !== 1 ? 's' : ''}</p>
+            <p style="margin:6px 0 0;font-size:12px;color:#7c3aed;line-height:1.5;">Keep solving — once your first review window opens, reminders will include them too.</p>
+          </div>
+        </div>`
+    }
+
+    html = `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;margin:0;padding:24px;">
@@ -411,6 +506,7 @@ export async function GET(req: NextRequest) {
   </div>
 </body>
 </html>`
+  } // end reminder email
 
   // ── Preview mode: return real HTML without sending ───────────────────────────
   if (isPreview) {
