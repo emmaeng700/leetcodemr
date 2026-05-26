@@ -3,7 +3,7 @@ import { Suspense, useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { RefreshCw, CheckCircle, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
-import { getUserRevisionCap, getDueReviews, getProgress, getStudyPlan, completeReview } from '@/lib/db'
+import { getUserRevisionCap, getDueReviews, getProgress, getStudyPlan, completeReview, rebalanceReviews } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import { getPatternForQuestion } from '@/lib/patternUtils'
@@ -145,24 +145,33 @@ function SRQueueInner() {
   const [completing, setCompleting] = useState<number | null>(null)
 
   useEffect(() => {
-    Promise.all([
-      fetch('/questions_full.json').then(r => r.json()),
-      getProgress(),
-      getStudyPlan(),
-      getUserRevisionCap(),
-    ]).then(([qs, prog, plan, userCap]) => {
+    async function load() {
+      const [qs, prog, plan, userCap] = await Promise.all([
+        fetch('/questions_full.json').then(r => r.json()),
+        getProgress(),
+        getStudyPlan(),
+        getUserRevisionCap(),
+      ])
       setCap(userCap)
       setQuestions(qs)
       setProgress(prog)
       setPlanOrder(plan?.question_order?.length ? plan.question_order : (qs as Question[]).map(q => q.id))
       setLoading(false)
-    })
-  }, [])
 
-  useEffect(() => {
-    // Keep SR Queue consistent with the app caps by reading the capped due list.
-    // This also triggers the "spread forward" logic in db.getDueReviews().
-    getDueReviews().then(setDueList).catch(() => {})
+      // Rebalance whenever cap changes — same guard as daily page.
+      const REBALANCE_KEY = `lm_rebalanced_cap_${userCap}`
+      if (!localStorage.getItem(REBALANCE_KEY)) {
+        for (const k of [...Object.keys(localStorage)]) {
+          if (k.startsWith('lm_rebalanced_')) localStorage.removeItem(k)
+        }
+        await rebalanceReviews()
+        localStorage.setItem(REBALANCE_KEY, '1')
+      }
+
+      // Load due list after rebalance so the cap is already applied.
+      getDueReviews().then(setDueList).catch(() => {})
+    }
+    load()
   }, [])
 
   const handleDone = useCallback(async (qId: number) => {
