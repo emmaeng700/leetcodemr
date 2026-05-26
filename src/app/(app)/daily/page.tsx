@@ -29,6 +29,7 @@ interface ProgressData {
   solved: boolean
   starred: boolean
   notes: string
+  last_reviewed?: string | null
 }
 
 type PlanMode = 'strict' | 'random'
@@ -503,7 +504,14 @@ export default function DailyPage() {
 
   // ── Rep helpers ─────────────────────────────────────────────────────────────
   function getDailyRep(id: number) { return dailyReps[String(id)] ?? 0 }
-  function isRepDone(id: number)   { return getDailyRep(id) >= repsPerQRef.current }
+  function isRepDone(id: number) {
+    // Local reps done today on this device
+    if (getDailyRep(id) >= repsPerQRef.current) return true
+    // Cross-device fallback: if the question was solved today on any device,
+    // last_reviewed (stored in Supabase) will equal today — treat as done.
+    const p = progress[String(id)]
+    return !!(p?.solved && p?.last_reviewed === todayISO())
+  }
 
   function saveRepsPerQ(n: number) {
     const v = Math.max(1, Math.min(10, n))
