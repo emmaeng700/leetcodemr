@@ -1118,6 +1118,7 @@ export default function DailyPage() {
             <h2 className="font-bold text-[var(--text)] text-sm flex items-center gap-2">
               <CalendarCheck size={15} className="text-purple-500" />
               Today — Day {todayInfo.dayNumber}
+              <span className="text-xs font-normal text-[var(--text-subtle)]">· {fmtDate(todayISO())}</span>
             </h2>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
               randomGoalMet ? 'bg-green-100 text-green-700' :
@@ -1230,6 +1231,7 @@ export default function DailyPage() {
             <h2 className="min-w-0 font-bold text-[var(--text)] text-sm flex items-center gap-2">
               <CalendarCheck size={15} className="text-indigo-500" />
               Today — Day {todayInfo.dayNumber}
+              <span className="text-xs font-normal text-[var(--text-subtle)]">· {fmtDate(todayISO())}</span>
             </h2>
             <span className={`shrink-0 text-[11px] sm:text-xs font-bold px-2 py-1 rounded-full ${
               todayAllRepsDone ? 'bg-green-100 text-green-700' :
