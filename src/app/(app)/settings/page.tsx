@@ -74,28 +74,28 @@ export default function SettingsPage() {
   }, [])
 
   const checkForUpdate = useCallback(async () => {
-    if (!('serviceWorker' in navigator)) {
-      toast('Service worker not supported on this browser')
-      return
-    }
     setUpdateStatus('checking')
     try {
-      const reg = await navigator.serviceWorker.getRegistration()
-      if (!reg) {
-        toast('No service worker registered yet — try reloading the app first')
-        setUpdateStatus('idle')
-        return
+      // 1. Clear all SW caches except the stable image cache.
+      //    This forces the next load to fetch everything fresh from the network.
+      if ('caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(
+          keys.filter(k => k !== 'lm-images').map(k => caches.delete(k))
+        )
       }
-      // If a new SW activates, SwRegister's controllerchange listener will
-      // reload the page automatically. We just need to trigger the network fetch.
-      await reg.update()
-      // Give it 4 seconds for the SW to install + activate. If still here,
-      // we're already on the latest version.
-      await new Promise(r => setTimeout(r, 4000))
-      setUpdateStatus('uptodate')
-      setTimeout(() => setUpdateStatus('idle'), 3000)
+      // 2. Tell any waiting SW to activate immediately.
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration()
+        if (reg?.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' })
+        // Also trigger a network check for a brand-new SW version.
+        void reg?.update()
+      }
+      // 3. Hard-navigate so the browser must re-fetch HTML from the network.
+      //    Using href assignment bypasses the bfcache on iOS better than reload().
+      window.location.href = window.location.href
     } catch {
-      toast.error('Could not check for updates')
+      toast.error('Could not update — try closing and reopening the app')
       setUpdateStatus('idle')
     }
   }, [])

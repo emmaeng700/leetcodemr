@@ -200,6 +200,12 @@ self.addEventListener('fetch', e => {
   )
 })
 
+// ── Skip waiting on demand (sent by the "Get Latest Version" button) ─────────
+// Activates any pending new SW immediately so the subsequent reload picks it up.
+self.addEventListener('message', e => {
+  if (e.data?.type === 'SKIP_WAITING') self.skipWaiting()
+})
+
 // ── Cache app pages message (sent from client with auth cookies) ──────────────
 // Pages require auth, so they can only be cached after the user is logged in.
 // The client sends this message with credentials already in the cookie jar.
