@@ -80,6 +80,12 @@ function fmtDate(iso: string) {
   return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
+function dayScheduledDate(startDate: string, dayIdx: number): string {
+  const d = new Date(startDate + 'T12:00:00')
+  d.setDate(d.getDate() + dayIdx)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 function calcFinish(startDate: string, perDay: number, total: number) {
   const days = Math.ceil(total / perDay)
   const d = new Date(startDate)
@@ -213,6 +219,14 @@ export default function DailyPage() {
   const [extraDays, setExtraDays] = useState(0)
 
   const [breathers, setBreathers] = useState<ActiveBreather[]>([])
+
+  const calendarDayIndex = useMemo(() => {
+    if (!plan) return 0
+    const today = todayISO()
+    const startMs = new Date(plan.start_date + 'T00:00:00').getTime()
+    const todayMs = new Date(today + 'T00:00:00').getTime()
+    return Math.max(0, Math.floor((todayMs - startMs) / 86400000))
+  }, [plan])
 
   const topicMap = useMemo(() => buildExclusivePatternMap(allQuestions), [allQuestions])
 
@@ -401,6 +415,21 @@ export default function DailyPage() {
       window.removeEventListener('pageshow', onPageShow)
     }
   }, [loading, pathname, refreshProgress, refreshDue, refreshDailyReps, activePlanMode])
+
+  // ── Slacking email: fire once when behind calendar schedule ─────────────────
+  // Only for strict mode. Guards with localStorage so we send at most once per
+  // stuck day index — prevents spam if the user keeps opening the page.
+  useEffect(() => {
+    if (loading || isRandomMode || !plan) return
+    const todayInfo = getTodayInfo(plan, allQuestions, progress)
+    if (todayInfo.pending || todayInfo.complete || !todayInfo.dayNumber) return
+    const activeDayIdx = todayInfo.dayNumber - 1
+    if (calendarDayIndex <= activeDayIdx) return  // on schedule or ahead
+    const key = `lm_slacking_notified_${activeDayIdx}`
+    if (localStorage.getItem(key)) return
+    localStorage.setItem(key, '1')
+    fetch('/api/notify-slacking', { method: 'POST' }).catch(() => {})
+  }, [loading, isRandomMode, plan, allQuestions, progress, calendarDayIndex])
 
   const { days: previewDays, date: previewFinish } = calcFinish(startDate, perDay, allQuestions.length)
 
@@ -1479,6 +1508,11 @@ export default function DailyPage() {
                   : `Last ${Math.min(PAST_DAYS_INITIAL, pastDayCount)} of ${pastDayCount} · newest first`}
               </p>
             </div>
+            {!isRandomMode && !todayInfo.complete && todayInfo.dayNumber && calendarDayIndex > todayInfo.dayNumber - 1 && (
+              <span className="shrink-0 text-xs font-bold px-2 py-1 rounded-full bg-red-100 text-red-600 border border-red-200">
+                ⚠️ {calendarDayIndex - (todayInfo.dayNumber - 1)} day{calendarDayIndex - (todayInfo.dayNumber - 1) !== 1 ? 's' : ''} behind
+              </span>
+            )}
           </div>
           <div className="space-y-2">
             {Array.from({ length: displayPast }, (_, i) => {
@@ -1493,7 +1527,10 @@ export default function DailyPage() {
                     onClick={() => setExpandedDays(p => ({ ...p, [dayIdx]: !p[dayIdx] }))}
                     className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-[var(--bg-muted)] transition-colors"
                   >
-                    <span className="text-sm font-semibold text-[var(--text)]">Day {dayIdx + 1}</span>
+                    <span className="text-sm font-semibold text-[var(--text)]">
+                      Day {dayIdx + 1}
+                      <span className="ml-1.5 text-xs font-normal text-[var(--text-subtle)]">· {dayScheduledDate(plan.start_date, dayIdx)}</span>
+                    </span>
                     <div className="flex items-center gap-2">
                       <span className={`text-xs font-bold ${doneCnt === dayQs.length ? 'text-green-600' : doneCnt > 0 ? 'text-yellow-600' : 'text-red-500'}`}>
                         {doneCnt}/{dayQs.length}
