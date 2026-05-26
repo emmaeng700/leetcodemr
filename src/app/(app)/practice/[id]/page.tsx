@@ -4,7 +4,7 @@ import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
-import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan, addMasteryRunEvent, getMasteryRunsByQuestion } from '@/lib/db'
+import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan, addMasteryRunEvent, getMasteryRunsByQuestion, getTodayDailyReps } from '@/lib/db'
 import { addImbibitionRunEvent, getImbibitionRunsByQuestion } from '@/lib/imbibitionRuns'
 import { formatTime, isDue, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
@@ -168,11 +168,13 @@ export default function PracticePage() {
       if (isDailyMode) setDailyRepTarget(getDailyRepTarget())
       if (usesThreeSolveGate) {
         const masteryRuns = isDailyMode
-          ? readDailyRuns()
+          ? await getTodayDailyReps()   // Supabase → syncs across phone & desktop
           : isImbibitionMode
             ? await getImbibitionRunsByQuestion()
             : await getMasteryRunsByQuestion()
         setModeRuns(masteryRuns)
+        // Mirror to localStorage so the daily page can read instantly without another DB call
+        if (isDailyMode) writeDailyRuns(masteryRuns)
       }
     }
     load()

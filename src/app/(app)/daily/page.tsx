@@ -6,7 +6,7 @@ import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List, Brain, Star, Wind, Bell, BookOpen, Settings } from 'lucide-react'
-import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount, syncStreakActivityFromGoals } from '@/lib/db'
+import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount, syncStreakActivityFromGoals, getTodayDailyReps } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
 import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
@@ -216,7 +216,19 @@ export default function DailyPage() {
 
   const topicMap = useMemo(() => buildExclusivePatternMap(allQuestions), [allQuestions])
 
-  const refreshDailyReps = useCallback(() => {
+  const refreshDailyReps = useCallback(async () => {
+    // Primary source: Supabase mastery_run_events for today — syncs across devices.
+    // Falls back to localStorage if offline / DB unreachable.
+    try {
+      const dbReps = await getTodayDailyReps()
+      if (Object.keys(dbReps).length > 0) {
+        setDailyReps(dbReps)
+        // Keep localStorage in sync so practice page reads instantly
+        localStorage.setItem(`${DAILY_REPS_PREFIX}${todayISO()}`, JSON.stringify(dbReps))
+        return
+      }
+    } catch { /* offline — fall through */ }
+    // Offline fallback: use localStorage cache
     try {
       const raw = localStorage.getItem(`${DAILY_REPS_PREFIX}${todayISO()}`) ?? '{}'
       setDailyReps(JSON.parse(raw) as Record<string, number>)
@@ -317,7 +329,7 @@ export default function DailyPage() {
       setSetupRepsPerQ(savedRpq)
       repsPerQRef.current = savedRpq
       localStorage.setItem(REPS_PER_Q_KEY, String(savedRpq))
-      refreshDailyReps()
+      void refreshDailyReps()
 
       // Resolve mode: localStorage wins; fall back to plan.mode from DB (once
       // that column is populated), then to 'strict'. Write back to localStorage
@@ -361,7 +373,7 @@ export default function DailyPage() {
       if (prev !== null && prev !== '/daily') {
         void refreshProgress()
         void refreshDue()
-        refreshDailyReps()
+        void refreshDailyReps()
         if (activePlanMode === 'random') {
           void syncStreakActivityFromGoals(activePlanMode).catch(() => {/* silent */})
         }
@@ -377,7 +389,7 @@ export default function DailyPage() {
       if (document.visibilityState === 'visible') {
         void refreshProgress()
         void refreshDue()
-        refreshDailyReps()
+        void refreshDailyReps()
         if (activePlanMode === 'random') {
           void syncStreakActivityFromGoals(activePlanMode).catch(() => {/* silent */})
         }
@@ -387,7 +399,7 @@ export default function DailyPage() {
       if ((e as PageTransitionEvent).persisted) {
         void refreshProgress()
         void refreshDue()
-        refreshDailyReps()
+        void refreshDailyReps()
         if (activePlanMode === 'random') {
           void syncStreakActivityFromGoals(activePlanMode).catch(() => {/* silent */})
         }
