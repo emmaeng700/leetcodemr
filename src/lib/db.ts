@@ -189,43 +189,6 @@ export async function addMasteryRunEvent(questionId: number, count = 1) {
   return { ok: !error, error: error?.message ?? null }
 }
 
-/**
- * Returns rep counts for today (CT) only — used to sync daily-plan rep progress
- * across devices (phone ↔ desktop). Filters mastery_run_events by today's date in
- * America/Chicago time so it's never confused with yesterday's runs.
- */
-export async function getTodayDailyReps(): Promise<Record<string, number>> {
-  try {
-    const todayCT = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
-    // created_at is stored as UTC; shift to CT by comparing against midnight CT in UTC.
-    // Simplest portable approach: fetch today's rows and count client-side.
-    // Volume is small (at most a few dozen rows per day).
-    const startOfDayCT = new Date(`${todayCT}T00:00:00-05:00`) // CST offset (safe: we just need > yesterday)
-    const { data, error } = await supabase
-      .from('mastery_run_events')
-      .select('question_id,created_at')
-      .eq('user_id', USER_ID)
-      .gte('created_at', startOfDayCT.toISOString())
-    if (error) {
-      if (!isFetchTransportError(error.message)) console.error('[db] getTodayDailyReps:', error.message)
-      return {}
-    }
-    // Count only rows whose local CT date matches today (handles the DST edge)
-    const out: Record<string, number> = {}
-    for (const row of data ?? []) {
-      const rowDateCT = new Date(row.created_at as string)
-        .toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
-      if (rowDateCT === todayCT) {
-        const id = String((row as any).question_id)
-        out[id] = (out[id] ?? 0) + 1
-      }
-    }
-    return out
-  } catch {
-    return {}
-  }
-}
-
 export async function getMasteryRunsByQuestion(): Promise<Record<string, number>> {
   try {
     // Aggregate on the DB side so we transfer one row per question, not one per event.
