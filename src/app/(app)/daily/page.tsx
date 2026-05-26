@@ -319,15 +319,12 @@ export default function DailyPage() {
       // Load reps-per-question setting and today's rep counts.
       // DB (profile) wins — it is the source of truth across devices.
       // localStorage is only used as a fallback when the profile has no value.
-      const profileRpq = Math.max(
-        1,
-        parseInt(String(profileRes?.profile?.repsPerQ ?? '0'), 10) || 0
-      )
-      const localRpq = Math.max(
-        1,
-        parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '0', 10) || 0
-      )
-      const savedRpq = profileRpq > 0 ? profileRpq : (localRpq > 0 ? localRpq : 2)
+      // Use a presence check (not Math.max) so a missing DB value (null/undefined)
+      // stays 0 and correctly falls through to the localStorage fallback.
+      const rawProfileRpq = typeof profileRes?.profile?.repsPerQ === 'number' && profileRes.profile.repsPerQ > 0
+        ? profileRes.profile.repsPerQ : 0
+      const rawLocalRpq = parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '0', 10) || 0
+      const savedRpq = rawProfileRpq > 0 ? rawProfileRpq : (rawLocalRpq > 0 ? rawLocalRpq : 2)
       setRepsPerQ(savedRpq)
       setSetupRepsPerQ(savedRpq)
       repsPerQRef.current = savedRpq
