@@ -303,16 +303,17 @@ export default function DailyPage() {
       ])
 
       // Load reps-per-question setting and today's rep counts.
-      // LocalStorage wins for immediate on-device changes, but profile data
-      // provides the durable fallback across Daily + Settings.
+      // DB (profile) wins — it is the source of truth across devices.
+      // localStorage is only used as a fallback when the profile has no value.
       const profileRpq = Math.max(
         1,
-        parseInt(String(profileRes?.profile?.repsPerQ ?? '3'), 10) || 3
+        parseInt(String(profileRes?.profile?.repsPerQ ?? '0'), 10) || 0
       )
-      const savedRpq = Math.max(
+      const localRpq = Math.max(
         1,
-        parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? String(profileRpq), 10) || profileRpq
+        parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '0', 10) || 0
       )
+      const savedRpq = profileRpq > 0 ? profileRpq : (localRpq > 0 ? localRpq : 3)
       setRepsPerQ(savedRpq)
       setSetupRepsPerQ(savedRpq)
       repsPerQRef.current = savedRpq

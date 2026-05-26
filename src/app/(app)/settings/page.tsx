@@ -55,8 +55,10 @@ export default function SettingsPage() {
       .then(pd => {
         const p = pd.profile ?? {}
         const cap: number = Math.min(Math.max(p.revisionCap ?? 3, 1), 3)
-        const localReps = Number.parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '', 10)
-        const resolvedReps = Number.isFinite(localReps) && localReps > 0 ? localReps : (p.repsPerQ ?? 3)
+        // DB wins — ensures changes saved on any device propagate everywhere.
+        const profileReps = typeof p.repsPerQ === 'number' && p.repsPerQ > 0 ? p.repsPerQ : 0
+        const localReps   = Number.parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '', 10)
+        const resolvedReps = profileReps > 0 ? profileReps : (Number.isFinite(localReps) && localReps > 0 ? localReps : 3)
         setEmailEnabled(p.emailEnabled ?? true)
         setTimezone(p.timezone ?? 'America/Chicago')
         setReviewStartDays(p.reviewStartDays ?? 14)
