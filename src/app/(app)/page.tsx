@@ -1,8 +1,8 @@
 'use client'
-import { useState, useEffect, useRef, useMemo, Suspense } from 'react'
+import { useState, useEffect, useRef, useMemo, Suspense, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp, RotateCcw } from 'lucide-react'
+import { Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp, RotateCcw, Check } from 'lucide-react'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 
@@ -1028,6 +1028,25 @@ function HomeInner() {
   const [showSolved, setShowSolved] = useState<null | boolean>(null)
   const [activePattern, setActivePattern] = useState<string | null>(null)
   const [qPage, setQPage] = useState(1)
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'uptodate'>('idle')
+
+  const checkForUpdate = useCallback(async () => {
+    setUpdateStatus('checking')
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(keys.filter(k => k !== 'lm-images').map(k => caches.delete(k)))
+      }
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration()
+        if (reg?.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' })
+        void reg?.update()
+      }
+      window.location.href = window.location.href
+    } catch {
+      setUpdateStatus('idle')
+    }
+  }, [])
 
   const search = sp.get('search') || ''
 
@@ -1117,6 +1136,27 @@ function HomeInner() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
+      {/* Get Latest Version — visible at the top of every device's first screen */}
+      <div className="flex justify-end mb-3">
+        <button
+          type="button"
+          onClick={checkForUpdate}
+          disabled={updateStatus === 'checking'}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors disabled:opacity-60 ${
+            updateStatus === 'uptodate'
+              ? 'border-green-400 bg-green-50 text-green-700'
+              : 'border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100'
+          }`}
+        >
+          {updateStatus === 'checking' ? (
+            <><RotateCcw size={12} className="animate-spin" /> Updating…</>
+          ) : updateStatus === 'uptodate' ? (
+            <><Check size={12} /> Up to date</>
+          ) : (
+            <><RotateCcw size={12} /> Get Latest Version</>
+          )}
+        </button>
+      </div>
       <div className="flex items-center gap-4 mb-5 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg px-5 py-3">
         <div className="flex items-center gap-2">
           <CheckCircle size={16} className="text-green-400" />
