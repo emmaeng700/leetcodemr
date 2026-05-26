@@ -6,7 +6,7 @@ import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List, Brain, Star, Wind, Bell, BookOpen, Settings } from 'lucide-react'
-import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount, syncStreakActivityFromGoals } from '@/lib/db'
+import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount, syncStreakActivityFromGoals, getUserRevisionCap } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
 import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
@@ -294,10 +294,15 @@ export default function DailyPage() {
 
   useEffect(() => {
     async function load() {
-      // One-time rebalance: if reviews were spread with old small cap (2/4),
-      // pull them forward using the current 35/60 cap. Runs once per device.
-      const REBALANCE_KEY = 'lm_rebalanced_v1'
+      // Rebalance reviews whenever the user's cap changes.
+      // Key includes the cap value so any setting change triggers a fresh re-spread.
+      const capForRebalance = await getUserRevisionCap()
+      const REBALANCE_KEY = `lm_rebalanced_cap_${capForRebalance}`
       if (!localStorage.getItem(REBALANCE_KEY)) {
+        // Remove old rebalance keys so they don't accumulate.
+        for (const k of [...Object.keys(localStorage)]) {
+          if (k.startsWith('lm_rebalanced_')) localStorage.removeItem(k)
+        }
         await rebalanceReviews()
         localStorage.setItem(REBALANCE_KEY, '1')
       }
