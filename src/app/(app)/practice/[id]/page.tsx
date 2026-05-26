@@ -61,8 +61,8 @@ function todayDailyRepsKey() {
 
 function getDailyRepTarget() {
   const raw = localStorage.getItem('lm_reps_per_q')
-  const parsed = Number.parseInt(raw ?? '3', 10)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 3
+  const parsed = Number.parseInt(raw ?? '2', 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 2
 }
 
 function readDailyRuns() {

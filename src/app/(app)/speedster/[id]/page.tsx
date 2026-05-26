@@ -17,8 +17,8 @@ import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSo
 const REPS_PER_Q_KEY = 'lm_reps_per_q'
 
 function readSavedRepsTarget() {
-  if (typeof window === 'undefined') return 3
-  return Math.max(1, parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '3', 10) || 3)
+  if (typeof window === 'undefined') return 2
+  return Math.max(1, parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '2', 10) || 2)
 }
 
 interface Question {

@@ -174,14 +174,14 @@ export default function DailyPage() {
   const [todaySolvedCount, setTodaySolvedCount] = useState(0)
 
   // Rep tracking
-  const [repsPerQ, setRepsPerQ] = useState(3)
+  const [repsPerQ, setRepsPerQ] = useState(2)
   const [dailyReps, setDailyReps] = useState<Record<string, number>>({})
-  const repsPerQRef = useRef(3)
+  const repsPerQRef = useRef(2)
   const todayQsRef  = useRef<Question[]>([])
   const questionRefs = useRef<Record<number, HTMLDivElement | null>>({})
 
   // Setup-form reps picker
-  const [setupRepsPerQ, setSetupRepsPerQ] = useState(3)
+  const [setupRepsPerQ, setSetupRepsPerQ] = useState(2)
 
   // Setup-form review + email settings
   const [setupReviewStartDays, setSetupReviewStartDays] = useState(14)
@@ -313,7 +313,7 @@ export default function DailyPage() {
         1,
         parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '0', 10) || 0
       )
-      const savedRpq = profileRpq > 0 ? profileRpq : (localRpq > 0 ? localRpq : 3)
+      const savedRpq = profileRpq > 0 ? profileRpq : (localRpq > 0 ? localRpq : 2)
       setRepsPerQ(savedRpq)
       setSetupRepsPerQ(savedRpq)
       repsPerQRef.current = savedRpq

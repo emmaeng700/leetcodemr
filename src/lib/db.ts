@@ -1104,7 +1104,7 @@ export async function getUserProfile(): Promise<UserProfile | null> {
     timezone:        (row.timezone         as string   | undefined) ?? 'America/Chicago',
     reviewStartDays: (row.review_start_days as number  | undefined) ?? 14,
     revisionCap:     (row.revision_cap     as number   | undefined) ?? 3,
-    repsPerQ:        (row.reps_per_q       as number   | undefined) ?? 3,
+    repsPerQ:        (row.reps_per_q       as number   | undefined) ?? 2,
   }
 }
 

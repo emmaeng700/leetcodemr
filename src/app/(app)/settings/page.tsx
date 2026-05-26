@@ -40,7 +40,7 @@ export default function SettingsPage() {
   const [timezone,        setTimezone]        = useState('America/Chicago')
   const [reviewStartDays, setReviewStartDays] = useState(14)
   const [revisionCap,     setRevisionCap]     = useState(3)
-  const [repsPerQ,        setRepsPerQ]        = useState(3)
+  const [repsPerQ,        setRepsPerQ]        = useState(2)
   // per_day from study_plan (null = no plan set)
   const [perDay,          setPerDay]          = useState<number | null>(null)
   const [perDayStr,       setPerDayStr]       = useState('')
@@ -55,7 +55,7 @@ export default function SettingsPage() {
       // DB wins — ensures changes saved on any device propagate everywhere.
       const profileReps = typeof p.repsPerQ === 'number' && p.repsPerQ > 0 ? p.repsPerQ : 0
       const localReps   = Number.parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '', 10)
-      const resolvedReps = profileReps > 0 ? profileReps : (Number.isFinite(localReps) && localReps > 0 ? localReps : 3)
+      const resolvedReps = profileReps > 0 ? profileReps : (Number.isFinite(localReps) && localReps > 0 ? localReps : 2)
       setEmailEnabled(p.emailEnabled ?? true)
       setTimezone(p.timezone ?? 'America/Chicago')
       setReviewStartDays(p.reviewStartDays ?? 14)
