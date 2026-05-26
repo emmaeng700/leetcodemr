@@ -263,22 +263,22 @@ export async function GET(req: NextRequest) {
     const preReviews  = !bothDone && reviewsStartIn !== null
 
     if (bothDone) {
-      subject = `🎉 Day complete — questions & reviews done!`
+      subject = `🔥 Questions + reviews — fully cooked today`
     } else if (preReviews) {
-      subject = `🎉 Daily questions done — reviews start in ${reviewsStartIn} day${reviewsStartIn !== 1 ? 's' : ''}!`
+      subject = `✅ Daily questions done — reviews drop in ${reviewsStartIn}d`
     } else {
-      subject = `🎉 Daily questions done — great work!`
+      subject = `✅ Daily questions done — rest up`
     }
 
     const congratsHeadline = bothDone
-      ? 'All done for today! 🎉'
-      : 'Daily questions done! 🎉'
+      ? 'Fully cooked 🔥'
+      : 'Questions done ✅'
 
     const congratsBody = bothDone
-      ? `Amazing work — you finished all ${totalCount} daily question${totalCount !== 1 ? 's' : ''} AND cleared your ${reviewsDone} review${reviewsDone !== 1 ? 's' : ''} today. Take a well-earned break and see you tomorrow! 💪`
+      ? `${totalCount} question${totalCount !== 1 ? 's' : ''} done, ${reviewsDone} review${reviewsDone !== 1 ? 's' : ''} cleared — that's the whole day wrapped up. Rest up and come back tomorrow. 💪`
       : preReviews
-        ? `You finished all ${totalCount} question${totalCount !== 1 ? 's' : ''} for today — great consistency! Your first spaced-repetition reviews are scheduled to start in ${reviewsStartIn} day${reviewsStartIn !== 1 ? 's' : ''}. Keep solving daily and they'll be ready for you.`
-        : `You finished all ${totalCount} question${totalCount !== 1 ? 's' : ''} for today and no reviews were due. Keep the streak going — see you tomorrow!`
+        ? `${totalCount} question${totalCount !== 1 ? 's' : ''} done for today. Reviews kick in ${reviewsStartIn} day${reviewsStartIn !== 1 ? 's' : ''} — keep showing up daily and you'll be ready when they drop.`
+        : `${totalCount} question${totalCount !== 1 ? 's' : ''} done, no reviews due — that's the day sorted. See you tomorrow.`
 
     // Show the questions that were completed today
     const solvedTodayRows = todayPlanQs.map(q => {
@@ -298,13 +298,13 @@ export async function GET(req: NextRequest) {
 
     const reviewsSummary = bothDone
       ? `<div style="margin-top:16px;background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:12px;padding:13px 16px;">
-          <p style="margin:0;font-size:13px;font-weight:700;color:#6d28d9;">🔁 ${reviewsDone} review${reviewsDone !== 1 ? 's' : ''} cleared today</p>
-          <p style="margin:4px 0 0;font-size:12px;color:#7c3aed;">Next reviews will be rescheduled and ready when due.</p>
+          <p style="margin:0;font-size:13px;font-weight:700;color:#6d28d9;">🔁 ${reviewsDone} review${reviewsDone !== 1 ? 's' : ''} cleared</p>
+          <p style="margin:4px 0 0;font-size:12px;color:#7c3aed;">Next ones scheduled and waiting — nothing to do till they're due.</p>
         </div>`
       : preReviews
         ? `<div style="margin-top:16px;background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:12px;padding:13px 16px;">
-            <p style="margin:0;font-size:13px;font-weight:700;color:#6d28d9;">🔁 Reviews start in ${reviewsStartIn} day${reviewsStartIn !== 1 ? 's' : ''}</p>
-            <p style="margin:4px 0 0;font-size:12px;color:#7c3aed;">Spaced-repetition reviews will kick in automatically once the window opens.</p>
+            <p style="margin:0;font-size:13px;font-weight:700;color:#6d28d9;">🔁 Reviews drop in ${reviewsStartIn} day${reviewsStartIn !== 1 ? 's' : ''}</p>
+            <p style="margin:4px 0 0;font-size:12px;color:#7c3aed;">Keep solving daily — they'll be waiting for you when the window opens.</p>
           </div>`
         : ''
 
@@ -316,7 +316,7 @@ export async function GET(req: NextRequest) {
 
     <div style="background:linear-gradient(135deg,#16a34a,#4ade80);padding:26px 30px;">
       <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px;">🧠 LeetMastery</div>
-      <div style="color:#dcfce7;font-size:13px;margin-top:4px;">${congratsHeadline}</div>
+      <div style="color:#dcfce7;font-size:14px;font-weight:600;margin-top:4px;">${congratsHeadline}</div>
     </div>
 
     <div style="padding:26px 30px;">
