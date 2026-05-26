@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Settings, Bell, Clock, Globe, Save, Loader2, Check, BookOpen, RefreshCw, Smartphone } from 'lucide-react'
+import { Settings, Bell, Globe, Save, Loader2, Check, BookOpen, RefreshCw, Smartphone, Target, RotateCcw } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const TIMEZONES = [
@@ -23,12 +23,6 @@ const TIMEZONES = [
   { value: 'UTC',                 label: 'UTC' },
 ]
 
-const SLOTS = [
-  { label: 'Morning',   default: '08:00' },
-  { label: 'Afternoon', default: '13:00' },
-  { label: 'Evening',   default: '19:00' },
-]
-
 const REVIEW_DELAYS = [
   { days: 14, label: '2 weeks',  desc: 'Start reviews 2 weeks after solving' },
   { days: 21, label: '3 weeks',  desc: 'Start reviews 3 weeks after solving' },
@@ -44,42 +38,41 @@ export default function SettingsPage() {
   const [updateStatus,    setUpdateStatus]    = useState<'idle' | 'checking' | 'uptodate'>('idle')
   const [emailEnabled,    setEmailEnabled]    = useState(true)
   const [timezone,        setTimezone]        = useState('America/Chicago')
-  const [emailTimes,      setEmailTimes]      = useState<(string | null)[]>([null, null, null])
   const [reviewStartDays, setReviewStartDays] = useState(14)
   const [revisionCap,     setRevisionCap]     = useState(3)
   const [repsPerQ,        setRepsPerQ]        = useState(3)
+  // per_day from study_plan (null = no plan set)
+  const [perDay,          setPerDay]          = useState<number | null>(null)
+  const [perDayStr,       setPerDayStr]       = useState('')
 
   useEffect(() => {
-    fetch('/api/user/profile')
-      .then(r => r.json())
-      .then(pd => {
-        const p = pd.profile ?? {}
-        const cap: number = Math.min(Math.max(p.revisionCap ?? 3, 1), 3)
-        // DB wins — ensures changes saved on any device propagate everywhere.
-        const profileReps = typeof p.repsPerQ === 'number' && p.repsPerQ > 0 ? p.repsPerQ : 0
-        const localReps   = Number.parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '', 10)
-        const resolvedReps = profileReps > 0 ? profileReps : (Number.isFinite(localReps) && localReps > 0 ? localReps : 3)
-        setEmailEnabled(p.emailEnabled ?? true)
-        setTimezone(p.timezone ?? 'America/Chicago')
-        setReviewStartDays(p.reviewStartDays ?? 14)
-        setRevisionCap(cap)
-        setRepsPerQ(resolvedReps)
-        localStorage.setItem(REPS_PER_Q_KEY, String(resolvedReps))
+    Promise.all([
+      fetch('/api/user/profile').then(r => r.json()).catch(() => ({ profile: {} })),
+      fetch('/api/study-plan').then(r => r.json()).catch(() => ({ plan: null })),
+    ]).then(([pd, sp]) => {
+      const p = pd.profile ?? {}
+      const cap: number = Math.min(Math.max(p.revisionCap ?? 3, 1), 3)
+      // DB wins — ensures changes saved on any device propagate everywhere.
+      const profileReps = typeof p.repsPerQ === 'number' && p.repsPerQ > 0 ? p.repsPerQ : 0
+      const localReps   = Number.parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '', 10)
+      const resolvedReps = profileReps > 0 ? profileReps : (Number.isFinite(localReps) && localReps > 0 ? localReps : 3)
+      setEmailEnabled(p.emailEnabled ?? true)
+      setTimezone(p.timezone ?? 'America/Chicago')
+      setReviewStartDays(p.reviewStartDays ?? 14)
+      setRevisionCap(cap)
+      setRepsPerQ(resolvedReps)
+      localStorage.setItem(REPS_PER_Q_KEY, String(resolvedReps))
 
-        const savedTimes: string[] = p.emailTimes ?? []
-        const slots: (string | null)[] = [null, null, null]
-        savedTimes.forEach((t: string, i: number) => { if (i < 3) slots[i] = t })
-        setEmailTimes(slots.map((t, i) => i < cap ? (t ?? SLOTS[i].default) : null))
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+      const pd2: number | null = sp.plan?.per_day ?? null
+      setPerDay(pd2)
+      setPerDayStr(pd2 !== null ? String(pd2) : '')
+    }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
   const checkForUpdate = useCallback(async () => {
     setUpdateStatus('checking')
     try {
       // 1. Clear all SW caches except the stable image cache.
-      //    This forces the next load to fetch everything fresh from the network.
       if ('caches' in window) {
         const keys = await caches.keys()
         await Promise.all(
@@ -90,11 +83,9 @@ export default function SettingsPage() {
       if ('serviceWorker' in navigator) {
         const reg = await navigator.serviceWorker.getRegistration()
         if (reg?.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' })
-        // Also trigger a network check for a brand-new SW version.
         void reg?.update()
       }
       // 3. Hard-navigate so the browser must re-fetch HTML from the network.
-      //    Using href assignment bypasses the bfcache on iOS better than reload().
       window.location.href = window.location.href
     } catch {
       toast.error('Could not update — try closing and reopening the app')
@@ -102,22 +93,35 @@ export default function SettingsPage() {
     }
   }, [])
 
-  const updateSlot = (i: number, val: string) => {
-    setEmailTimes(prev => prev.map((t, idx) => idx === i ? val : t))
-  }
-
-  const enabledTimes = emailTimes.filter(t => t !== null) as string[]
-
   const save = async () => {
     setSaving(true)
     setSaved(false)
     try {
-      const r = await fetch('/api/user/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailEnabled, emailTimes: enabledTimes, timezone, reviewStartDays, revisionCap, repsPerQ }),
-      })
-      if (!r.ok) throw new Error('Profile save failed')
+      const saves: Promise<unknown>[] = [
+        fetch('/api/user/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emailEnabled, timezone, reviewStartDays, revisionCap, repsPerQ }),
+        }),
+      ]
+
+      // Save per_day to study_plan if a plan exists and the value changed
+      const parsedPerDay = Math.max(1, Math.min(20, parseInt(perDayStr, 10) || 1))
+      if (perDay !== null) {
+        saves.push(
+          fetch('/api/study-plan', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ per_day: parsedPerDay }),
+          })
+        )
+        setPerDay(parsedPerDay)
+        setPerDayStr(String(parsedPerDay))
+      }
+
+      const results = await Promise.all(saves)
+      if (results.some(r => !(r as Response).ok)) throw new Error('Save failed')
+
       localStorage.setItem(REPS_PER_Q_KEY, String(repsPerQ))
       setSaved(true)
       toast.success('Settings saved!')
@@ -147,19 +151,135 @@ export default function SettingsPage() {
             <Settings size={18} className="text-indigo-400" /> Settings
           </h1>
           <p className="text-xs text-[var(--text-subtle)] mt-1">
-            Control email reminders and review schedule.
+            Study pace, review schedule, and email reminders.
           </p>
+        </div>
+
+        {/* ── Daily plan pace ── */}
+        {perDay !== null && (
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 space-y-4 mb-4">
+            <div className="flex items-center gap-2">
+              <Target size={14} className="text-indigo-500" />
+              <span className="text-sm font-bold text-[var(--text)]">Questions per Day</span>
+            </div>
+
+            <p className="text-[11px] text-[var(--text-subtle)]">
+              How many new questions your daily plan serves each day.
+            </p>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1 border border-[var(--border)] rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const v = Math.max(1, (parseInt(perDayStr, 10) || 1) - 1)
+                    setPerDayStr(String(v))
+                  }}
+                  className="px-3 py-2 text-lg font-bold text-[var(--text-muted)] hover:bg-[var(--bg-muted)] transition-colors"
+                >−</button>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={perDayStr}
+                  onChange={e => setPerDayStr(e.target.value)}
+                  onBlur={() => {
+                    const v = Math.max(1, Math.min(20, parseInt(perDayStr, 10) || 1))
+                    setPerDayStr(String(v))
+                  }}
+                  className="w-12 text-center py-2 text-sm font-bold bg-transparent text-[var(--text)] focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const v = Math.min(20, (parseInt(perDayStr, 10) || 1) + 1)
+                    setPerDayStr(String(v))
+                  }}
+                  className="px-3 py-2 text-lg font-bold text-[var(--text-muted)] hover:bg-[var(--bg-muted)] transition-colors"
+                >+</button>
+              </div>
+              <span className="text-xs text-[var(--text-subtle)]">questions/day</span>
+            </div>
+
+            <p className="text-[10px] text-[var(--text-subtle)]">
+              Takes effect from your next session. Your existing progress is preserved.
+            </p>
+          </div>
+        )}
+
+        {/* ── Daily review quota ── */}
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 space-y-4 mb-4">
+          <div className="flex items-center gap-2">
+            <RotateCcw size={14} className="text-green-500" />
+            <span className="text-sm font-bold text-[var(--text)]">Reviews per Day</span>
+          </div>
+
+          <p className="text-[11px] text-[var(--text-subtle)]">
+            Max spaced-repetition reviews per day. Once you hit this, the review quota is done for the day.
+          </p>
+
+          <div className="grid grid-cols-3 gap-2">
+            {[1, 2, 3].map(n => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setRevisionCap(n)}
+                className={`flex flex-col items-center justify-center gap-0.5 px-3 py-3 rounded-xl border text-center transition-colors ${
+                  revisionCap === n
+                    ? 'border-green-500 bg-green-50 text-green-700'
+                    : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-subtle)] hover:border-green-300'
+                }`}
+              >
+                <span className="text-lg font-black">{n}</span>
+                <span className="text-[10px]">{n === 1 ? 'review' : 'reviews'}</span>
+              </button>
+            ))}
+          </div>
+
+          <p className="text-[10px] text-[var(--text-subtle)]">
+            Separate from your daily new questions — both need to be done for the full day to be complete.
+          </p>
+        </div>
+
+        {/* ── Daily reps target ── */}
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 space-y-4 mb-4">
+          <div className="flex items-center gap-2">
+            <RefreshCw size={14} className="text-indigo-500" />
+            <span className="text-sm font-bold text-[var(--text)]">Reps per Question</span>
+          </div>
+
+          <p className="text-[11px] text-[var(--text-subtle)]">
+            How many accepted solves a Daily question needs before it counts as done and moves to the next.
+          </p>
+
+          <div className="grid grid-cols-4 gap-2">
+            {[1, 2, 3, 5].map(n => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setRepsPerQ(n)}
+                className={`flex flex-col items-center justify-center gap-0.5 px-3 py-3 rounded-xl border text-center transition-colors ${
+                  repsPerQ === n
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-subtle)] hover:border-indigo-300'
+                }`}
+              >
+                <span className="text-lg font-black">{n}</span>
+                <span className="text-[10px]">rep{n === 1 ? '' : 's'}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ── Review start delay ── */}
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 space-y-4 mb-4">
           <div className="flex items-center gap-2">
             <BookOpen size={14} className="text-violet-400" />
-            <span className="text-sm font-bold text-[var(--text)]">Review Start Delay</span>
+            <span className="text-sm font-bold text-[var(--text)]">First Review Delay</span>
           </div>
 
           <p className="text-[11px] text-[var(--text-subtle)]">
-            How long after solving a question before your first review is scheduled.
+            How long after solving a question before your first spaced-repetition review is scheduled.
           </p>
 
           <div className="grid grid-cols-3 gap-2">
@@ -184,78 +304,6 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {/* ── Daily revision cap ── */}
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 space-y-4 mb-4">
-          <div className="flex items-center gap-2">
-            <RefreshCw size={14} className="text-green-500" />
-            <span className="text-sm font-bold text-[var(--text)]">Daily Revision Limit</span>
-          </div>
-
-          <p className="text-[11px] text-[var(--text-subtle)]">
-            Max spaced-repetition reviews per day. Once you hit this, the day is done and reminders stop.
-          </p>
-
-          <div className="grid grid-cols-3 gap-2">
-            {[1, 2, 3].map(n => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => {
-                  setRevisionCap(n)
-                  // Extend or trim email time slots to match new cap
-                  setEmailTimes(prev => prev.map((t, i) => i < n ? (t ?? SLOTS[i].default) : null))
-                }}
-                className={`flex flex-col items-center justify-center gap-0.5 px-3 py-3 rounded-xl border text-center transition-colors ${
-                  revisionCap === n
-                    ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-subtle)] hover:border-green-300'
-                }`}
-              >
-                <span className="text-lg font-black">{n}</span>
-                <span className="text-[10px]">{n === 1 ? 'review' : 'reviews'}</span>
-              </button>
-            ))}
-          </div>
-
-          <p className="text-[10px] text-[var(--text-subtle)]">
-            This is separate from your daily new questions target — both need to be done for the full day to be complete.
-          </p>
-        </div>
-
-        {/* ── Daily reps target ── */}
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 space-y-4 mb-4">
-          <div className="flex items-center gap-2">
-            <RefreshCw size={14} className="text-indigo-500" />
-            <span className="text-sm font-bold text-[var(--text)]">Daily Reps Per Question</span>
-          </div>
-
-          <p className="text-[11px] text-[var(--text-subtle)]">
-            How many accepted solves a Daily question needs before it counts as done and moves to the next one.
-          </p>
-
-          <div className="grid grid-cols-4 gap-2">
-            {[1, 2, 3, 5].map(n => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setRepsPerQ(n)}
-                className={`flex flex-col items-center justify-center gap-0.5 px-3 py-3 rounded-xl border text-center transition-colors ${
-                  repsPerQ === n
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                    : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-subtle)] hover:border-indigo-300'
-                }`}
-              >
-                <span className="text-lg font-black">{n}</span>
-                <span className="text-[10px]">rep{n === 1 ? '' : 's'}</span>
-              </button>
-            ))}
-          </div>
-
-          <p className="text-[10px] text-[var(--text-subtle)]">
-            This setting is shared with the Daily page’s top reps control and the Daily practice auto-advance flow.
-          </p>
-        </div>
-
         {/* ── Email reminders ── */}
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 space-y-5 mb-4">
           <div className="flex items-center gap-2">
@@ -266,7 +314,7 @@ export default function SettingsPage() {
           {/* Toggle */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-[var(--text)]">Daily review reminders</p>
+              <p className="text-sm text-[var(--text)]">Daily reminders</p>
               <p className="text-[11px] text-[var(--text-subtle)] mt-0.5">
                 Stops once you complete your daily questions for the day
               </p>
@@ -295,53 +343,6 @@ export default function SettingsPage() {
                 <option key={tz.value} value={tz.value}>{tz.label}</option>
               ))}
             </select>
-          </div>
-
-          {/* Time slots — count matches daily revision cap */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-subtle)]">
-                <Clock size={11} /> Reminder times
-              </label>
-              <span className="text-[10px] text-indigo-500 font-semibold bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
-                {revisionCap} per day
-              </span>
-            </div>
-
-            <p className="text-[11px] text-[var(--text-subtle)]">
-              {revisionCap === 1
-                ? 'Daily target is 1 — pick the one time you want your reminder.'
-                : revisionCap === 2
-                ? 'Daily target is 2 — pick any two times to be reminded.'
-                : 'Daily target is 3 — one reminder for each part of the day.'}
-            </p>
-
-            <div className="space-y-2 pt-1">
-              {SLOTS.slice(0, revisionCap).map((slot, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="text-[11px] font-semibold text-[var(--text-subtle)] w-16 shrink-0">
-                    {slot.label}
-                  </div>
-                  <input
-                    type="time"
-                    value={emailTimes[i] ?? slot.default}
-                    onChange={e => updateSlot(i, e.target.value)}
-                    disabled={!emailEnabled}
-                    className="flex-1 px-3 py-2 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded-xl text-[var(--text)] focus:outline-none focus:border-indigo-400 disabled:opacity-40"
-                  />
-                </div>
-              ))}
-            </div>
-
-            {revisionCap < 3 && (
-              <p className="text-[10px] text-[var(--text-subtle)] mt-1">
-                To unlock more reminder slots, increase your daily revision limit above.
-              </p>
-            )}
-
-            {!emailEnabled && (
-              <p className="text-[11px] text-[var(--text-subtle)] italic">Enable reminders to edit times.</p>
-            )}
           </div>
         </div>
 
@@ -405,8 +406,8 @@ export default function SettingsPage() {
           )}
         </button>
 
-        <p className="text-[10px] text-[var(--text-subtle)] text-center mt-3">
-          Reminders stop once you complete your daily questions. Adjust your daily target on the Daily page.
+        <p className="text-[10px] text-[var(--text-subtle)] text-center mt-3 mb-4">
+          Reminders stop once you complete your daily questions.
         </p>
       </div>
     </div>

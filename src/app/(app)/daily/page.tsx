@@ -187,7 +187,6 @@ export default function DailyPage() {
   const [setupReviewStartDays, setSetupReviewStartDays] = useState(14)
   const [setupRevisionCap,     setSetupRevisionCap]     = useState(3)
   const [setupEmailEnabled,    setSetupEmailEnabled]     = useState(true)
-  const [setupEmailTimes,      setSetupEmailTimes]       = useState(['08:00', '13:00', '19:00'])
   const [setupTimezone] = useState(() => {
     try { return Intl.DateTimeFormat().resolvedOptions().timeZone } catch { return 'America/Chicago' }
   })
@@ -424,7 +423,6 @@ export default function DailyPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           emailEnabled: setupEmailEnabled,
-          emailTimes: setupEmailTimes.slice(0, setupRevisionCap),
           timezone: setupTimezone,
           reviewStartDays: setupReviewStartDays,
           revisionCap: setupRevisionCap,
@@ -707,8 +705,7 @@ export default function DailyPage() {
                   </label>
                   {setupEmailEnabled && (
                     <p className="text-[11px] text-[var(--text-subtle)]">
-                      {setupRevisionCap === 1 ? '1 reminder/day (8 am)' : setupRevisionCap === 2 ? '2 reminders/day (8 am & 1 pm)' : '3 reminders/day (8 am, 1 pm, 7 pm)'}
-                      {' '}· stops once quota is done. Adjust times in Settings.
+                      Sends daily until your quota is done. Adjust in Settings.
                     </p>
                   )}
                 </div>
