@@ -139,13 +139,15 @@ export async function updateProgress(questionId: number, data: any) {
     reviewCount = 0
     const todayCT = todayISOChicago()
     // Use review_start_days from study_plan (set at plan creation) for the
-    // first review delay — NOT srInterval(0) which is only 1 day.
-    const { data: planRow } = await supabase
-      .from('study_plan')
-      .select('review_start_days')
-      .eq('user_id', USER_ID)
-      .maybeSingle()
-    const firstReviewDelay: number = (planRow?.review_start_days as number | null) ?? srInterval(0)
+    // first review delay. Fall back to user_settings, then hard default 14.
+    // Never fall back to srInterval(0)=1 — that makes reviews appear the next day.
+    const [{ data: planRow }, { data: settingsRow }] = await Promise.all([
+      supabase.from('study_plan').select('review_start_days').eq('user_id', USER_ID).maybeSingle(),
+      supabase.from('user_settings').select('review_start_days').eq('user_id', USER_ID).maybeSingle(),
+    ])
+    const planDays     = (planRow?.review_start_days     as number | null | undefined)
+    const settingsDays = (settingsRow?.review_start_days as number | null | undefined)
+    const firstReviewDelay: number = (planDays ?? settingsDays) ?? 14
     nextReview = addDaysISO(todayCT, firstReviewDelay)
     lastReviewed = todayCT
     await logSolvedToday()
@@ -737,7 +739,49 @@ export async function recalibrateSRDates() {
   }
 }
 
+// Fix existing review_count=0 rows whose next_review was set too soon
+// (i.e. < review_start_days after last_reviewed) due to the old srInterval(0)=1 fallback.
+// Called on daily page load — silently corrects drift without requiring the user to re-setup.
+export async function fixFirstReviewDates(): Promise<void> {
+  // Read the configured first-review delay (same priority as updateProgress)
+  const [{ data: planRow }, { data: settingsRow }] = await Promise.all([
+    supabase.from('study_plan').select('review_start_days').eq('user_id', USER_ID).maybeSingle(),
+    supabase.from('user_settings').select('review_start_days').eq('user_id', USER_ID).maybeSingle(),
+  ])
+  const planDays     = (planRow?.review_start_days     as number | null | undefined)
+  const settingsDays = (settingsRow?.review_start_days as number | null | undefined)
+  const targetDelay: number = (planDays ?? settingsDays) ?? 14
+
+  // Only rows where review_count=0 and next_review < last_reviewed + targetDelay
+  const { data } = await supabase
+    .from('progress')
+    .select('question_id,last_reviewed,next_review,review_count')
+    .eq('user_id', USER_ID)
+    .eq('solved', true)
+    .eq('review_count', 0)
+    .not('last_reviewed', 'is', null)
+    .not('next_review', 'is', null)
+
+  if (!data?.length) return
+
+  const updates: Array<{ question_id: number; next_review: string }> = []
+  for (const row of data) {
+    const expected = addDaysISO(row.last_reviewed as string, targetDelay)
+    // Only push forward — never pull backward (don't override a legitimately far date)
+    if ((row.next_review as string) < expected) {
+      updates.push({ question_id: row.question_id as number, next_review: expected })
+    }
+  }
+
+  for (const u of updates) {
+    await supabase.from('progress').update({ next_review: u.next_review })
+      .eq('user_id', USER_ID)
+      .eq('question_id', u.question_id)
+  }
+}
+
 export async function getDueReviews(): Promise<Array<{ id: number; review_count: number; next_review: string }>> {
+  await fixFirstReviewDates()   // correct any review_count=0 rows set too soon
   await recalibrateSRDates()
   const cap = getDailyReviewCapChicago()
   await spreadOverdueReviews({ maxPerDay: cap })
