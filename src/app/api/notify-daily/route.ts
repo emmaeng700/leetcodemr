@@ -138,27 +138,31 @@ export async function GET(req: NextRequest) {
   // ── Check email enabled ───────────────────────────────────────────────────────
   const { data: settings } = await supabase
     .from('user_settings')
-    .select('email_enabled,review_start_days')
+    .select('email_enabled,review_start_days,revision_cap')
     .eq('user_id', USER_ID)
     .maybeSingle()
   if (!isPreview && settings?.email_enabled === false) {
     return NextResponse.json({ skipped: 'Email disabled by user' })
   }
-  // review_start_days: read from study_plan first (always saved there now),
-  // fall back to user_settings (if table exists), then hard default 14
-  // — resolved later once we have the plan row
   const settingsReviewDays = (settings?.review_start_days as number | null) ?? null
+  // How many reviews/day the user has configured (falls back to 3)
+  const revisionCap: number = (settings?.revision_cap as number | null) ?? 3
 
   const qMap = loadQuestionMap()
 
   // ── Today's daily plan questions ──────────────────────────────────────────────
-  const todayPlanQs = await getTodayPlanQuestions(supabase, qMap)
+  const [todayPlanQs, planMeta] = await Promise.all([
+    getTodayPlanQuestions(supabase, qMap),
+    supabase.from('study_plan').select('per_day,start_date,review_start_days').eq('user_id', USER_ID).maybeSingle(),
+  ])
   const hasPlan     = todayPlanQs.length > 0
 
   const solvedCount = hasPlan ? todayPlanQs.filter(q => q.solved).length : 0
   const totalCount  = hasPlan ? todayPlanQs.length : 0
   const unsolvedQs  = hasPlan ? todayPlanQs.filter(q => !q.solved) : []
   const dailiesDone = hasPlan && unsolvedQs.length === 0
+  // per_day: user's configured daily question target; falls back to today's slice size
+  const perDay: number = (planMeta.data?.per_day as number | null) ?? totalCount
 
   // ── Due SR reviews (already completed ones have next_review pushed to future) ─
   const { data: srRows } = await supabase
@@ -263,11 +267,11 @@ export async function GET(req: NextRequest) {
     const preReviews  = !bothDone && reviewsStartIn !== null
 
     if (bothDone) {
-      subject = `🔥 Questions + reviews — fully cooked today`
+      subject = `🔥 ${perDay}/${perDay} questions + ${revisionCap}/${revisionCap} reviews — quota done`
     } else if (preReviews) {
-      subject = `✅ Daily questions done — reviews drop in ${reviewsStartIn}d`
+      subject = `✅ ${perDay}/${perDay} questions done — reviews drop in ${reviewsStartIn}d`
     } else {
-      subject = `✅ Daily questions done — rest up`
+      subject = `✅ ${perDay}/${perDay} questions done — no reviews due today`
     }
 
     const congratsHeadline = bothDone
@@ -275,10 +279,10 @@ export async function GET(req: NextRequest) {
       : 'Questions done ✅'
 
     const congratsBody = bothDone
-      ? `${totalCount} question${totalCount !== 1 ? 's' : ''} done, ${reviewsDone} review${reviewsDone !== 1 ? 's' : ''} cleared — that's the whole day wrapped up. Rest up and come back tomorrow. 💪`
+      ? `${perDay}/${perDay} questions, ${revisionCap}/${revisionCap} reviews — full daily quota hit. Rest up and come back tomorrow. 💪`
       : preReviews
-        ? `${totalCount} question${totalCount !== 1 ? 's' : ''} done for today. Reviews kick in ${reviewsStartIn} day${reviewsStartIn !== 1 ? 's' : ''} — keep showing up daily and you'll be ready when they drop.`
-        : `${totalCount} question${totalCount !== 1 ? 's' : ''} done, no reviews due — that's the day sorted. See you tomorrow.`
+        ? `${perDay}/${perDay} questions done. Reviews kick in ${reviewsStartIn} day${reviewsStartIn !== 1 ? 's' : ''} — keep showing up daily till they drop.`
+        : `${perDay}/${perDay} questions done, no reviews due today — that's the day sorted. See you tomorrow.`
 
     // Show the questions that were completed today
     const solvedTodayRows = todayPlanQs.map(q => {
@@ -298,7 +302,7 @@ export async function GET(req: NextRequest) {
 
     const reviewsSummary = bothDone
       ? `<div style="margin-top:16px;background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:12px;padding:13px 16px;">
-          <p style="margin:0;font-size:13px;font-weight:700;color:#6d28d9;">🔁 ${reviewsDone} review${reviewsDone !== 1 ? 's' : ''} cleared</p>
+          <p style="margin:0;font-size:13px;font-weight:700;color:#6d28d9;">🔁 ${revisionCap}/${revisionCap} reviews cleared</p>
           <p style="margin:4px 0 0;font-size:12px;color:#7c3aed;">Next ones scheduled and waiting — nothing to do till they're due.</p>
         </div>`
       : preReviews
@@ -326,7 +330,7 @@ export async function GET(req: NextRequest) {
         <div style="display:flex;align-items:center;margin-bottom:10px;">
           <span style="font-size:15px;margin-right:8px;">📝</span>
           <span style="font-size:14px;font-weight:700;color:#111827;">Today&apos;s Questions</span>
-          <span style="margin-left:auto;background:#dcfce7;color:#15803d;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;">${totalCount}/${totalCount} done</span>
+          <span style="margin-left:auto;background:#dcfce7;color:#15803d;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;">${perDay}/${perDay} done</span>
         </div>
         <table style="width:100%;border-collapse:collapse;">${solvedTodayRows}</table>
       </div>
