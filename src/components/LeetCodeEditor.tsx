@@ -908,12 +908,14 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42) !important;
         }
         .cm-tooltip-autocomplete {
-          z-index: 80 !important;
-          overflow: hidden;
+          z-index: 9999 !important;
+          overflow: visible !important;
         }
         .cm-tooltip-autocomplete > ul {
-          background: #313641 !important;
+          background: transparent !important;
           color: #e5e7eb !important;
+          max-height: 220px;
+          overflow-y: auto;
         }
         .cm-tooltip-autocomplete > ul > li {
           background: transparent !important;
@@ -933,10 +935,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         }
         @media (max-width: 639px) {
           .cm-editor { font-size: 11.5px !important; line-height: 1.6; }
-          .cm-tooltip,
-          .cm-tooltip-autocomplete > ul {
-            background: #353b49 !important;
-          }
+          .cm-tooltip { background: #313641 !important; }
           .cm-tooltip-autocomplete > ul > li[aria-selected] {
             background: #495163 !important;
           }
