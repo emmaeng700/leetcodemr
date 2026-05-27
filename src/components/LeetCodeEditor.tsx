@@ -527,7 +527,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         import('@codemirror/commands'),
       ])
       setTheme(oneDark)
-      const { keymap, EditorView } = viewMod
+      const { keymap, EditorView, tooltips } = viewMod
       const { Prec } = stateMod
       const { indentWithTab } = cmdMod
       const { indentationMarkers } = await import('@replit/codemirror-indentation-markers')
@@ -569,6 +569,9 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         indentationMarkers(),
         cursorTracker,
         EditorView.lineWrapping,
+        // Use position:fixed for tooltips so they escape any overflow:hidden ancestor.
+        // This is the correct fix for autocomplete being clipped on mobile.
+        tooltips({ position: 'fixed' }),
       ])
     }
     loadExts()
