@@ -569,9 +569,10 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         indentationMarkers(),
         cursorTracker,
         EditorView.lineWrapping,
-        // Use position:fixed for tooltips so they escape any overflow:hidden ancestor.
-        // This is the correct fix for autocomplete being clipped on mobile.
-        tooltips({ position: 'fixed' }),
+        // Render tooltip DOM directly in <body> so it escapes every overflow
+        // and stacking context — the only reliable fix on iOS Safari where
+        // position:fixed still clips when the virtual keyboard shifts the viewport.
+        tooltips({ position: 'fixed', parent: document.body }),
       ])
     }
     loadExts()
@@ -904,44 +905,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         .cm-scroller { overflow-x: hidden !important; overflow-y: auto !important; overscroll-behavior: contain; touch-action: pan-y; }
         .cm-editor { touch-action: none; }
         .cm-editor, .cm-content { max-width: 100%; }
-        .cm-tooltip {
-          background: #313641 !important;
-          border: 1px solid rgba(99, 102, 241, 0.24) !important;
-          color: #e5e7eb !important;
-          box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42) !important;
-        }
-        .cm-tooltip-autocomplete {
-          z-index: 9999 !important;
-          overflow: visible !important;
-        }
-        .cm-tooltip-autocomplete > ul {
-          background: transparent !important;
-          color: #e5e7eb !important;
-          max-height: 220px;
-          overflow-y: auto;
-        }
-        .cm-tooltip-autocomplete > ul > li {
-          background: transparent !important;
-          color: #e5e7eb !important;
-          border: 0 !important;
-        }
-        .cm-tooltip-autocomplete > ul > li[aria-selected] {
-          background: #414857 !important;
-          color: #ffffff !important;
-        }
-        .cm-completionDetail {
-          color: #cbd5e1 !important;
-        }
-        .cm-completionMatchedText {
-          color: #ffffff !important;
-          text-decoration-color: rgba(129, 140, 248, 0.7) !important;
-        }
         @media (max-width: 639px) {
           .cm-editor { font-size: 11.5px !important; line-height: 1.6; }
-          .cm-tooltip { background: #313641 !important; }
-          .cm-tooltip-autocomplete > ul > li[aria-selected] {
-            background: #495163 !important;
-          }
         }
         /* Fullscreen portal: same small font, wrap enabled */
         .lc-fs-portal .cm-editor { font-size: 11.5px !important; line-height: 1.6 !important; }

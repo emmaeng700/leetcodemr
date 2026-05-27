@@ -1,6 +1,41 @@
 @import "tailwindcss";
 
 
+/* ── CodeMirror autocomplete tooltip — global so it works when mounted at <body> ── */
+/* (tooltips are rendered with parent:document.body to escape overflow:hidden on iOS) */
+.cm-tooltip {
+  background: #313641 !important;
+  border: 1px solid rgba(99, 102, 241, 0.24) !important;
+  color: #e5e7eb !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42) !important;
+  z-index: 9999 !important;
+}
+.cm-tooltip-autocomplete {
+  z-index: 9999 !important;
+  overflow: visible !important;
+}
+.cm-tooltip-autocomplete > ul {
+  background: transparent !important;
+  color: #e5e7eb !important;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.cm-tooltip-autocomplete > ul > li {
+  background: transparent !important;
+  color: #e5e7eb !important;
+  border: 0 !important;
+}
+.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: #414857 !important;
+  color: #ffffff !important;
+}
+.cm-completionDetail { color: #cbd5e1 !important; }
+.cm-completionMatchedText {
+  color: #ffffff !important;
+  text-decoration-color: rgba(129, 140, 248, 0.7) !important;
+}
+
+
 /* ── Game UI animations ──────────────────────────────────────────────────── */
 @keyframes xp-shimmer {
   0%   { background-position: -200% center; }
