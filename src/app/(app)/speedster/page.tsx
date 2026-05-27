@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2, WifiOff, Brain } from 'lucide-react'
-import { getSpeedsterRuns, addSpeedsterRunEvent, getProgress, getStudyPlan, getFcVisited, addFcVisited } from '@/lib/db'
+import { getMasteryRunsByQuestion, addMasteryRunEvent, getProgress, getStudyPlan, getFcVisited, addFcVisited } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import CodePanel from '@/components/CodePanel'
@@ -118,7 +118,7 @@ export default function SpeedsterPage() {
           getStudyPlan(),
           getProgress(),
           getFcVisited(),
-          getSpeedsterRuns(),
+          getMasteryRunsByQuestion(),
         ])
         setQuestions(qs)
         setProgress(prog)
@@ -911,7 +911,7 @@ export default function SpeedsterPage() {
         syncToApp={false}
         onAccepted={() => {
           const qid = currentQ.id
-          addSpeedsterRunEvent(qid).catch(() => {})
+          addMasteryRunEvent(qid).catch(() => {})
           setRuns(prev => ({ ...prev, [String(qid)]: (prev[String(qid)] ?? 0) + 1 }))
         }}
       />
@@ -1305,7 +1305,7 @@ export default function SpeedsterPage() {
                   syncToApp={false}
                   onAccepted={() => {
                     const qid = currentQ.id
-                    addSpeedsterRunEvent(qid).catch(() => {})
+                    addMasteryRunEvent(qid).catch(() => {})
                     setRuns(prev => ({ ...prev, [String(qid)]: (prev[String(qid)] ?? 0) + 1 }))
                   }}
                 />

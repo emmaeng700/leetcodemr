@@ -9,7 +9,7 @@ import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/li
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import { ArrowLeft, ArrowRight, BookOpen, ExternalLink, Loader2, Trophy, Gauge, List, Sparkles, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
-import { addSpeedsterRunEvent, getSpeedsterRuns, getStudyPlan, getProgress, updateProgress } from '@/lib/db'
+import { addMasteryRunEvent, getMasteryRunsByQuestion, getStudyPlan, getProgress, updateProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
@@ -79,17 +79,17 @@ export default function SpeedsterQuestionPage() {
 
   useEffect(() => {
     async function load() {
-      const [qs, plan, prog, speedsterRuns] = await Promise.all([
+      const [qs, plan, prog, masteryRuns] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getStudyPlan(),
         getProgress(),
-        getSpeedsterRuns(),
+        getMasteryRunsByQuestion(),
       ])
       const q = (qs as Question[]).find((q: Question) => q.id === id)
       if (!q) return
       setQuestion(q)
       setAllQuestions(qs as Question[])
-      setModeRuns(speedsterRuns)
+      setModeRuns(masteryRuns)
       setRepsTarget(readSavedRepsTarget())
       let modeQueue: number[] | null = null
       try {
@@ -402,9 +402,9 @@ export default function SpeedsterQuestionPage() {
               preferredLangs={question.tags?.includes('JavaScript') ? ['javascript', 'python3', 'cpp'] : undefined}
               onAccepted={async () => {
                 const before = modeRuns[String(question.id)] ?? 0
-                const res = await addSpeedsterRunEvent(question.id)
+                const res = await addMasteryRunEvent(question.id, 1)
                 if (!res.ok) {
-                  toast.error(`Couldn't save Speedster progress`)
+                  toast.error(`Couldn't save Speedster progress: ${res.error ?? 'unknown error'}`)
                   return
                 }
                 const after = Math.min(before + 1, repsTarget)
