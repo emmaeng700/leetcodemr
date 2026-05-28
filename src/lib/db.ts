@@ -139,15 +139,12 @@ export async function updateProgress(questionId: number, data: any) {
     reviewCount = 0
     const todayCT = todayISOChicago()
     // Use review_start_days from study_plan (set at plan creation) for the
-    // first review delay. Fall back to user_settings, then hard default 14.
+    // first review delay. Fall back to hard default 14.
     // Never fall back to srInterval(0)=1 — that makes reviews appear the next day.
-    const [{ data: planRow }, { data: settingsRow }] = await Promise.all([
-      supabase.from('study_plan').select('review_start_days').eq('user_id', USER_ID).maybeSingle(),
-      supabase.from('user_settings').select('review_start_days').eq('user_id', USER_ID).maybeSingle(),
-    ])
-    const planDays     = (planRow?.review_start_days     as number | null | undefined)
-    const settingsDays = (settingsRow?.review_start_days as number | null | undefined)
-    const firstReviewDelay: number = (planDays ?? settingsDays) ?? 14
+    const { data: planRow } = await supabase
+      .from('study_plan').select('review_start_days').eq('user_id', USER_ID).maybeSingle()
+    const planDays = (planRow?.review_start_days as number | null | undefined)
+    const firstReviewDelay: number = planDays ?? 14
     nextReview = addDaysISO(todayCT, firstReviewDelay)
     lastReviewed = todayCT
     await logSolvedToday()
@@ -743,14 +740,11 @@ export async function recalibrateSRDates() {
 // (i.e. < review_start_days after last_reviewed) due to the old srInterval(0)=1 fallback.
 // Called on daily page load — silently corrects drift without requiring the user to re-setup.
 export async function fixFirstReviewDates(): Promise<void> {
-  // Read the configured first-review delay (same priority as updateProgress)
-  const [{ data: planRow }, { data: settingsRow }] = await Promise.all([
-    supabase.from('study_plan').select('review_start_days').eq('user_id', USER_ID).maybeSingle(),
-    supabase.from('user_settings').select('review_start_days').eq('user_id', USER_ID).maybeSingle(),
-  ])
-  const planDays     = (planRow?.review_start_days     as number | null | undefined)
-  const settingsDays = (settingsRow?.review_start_days as number | null | undefined)
-  const targetDelay: number = (planDays ?? settingsDays) ?? 14
+  // Read the configured first-review delay from study_plan; fall back to 14
+  const { data: planRow } = await supabase
+    .from('study_plan').select('review_start_days').eq('user_id', USER_ID).maybeSingle()
+  const planDays = (planRow?.review_start_days as number | null | undefined)
+  const targetDelay: number = planDays ?? 14
 
   // Only rows where review_count=0 and next_review < last_reviewed + targetDelay
   const { data } = await supabase
@@ -1086,9 +1080,11 @@ export interface UserProfile {
 }
 
 export async function getUserProfile(): Promise<UserProfile | null> {
+  // Only select columns that are confirmed to exist in user_settings.
+  // revision_cap is the sole confirmed column; everything else is defaulted.
   const { data, error } = await supabase
     .from('user_settings')
-    .select('review_start_days,revision_cap,reps_per_q')
+    .select('revision_cap')
     .eq('user_id', USER_ID)
     .maybeSingle()
   if (error) {
@@ -1102,9 +1098,9 @@ export async function getUserProfile(): Promise<UserProfile | null> {
     emailEnabled:    true,
     emailTimes:      [],
     timezone:        'America/Chicago',
-    reviewStartDays: (row.review_start_days as number | undefined) ?? 14,
-    revisionCap:     (row.revision_cap      as number | undefined) ?? 3,
-    repsPerQ:        (row.reps_per_q        as number | undefined) ?? 2,
+    reviewStartDays: 14,
+    revisionCap:     (row.revision_cap as number | undefined) ?? 3,
+    repsPerQ:        2,
   }
 }
 
@@ -1113,9 +1109,8 @@ export async function saveUserProfile(profile: UserProfile): Promise<boolean> {
     user_id: USER_ID,
     updated_at: new Date().toISOString(),
   }
-  if (profile.reviewStartDays !== undefined) payload.review_start_days = profile.reviewStartDays
-  if (profile.revisionCap   !== undefined) payload.revision_cap    = profile.revisionCap
-  if (profile.repsPerQ      !== undefined) payload.reps_per_q      = profile.repsPerQ
+  // Only write columns that exist in user_settings
+  if (profile.revisionCap !== undefined) payload.revision_cap = profile.revisionCap
 
   const { error } = await supabase
     .from('user_settings')
