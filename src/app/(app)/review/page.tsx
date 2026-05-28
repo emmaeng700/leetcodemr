@@ -18,13 +18,6 @@ interface Question {
   tags: string[]
 }
 
-function daysUntil(nextReview: string) {
-  const [y, m, d] = nextReview.split('-').map(Number)
-  const rev = new Date(y, m - 1, d)
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  return Math.round((rev.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-}
-
 // ─── Utility: group any question array by pattern in DISPLAY_PATTERN_ORDER ────
 
 function groupByPattern<T extends { id: number }>(
@@ -130,7 +123,6 @@ export default function ReviewPage() {
   // Pre-compute pattern groups for due and upcoming sections
   const pendingDue = due.filter(q => !localDoneIds.has(q.id))
   const dueByPattern = groupByPattern(pendingDue, exclusiveMap)
-  const upcomingByPattern = groupByPattern(upcoming, exclusiveMap)
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -290,61 +282,6 @@ export default function ReviewPage() {
         </div>
       )}
 
-      {/* ── Upcoming Reviews ───────────────────────────────────────────────── */}
-      {upcomingByPattern.length > 0 && (
-        <section className="mb-7">
-          <div className="mb-4">
-            <h2 className="text-sm font-bold text-[var(--text)] flex items-center gap-2">
-              <Clock size={15} className="text-indigo-500" /> Upcoming Reviews
-              <span className="text-xs text-[var(--text-subtle)] font-mono">· {upcoming.length}</span>
-            </h2>
-            <p className="text-xs text-[var(--text-subtle)] mt-1">
-              Not yet due — tap to do an <strong>early review</strong>: complete {repsPerQ} reps and the date advances automatically
-            </p>
-          </div>
-          <div className="space-y-4">
-            {upcomingByPattern.map(({ pattern, items }) => (
-              <div key={pattern}>
-                <p className="text-xs font-bold text-[var(--text-subtle)] uppercase tracking-wider mb-2 flex items-center gap-2">
-                  {pattern}
-                  <PriorityBadge pattern={pattern} />
-                  <span className="text-[11px] normal-case tracking-normal font-mono">· {items.length}</span>
-                </p>
-                <div className="space-y-1.5">
-                  {items.map(q => {
-                    const daysLeft = daysUntil(q.p.next_review)
-                    return (
-                      <div
-                        key={q.id}
-                        onClick={() => {
-                          sessionStorage.setItem('lm_review_queue', JSON.stringify(items.map((q2: any) => q2.id)))
-                          router.push(`/practice/${q.id}?from=early-review`)
-                        }}
-                        className="flex items-center justify-between gap-2 flex-wrap bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-4 py-2.5 cursor-pointer hover:border-violet-400/60 hover:shadow-sm transition-all group"
-                      >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
-                          <span className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-violet-600">{q.title}</span>
-                          <DifficultyBadge difficulty={q.difficulty} />
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs text-[var(--text-subtle)]">
-                            📅 {formatLocalDate(q.p.next_review)}
-                            {daysLeft === 1 ? ' · tomorrow' : daysLeft > 1 ? ` · in ${daysLeft}d` : ''}
-                          </span>
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600 border border-violet-200">
-                            early review
-                          </span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
     </div>
   )
