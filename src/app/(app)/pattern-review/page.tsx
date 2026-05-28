@@ -43,8 +43,9 @@ export default function PatternReviewPage() {
     })
   }, [])
 
-  // Group by pattern in DISPLAY_PATTERN_ORDER (ascending question count)
+  // Group by pattern in DISPLAY_PATTERN_ORDER; within each pattern sort Easy → Medium → Hard
   const grouped = useMemo(() => {
+    const DIFF_RANK: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
     const map: Record<string, ReviewQuestion[]> = {}
     for (const q of reviewData) {
       if (!map[q.pattern]) map[q.pattern] = []
@@ -52,8 +53,15 @@ export default function PatternReviewPage() {
     }
     return DISPLAY_PATTERN_ORDER
       .filter(p => map[p]?.length > 0)
-      .map(p => ({ pattern: p, questions: map[p] }))
-  }, [reviewData])
+      .map(p => ({
+        pattern: p,
+        questions: map[p].slice().sort((a, b) => {
+          const da = DIFF_RANK[diffMap[a.id] ?? ''] ?? 1
+          const db = DIFF_RANK[diffMap[b.id] ?? ''] ?? 1
+          return da !== db ? da - db : a.id - b.id
+        }),
+      }))
+  }, [reviewData, diffMap])
 
   const scrollToPattern = (pattern: string) => {
     setActivePattern(pattern)
