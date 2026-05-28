@@ -118,20 +118,10 @@ function FlashcardsInner() {
     if (isShuffled) {
       next = shuffle(filtered)
     } else {
-      // Sort by interview priority order, then Easy→Medium→Hard within each pattern
-      const DIFF_RANK: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
-      next = [...filtered].sort((a, b) => {
-        const pa = exclusiveMapAll[a.id] ?? ''
-        const pb = exclusiveMapAll[b.id] ?? ''
-        const ia = DISPLAY_PATTERN_ORDER.indexOf(pa as typeof DISPLAY_PATTERN_ORDER[number])
-        const ib = DISPLAY_PATTERN_ORDER.indexOf(pb as typeof DISPLAY_PATTERN_ORDER[number])
-        const orderA = ia === -1 ? 999 : ia
-        const orderB = ib === -1 ? 999 : ib
-        if (orderA !== orderB) return orderA - orderB
-        const da = DIFF_RANK[a.difficulty] ?? 1
-        const db = DIFF_RANK[b.difficulty] ?? 1
-        return da !== db ? da - db : a.id - b.id
-      })
+      // Sort by diff-first order: Round 1 all Easys → Round 2 all Mediums → Round 3 all Hards
+      // learnOrderedIds already reflects this order — sort filtered deck by position in it
+      const posMap = new Map(learnOrderedIds.map((id, i) => [id, i]))
+      next = [...filtered].sort((a, b) => (posMap.get(a.id) ?? 999999) - (posMap.get(b.id) ?? 999999))
     }
     setDeck(next)
     const navKey = `${filterDiff}|${filterSource}|${filterPattern}|${isShuffled}|${initSearch}|${initStarred}|${initSolved}|${all.length}`
