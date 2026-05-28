@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
-import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ExternalLink, List, Brain, Star, Wind, Bell, BookOpen, Settings, Check } from 'lucide-react'
+import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ExternalLink, List, Brain, Star, Wind, Bell, BookOpen, Settings, Check } from 'lucide-react'
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount, syncStreakActivityFromGoals, getUserRevisionCap } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
 import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
@@ -230,6 +230,9 @@ export default function DailyPage() {
   // Past days (accordion per day + global “show more” for long plans)
   const [expandedDays, setExpandedDays] = useState<Record<number, boolean>>({})
   const [pastDaysShowAll, setPastDaysShowAll] = useState(false)
+
+  // Upcoming days preview (offset from today: 0 = tomorrow, 1 = day after, …)
+  const [previewOffset, setPreviewOffset] = useState(0)
   const [showList, setShowList] = useState(false)
   const listWrapRef = useRef<HTMLDivElement>(null)
   useClickOutside(listWrapRef, () => setShowList(false), showList)
@@ -914,6 +917,15 @@ export default function DailyPage() {
   const displayPast = pastDaysShowAll ? pastDayCount : Math.min(PAST_DAYS_INITIAL, pastDayCount)
   const hasMorePastToReveal = pastDayCount > PAST_DAYS_INITIAL
 
+  // Upcoming days preview
+  const todayDayIdx = !isRandomMode && todayInfo.dayNumber ? todayInfo.dayNumber - 1 : -1
+  const futureDayCount = todayDayIdx >= 0 ? totalDays - (todayDayIdx + 1) : 0
+  const safePreviewOffset = Math.min(previewOffset, Math.max(0, futureDayCount - 1))
+  const previewDayIdx = todayDayIdx + 1 + safePreviewOffset
+  const previewDayInfo = futureDayCount > 0 && previewDayIdx < totalDays
+    ? getDayInfo(plan, previewDayIdx, allQuestions, progress)
+    : null
+
   return (
     <div className="max-w-xl mx-auto px-4 py-8">
       {!online && <OfflineBanner feature="Daily plan (Supabase)" />}
@@ -1537,6 +1549,65 @@ export default function DailyPage() {
           >
             Start New Plan
           </button>
+        </div>
+      )}
+
+      {/* UPCOMING DAYS PREVIEW */}
+      {!isRandomMode && !todayInfo.pending && !todayInfo.complete && futureDayCount > 0 && previewDayInfo && (
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-[var(--text)] text-sm">Upcoming Days</h2>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setPreviewOffset(o => Math.max(0, o - 1))}
+                disabled={safePreviewOffset === 0}
+                className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 transition-colors"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <span className="text-xs font-mono text-[var(--text-subtle)] min-w-[90px] text-center">
+                Day {previewDayIdx + 1} · {dayScheduledDate(plan.start_date, previewDayIdx)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewOffset(o => Math.min(futureDayCount - 1, o + 1))}
+                disabled={safePreviewOffset >= futureDayCount - 1}
+                className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 transition-colors"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+          {previewDayInfo.questionIds.filter(id => isSolved(id)).length > 0 && (
+            <p className="text-xs text-green-600 font-medium mb-2">
+              {previewDayInfo.questionIds.filter(id => isSolved(id)).length}/{previewDayInfo.questions.length} already solved ✓
+            </p>
+          )}
+          <div className="space-y-1.5">
+            {previewDayInfo.questions.map(q => (
+              <div key={q.id} className="flex items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-[var(--bg-muted)] transition-colors">
+                {isSolved(q.id)
+                  ? <CheckCircle2 size={14} className="text-green-400 shrink-0" />
+                  : <Circle size={14} className="text-[var(--text-subtle)] shrink-0" />
+                }
+                <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
+                <Link href={`/practice/${q.id}`} className="text-sm text-[var(--text)] hover:text-indigo-500 truncate flex-1 min-w-0">
+                  {q.title}
+                </Link>
+                <a
+                  href={leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 text-[var(--text-subtle)] hover:text-orange-400 transition-colors"
+                  title="Open on LeetCode"
+                >
+                  <ExternalLink size={11} />
+                </a>
+                <DifficultyBadge difficulty={q.difficulty} />
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
