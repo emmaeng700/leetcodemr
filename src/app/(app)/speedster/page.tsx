@@ -12,7 +12,7 @@ import QuestionImage from '@/components/QuestionImage'
 import BestAnswersDeck from '@/components/BestAnswersDeck'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { DISPLAY_PATTERN_ORDER, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
-import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { buildExclusivePatternMap, diffFirstStudyOrder } from '@/lib/patternUtils'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdropDense, listDropdownMobilePanelViewportOnly } from '@/lib/listDropdownUi'
 import { stripScripts } from '@/lib/utils'
@@ -126,20 +126,15 @@ export default function SpeedsterPage() {
         setRuns(mr)
         const mode = (localStorage.getItem('lm_plan_mode_v1') ?? 'strict') as 'strict' | 'random'
         setPlanMode(mode)
-        // Use plan's IDs if available, otherwise all questions — always sort by priority
-        const rawIds: number[] = plan?.question_order?.length
-          ? plan.question_order
-          : (qs as Question[]).map(q => q.id)
-        const em = buildExclusivePatternMap(qs as Question[])
-        const diffMap: Record<number, string> = Object.fromEntries((qs as Question[]).map(q => [q.id, q.difficulty]))
-        const DIFF_RANK: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
-        const sorted = rawIds.slice().sort((a, b) => {
-          const ia = DISPLAY_PATTERN_ORDER.indexOf(em[a] as typeof DISPLAY_PATTERN_ORDER[number])
-          const ib = DISPLAY_PATTERN_ORDER.indexOf(em[b] as typeof DISPLAY_PATTERN_ORDER[number])
-          const ra = (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib)
-          if (ra !== 0) return ra
-          return (DIFF_RANK[diffMap[a]] ?? 1) - (DIFF_RANK[diffMap[b]] ?? 1)
-        })
+        // Use diff-first order: Round 1 = all Easys across patterns,
+        // Round 2 = all Mediums, Round 3 = all Hards.
+        // If the plan restricts which questions are included, filter to those.
+        const allQsTyped = qs as Question[]
+        const allowedIds = plan?.question_order?.length
+          ? new Set(plan.question_order as number[])
+          : null
+        const subset = allowedIds ? allQsTyped.filter(q => allowedIds.has(q.id)) : allQsTyped
+        const sorted = diffFirstStudyOrder(subset)
         setPlanOrder(sorted)
         if (plan?.question_order?.length) {
           setPerDay(plan.per_day || 3)

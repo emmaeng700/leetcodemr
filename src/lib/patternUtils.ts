@@ -67,6 +67,39 @@ export function getPatternForQuestion(tags: string[]): string | null {
 }
 
 /**
+ * Difficulty-first study order: three sweeps over all patterns in DISPLAY_PATTERN_ORDER.
+ * Round 1 — all Easy questions across every pattern (pattern order preserved).
+ * Round 2 — all Medium questions across every pattern.
+ * Round 3 — all Hard questions across every pattern.
+ * If a pattern has no questions at a given difficulty it contributes nothing.
+ * Within each (pattern, difficulty) bucket questions are sorted by id ascending.
+ */
+export function diffFirstStudyOrder(
+  questions: Array<{ id: number; tags: string[]; difficulty: string }>
+): number[] {
+  const exclusiveMap = buildExclusivePatternMap(questions)
+  const patterns = [...QUICK_PATTERNS].sort(
+    (a, b) =>
+      DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
+      DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
+  )
+  const result: number[] = []
+  for (const diff of ['Easy', 'Medium', 'Hard'] as const) {
+    for (const pattern of patterns) {
+      const bucket = questions
+        .filter(q => exclusiveMap[q.id] === pattern.name && q.difficulty === diff)
+        .sort((a, b) => a.id - b.id)
+      for (const q of bucket) result.push(q.id)
+    }
+  }
+  // Unmatched questions (no recognized tags) go at the very end
+  for (const q of questions) {
+    if (!exclusiveMap[q.id]) result.push(q.id)
+  }
+  return result
+}
+
+/**
  * Order questions pattern-by-pattern, Easy→Medium→Hard within each pattern.
  * If startPatternName is provided, that pattern goes first; the rest follow
  * in their original order (wrapping around), so no pattern is skipped.

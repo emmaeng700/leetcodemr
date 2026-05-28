@@ -735,6 +735,10 @@ function LearnInner() {
           <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🧩</span>
           <span className="text-xs font-semibold text-[var(--text)] truncate">{currentPattern.name}</span>
           <PriorityBadge pattern={currentPattern.name} />
+          {/* Difficulty sweep round badge */}
+          {q?.difficulty === 'Easy'   && filterDiff === 'All' && <span className="text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full shrink-0">🟢 Round 1 · Easy</span>}
+          {q?.difficulty === 'Medium' && filterDiff === 'All' && <span className="text-[10px] font-bold text-yellow-600 bg-yellow-50 border border-yellow-200 px-1.5 py-0.5 rounded-full shrink-0">🟡 Round 2 · Medium</span>}
+          {q?.difficulty === 'Hard'   && filterDiff === 'All' && <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full shrink-0">🔴 Round 3 · Hard</span>}
           {patternPct >= 80 && <span className="text-[10px] font-bold text-green-600  shrink-0">🔥 Crushing it!</span>}
           {patternPct >= 50 && patternPct < 80 && <span className="text-[10px] font-bold text-indigo-500  shrink-0">💪 Solid progress</span>}
           {patternPct > 0 && patternPct < 50 && <span className="text-[10px] font-semibold text-amber-500 shrink-0">📈 Building momentum</span>}
