@@ -79,6 +79,7 @@ const DIFF_RANK: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
 
 type ImbibitionRow = {
   pattern: (typeof QUICK_PATTERNS)[number]['name']
+  difficulty: 'Easy' | 'Medium' | 'Hard'
   questions: Question[]
   unlockedThrough: number
   completed: number
@@ -140,26 +141,36 @@ export default function ImbibitionPage() {
   }, [])
 
   const rows = useMemo(() => {
+    // Diff-first: Round 1 all Easys across patterns → Round 2 Mediums → Round 3 Hards.
+    // Within each round iterate patterns in DISPLAY_PATTERN_ORDER and include only
+    // solved questions of that difficulty. Patterns with none at a given difficulty
+    // are skipped for that round.
     const exclusiveMap = buildExclusivePatternMap(questions)
     const builtRows: ImbibitionRow[] = []
-    for (const pattern of ORDERED_PATTERNS) {
-      const solvedQs = questions
-        .filter(q => exclusiveMap[q.id] === pattern.name && !!progress[String(q.id)]?.solved)
-        .sort((a, b) => {
-          const diff = (DIFF_RANK[a.difficulty] ?? 1) - (DIFF_RANK[b.difficulty] ?? 1)
-          return diff !== 0 ? diff : a.id - b.id
+    for (const diff of ['Easy', 'Medium', 'Hard'] as const) {
+      for (const pattern of ORDERED_PATTERNS) {
+        const solvedQs = questions
+          .filter(q =>
+            exclusiveMap[q.id] === pattern.name &&
+            q.difficulty === diff &&
+            !!progress[String(q.id)]?.solved
+          )
+          .sort((a, b) => a.id - b.id)
+
+        if (solvedQs.length === 0) continue
+
+        const firstIncomplete = solvedQs.findIndex(q => (runs[String(q.id)] ?? 0) < 3)
+        const unlockedThrough = firstIncomplete === -1 ? solvedQs.length - 1 : firstIncomplete
+        const completed = solvedQs.filter(q => (runs[String(q.id)] ?? 0) >= 3).length
+
+        builtRows.push({
+          pattern: pattern.name,
+          difficulty: diff,
+          questions: solvedQs,
+          unlockedThrough,
+          completed,
         })
-
-      const firstIncomplete = solvedQs.findIndex(q => (runs[String(q.id)] ?? 0) < 3)
-      const unlockedThrough = solvedQs.length === 0 ? -1 : firstIncomplete === -1 ? solvedQs.length - 1 : firstIncomplete
-      const completed = solvedQs.filter(q => (runs[String(q.id)] ?? 0) >= 3).length
-
-      builtRows.push({
-        pattern: pattern.name,
-        questions: solvedQs,
-        unlockedThrough,
-        completed,
-      })
+      }
     }
 
     return builtRows
@@ -226,7 +237,9 @@ export default function ImbibitionPage() {
 
   useEffect(() => {
     if (loading || !targetPattern) return
-    const el = sectionRefs.current[targetPattern]
+    // Find first row key matching the pattern (could be Easy, Medium, or Hard round)
+    const firstKey = Object.keys(sectionRefs.current).find(k => k.startsWith(`${targetPattern}|`))
+    const el = firstKey ? sectionRefs.current[firstKey] : null
     if (!el) return
     requestAnimationFrame(() => {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -385,18 +398,20 @@ export default function ImbibitionPage() {
               const name = LEVEL_NAMES[lv - 1]
               const c = LEVEL_COLOUR[lv] ?? LEVEL_COLOUR[1]
               const isMax = lv >= MAX_LEVEL
+              const rowKey = `${row.pattern}|${row.difficulty}`
               return (
                 <button
-                  key={row.pattern}
+                  key={rowKey}
                   type="button"
                   onClick={() => {
-                    const el = sectionRefs.current[row.pattern]
+                    const el = sectionRefs.current[rowKey]
                     el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                   }}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-opacity hover:opacity-80 ${c.bg} ${c.text} ${c.border}`}
                 >
                   {isMax && <span>👑</span>}
                   <span className="max-w-[10rem] truncate">{row.pattern}</span>
+                  <span className="opacity-60">{row.difficulty[0]}</span>
                   <PriorityBadge pattern={row.pattern} />
                   <span className="opacity-60">·</span>
                   <span>Lv {lv}</span>
@@ -421,17 +436,24 @@ export default function ImbibitionPage() {
             const colours = LEVEL_COLOUR[currentLevel] ?? LEVEL_COLOUR[1]
             const isMax = currentLevel >= MAX_LEVEL
             const isLevelingThisOne = levelingUp === row.pattern
+            const rowKey = `${row.pattern}|${row.difficulty}`
+            const diffBadge = row.difficulty === 'Easy'
+              ? <span className="text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full shrink-0">🟢 Easy</span>
+              : row.difficulty === 'Medium'
+                ? <span className="text-[10px] font-bold text-yellow-600 bg-yellow-50 border border-yellow-200 px-1.5 py-0.5 rounded-full shrink-0">🟡 Medium</span>
+                : <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full shrink-0">🔴 Hard</span>
 
             return (
               <section
-                key={row.pattern}
-                ref={(el) => { sectionRefs.current[row.pattern] = el }}
+                key={rowKey}
+                ref={(el) => { sectionRefs.current[rowKey] = el }}
                 className={`bg-[var(--bg-card)] rounded-2xl border p-4 sm:p-5 shadow-sm ${targetPattern === row.pattern ? 'border-cyan-300 ring-2 ring-cyan-100' : 'border-[var(--border)]'}`}
               >
                 <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h2 className="text-sm sm:text-base font-bold text-[var(--text)]">{row.pattern}</h2>
+                      {diffBadge}
                       <PriorityBadge pattern={row.pattern} />
                       {/* Level badge */}
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${colours.bg} ${colours.text} ${colours.border}`}>

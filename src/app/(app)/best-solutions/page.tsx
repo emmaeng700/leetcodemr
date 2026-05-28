@@ -9,7 +9,7 @@ import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { DISPLAY_PATTERN_ORDER } from '@/lib/constants'
 import PriorityBadge from '@/components/PriorityBadge'
-import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { buildExclusivePatternMap, diffFirstStudyOrder } from '@/lib/patternUtils'
 import { CODE_HIGHLIGHT_TOKEN_CSS } from '@/lib/codeHighlightTheme'
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
@@ -326,20 +326,11 @@ export default function BestSolutionsPage() {
   )
 
   const sortedQuestions = useMemo(() => {
-    const DIFF_RANK: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
-    return [...questions].sort((a, b) => {
-      const pa = patternMap[a.id] ?? ''
-      const pb = patternMap[b.id] ?? ''
-      const ia = DISPLAY_PATTERN_ORDER.indexOf(pa as typeof DISPLAY_PATTERN_ORDER[number])
-      const ib = DISPLAY_PATTERN_ORDER.indexOf(pb as typeof DISPLAY_PATTERN_ORDER[number])
-      const ra = ia === -1 ? 999 : ia
-      const rb = ib === -1 ? 999 : ib
-      if (ra !== rb) return ra - rb
-      const da = DIFF_RANK[a.difficulty] ?? 1
-      const db = DIFF_RANK[b.difficulty] ?? 1
-      return da !== db ? da - db : a.id - b.id
-    })
-  }, [questions, patternMap])
+    // Diff-first: Round 1 all Easys across patterns → Round 2 all Mediums → Round 3 all Hards
+    const orderedIds = diffFirstStudyOrder(questions.map(q => ({ ...q, tags: q.tags ?? [] })))
+    const qMap = new Map(questions.map(q => [q.id, q]))
+    return orderedIds.map(id => qMap.get(id)).filter(Boolean) as typeof questions
+  }, [questions])
 
   /* ── Group into pattern sections ── */
   const patternGroups = useMemo(() => {
