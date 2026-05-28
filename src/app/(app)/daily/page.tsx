@@ -8,7 +8,7 @@ import { useClickOutside } from '@/hooks/useClickOutside'
 import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ExternalLink, List, Brain, Star, Wind, Bell, BookOpen, Settings, Check } from 'lucide-react'
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount, syncStreakActivityFromGoals, getUserRevisionCap } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
-import { patternBasedStudyOrder } from '@/lib/studyPlanOrder'
+import { diffFirstStudyOrder } from '@/lib/patternUtils'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -376,9 +376,28 @@ export default function DailyPage() {
         void saveStudyPlan({ ...(p as any), mode: resolvedMode }).catch(() => {/* silent */})
       }
 
+      // ── Auto-migrate plan to diff-first ordering ───────────────────────────
+      // If the stored question_order follows the old pattern-based ordering, silently
+      // re-sort it to diff-first (all Easys → all Mediums → all Hards) and save back.
+      // Progress is tracked per question ID so no solved data is lost.
+      let migratedPlan = p
+      if (p && Array.isArray(p.question_order) && p.question_order.length > 0) {
+        const allQs = qs as Question[]
+        const planIdSet = new Set(p.question_order as number[])
+        const planQs = allQs.filter(q => planIdSet.has(q.id))
+        const correctOrder = diffFirstStudyOrder(planQs)
+        const needsMigration = correctOrder.length !== p.question_order.length ||
+          correctOrder.some((id: number, i: number) => id !== p.question_order[i])
+        if (needsMigration) {
+          migratedPlan = { ...p, question_order: correctOrder }
+          void saveStudyPlan({ ...(migratedPlan as any), mode: ((p as any).mode ?? resolvedMode) })
+            .catch(() => {/* silent — plan still works from local state */})
+        }
+      }
+
       setAllQuestions(qs)
       setProgress(prog)
-      setPlan(p)
+      setPlan(migratedPlan)
       setDueReviews(due)
       setTodaySolvedCount(solvedToday)
       setBreathers(getActiveBreathers())
@@ -460,8 +479,9 @@ export default function DailyPage() {
   async function handleGenerate() {
     if (!planCode.trim()) return
     setGenerating(true)
-    // For random mode the order is still generated (full pool), just not used day-by-day
-    const order = patternBasedStudyOrder(allQuestions, setupMode === 'random' ? null : startFromPattern)
+    // For random mode the order is still generated (full pool), just not used day-by-day.
+    // Diff-first: all Easys across all patterns → all Mediums → all Hards.
+    const order = diffFirstStudyOrder(allQuestions)
     const newPlan: StudyPlan = {
       start_date: startDate,
       per_day: perDay,
@@ -785,50 +805,20 @@ export default function DailyPage() {
             </div>
           </div>
 
-          {/* Pattern order + start-from picker — strict mode only */}
-          {setupMode === 'strict' && <div className="mt-4 bg-violet-50  border border-violet-200  rounded-xl px-3 py-3">
-            <div className="flex items-start gap-2 mb-3">
-              <span className="text-base shrink-0">🧩</span>
-              <div>
-                <p className="text-xs font-bold text-violet-700 ">Pattern-First Order</p>
-                <p className="text-xs text-violet-600  leading-snug">Questions are grouped by the 20 core patterns, Easy→Hard within each. Choose which pattern to start from below.</p>
+          {/* Difficulty-first ordering info — strict mode only */}
+          {setupMode === 'strict' && (
+            <div className="mt-4 bg-violet-50 border border-violet-200 rounded-xl px-3 py-3">
+              <div className="flex items-start gap-2">
+                <span className="text-base shrink-0">🎯</span>
+                <div>
+                  <p className="text-xs font-bold text-violet-700">Difficulty-First Order</p>
+                  <p className="text-xs text-violet-600 leading-snug">
+                    Round 1 — all <strong>Easy</strong> questions across every pattern · Round 2 — all <strong>Medium</strong> · Round 3 — all <strong>Hard</strong>. Within each round patterns follow priority order.
+                  </p>
+                </div>
               </div>
             </div>
-            <div>
-              <p className="text-xs font-semibold text-violet-700  mb-2">Start from pattern:</p>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  onClick={() => setStartFromPattern(null)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
-                    startFromPattern === null
-                      ? 'bg-violet-600 text-white border-violet-600'
-                      : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-violet-400'
-                  }`}
-                >
-                  From beginning
-                </button>
-                {ORDERED_QUICK_PATTERNS.map((p, i) => (
-                  <button
-                    key={p.name}
-                    onClick={() => setStartFromPattern(startFromPattern === p.name ? null : p.name)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
-                      startFromPattern === p.name
-                        ? 'bg-violet-600 text-white border-violet-600'
-                        : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-violet-400'
-                    }`}
-                  >
-                    {i + 1}. {p.name}
-                    <PriorityBadge pattern={p.name} active={startFromPattern === p.name} />
-                  </button>
-                ))}
-              </div>
-              {startFromPattern && (
-                <p className="text-xs text-violet-600  mt-2 font-medium">
-                  ✓ Plan starts at <strong>{startFromPattern}</strong>, then continues through all remaining patterns.
-                </p>
-              )}
-            </div>
-          </div>}
+          )}
 
           {/* Preview */}
           <div className="mt-4 bg-indigo-50  border border-indigo-200  rounded-xl p-4">
