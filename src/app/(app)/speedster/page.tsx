@@ -11,9 +11,10 @@ import LeetCodeEditor from '@/components/LeetCodeEditor'
 import QuestionImage from '@/components/QuestionImage'
 import BestAnswersDeck from '@/components/BestAnswersDeck'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { DISPLAY_PATTERN_ORDER, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUESTION_SOURCES, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { studyOrder } from '@/lib/studyOrder'
+import StudyRoundHeader, { isNewRound } from '@/components/StudyRoundHeader'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdropDense, listDropdownMobilePanelViewportOnly } from '@/lib/listDropdownUi'
 import { stripScripts } from '@/lib/utils'
@@ -567,22 +568,19 @@ export default function SpeedsterPage() {
               if (!q) return null
               const mastered = (runs[String(qid)] ?? 0) >= repsTarget
               const topic = patternMap?.[qid] ?? 'Other'
+              const curPri = PATTERN_PRIORITY[topic] ?? null
               const prevId = i > 0 ? currentDayFiltered[i - 1] : null
               const prevTopic = prevId != null ? (patternMap?.[prevId] ?? 'Other') : null
-              const showTopic = i === 0 || topic !== prevTopic
+              const prevPri = prevTopic ? (PATTERN_PRIORITY[prevTopic] ?? null) : null
+              const prevDiff = prevId != null ? (qMap[prevId]?.difficulty ?? null) : null
+              const showRound = curPri && isNewRound(curPri, q.difficulty, prevPri, prevDiff)
               return (
                 <div key={qid}>
-                  {showTopic && (
-                    <div className={`px-3 sm:px-5 py-2 ${i !== 0 ? 'border-t border-gray-100' : ''}`}>
-                      <div className="px-3 py-2 text-[11px] font-bold text-gray-500 bg-gray-50 rounded-xl border border-gray-200">
-                        🧩 Topic: <span className="text-gray-800">{topic}</span>
-                      </div>
-                    </div>
-                  )}
+                  {showRound && <StudyRoundHeader priority={curPri!} difficulty={q.difficulty} className={i !== 0 ? 'border-t border-gray-100' : ''} />}
                   <button
                     type="button"
                     onClick={() => launchSpeedsterQuestion(qid, currentDay, 'strict')}
-                    className={`flex w-full items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 text-left transition-colors group ${i !== 0 || showTopic ? 'border-t border-gray-100' : ''} ${mastered ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
+                    className={`flex w-full items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 text-left transition-colors group ${i !== 0 || showRound ? 'border-t border-gray-100' : ''} ${mastered ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
                     <div className="shrink-0">
                       {mastered
                         ? <CheckCircle size={18} className="text-green-500" />
@@ -598,6 +596,7 @@ export default function SpeedsterPage() {
                       </span>
                     )}
                     <DifficultyBadge difficulty={q.difficulty} />
+                    {curPri && <PriorityBadge pattern={topic} />}
                     <ChevronRight size={14} className="text-gray-300 group-hover:text-yellow-400 shrink-0 transition-colors" />
                   </button>
                 </div>

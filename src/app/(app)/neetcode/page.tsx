@@ -1,9 +1,10 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { Fragment, useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { CheckCircle, Circle, ChevronDown, ChevronUp, Search, ExternalLink } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
 import { NEETCODE_150, type NC150Category } from '@/lib/neetcode150'
+import { PATTERN_PRIORITY } from '@/lib/constants'
 import PriorityBadge from '@/components/PriorityBadge'
 
 // Maps NeetCode category names → our PATTERN_PRIORITY keys
@@ -208,12 +209,33 @@ export default function NeetCode150Page() {
 
         {/* Categories */}
         <div className="space-y-3">
-          {filteredCategories.map(cat => {
+          {filteredCategories.map((cat, ci) => {
+            const mappedPattern = NC_PATTERN_MAP[cat.name] ?? ''
+            const pri = PATTERN_PRIORITY[mappedPattern] ?? 'Low'
+            const prevCat = ci > 0 ? filteredCategories[ci - 1] : null
+            const prevPattern = prevCat ? (NC_PATTERN_MAP[prevCat.name] ?? '') : null
+            const prevPri = prevPattern !== null ? (PATTERN_PRIORITY[prevPattern] ?? 'Low') : null
+            const showTier = pri !== prevPri
+            const tierStyles = {
+              High: { pill: 'bg-red-900/30 text-red-300 border-red-700/40', line: 'bg-red-700/40', dot: '🔴' },
+              Mid:  { pill: 'bg-amber-900/30 text-amber-300 border-amber-700/40', line: 'bg-amber-700/40', dot: '🟡' },
+              Low:  { pill: 'bg-gray-700/40 text-gray-400 border-gray-600/40', line: 'bg-gray-600/40', dot: '⚪' },
+            }[pri] ?? { pill: 'bg-gray-700/40 text-gray-400 border-gray-600/40', line: 'bg-gray-600/40', dot: '⚪' }
             const catSolved  = cat.questions.filter(q => solved.has(q.id)).length
             const isCollapsed = collapsed.has(cat.name)
             const pct = Math.round(catSolved / cat.questions.length * 100)
             return (
-              <div key={cat.name} className="bg-[#16213e] border border-gray-700/40 rounded-2xl overflow-hidden">
+              <Fragment key={cat.name}>
+              {showTier && (
+                <div className="flex items-center gap-2 px-3 py-2 mt-2">
+                  <div className={`h-px flex-1 rounded-full ${tierStyles.line}`} />
+                  <span className={`shrink-0 flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-bold tracking-wide ${tierStyles.pill}`}>
+                    {tierStyles.dot} {pri} Priority
+                  </span>
+                  <div className={`h-px flex-1 rounded-full ${tierStyles.line}`} />
+                </div>
+              )}
+              <div className="bg-[#16213e] border border-gray-700/40 rounded-2xl overflow-hidden">
                 {/* Category header */}
                 <button
                   onClick={() => toggleCollapse(cat.name)}
@@ -293,6 +315,7 @@ export default function NeetCode150Page() {
                   </div>
                 )}
               </div>
+              </Fragment>
             )
           })}
         </div>

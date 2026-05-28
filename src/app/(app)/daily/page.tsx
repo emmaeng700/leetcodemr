@@ -9,8 +9,9 @@ import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, Che
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount, syncStreakActivityFromGoals, getUserRevisionCap } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
 import { studyOrder } from '@/lib/studyOrder'
-import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import StudyRoundHeader, { isNewRound } from '@/components/StudyRoundHeader'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import toast from 'react-hot-toast'
@@ -1252,16 +1253,14 @@ export default function DailyPage() {
               const repDone   = repCount >= repsPerQ
               const isFocus   = q.id === nextFocusId
               const topic     = topicMap[q.id] ?? 'Other'
+              const curPri    = PATTERN_PRIORITY[topic] ?? null
               const prev      = idx > 0 ? todayQs[idx - 1] : null
               const prevTopic = prev ? (topicMap[prev.id] ?? 'Other') : null
-              const showTopic = idx === 0 || topic !== prevTopic
+              const prevPri   = prevTopic ? (PATTERN_PRIORITY[prevTopic] ?? null) : null
+              const showRound = curPri && isNewRound(curPri, q.difficulty, prevPri, prev?.difficulty)
               return (
                 <div key={q.id}>
-                  {showTopic && (
-                    <div className="px-3 py-2 text-[11px] font-bold text-[var(--text-subtle)] bg-[var(--bg-muted)] rounded-xl border border-[var(--border)]">
-                      🧩 Topic: <span className="text-[var(--text)]">{topic}</span>
-                    </div>
-                  )}
+                  {showRound && <StudyRoundHeader priority={curPri!} difficulty={q.difficulty} />}
                   <div
                     ref={el => { questionRefs.current[q.id] = el }}
                     className={`flex flex-col items-start gap-3 sm:flex-row sm:items-center p-3 rounded-xl border transition-all mt-2 ${
@@ -1298,6 +1297,7 @@ export default function DailyPage() {
                       </div>
                       <div className="mt-1.5 flex items-center gap-2">
                         <DifficultyBadge difficulty={q.difficulty} />
+                        <PriorityBadge pattern={topic} />
                         <RepDots done={repCount} total={repsPerQ} />
                         <span className={`text-[10px] font-bold ${repDone ? 'text-green-600' : repCount > 0 ? 'text-indigo-500' : 'text-[var(--text-subtle)]'}`}>
                           {Math.min(repCount, repsPerQ)}/{repsPerQ}
@@ -1535,28 +1535,39 @@ export default function DailyPage() {
             </p>
           )}
           <div className="space-y-1.5">
-            {previewDayInfo.questions.map(q => (
-              <div key={q.id} className="flex items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-[var(--bg-muted)] transition-colors">
-                {isSolved(q.id)
-                  ? <CheckCircle2 size={14} className="text-green-400 shrink-0" />
-                  : <Circle size={14} className="text-[var(--text-subtle)] shrink-0" />
-                }
-                <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
-                <Link href={`/practice/${q.id}`} className="text-sm text-[var(--text)] hover:text-indigo-500 truncate flex-1 min-w-0">
-                  {q.title}
-                </Link>
-                <a
-                  href={leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-[var(--text-subtle)] hover:text-orange-400 transition-colors"
-                  title="Open on LeetCode"
-                >
-                  <ExternalLink size={11} />
-                </a>
-                <DifficultyBadge difficulty={q.difficulty} />
-              </div>
-            ))}
+            {previewDayInfo.questions.map((q, idx) => {
+              const pTopic  = topicMap[q.id] ?? 'Other'
+              const curPri  = PATTERN_PRIORITY[pTopic] ?? null
+              const prev    = idx > 0 ? previewDayInfo.questions[idx - 1] : null
+              const prevPri = prev ? (PATTERN_PRIORITY[topicMap[prev.id] ?? ''] ?? null) : null
+              const showRound = curPri && isNewRound(curPri, q.difficulty, prevPri, prev?.difficulty)
+              return (
+                <div key={q.id}>
+                  {showRound && <StudyRoundHeader priority={curPri!} difficulty={q.difficulty} className="py-1" />}
+                  <div className="flex items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-[var(--bg-muted)] transition-colors">
+                    {isSolved(q.id)
+                      ? <CheckCircle2 size={14} className="text-green-400 shrink-0" />
+                      : <Circle size={14} className="text-[var(--text-subtle)] shrink-0" />
+                    }
+                    <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
+                    <Link href={`/practice/${q.id}`} className="text-sm text-[var(--text)] hover:text-indigo-500 truncate flex-1 min-w-0">
+                      {q.title}
+                    </Link>
+                    <a
+                      href={leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 text-[var(--text-subtle)] hover:text-orange-400 transition-colors"
+                      title="Open on LeetCode"
+                    >
+                      <ExternalLink size={11} />
+                    </a>
+                    <DifficultyBadge difficulty={q.difficulty} />
+                    {curPri && <PriorityBadge pattern={pTopic} />}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

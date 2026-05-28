@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Brain, CheckCircle2, ChevronRight, Lock, Trophy, ArrowUpCircle } from 'lucide-react'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
@@ -8,6 +8,7 @@ import { getProgress } from '@/lib/db'
 import { ensureImbibitionIsolationMigration, getImbibitionRunsByQuestion, resetImbibitionRuns } from '@/lib/imbibitionRuns'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
+import StudyRoundHeader, { isNewRound } from '@/components/StudyRoundHeader'
 import toast from 'react-hot-toast'
 
 // ─── Level definitions ────────────────────────────────────────────────────────
@@ -432,7 +433,11 @@ export default function ImbibitionPage() {
       ) : (
         <div ref={rowsTopRef}>
         <div className="space-y-6">
-          {visibleRows.map(row => {
+          {visibleRows.map((row, ri) => {
+            const pri = PATTERN_PRIORITY[row.pattern] ?? 'Low'
+            const prevRow = ri > 0 ? visibleRows[ri - 1] : null
+            const prevPri = prevRow ? (PATTERN_PRIORITY[prevRow.pattern] ?? 'Low') : null
+            const showRound = isNewRound(pri, row.difficulty, prevPri, prevRow?.difficulty ?? null)
             const currentLevel = levels[row.pattern] ?? 1
             const levelName = LEVEL_NAMES[currentLevel - 1]
             const colours = LEVEL_COLOUR[currentLevel] ?? LEVEL_COLOUR[1]
@@ -446,8 +451,9 @@ export default function ImbibitionPage() {
                 : <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full shrink-0">🔴 Hard</span>
 
             return (
+              <Fragment key={rowKey}>
+              {showRound && <StudyRoundHeader priority={pri} difficulty={row.difficulty} className="mb-2" />}
               <section
-                key={rowKey}
                 ref={(el) => { sectionRefs.current[rowKey] = el }}
                 className={`bg-[var(--bg-card)] rounded-2xl border p-4 sm:p-5 shadow-sm ${targetPattern === row.pattern ? 'border-cyan-300 ring-2 ring-cyan-100' : 'border-[var(--border)]'}`}
               >
@@ -566,6 +572,7 @@ export default function ImbibitionPage() {
                   </div>
                 )}
               </section>
+              </Fragment>
             )
           })}
         </div>

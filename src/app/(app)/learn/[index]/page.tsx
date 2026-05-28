@@ -18,6 +18,8 @@ import { getProgress, updateProgress, completeReview, failReview, getMasteryRuns
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap, getPatternForQuestion } from '@/lib/patternUtils'
+import { PATTERN_PRIORITY } from '@/lib/constants'
+import StudyRoundHeader, { isNewRound } from '@/components/StudyRoundHeader'
 import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import { isDue, formatLocalDate, nextIntervalDays, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
@@ -553,26 +555,34 @@ function LearnInner() {
       {filtered.map((fq, i) => {
         const fp = progress[String(fq.id)] || {}
         const unlocked = i <= unlockedThrough
+        const curPat = exclusiveMap[fq.id] ?? null
+        const curPri = curPat ? (PATTERN_PRIORITY[curPat] ?? null) : null
+        const prev = i > 0 ? filtered[i - 1] : null
+        const prevPat = prev ? (exclusiveMap[prev.id] ?? null) : null
+        const prevPri = prevPat ? (PATTERN_PRIORITY[prevPat] ?? null) : null
+        const showRound = curPri && isNewRound(curPri, fq.difficulty, prevPri, prev?.difficulty)
         return (
-          <button
-            key={fq.id}
-            type="button"
-            disabled={!unlocked}
-            onClick={() => goTo(i)}
-            className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors border-b border-gray-50 ${unlocked ? 'hover:bg-indigo-50' : 'opacity-50 cursor-not-allowed'} ${i === gatedIdx ? 'bg-indigo-50' : ''}`}
-          >
-            <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{fq.id}</span>
-            <span className="min-w-0 flex-1 truncate text-gray-700">{fq.title}</span>
-            <span
-              className={`text-xs font-semibold shrink-0 ${fq.difficulty === 'Easy' ? 'text-green-600' : fq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}
+          <div key={fq.id}>
+            {showRound && <StudyRoundHeader priority={curPri!} difficulty={fq.difficulty} />}
+            <button
+              type="button"
+              disabled={!unlocked}
+              onClick={() => goTo(i)}
+              className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors border-b border-gray-50 ${unlocked ? 'hover:bg-indigo-50' : 'opacity-50 cursor-not-allowed'} ${i === gatedIdx ? 'bg-indigo-50' : ''}`}
             >
-              {fq.difficulty[0]}
-            </span>
-            <span className="shrink-0 text-[10px] font-bold text-cyan-600">
-              {Math.min(runs[String(fq.id)] ?? 0, 2)}/2
-            </span>
-            {fp.solved && <CheckCircle size={11} className="text-green-500 shrink-0" />}
-          </button>
+              <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{fq.id}</span>
+              <span className="min-w-0 flex-1 truncate text-gray-700">{fq.title}</span>
+              <span
+                className={`text-xs font-semibold shrink-0 ${fq.difficulty === 'Easy' ? 'text-green-600' : fq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}
+              >
+                {fq.difficulty[0]}
+              </span>
+              <span className="shrink-0 text-[10px] font-bold text-cyan-600">
+                {Math.min(runs[String(fq.id)] ?? 0, 2)}/2
+              </span>
+              {fp.solved && <CheckCircle size={11} className="text-green-500 shrink-0" />}
+            </button>
+          </div>
         )
       })}
       {filtered.length === 0 && <p className="text-center text-sm text-gray-400 py-6">No questions match.</p>}

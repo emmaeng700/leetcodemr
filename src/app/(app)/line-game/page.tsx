@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import Link from 'next/link'
 import {
@@ -35,7 +35,9 @@ import {
 } from '@/lib/line-game/pickBlankLines'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
+import StudyRoundHeader, { isNewRound } from '@/components/StudyRoundHeader'
 import { getPatternForQuestion } from '@/lib/patternUtils'
+import { PATTERN_PRIORITY } from '@/lib/constants'
 import LineGameCodeInput from '@/components/LineGameCodeInput'
 
 interface Question {
@@ -541,24 +543,32 @@ export default function LineGamePage() {
 
   const lineGameListItems = playable.map((pq, i) => {
     const m = mastery[pq.id]
+    const pqPattern = getPatternForQuestion(pq.tags ?? []) ?? ''
+    const pqPri = PATTERN_PRIORITY[pqPattern] ?? 'Low'
+    const prevPq = i > 0 ? playable[i - 1] : null
+    const prevPattern = prevPq ? (getPatternForQuestion(prevPq.tags ?? []) ?? '') : null
+    const prevPri = prevPattern !== null ? (PATTERN_PRIORITY[prevPattern] ?? 'Low') : null
+    const showRound = isNewRound(pqPri, pq.difficulty, prevPri, prevPq?.difficulty ?? null)
     return (
-      <button
-        key={pq.id}
-        type="button"
-        onClick={() => { setIdx(i); setShowList(false) }}
-        className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-indigo-50 border-b border-gray-50 ${i === idx ? 'bg-indigo-50' : ''}`}
-      >
-        <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{pq.id}</span>
-        <span className="min-w-0 flex-1 truncate text-gray-700">{pq.title}</span>
-        {starredIds.has(pq.id) && <Star size={11} className="shrink-0 fill-yellow-400 text-yellow-400" />}
-        <span
-          className={`text-xs font-semibold shrink-0 ${pq.difficulty === 'Easy' ? 'text-green-600' : pq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}
+      <Fragment key={pq.id}>
+        {showRound && <StudyRoundHeader priority={pqPri} difficulty={pq.difficulty} className="sticky top-0 bg-white z-10" />}
+        <button
+          type="button"
+          onClick={() => { setIdx(i); setShowList(false) }}
+          className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-indigo-50 border-b border-gray-50 ${i === idx ? 'bg-indigo-50' : ''}`}
         >
-          {pq.difficulty[0]}
-        </span>
-        {m === 'solved' && <span title="Solved">✓</span>}
-        {m === 'revealed' && <span title="Needs work">👀</span>}
-      </button>
+          <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{pq.id}</span>
+          <span className="min-w-0 flex-1 truncate text-gray-700">{pq.title}</span>
+          {starredIds.has(pq.id) && <Star size={11} className="shrink-0 fill-yellow-400 text-yellow-400" />}
+          <span
+            className={`text-xs font-semibold shrink-0 ${pq.difficulty === 'Easy' ? 'text-green-600' : pq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}
+          >
+            {pq.difficulty[0]}
+          </span>
+          {m === 'solved' && <span title="Solved">✓</span>}
+          {m === 'revealed' && <span title="Needs work">👀</span>}
+        </button>
+      </Fragment>
     )
   })
 

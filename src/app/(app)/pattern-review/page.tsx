@@ -1,7 +1,7 @@
 'use client'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { BookOpen, ExternalLink, Layers, X, ChevronRight } from 'lucide-react'
-import { DISPLAY_PATTERN_ORDER } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, PATTERN_PRIORITY } from '@/lib/constants'
 import PriorityBadge from '@/components/PriorityBadge'
 import DifficultyBadge from '@/components/DifficultyBadge'
 
@@ -165,9 +165,27 @@ export default function PatternReviewPage() {
             </p>
           </div>
 
-          {grouped.map(({ pattern, questions }) => (
+          {grouped.map(({ pattern, questions }, gi) => {
+            const pri = PATTERN_PRIORITY[pattern] ?? 'Low'
+            const prevPri = gi > 0 ? (PATTERN_PRIORITY[grouped[gi - 1].pattern] ?? 'Low') : null
+            const showTier = pri !== prevPri
+            const tierStyles = {
+              High: { pill: 'bg-red-50 text-red-700 border-red-200', line: 'bg-red-200', dot: '🔴' },
+              Mid:  { pill: 'bg-amber-50 text-amber-700 border-amber-200', line: 'bg-amber-200', dot: '🟡' },
+              Low:  { pill: 'bg-gray-100 text-gray-500 border-gray-200', line: 'bg-gray-200', dot: '⚪' },
+            }[pri] ?? { pill: 'bg-gray-100 text-gray-500 border-gray-200', line: 'bg-gray-200', dot: '⚪' }
+            return (
+            <Fragment key={pattern}>
+            {showTier && (
+              <div className="flex items-center gap-2 px-3 py-2 mb-2 mt-4">
+                <div className={`h-px flex-1 rounded-full ${tierStyles.line}`} />
+                <span className={`shrink-0 flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-bold tracking-wide ${tierStyles.pill}`}>
+                  {tierStyles.dot} {pri} Priority Patterns
+                </span>
+                <div className={`h-px flex-1 rounded-full ${tierStyles.line}`} />
+              </div>
+            )}
             <section
-              key={pattern}
               ref={el => { sectionRefs.current[pattern] = el }}
               className="mb-10 sm:mb-12"
             >
@@ -261,7 +279,9 @@ export default function PatternReviewPage() {
                 })}
               </div>
             </section>
-          ))}
+            </Fragment>
+            )
+          })}
         </div>
       </div>
 

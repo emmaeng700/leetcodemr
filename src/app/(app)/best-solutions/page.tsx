@@ -7,10 +7,11 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { DISPLAY_PATTERN_ORDER } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, PATTERN_PRIORITY } from '@/lib/constants'
 import PriorityBadge from '@/components/PriorityBadge'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { studyOrder } from '@/lib/studyOrder'
+import StudyRoundHeader, { isNewRound } from '@/components/StudyRoundHeader'
 import { CODE_HIGHLIGHT_TOKEN_CSS } from '@/lib/codeHighlightTheme'
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
@@ -553,23 +554,32 @@ export default function BestSolutionsPage() {
           </div>
         ) : (
           <div className="space-y-8">
-            {filteredGroups.map(({ pattern, questions: qs }) => (
-              <div key={pattern}>
-                {/* Pattern header */}
-                <div className="flex items-center gap-2 mb-3">
-                  <p className="text-xs font-bold text-[var(--text-subtle)] uppercase tracking-widest">{pattern}</p>
-                  <span className="text-[10px] font-mono text-gray-600">· {qs.length}</span>
-                  <PriorityBadge pattern={pattern} />
-                  <div className="flex-1 h-px bg-[var(--border)]" />
-                </div>
+            {filteredGroups.map(({ pattern, questions: qs }, gi) => {
+              const pri = PATTERN_PRIORITY[pattern] ?? 'Low'
+              const diff = qs[0]?.difficulty ?? 'Easy'
+              const prev = gi > 0 ? filteredGroups[gi - 1] : null
+              const prevPri = prev ? (PATTERN_PRIORITY[prev.pattern] ?? 'Low') : null
+              const prevDiff = prev?.questions[0]?.difficulty ?? null
+              const showRound = isNewRound(pri, diff, prevPri, prevDiff)
+              return (
+                <div key={`${pattern}-${diff}`}>
+                  {showRound && <StudyRoundHeader priority={pri} difficulty={diff} className="-mx-1 mb-4" />}
+                  {/* Pattern header */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <p className="text-xs font-bold text-[var(--text-subtle)] uppercase tracking-widest">{pattern}</p>
+                    <span className="text-[10px] font-mono text-gray-600">· {qs.length}</span>
+                    <PriorityBadge pattern={pattern} />
+                    <div className="flex-1 h-px bg-[var(--border)]" />
+                  </div>
 
-                <div className="space-y-2">
-                  {qs.map(q => (
-                    <QuestionCard key={q.id} q={q} sol={solByQid.get(q.id)} onSaved={handleSaved} />
-                  ))}
+                  <div className="space-y-2">
+                    {qs.map(q => (
+                      <QuestionCard key={q.id} q={q} sol={solByQid.get(q.id)} onSaved={handleSaved} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
