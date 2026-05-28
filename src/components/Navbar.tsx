@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { getOpenQuestionContext } from '@/lib/openQuestionContext'
@@ -7,7 +7,7 @@ import {
   Menu, X, LogOut, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
   Calendar, Info, Timer, Code2, Zap, Gauge, Gamepad2, RefreshCw, Library,
-  BookOpen, Swords, Rocket, Download, Bookmark, ClipboardList, Settings,
+  BookOpen, Swords, Rocket, Download, Bookmark, ClipboardList, Settings, Check,
 } from 'lucide-react'
 
 const STARRED_LINKS = [
@@ -70,10 +70,29 @@ export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [answersNavHref, setAnswersNavHref] = useState('/answers')
   const build = process.env.NEXT_PUBLIC_COMMIT_SHA
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'uptodate'>('idle')
 
   useEffect(() => {
     setAnswersNavHref(buildAnswersNavHref())
   }, [pathname])
+
+  const checkForUpdate = useCallback(async () => {
+    setUpdateStatus('checking')
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(keys.filter(k => k !== 'lm-images').map(k => caches.delete(k)))
+      }
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration()
+        if (reg?.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' })
+        void reg?.update()
+      }
+      window.location.href = window.location.href
+    } catch {
+      setUpdateStatus('idle')
+    }
+  }, [])
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -100,10 +119,29 @@ export default function Navbar() {
           <div className="flex items-center gap-1 shrink-0">
             {/* Build stamp */}
             {build && (
-              <span className="hidden sm:inline text-[10px] font-mono text-[var(--text-subtle)] mr-2 select-none bg-[var(--bg-muted)] px-2 py-0.5 rounded-full">
+              <span className="hidden sm:inline text-[10px] font-mono text-[var(--text-subtle)] mr-1 select-none bg-[var(--bg-muted)] px-2 py-0.5 rounded-full">
                 {build}
               </span>
             )}
+            {/* Get Latest Version */}
+            <button
+              type="button"
+              onClick={checkForUpdate}
+              disabled={updateStatus === 'checking'}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors disabled:opacity-60 ${
+                updateStatus === 'uptodate'
+                  ? 'border-green-400 bg-green-50 text-green-700'
+                  : 'border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100'
+              }`}
+            >
+              {updateStatus === 'checking' ? (
+                <><RefreshCw size={11} className="animate-spin" /><span className="hidden sm:inline">Updating…</span></>
+              ) : updateStatus === 'uptodate' ? (
+                <><Check size={11} /><span className="hidden sm:inline">Up to date</span></>
+              ) : (
+                <><RefreshCw size={11} /><span className="hidden sm:inline">Get Latest</span></>
+              )}
+            </button>
             {/* Desktop logout */}
             <button
               onClick={handleLogout}

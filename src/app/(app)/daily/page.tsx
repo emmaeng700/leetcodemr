@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
-import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ExternalLink, List, Brain, Star, Wind, Bell, BookOpen, Settings, Check } from 'lucide-react'
+import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ExternalLink, List, Brain, Star, Wind, Bell, BookOpen, Settings } from 'lucide-react'
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount, syncStreakActivityFromGoals, getUserRevisionCap } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
 import { diffFirstStudyOrder } from '@/lib/patternUtils'
@@ -182,25 +182,6 @@ export default function DailyPage() {
   // Rep tracking
   const [repsPerQ, setRepsPerQ] = useState(2)
   const [dailyReps, setDailyReps] = useState<Record<string, number>>({})
-  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'uptodate'>('idle')
-
-  const checkForUpdate = useCallback(async () => {
-    setUpdateStatus('checking')
-    try {
-      if ('caches' in window) {
-        const keys = await caches.keys()
-        await Promise.all(keys.filter(k => k !== 'lm-images').map(k => caches.delete(k)))
-      }
-      if ('serviceWorker' in navigator) {
-        const reg = await navigator.serviceWorker.getRegistration()
-        if (reg?.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' })
-        void reg?.update()
-      }
-      window.location.href = window.location.href
-    } catch {
-      setUpdateStatus('idle')
-    }
-  }, [])
   const repsPerQRef = useRef(2)
   const todayQsRef  = useRef<Question[]>([])
   const questionRefs = useRef<Record<number, HTMLDivElement | null>>({})
@@ -919,27 +900,6 @@ export default function DailyPage() {
   return (
     <div className="max-w-xl mx-auto px-4 py-8">
       {!online && <OfflineBanner feature="Daily plan (Supabase)" />}
-      {/* Get Latest Version */}
-      <div className="flex justify-end mb-3">
-        <button
-          type="button"
-          onClick={checkForUpdate}
-          disabled={updateStatus === 'checking'}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors disabled:opacity-60 ${
-            updateStatus === 'uptodate'
-              ? 'border-green-400 bg-green-50 text-green-700'
-              : 'border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100'
-          }`}
-        >
-          {updateStatus === 'checking' ? (
-            <><RotateCcw size={12} className="animate-spin" /> Updating…</>
-          ) : updateStatus === 'uptodate' ? (
-            <><Check size={12} /> Up to date</>
-          ) : (
-            <><RotateCcw size={12} /> Get Latest Version</>
-          )}
-        </button>
-      </div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
