@@ -12,7 +12,8 @@ import QuestionImage from '@/components/QuestionImage'
 import BestAnswersDeck from '@/components/BestAnswersDeck'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { DISPLAY_PATTERN_ORDER, QUESTION_SOURCES, QUICK_PATTERNS } from '@/lib/constants'
-import { buildExclusivePatternMap, diffFirstStudyOrder } from '@/lib/patternUtils'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { studyOrder } from '@/lib/studyOrder'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdropDense, listDropdownMobilePanelViewportOnly } from '@/lib/listDropdownUi'
 import { stripScripts } from '@/lib/utils'
@@ -134,7 +135,7 @@ export default function SpeedsterPage() {
           ? new Set(plan.question_order as number[])
           : null
         const subset = allowedIds ? allQsTyped.filter(q => allowedIds.has(q.id)) : allQsTyped
-        const sorted = diffFirstStudyOrder(subset)
+        const sorted = studyOrder(subset)
         setPlanOrder(sorted)
         if (plan?.question_order?.length) {
           setPerDay(plan.per_day || 3)

@@ -1,17 +1,14 @@
-import { diffFirstStudyOrder } from './patternUtils'
+import { studyOrder } from './studyOrder'
+import { patternBasedStudyOrder } from './patternUtils'
 
 /**
  * Default question order for the app's study flow.
- * Three sweeps over all patterns in display order:
- *   Round 1 — every pattern's Easy questions
- *   Round 2 — every pattern's Medium questions
- *   Round 3 — every pattern's Hard questions
- * This builds broad pattern recognition before adding difficulty.
+ * Delegates to studyOrder — the single source of truth in studyOrder.ts.
  */
 export function defaultStudyQuestionOrder<T extends { id: number; difficulty: string; tags: string[] }>(
   questions: T[]
 ): number[] {
-  return diffFirstStudyOrder(questions)
+  return studyOrder(questions)
 }
 
-export { diffFirstStudyOrder, patternBasedStudyOrder } from './patternUtils'
+export { studyOrder, patternBasedStudyOrder }

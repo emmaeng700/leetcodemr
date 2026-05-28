@@ -9,7 +9,8 @@ import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { DISPLAY_PATTERN_ORDER } from '@/lib/constants'
 import PriorityBadge from '@/components/PriorityBadge'
-import { buildExclusivePatternMap, diffFirstStudyOrder } from '@/lib/patternUtils'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { studyOrder } from '@/lib/studyOrder'
 import { CODE_HIGHLIGHT_TOKEN_CSS } from '@/lib/codeHighlightTheme'
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
@@ -327,7 +328,7 @@ export default function BestSolutionsPage() {
 
   const sortedQuestions = useMemo(() => {
     // Diff-first: Round 1 all Easys across patterns → Round 2 all Mediums → Round 3 all Hards
-    const orderedIds = diffFirstStudyOrder(questions.map(q => ({ ...q, tags: q.tags ?? [] })))
+    const orderedIds = studyOrder(questions.map(q => ({ ...q, tags: q.tags ?? [] })))
     const qMap = new Map(questions.map(q => [q.id, q]))
     return orderedIds.map(id => qMap.get(id)).filter(Boolean) as typeof questions
   }, [questions])

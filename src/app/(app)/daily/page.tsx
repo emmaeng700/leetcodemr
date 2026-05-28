@@ -8,7 +8,7 @@ import { useClickOutside } from '@/hooks/useClickOutside'
 import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ExternalLink, List, Brain, Star, Wind, Bell, BookOpen, Settings } from 'lucide-react'
 import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount, syncStreakActivityFromGoals, getUserRevisionCap } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
-import { diffFirstStudyOrder } from '@/lib/patternUtils'
+import { studyOrder } from '@/lib/studyOrder'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -366,7 +366,7 @@ export default function DailyPage() {
         const allQs = qs as Question[]
         const planIdSet = new Set(p.question_order as number[])
         const planQs = allQs.filter(q => planIdSet.has(q.id))
-        const correctOrder = diffFirstStudyOrder(planQs)
+        const correctOrder = studyOrder(planQs)
         const needsMigration = correctOrder.length !== p.question_order.length ||
           correctOrder.some((id: number, i: number) => id !== p.question_order[i])
         if (needsMigration) {
@@ -462,7 +462,7 @@ export default function DailyPage() {
     setGenerating(true)
     // For random mode the order is still generated (full pool), just not used day-by-day.
     // Diff-first: all Easys across all patterns → all Mediums → all Hards.
-    const order = diffFirstStudyOrder(allQuestions)
+    const order = studyOrder(allQuestions)
     const newPlan: StudyPlan = {
       start_date: startDate,
       per_day: perDay,

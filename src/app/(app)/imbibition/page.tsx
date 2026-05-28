@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Brain, CheckCircle2, ChevronRight, Lock, Trophy, ArrowUpCircle } from 'lucide-react'
-import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { getProgress } from '@/lib/db'
 import { ensureImbibitionIsolationMigration, getImbibitionRunsByQuestion, resetImbibitionRuns } from '@/lib/imbibitionRuns'
@@ -141,35 +141,37 @@ export default function ImbibitionPage() {
   }, [])
 
   const rows = useMemo(() => {
-    // Diff-first: Round 1 all Easys across patterns → Round 2 Mediums → Round 3 Hards.
-    // Within each round iterate patterns in DISPLAY_PATTERN_ORDER and include only
-    // solved questions of that difficulty. Patterns with none at a given difficulty
-    // are skipped for that round.
+    // Priority-grouped, diff-first — mirrors studyOrder.ts:
+    //   High patterns Easy→Med→Hard, then Mid patterns Easy→Med→Hard,
+    //   then Low patterns Easy→Med→Hard.
     const exclusiveMap = buildExclusivePatternMap(questions)
     const builtRows: ImbibitionRow[] = []
-    for (const diff of ['Easy', 'Medium', 'Hard'] as const) {
-      for (const pattern of ORDERED_PATTERNS) {
-        const solvedQs = questions
-          .filter(q =>
-            exclusiveMap[q.id] === pattern.name &&
-            q.difficulty === diff &&
-            !!progress[String(q.id)]?.solved
-          )
-          .sort((a, b) => a.id - b.id)
+    for (const priority of ['High', 'Mid', 'Low'] as const) {
+      for (const diff of ['Easy', 'Medium', 'Hard'] as const) {
+        for (const pattern of ORDERED_PATTERNS) {
+          if (PATTERN_PRIORITY[pattern.name] !== priority) continue
+          const solvedQs = questions
+            .filter(q =>
+              exclusiveMap[q.id] === pattern.name &&
+              q.difficulty === diff &&
+              !!progress[String(q.id)]?.solved
+            )
+            .sort((a, b) => a.id - b.id)
 
-        if (solvedQs.length === 0) continue
+          if (solvedQs.length === 0) continue
 
-        const firstIncomplete = solvedQs.findIndex(q => (runs[String(q.id)] ?? 0) < 3)
-        const unlockedThrough = firstIncomplete === -1 ? solvedQs.length - 1 : firstIncomplete
-        const completed = solvedQs.filter(q => (runs[String(q.id)] ?? 0) >= 3).length
+          const firstIncomplete = solvedQs.findIndex(q => (runs[String(q.id)] ?? 0) < 3)
+          const unlockedThrough = firstIncomplete === -1 ? solvedQs.length - 1 : firstIncomplete
+          const completed = solvedQs.filter(q => (runs[String(q.id)] ?? 0) >= 3).length
 
-        builtRows.push({
-          pattern: pattern.name,
-          difficulty: diff,
-          questions: solvedQs,
-          unlockedThrough,
-          completed,
-        })
+          builtRows.push({
+            pattern: pattern.name,
+            difficulty: diff,
+            questions: solvedQs,
+            unlockedThrough,
+            completed,
+          })
+        }
       }
     }
 

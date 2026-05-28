@@ -3,7 +3,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Pause, Play, SkipForward, RotateCcw, Zap, CheckCircle } from 'lucide-react'
 import { shuffle, stripScripts } from '@/lib/utils'
 import { DIFFICULTY_LEVELS, DISPLAY_PATTERN_ORDER, QUESTION_SOURCES } from '@/lib/constants'
-import { buildExclusivePatternMap, diffFirstStudyOrder } from '@/lib/patternUtils'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { studyOrder } from '@/lib/studyOrder'
 import { getStudyPlan } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
@@ -66,7 +67,7 @@ export default function QuickReviewPage() {
       const allQsTyped = qs as Question[]
       const allowedIds = plan?.question_order?.length ? new Set(plan.question_order as number[]) : null
       const subset = allowedIds ? allQsTyped.filter(q => allowedIds.has(q.id)) : allQsTyped
-      const sorted = diffFirstStudyOrder(subset)
+      const sorted = studyOrder(subset)
       setPlanOrder(sorted)
       setLoading(false)
     })
