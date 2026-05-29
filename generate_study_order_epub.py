@@ -698,15 +698,21 @@ def build_toc_page(rounds: list) -> str:
                 f'color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">'
                 f'{esc(pat["name"])} ({len(qs)})</p>'
             )
-            body.append('<ul style="margin:0 0 4px 0;padding-left:20px;list-style:none">')
+            body.append('<ul style="margin:0 0 4px 0;padding-left:8px;list-style:none">')
             for q in qs:
                 q_counter += 1
                 q_href = f'round_{round_num:02d}_q{q["id"]:04d}.xhtml'
                 diff   = q.get('difficulty', '')
                 diff_c = {'Easy': '#86efac', 'Medium': '#fde68a', 'Hard': '#fca5a5'}.get(diff, '#9ca3af')
+                cb_id  = f'cb_{q["id"]}'
                 body.append(
-                    f'<li style="margin:2px 0;font-size:0.84em;line-height:1.5">'
-                    f'<a href="{q_href}" style="color:#d1d5db;text-decoration:none">'
+                    f'<li style="margin:3px 0;font-size:0.84em;line-height:1.6;'
+                    f'display:flex;align-items:center;gap:7px">'
+                    f'<input type="checkbox" id="{cb_id}"'
+                    f' style="width:14px;height:14px;flex-shrink:0;'
+                    f'accent-color:#6366f1;cursor:pointer;'
+                    f'border:1.5px solid #4b5563;border-radius:3px"/>'
+                    f'<a href="{q_href}" style="color:#d1d5db;text-decoration:none;flex:1">'
                     f'<span style="color:#6b7280;font-size:0.85em;margin-right:4px">#{q["id"]}</span>'
                     f'{esc(q["title"])}'
                     f' <span style="color:{diff_c};font-size:0.8em">[{diff[:3]}]</span>'
