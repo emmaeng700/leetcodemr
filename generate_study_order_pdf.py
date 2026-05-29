@@ -1052,8 +1052,11 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
                 hits = page.search_for(f'#{qid}')
                 if hits:
                     r = hits[0]
-                    # Full-width clickable row for easy tapping
-                    rects[qid] = fitz.Rect(0, r.y0 - 1, page.rect.width, r.y1 + 2)
+                    # Store both: full-width row (for link) and exact text rect (for checkbox)
+                    rects[qid] = {
+                        'row': fitz.Rect(0, r.y0 - 1, page.rect.width, r.y1 + 2),
+                        'txt': r,
+                    }
             toc_link_rects[pg] = rects
         elif unique:
             page_types[pg] = 'question'
@@ -1101,25 +1104,44 @@ def _add_links_2x2(output_path: Path, page_types: dict,
     toc_sheet0 = min(toc_sheets) if toc_sheets else 1
     qid_sheet  = {qid: pg // per_sheet for qid, pg in qid_first_page.items()}
 
-    # ── TOC → question links ──────────────────────────────────────────────────
+    # ── TOC → question links + checkboxes ────────────────────────────────────
     n_links = 0
+    n_boxes = 0
     for inner_pg, rects in toc_link_rects.items():
         slot   = inner_pg % per_sheet
         out_sh = inner_pg // per_sheet
         txfm   = cell_transform(slot)
         out_pg = doc[out_sh]
-        for qid, src_rect in rects.items():
+        for qid, rect_info in rects.items():
             dest = qid_sheet.get(qid)
-            if dest is None:
-                continue
-            out_pg.insert_link({
-                'kind': fitz.LINK_GOTO,
-                'from': tx_rect(src_rect, *txfm),
-                'page': dest,
-                'to':   fitz.Point(0, 0),
-                'zoom': 0,
-            })
-            n_links += 1
+
+            # Clickable link (full row)
+            if dest is not None:
+                out_pg.insert_link({
+                    'kind': fitz.LINK_GOTO,
+                    'from': tx_rect(rect_info['row'], *txfm),
+                    'page': dest,
+                    'to':   fitz.Point(0, 0),
+                    'zoom': 0,
+                })
+                n_links += 1
+
+            # Checkbox — placed just to the LEFT of the "#qid" text
+            txt_dest = tx_rect(rect_info['txt'], *txfm)
+            cb_h   = min(txt_dest.height * 0.85, 9)   # proportional, max 9pt
+            cb_y0  = txt_dest.y0 + (txt_dest.height - cb_h) / 2
+            cb_x1  = txt_dest.x0 - 2                  # flush left of the hash
+            cb_x0  = cb_x1 - cb_h                     # square
+            cb_rect = fitz.Rect(cb_x0, cb_y0, cb_x1, cb_y0 + cb_h)
+
+            widget = fitz.Widget()
+            widget.rect        = cb_rect
+            widget.field_type  = fitz.PDF_WIDGET_TYPE_CHECKBOX
+            widget.field_name  = f'done_{qid}'
+            widget.field_value = 'Off'
+            widget.on_state    = 'Yes'
+            out_pg.add_widget(widget)
+            n_boxes += 1
 
     # ── "← Contents" button on every non-TOC sheet ───────────────────────────
     BW, BH = 90, 14
@@ -1146,7 +1168,7 @@ def _add_links_2x2(output_path: Path, page_types: dict,
     doc.save(str(tmp), garbage=4, deflate=True, incremental=False)
     doc.close()
     tmp.replace(output_path)
-    print(f'  Links added: {n_links} TOC→question  +  ← Contents on {n_sheets - len(toc_sheets)} sheets')
+    print(f'  Links: {n_links} TOC→question  |  Checkboxes: {n_boxes}  |  ← Contents: {n_sheets - len(toc_sheets)} sheets')
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
