@@ -501,15 +501,6 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
 
     is_js_pattern = (pattern_name == 'JavaScript')
 
-    if not is_js_pattern:
-        bf = gen_brute_force_python(q, pattern_name)
-        if bf and bf.strip():
-            items.append(Paragraph(
-                '<b>◼ Brute Force (Python)</b>',
-                ParagraphStyle('bfl', fontName='LG-Bold', fontSize=6,
-                               textColor=BLACK, spaceAfter=1)))
-            items += code_panel(bf)
-
     entry = sites_cache.get(slug, {})
     doocs_blocks = doocs_cache.get(str(qid), {}).get('blocks', [])
     merged = dict(entry)
