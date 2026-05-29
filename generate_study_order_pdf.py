@@ -1049,7 +1049,7 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
             # (horizontal row of IDs).  Sample up to 6 qids and check y-spread.
             sample_ys = []
             for qid in unique[:6]:
-                h = page.search_for(f'#{qid}')
+                h = page.search_for(f'#{qid} ') or page.search_for(f'#{qid}')
                 if h:
                     sample_ys.append(h[0].y0)
             y_spread = (max(sample_ys) - min(sample_ys)) if len(sample_ys) >= 2 else 0
@@ -1063,7 +1063,11 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
             page_types[pg] = 'toc'
             rects = {}
             for qid in unique:
-                hits = page.search_for(f'#{qid}')
+                # Search with trailing space first to avoid substring matches:
+                # e.g. "#11 " won't match "#1138 "; "#57 " won't match "#572 "
+                hits = page.search_for(f'#{qid} ')
+                if not hits:
+                    hits = page.search_for(f'#{qid}')   # fallback (end-of-line)
                 if hits:
                     r = hits[0]
                     # Store both: full-width row (for link) and exact text rect (for checkbox)
