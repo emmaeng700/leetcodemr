@@ -2,16 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { readFile } from 'fs/promises'
 import path from 'path'
 
-const ALLOWED = new Set([
-  'LeetMastery_By_Pattern_Python_Only_6up_Landscape.pdf',
-  'LeetMastery_By_Pattern_Python_Only_Print_6up_Landscape.pdf',
-  'LeetMastery_DSA_SystemDesign_Behavioral_Print_6up_Landscape.pdf',
-])
+const ALLOWED: Record<string, string> = {
+  'LeetMastery_Study_Order.epub':              'application/epub+zip',
+  'LeetMastery_Study_Order_2x2_Landscape.pdf': 'application/pdf',
+}
 
 export async function GET(req: NextRequest) {
   const file = req.nextUrl.searchParams.get('file') ?? ''
+  const mime = ALLOWED[file]
 
-  if (!ALLOWED.has(file)) {
+  if (!mime) {
     return new NextResponse('Not found', { status: 404 })
   }
 
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
   return new NextResponse(new Uint8Array(data), {
     headers: {
-      'Content-Type': 'application/pdf',
+      'Content-Type': mime,
       'Content-Disposition': `attachment; filename="${file}"`,
       'Content-Length': String(data.byteLength),
     },

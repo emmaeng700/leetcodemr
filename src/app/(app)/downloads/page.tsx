@@ -1,36 +1,28 @@
 'use client'
-import { Download, FileText, Printer, BookOpen, Eye } from 'lucide-react'
+import { Download, BookOpen, FileText } from 'lucide-react'
 
-const PDFS = [
+const FILES = [
   {
-    title: 'By Pattern — Colored (Python Only)',
-    description: 'All 331 questions grouped by pattern, fewest to most. Colored syntax-highlighted Python solutions from 4 community sites. 6-up landscape — fits 6 mini-pages per printed sheet.',
-    file: 'LeetMastery_By_Pattern_Python_Only_6up_Landscape.pdf',
-    size: '7.2 MB',
+    title: 'Study-Order EPUB',
+    description: '331 questions in priority study order: High Easy → High Medium → High Hard → Mid → Low. Interactive contents page with tap-to-jump links to every round and question. Syntax-highlighted Python solutions, problem images, and Quick Review summaries at the end of each chapter. Best read in Calibre (dark mode).',
+    file: 'LeetMastery_Study_Order.epub',
+    size: '4.1 MB',
     icon: BookOpen,
-    accent: 'from-indigo-500 to-violet-500',
-    badge: 'Colored',
-    badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    accent: 'from-violet-500 to-purple-600',
+    badge: 'EPUB',
+    badgeColor: 'bg-violet-50 text-violet-700 border-violet-200',
+    previewable: false,
   },
   {
-    title: 'By Pattern — Print Edition (Python Only)',
-    description: 'Same content as above — all 331 questions, Python only, pattern-ordered. Clean black-and-white layout optimised for home printing. 6-up landscape.',
-    file: 'LeetMastery_By_Pattern_Python_Only_Print_6up_Landscape.pdf',
-    size: '7.7 MB',
-    icon: Printer,
-    accent: 'from-gray-600 to-gray-800',
-    badge: 'Print / B&W',
-    badgeColor: 'bg-gray-100 text-gray-700 border-gray-300',
-  },
-  {
-    title: 'DSA + System Design + Behavioral',
-    description: 'Combined reference pack: DSA templates and patterns, System Design Q&A, and Behavioral STAR stories — all in one compact 6-up landscape PDF for quick review.',
-    file: 'LeetMastery_DSA_SystemDesign_Behavioral_Print_6up_Landscape.pdf',
-    size: '721 KB',
+    title: 'Study-Order PDF — 2×2 Landscape',
+    description: '331 questions in the same 9-round priority order. Printed 4 mini-pages per sheet in landscape layout — bigger cells for easier reading. Includes problem descriptions, community Python solutions, and Quick Review summaries per round.',
+    file: 'LeetMastery_Study_Order_2x2_Landscape.pdf',
+    size: '8.2 MB',
     icon: FileText,
-    accent: 'from-emerald-500 to-teal-500',
-    badge: 'Combined',
-    badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    accent: 'from-indigo-500 to-blue-600',
+    badge: 'PDF · 2×2',
+    badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    previewable: true,
   },
 ]
 
@@ -43,21 +35,20 @@ export default function DownloadsPage() {
           Downloads
         </h1>
         <p className="text-sm text-[var(--text-subtle)]">
-          Study PDFs — 6-up landscape, print-ready.
+          Study materials — priority-ordered, 331 questions, 9 rounds.
         </p>
       </div>
 
       <div className="space-y-4">
-        {PDFS.map(({ title, description, file, size, icon: Icon, accent, badge, badgeColor }) => (
+        {FILES.map(({ title, description, file, size, icon: Icon, accent, badge, badgeColor, previewable }) => (
           <div
             key={file}
             className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] shadow-sm overflow-hidden"
           >
-            {/* Accent bar */}
             <div className={`h-1 bg-gradient-to-r ${accent}`} />
 
             <div className="p-5">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                     <div className={`bg-gradient-to-br ${accent} w-7 h-7 rounded-lg flex items-center justify-center shrink-0`}>
@@ -74,16 +65,19 @@ export default function DownloadsPage() {
               </div>
 
               <div className="mt-4 flex gap-2">
-                <a
-                  href={`/pdfs/${file}`}
-                  className="flex items-center justify-center gap-2 flex-1 py-2.5 rounded-xl text-sm font-semibold border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-muted)] active:scale-[0.98] transition-all"
-                >
-                  <Eye size={14} />
-                  Preview
-                </a>
+                {previewable && (
+                  <a
+                    href={`/pdfs/${file}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 flex-1 py-2.5 rounded-xl text-sm font-semibold border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-muted)] active:scale-[0.98] transition-all"
+                  >
+                    Preview
+                  </a>
+                )}
                 <a
                   href={`/api/download-pdf?file=${encodeURIComponent(file)}`}
-                  className={`flex items-center justify-center gap-2 flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${accent} shadow-sm hover:opacity-90 active:scale-[0.98] transition-all`}
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${accent} shadow-sm hover:opacity-90 active:scale-[0.98] transition-all ${previewable ? 'flex-1' : 'w-full'}`}
                 >
                   <Download size={14} />
                   Download
