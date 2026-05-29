@@ -1045,7 +1045,21 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
         unique = list(dict.fromkeys(found))   # dedupe, preserve order
 
         if len(unique) >= 5:
-            # TOC page — many distinct question IDs
+            # Distinguish real TOC pages (vertical list) from chapter splash pages
+            # (horizontal row of IDs).  Sample up to 6 qids and check y-spread.
+            sample_ys = []
+            for qid in unique[:6]:
+                h = page.search_for(f'#{qid}')
+                if h:
+                    sample_ys.append(h[0].y0)
+            y_spread = (max(sample_ys) - min(sample_ys)) if len(sample_ys) >= 2 else 0
+
+            if y_spread < 12:
+                # Chapter splash page — all IDs on the same horizontal line
+                page_types[pg] = 'chapter'
+                continue
+
+            # Real TOC page — vertical list of questions
             page_types[pg] = 'toc'
             rects = {}
             for qid in unique:
@@ -1128,7 +1142,7 @@ def _add_links_2x2(output_path: Path, page_types: dict,
 
             # Checkbox — drawn square + AcroForm widget on top
             txt_dest = tx_rect(rect_info['txt'], *txfm)
-            cb_h   = 9.0                               # 9pt square
+            cb_h   = 7.0                               # 7pt fits inside 8.5pt line spacing
             cb_y0  = txt_dest.y0 + (txt_dest.height - cb_h) / 2
             cb_x1  = txt_dest.x0 - 3                  # just left of the '#'
             cb_x0  = cb_x1 - cb_h
