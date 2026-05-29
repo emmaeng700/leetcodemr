@@ -1126,14 +1126,21 @@ def _add_links_2x2(output_path: Path, page_types: dict,
                 })
                 n_links += 1
 
-            # Checkbox — placed just to the LEFT of the "#qid" text
+            # Checkbox — drawn square + AcroForm widget on top
             txt_dest = tx_rect(rect_info['txt'], *txfm)
-            cb_h   = 10.0                              # fixed 10pt — clearly visible
+            cb_h   = 9.0                               # 9pt square
             cb_y0  = txt_dest.y0 + (txt_dest.height - cb_h) / 2
-            cb_x1  = txt_dest.x0 - 2                  # flush left of the hash
-            cb_x0  = cb_x1 - cb_h                     # square
+            cb_x1  = txt_dest.x0 - 3                  # just left of the '#'
+            cb_x0  = cb_x1 - cb_h
             cb_rect = fitz.Rect(cb_x0, cb_y0, cb_x1, cb_y0 + cb_h)
 
+            # Draw a visible empty square so it shows regardless of viewer mode
+            out_pg.draw_rect(cb_rect,
+                             color=(0.2, 0.2, 0.2),   # dark border
+                             fill=(1.0, 1.0, 1.0),    # white fill
+                             width=0.8, overlay=True)
+
+            # AcroForm widget on top — provides interactive check state
             widget = fitz.Widget()
             widget.rect        = cb_rect
             widget.field_type  = fitz.PDF_WIDGET_TYPE_CHECKBOX
