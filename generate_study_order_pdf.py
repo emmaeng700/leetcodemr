@@ -1020,6 +1020,135 @@ def impose_4x4_landscape(src_path: Path, dst_path: Path):
     print(f'4×4 landscape: {n} mini-pages → {num_sheets} sheets → {dst_path.name}')
 
 
+# ─── 2×2 link enrichment ─────────────────────────────────────────────────────
+
+def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
+    """
+    Scan the inner PDF and return:
+      page_types       {inner_pg → 'toc'|'question'|'other'}
+      qid_first_page   {qid → inner_pg of first occurrence}
+      toc_link_rects   {inner_pg → {qid → fitz.Rect}}  (full-width row rect per entry)
+    """
+    import re
+    doc     = fitz.open(str(inner_pdf_path))
+    all_ids = {q['id'] for _, _, _, pgs in rounds for _, qs in pgs for q in qs}
+    pat     = re.compile(r'#(\d+)')
+
+    page_types     = {}
+    qid_first_page = {}
+    toc_link_rects = {}
+
+    for pg in range(len(doc)):
+        page   = doc[pg]
+        text   = page.get_text()
+        found  = [int(m.group(1)) for m in pat.finditer(text) if int(m.group(1)) in all_ids]
+        unique = list(dict.fromkeys(found))   # dedupe, preserve order
+
+        if len(unique) >= 5:
+            # TOC page — many distinct question IDs
+            page_types[pg] = 'toc'
+            rects = {}
+            for qid in unique:
+                hits = page.search_for(f'#{qid}')
+                if hits:
+                    r = hits[0]
+                    # Full-width clickable row for easy tapping
+                    rects[qid] = fitz.Rect(0, r.y0 - 1, page.rect.width, r.y1 + 2)
+            toc_link_rects[pg] = rects
+        elif unique:
+            page_types[pg] = 'question'
+            for qid in unique:
+                if qid not in qid_first_page:
+                    qid_first_page[qid] = pg
+        else:
+            page_types[pg] = 'other'
+
+    doc.close()
+    return page_types, qid_first_page, toc_link_rects
+
+
+def _add_links_2x2(output_path: Path, page_types: dict,
+                   qid_first_page: dict, toc_link_rects: dict,
+                   per_sheet: int = 4, cols: int = 2,
+                   src_w: float = 204.0, src_h: float = 264.0,
+                   L_W: float = 792.0, L_H: float = 612.0, GAP: float = 3.0):
+    """
+    Post-process the imposed 2×2 PDF:
+      • Add clickable link on every TOC question entry → jumps to that question's sheet
+      • Add '← Contents' button in top-right corner of every non-TOC sheet
+    """
+    CW   = L_W / cols
+    RH   = L_H / (per_sheet // cols)
+
+    def cell_transform(slot):
+        col = slot % cols
+        row = slot // cols
+        cx0, cy0 = col * CW + GAP, row * RH + GAP
+        cw,  ch  = CW - 2 * GAP, RH - 2 * GAP
+        sc = min(cw / src_w, ch / src_h)
+        ox = (cw - src_w * sc) / 2
+        oy = (ch - src_h * sc) / 2
+        return cx0, cy0, ox, oy, sc
+
+    def tx_rect(r, cx0, cy0, ox, oy, sc):
+        return fitz.Rect(cx0 + ox + r.x0 * sc, cy0 + oy + r.y0 * sc,
+                         cx0 + ox + r.x1 * sc, cy0 + oy + r.y1 * sc)
+
+    doc = fitz.open(str(output_path))
+
+    toc_inner  = [pg for pg, t in page_types.items() if t == 'toc']
+    toc_sheets = set(pg // per_sheet for pg in toc_inner)
+    toc_sheet0 = min(toc_sheets) if toc_sheets else 1
+    qid_sheet  = {qid: pg // per_sheet for qid, pg in qid_first_page.items()}
+
+    # ── TOC → question links ──────────────────────────────────────────────────
+    n_links = 0
+    for inner_pg, rects in toc_link_rects.items():
+        slot   = inner_pg % per_sheet
+        out_sh = inner_pg // per_sheet
+        txfm   = cell_transform(slot)
+        out_pg = doc[out_sh]
+        for qid, src_rect in rects.items():
+            dest = qid_sheet.get(qid)
+            if dest is None:
+                continue
+            out_pg.insert_link({
+                'kind': fitz.LINK_GOTO,
+                'from': tx_rect(src_rect, *txfm),
+                'page': dest,
+                'to':   fitz.Point(0, 0),
+                'zoom': 0,
+            })
+            n_links += 1
+
+    # ── "← Contents" button on every non-TOC sheet ───────────────────────────
+    BW, BH = 90, 14
+    btn = fitz.Rect(L_W - BW - 6, 4, L_W - 6, 4 + BH)
+    n_sheets = len(doc)
+    for sh in range(n_sheets):
+        if sh in toc_sheets:
+            continue
+        pg = doc[sh]
+        pg.draw_rect(btn, color=(0.31, 0.38, 0.94), fill=(0.12, 0.11, 0.29), width=0.5)
+        pg.insert_text(fitz.Point(btn.x0 + 6, btn.y0 + 9),
+                       '← Contents', fontsize=7,
+                       color=(0.82, 0.82, 1.0), fontname='helv')
+        pg.insert_link({
+            'kind': fitz.LINK_GOTO,
+            'from': btn,
+            'page': toc_sheet0,
+            'to':   fitz.Point(0, 0),
+            'zoom': 0,
+        })
+
+    # Save to temp then replace (avoids in-place write conflicts)
+    tmp = output_path.with_suffix('.tmp.pdf')
+    doc.save(str(tmp), garbage=4, deflate=True, incremental=False)
+    doc.close()
+    tmp.replace(output_path)
+    print(f'  Links added: {n_links} TOC→question  +  ← Contents on {n_sheets - len(toc_sheets)} sheets')
+
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
     print('Loading data…')
@@ -1039,8 +1168,12 @@ if __name__ == '__main__':
     n_pages = build_inner_pdf(rounds, sites, doocs)
 
     if GRID_2X2:
+        print('Analyzing inner PDF for link structure…')
+        page_types, qid_first_page, toc_link_rects = _analyze_inner_for_links(INNER_PDF, rounds)
         print('Imposing 2×2 landscape (4-up)…')
         impose_2x2_landscape(INNER_PDF, OUTPUT_PDF)
+        print('Adding hyperlinks…')
+        _add_links_2x2(OUTPUT_PDF, page_types, qid_first_page, toc_link_rects)
     elif GRID_4X4:
         print('Imposing 4×4 landscape (16-up)…')
         impose_4x4_landscape(INNER_PDF, OUTPUT_PDF)
