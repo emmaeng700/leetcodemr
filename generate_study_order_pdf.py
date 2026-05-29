@@ -1061,9 +1061,11 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
                     hits = page.search_for(f'#{qid}')   # fallback (end-of-line)
                 if hits:
                     r = hits[0]
-                    # Store both: full-width row (for link) and exact text rect (for checkbox)
+                    # Link starts at the '#' character (not x=0) so the checkbox
+                    # area to its left is never covered by the link annotation.
+                    # This prevents the link from intercepting checkbox taps on mobile.
                     rects[qid] = {
-                        'row': fitz.Rect(0, r.y0 - 1, page.rect.width, r.y1 + 2),
+                        'row': fitz.Rect(r.x0, r.y0 - 1, page.rect.width, r.y1 + 2),
                         'txt': r,
                     }
             toc_link_rects[pg] = rects
