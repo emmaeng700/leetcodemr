@@ -1128,7 +1128,7 @@ def _add_links_2x2(output_path: Path, page_types: dict,
 
             # Checkbox — placed just to the LEFT of the "#qid" text
             txt_dest = tx_rect(rect_info['txt'], *txfm)
-            cb_h   = min(txt_dest.height * 0.85, 9)   # proportional, max 9pt
+            cb_h   = 10.0                              # fixed 10pt — clearly visible
             cb_y0  = txt_dest.y0 + (txt_dest.height - cb_h) / 2
             cb_x1  = txt_dest.x0 - 2                  # flush left of the hash
             cb_x0  = cb_x1 - cb_h                     # square
