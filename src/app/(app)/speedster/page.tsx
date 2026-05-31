@@ -249,6 +249,23 @@ export default function SpeedsterPage() {
   const solvedCount    = planOrder.filter(id => (runs[String(id)] ?? 0) >= repsTarget).length
   const filteredVisited = filteredOrder.filter(id => visited.has(id)).length
 
+  // ── Persist dayIdx across navigation ─────────────────────────────────────────
+  // Save whenever the user changes day
+  useEffect(() => {
+    try { sessionStorage.setItem('lm_speedster_day', String(dayIdx)) } catch {}
+  }, [dayIdx])
+
+  // Restore after plan data loads — clamp to valid range
+  useEffect(() => {
+    if (planOrder.length === 0) return
+    const saved = parseInt(sessionStorage.getItem('lm_speedster_day') ?? '0', 10)
+    const maxDay = Math.ceil(planOrder.length / perDay) - 1
+    if (Number.isFinite(saved) && saved > 0 && saved <= maxDay) {
+      setDayIdx(saved)
+    }
+  }, [planOrder.length, perDay])
+  // ─────────────────────────────────────────────────────────────────────────────
+
   // Reset to first card when filters change
   useEffect(() => { setCardIdx(0); setFlipped(false) }, [filterDiff, filterSolved, filterSource, filterPattern])
   // Collapse expanded description when card changes
