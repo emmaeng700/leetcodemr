@@ -570,10 +570,10 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
 
 # ─── Chapter Quick-Review summary ────────────────────────────────────────────
 def build_round_summary(round_num: int, priority: str, difficulty: str,
-                         pattern_groups: list) -> list:
+                         pattern_groups: list, chapter2: bool = False) -> list:
     """
-    Quick-review mini-pages at end of each round chapter.
-    Shows key insights · complexity · solution for every question.
+    Quick-review mini-pages.
+    chapter2=True: used inside Chapter 2 master summary (adds round sub-header).
     """
     all_qs = [(pat, q) for pat, qs in pattern_groups for q in qs]
     if not all_qs:
@@ -581,6 +581,24 @@ def build_round_summary(round_num: int, priority: str, difficulty: str,
 
     pri_c = PRIORITY_COLORS[priority]
     items = [PageBreak()]
+
+    # Chapter 2: add a priority/difficulty sub-header before each round block
+    if chapter2:
+        diff_dot = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}.get(difficulty, '')
+        sub_banner = Table([[Paragraph(
+            f'<b>R{round_num}  ·  {priority} · {diff_dot} {difficulty}  '
+            f'({len(all_qs)} q)</b>',
+            ParagraphStyle('ch2rb', fontName='LG-Bold', fontSize=7,
+                           textColor=BLACK, alignment=TA_CENTER),
+        )]], colWidths=[USE_W])
+        sub_banner.setStyle(TableStyle([
+            ('BACKGROUND',    (0,0), (-1,-1), pri_c['pill_bg']),
+            ('TOPPADDING',    (0,0), (-1,-1), 3),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+            ('BOX',           (0,0), (-1,-1), 0.8, pri_c['bar']),
+        ]))
+        items.append(sub_banner)
+        items.append(Spacer(1, 3))
 
     # Chapter summary banner
     diff_dot_ch = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}.get(difficulty, '')
@@ -788,6 +806,40 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
 
         # End-of-chapter Quick Review summary
         story += build_round_summary(round_num, priority, difficulty, pattern_groups)
+
+    # ── Chapter 2: Master Quick-Review collection (all rounds together) ───────
+    story.append(PageBreak())
+
+    # Chapter 2 splash page
+    story.append(Spacer(1, USE_H * 0.1))
+    ch2_banner = Table([[Paragraph(
+        '<b>Chapter 2</b>',
+        ParagraphStyle('ch2n', fontName='LG-Bold', fontSize=14,
+                       textColor=BLACK, alignment=TA_CENTER),
+    )]], colWidths=[USE_W])
+    ch2_banner.setStyle(TableStyle([
+        ('BACKGROUND',    (0,0), (-1,-1), HexColor('#EFF6FF')),
+        ('TOPPADDING',    (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+        ('BOX',           (0,0), (-1,-1), 1.0, HexColor('#3B82F6')),
+    ]))
+    story.append(ch2_banner)
+    story.append(Spacer(1, 5))
+    story.append(Paragraph(
+        '<b>Master Quick-Review Summary</b>',
+        ParagraphStyle('ch2t', fontName='LG-Bold', fontSize=10,
+                       textColor=BLACK, alignment=TA_CENTER, leading=13)))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph(
+        'All 9 rounds · key insights · complexity · solution · organised by priority &amp; difficulty',
+        ParagraphStyle('ch2s', fontName='LG-Bold', fontSize=6,
+                       textColor=BLACK, alignment=TA_CENTER)))
+    story.append(PageBreak())
+
+    # One summary section per round
+    for round_num, priority, difficulty, pattern_groups in rounds:
+        story += build_round_summary(round_num, priority, difficulty, pattern_groups,
+                                     chapter2=True)
 
     doc.build(story, onFirstPage=counter.on_page, onLaterPages=counter.on_page)
     print(f'Inner PDF: {counter.n} mini-pages → {INNER_PDF.name}')
