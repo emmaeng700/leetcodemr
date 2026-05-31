@@ -738,13 +738,30 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
         'brand', fontName='LG-Bold', fontSize=8, textColor=BLACK, alignment=TA_CENTER)))
     story.append(Spacer(1, 4))
     story.append(Paragraph('Study-Order Edition', S['cover_title']))
-    story.append(Paragraph('Python Only  ·  Priority-Grouped  ·  Difficulty-First  ·  36-up Portrait  ·  6×6', ParagraphStyle(
+
+    # Subtitle line changes per format
+    if GRID_2X1:
+        subtitle = 'Python Only  ·  Priority-Grouped  ·  Difficulty-First  ·  2×1 Landscape'
+        detail   = f'{total_qs} questions  ·  9 rounds  ·  Inline Quick Review  ·  Chapter 2 Summary'
+    elif GRID_2X2:
+        subtitle = 'Python Only  ·  Priority-Grouped  ·  Difficulty-First  ·  2×2 Landscape'
+        detail   = f'{total_qs} questions  ·  9 rounds  ·  Inline Quick Review  ·  Chapter 2 Summary'
+    elif GRID_4X4:
+        subtitle = 'Python Only  ·  Priority-Grouped  ·  Difficulty-First  ·  4×4 Landscape'
+        detail   = f'{total_qs} questions  ·  9 rounds  ·  4×4 Landscape'
+    elif LANDSCAPE:
+        subtitle = 'Python Only  ·  Priority-Grouped  ·  Difficulty-First  ·  36-up Landscape  ·  6×6'
+        detail   = f'{total_qs} questions  ·  9 rounds  ·  36-up landscape (6×6)'
+    else:
+        subtitle = 'Python Only  ·  Priority-Grouped  ·  Difficulty-First  ·  36-up Portrait  ·  6×6'
+        detail   = f'{total_qs} questions  ·  9 rounds  ·  36-up portrait (6×6)'
+
+    story.append(Paragraph(subtitle, ParagraphStyle(
         'sub2', fontName='LG-Bold', fontSize=8, textColor=BLACK, alignment=TA_CENTER, leading=11)))
     story.append(Spacer(1, 8))
     story.append(hr())
     story.append(Spacer(1, 5))
-    story.append(Paragraph(
-        f'{total_qs} questions  ·  9 rounds  ·  bold black  ·  36-up portrait (6×6)',
+    story.append(Paragraph(detail,
         ParagraphStyle('ci', fontName='LG-Bold', fontSize=6, textColor=BLACK, alignment=TA_CENTER)))
     story.append(Paragraph(
         'High Easy → High Med → High Hard → Mid Easy → Mid Med → Mid Hard → Low Easy → Low Med → Low Hard',
