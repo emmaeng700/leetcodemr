@@ -143,9 +143,12 @@ CREATE TABLE IF NOT EXISTS user_settings (
   user_id TEXT NOT NULL DEFAULT 'emmanuel',
   lc_session TEXT DEFAULT '',
   lc_csrf TEXT DEFAULT '',
+  revision_cap INTEGER DEFAULT 3,
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id)
 );
+-- Migration: add revision_cap if it doesn't exist yet
+ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS revision_cap INTEGER DEFAULT 3;
 
 -- FC daily log (flashcards viewed per day)
 CREATE TABLE IF NOT EXISTS fc_daily_log (

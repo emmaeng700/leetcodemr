@@ -15,6 +15,11 @@ function isMissingTableError(message: string | undefined | null): boolean {
   )
 }
 
+function isMissingColumnError(message: string | undefined | null): boolean {
+  const m = (message ?? '').toLowerCase()
+  return m.includes('column') && m.includes('does not exist')
+}
+
 function isFetchTransportError(message: string | undefined | null): boolean {
   const m = (message ?? '').toLowerCase()
   return m.includes('failed to fetch') || m.includes('fetch failed') || m.includes('networkerror')
@@ -1080,15 +1085,14 @@ export interface UserProfile {
 }
 
 export async function getUserProfile(): Promise<UserProfile | null> {
-  // Only select columns that are confirmed to exist in user_settings.
-  // revision_cap is the sole confirmed column; everything else is defaulted.
   const { data, error } = await supabase
     .from('user_settings')
     .select('revision_cap')
     .eq('user_id', USER_ID)
     .maybeSingle()
   if (error) {
-    if (isMissingTableError(error.message)) return null
+    // Column not yet migrated or table missing — return null (caller uses defaults)
+    if (isMissingTableError(error.message) || isMissingColumnError(error.message)) return null
     console.error('[db] getUserProfile:', error.message)
     return null
   }
@@ -1116,7 +1120,7 @@ export async function saveUserProfile(profile: UserProfile): Promise<boolean> {
     .from('user_settings')
     .upsert(payload, { onConflict: 'user_id' })
   if (error) {
-    if (isMissingTableError(error.message)) return false
+    if (isMissingTableError(error.message) || isMissingColumnError(error.message)) return false
     console.error('[db] saveUserProfile:', error.message)
     return false
   }
