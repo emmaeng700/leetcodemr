@@ -31,6 +31,7 @@ from pathlib import Path
 LANDSCAPE  = '--landscape' in sys.argv
 GRID_4X4   = '--4x4'      in sys.argv
 GRID_2X2   = '--2x2'      in sys.argv
+GRID_2X1   = '--2x1'      in sys.argv
 
 # ─── Font registration ────────────────────────────────────────────────────────
 from reportlab.pdfbase import pdfmetrics
@@ -76,7 +77,8 @@ SITES_CACHE = SCRIPT_DIR / ".full_langs_cache.json"
 DOOCS_CACHE = SCRIPT_DIR / ".doocs_cache.json"
 INNER_PDF   = SCRIPT_DIR / "_study_order_inner.pdf"
 OUTPUT_PDF  = SCRIPT_DIR / (
-    "LeetMastery_Study_Order_2x2_Landscape.pdf"  if GRID_2X2
+    "LeetMastery_Study_Order_2x1_Landscape.pdf"  if GRID_2X1
+    else "LeetMastery_Study_Order_2x2_Landscape.pdf"  if GRID_2X2
     else "LeetMastery_Study_Order_4x4_Landscape.pdf"  if GRID_4X4
     else "LeetMastery_Study_Order_36up_Landscape.pdf" if LANDSCAPE
     else "LeetMastery_Study_Order_36up_Portrait.pdf"
@@ -1063,6 +1065,154 @@ def impose_4x4_landscape(src_path: Path, dst_path: Path):
     print(f'4×4 landscape: {n} mini-pages → {num_sheets} sheets → {dst_path.name}')
 
 
+# ─── 2×1 landscape imposer (2 per sheet on 792×612) ─────────────────────────
+def impose_2x1_landscape(src_path: Path, dst_path: Path):
+    """2 columns × 1 row — each mini-page scales up ~1.9x for maximum readability."""
+    src = fitz.open(str(src_path))
+    dst = fitz.open()
+    n   = len(src)
+
+    L_W, L_H  = 792.0, 612.0
+    COLS, ROWS = 2, 1
+    PER_SHEET  = COLS * ROWS    # 2
+    CW = L_W / COLS             # 396 pts
+    RH = L_H / ROWS             # 612 pts
+    GAP = 3.0
+
+    for i in range(0, n, PER_SHEET):
+        sheet = dst.new_page(width=L_W, height=L_H)
+        for j in range(min(PER_SHEET, n - i)):
+            col  = j % COLS
+            row  = j // COLS
+            rect = fitz.Rect(
+                col * CW + GAP, row * RH + GAP,
+                (col + 1) * CW - GAP, (row + 1) * RH - GAP,
+            )
+            sheet.show_pdf_page(rect, src, i + j)
+
+        # Centre divider line only
+        shape = sheet.new_shape()
+        shape.draw_line(fitz.Point(CW, 0), fitz.Point(CW, L_H))
+        shape.finish(color=(0.6, 0.6, 0.6), width=0.6)
+        shape.commit()
+
+    num_sheets = len(dst)
+    for pg_idx in range(num_sheets):
+        dst[pg_idx].insert_text(
+            fitz.Point(L_W / 2 - 90, L_H - 3),
+            f'Sheet {pg_idx + 1}/{num_sheets}  ·  LeetMastery Study-Order  ·  2×1 Landscape',
+            fontsize=5, color=(0.5, 0.5, 0.5),
+        )
+
+    dst.save(str(dst_path), garbage=4, deflate=True)
+    src.close(); dst.close()
+    print(f'2×1 landscape: {n} mini-pages → {num_sheets} sheets → {dst_path.name}')
+
+
+# ─── 2×1 precise link enrichment ─────────────────────────────────────────────
+def _add_links_2x1(output_path: Path, page_types: dict,
+                   qid_first_page: dict, toc_link_rects: dict,
+                   per_sheet: int = 2, cols: int = 2,
+                   src_w: float = 204.0, src_h: float = 264.0,
+                   L_W: float = 792.0, L_H: float = 612.0, GAP: float = 3.0):
+    """
+    Post-process 2×1 PDF:
+      • TOC entry → question, linking to the EXACT column position on the sheet
+        so the view lands directly on the question with no panning required
+      • Draw visible checkbox squares on TOC entries
+      • '← Contents' button on every non-TOC sheet
+    """
+    CW = L_W / cols   # 396
+    RH = L_H          # 612 (single row)
+
+    def cell_transform(slot):
+        col = slot % cols
+        cx0, cy0 = col * CW + GAP, GAP
+        cw,  ch  = CW - 2 * GAP, RH - 2 * GAP
+        sc = min(cw / src_w, ch / src_h)
+        ox = (cw - src_w * sc) / 2
+        oy = (ch - src_h * sc) / 2
+        return cx0, cy0, ox, oy, sc
+
+    def tx_rect(r, cx0, cy0, ox, oy, sc):
+        return fitz.Rect(cx0 + ox + r.x0 * sc, cy0 + oy + r.y0 * sc,
+                         cx0 + ox + r.x1 * sc, cy0 + oy + r.y1 * sc)
+
+    doc = fitz.open(str(output_path))
+
+    toc_inner  = [pg for pg, t in page_types.items() if t == 'toc']
+    toc_sheets = set(pg // per_sheet for pg in toc_inner)
+    toc_sheet0 = min(toc_sheets) if toc_sheets else 1
+    qid_sheet  = {qid: pg // per_sheet for qid, pg in qid_first_page.items()}
+    # Which slot (column) does each question's inner page land in?
+    qid_slot   = {qid: pg % per_sheet for qid, pg in qid_first_page.items()}
+
+    n_links = 0
+    n_boxes = 0
+    for inner_pg, rects in toc_link_rects.items():
+        slot   = inner_pg % per_sheet
+        out_sh = inner_pg // per_sheet
+        txfm   = cell_transform(slot)
+        out_pg = doc[out_sh]
+
+        for qid, rect_info in rects.items():
+            dest       = qid_sheet.get(qid)
+            dest_slot  = qid_slot.get(qid, 0)
+
+            # Link — starts at '#' text, NOT x=0, so checkbox area is free
+            if dest is not None:
+                # Precise x destination: left edge of the question's column
+                dest_x = dest_slot * CW   # 0 for left column, 396 for right
+                out_pg.insert_link({
+                    'kind': fitz.LINK_GOTO,
+                    'from': tx_rect(rect_info['row'], *txfm),
+                    'page': dest,
+                    'to':   fitz.Point(dest_x, 0),  # land exactly on question column
+                    'zoom': 0,
+                })
+                n_links += 1
+
+            # Checkbox square
+            txt_dest = tx_rect(rect_info['txt'], *txfm)
+            cb_h   = 9.0
+            cb_y0  = txt_dest.y0 + (txt_dest.height - cb_h) / 2
+            cb_x1  = txt_dest.x0 - 3
+            cb_x0  = cb_x1 - cb_h
+            cb_rect = fitz.Rect(cb_x0, cb_y0, cb_x1, cb_y0 + cb_h)
+            out_pg.draw_rect(cb_rect, color=(0.2, 0.2, 0.2),
+                             fill=(1.0, 1.0, 1.0), width=0.8, overlay=True)
+            widget = fitz.Widget()
+            widget.rect        = cb_rect
+            widget.field_type  = fitz.PDF_WIDGET_TYPE_CHECKBOX
+            widget.field_name  = f'done_{qid}'
+            widget.field_value = 'Off'
+            widget.on_state    = 'Yes'
+            out_pg.add_widget(widget)
+            n_boxes += 1
+
+    # ← Contents button — top-right of each non-TOC sheet
+    BW, BH = 90, 14
+    btn = fitz.Rect(L_W - BW - 6, 4, L_W - 6, 4 + BH)
+    n_sheets = len(doc)
+    for sh in range(n_sheets):
+        if sh in toc_sheets:
+            continue
+        pg = doc[sh]
+        pg.draw_rect(btn, color=(0.31, 0.38, 0.94), fill=(0.12, 0.11, 0.29), width=0.5)
+        pg.insert_text(fitz.Point(btn.x0 + 6, btn.y0 + 9),
+                       '← Contents', fontsize=7,
+                       color=(0.82, 0.82, 1.0), fontname='helv')
+        pg.insert_link({'kind': fitz.LINK_GOTO, 'from': btn,
+                        'page': toc_sheet0, 'to': fitz.Point(0, 0), 'zoom': 0})
+
+    tmp = output_path.with_suffix('.tmp.pdf')
+    doc.save(str(tmp), garbage=4, deflate=True, incremental=False)
+    doc.close()
+    tmp.replace(output_path)
+    print(f'  Links: {n_links} (precise col-dest)  |  Checkboxes: {n_boxes}  '
+          f'|  ← Contents: {n_sheets - len(toc_sheets)} sheets')
+
+
 # ─── 2×2 link enrichment ─────────────────────────────────────────────────────
 
 def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
@@ -1259,7 +1409,14 @@ if __name__ == '__main__':
     print('\nBuilding inner mini-page PDF…')
     n_pages = build_inner_pdf(rounds, sites, doocs)
 
-    if GRID_2X2:
+    if GRID_2X1:
+        print('Analyzing inner PDF for link structure…')
+        page_types, qid_first_page, toc_link_rects = _analyze_inner_for_links(INNER_PDF, rounds)
+        print('Imposing 2×1 landscape (2-up)…')
+        impose_2x1_landscape(INNER_PDF, OUTPUT_PDF)
+        print('Adding precise hyperlinks…')
+        _add_links_2x1(OUTPUT_PDF, page_types, qid_first_page, toc_link_rects)
+    elif GRID_2X2:
         print('Analyzing inner PDF for link structure…')
         page_types, qid_first_page, toc_link_rects = _analyze_inner_for_links(INNER_PDF, rounds)
         print('Imposing 2×2 landscape (4-up)…')
