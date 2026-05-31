@@ -66,8 +66,13 @@ export default function SpeedsterPage() {
   const [repsTarget, setRepsTarget] = useState(3)
   const [loading,   setLoading]  = useState(true)
 
-  // Day card state
-  const [dayIdx,  setDayIdx]  = useState(0)
+  // Day card state — initialised from sessionStorage so back-nav restores the correct day
+  const [dayIdx,  setDayIdx]  = useState(() => {
+    try {
+      const saved = parseInt(sessionStorage.getItem('lm_speedster_day') ?? '0', 10)
+      return Number.isFinite(saved) && saved >= 0 ? saved : 0
+    } catch { return 0 }
+  })
   const [planStartISO, setPlanStartISO] = useState<string>('')
 
   // Upcoming reviews (SR) strip state
@@ -250,20 +255,10 @@ export default function SpeedsterPage() {
   const filteredVisited = filteredOrder.filter(id => visited.has(id)).length
 
   // ── Persist dayIdx across navigation ─────────────────────────────────────────
-  // Save whenever the user changes day
+  // Save on every change — lazy useState init (above) reads it back on remount
   useEffect(() => {
     try { sessionStorage.setItem('lm_speedster_day', String(dayIdx)) } catch {}
   }, [dayIdx])
-
-  // Restore after plan data loads — clamp to valid range
-  useEffect(() => {
-    if (planOrder.length === 0) return
-    const saved = parseInt(sessionStorage.getItem('lm_speedster_day') ?? '0', 10)
-    const maxDay = Math.ceil(planOrder.length / perDay) - 1
-    if (Number.isFinite(saved) && saved > 0 && saved <= maxDay) {
-      setDayIdx(saved)
-    }
-  }, [planOrder.length, perDay])
   // ─────────────────────────────────────────────────────────────────────────────
 
   // Reset to first card when filters change
