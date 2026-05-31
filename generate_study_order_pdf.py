@@ -355,22 +355,112 @@ def desc_to_mini_flowables(desc_html: str) -> list:
 # 4×4: 8pt font wraps more characters per line, so fewer lines per chunk
 _CODE_CHUNK = 2 if GRID_4X4 else 10
 
-def code_panel(code: str) -> list:
+# ── Pygments monokai palette for PDF ─────────────────────────────────────────
+from pygments import lex as _pgx_lex
+from pygments.token import Token as _T
+from pygments.lexers import PythonLexer as _PyLex, JavascriptLexer as _JsLex, TypeScriptLexer as _TsLex
+
+_BG_CODE   = HexColor('#272822')   # monokai dark background
+_DIM_BORDER = HexColor('#3d3d3d')
+_CODE_CLR_DEFAULT = '#F8F8F2'      # off-white default text
+
+_MONOKAI: dict = {
+    _T.Keyword:                    '#F92672',
+    _T.Keyword.Declaration:        '#F92672',
+    _T.Keyword.Namespace:          '#F92672',
+    _T.Keyword.Pseudo:             '#66D9EF',
+    _T.Name.Function:              '#A6E22E',
+    _T.Name.Function.Magic:        '#A6E22E',
+    _T.Name.Class:                 '#A6E22E',
+    _T.Name.Decorator:             '#A6E22E',
+    _T.Name.Builtin:               '#66D9EF',
+    _T.Name.Builtin.Pseudo:        '#AE81FF',
+    _T.Name.Exception:             '#A6E22E',
+    _T.Literal.String:             '#E6DB74',
+    _T.Literal.String.Doc:         '#75715E',
+    _T.Literal.String.Interpol:    '#E6DB74',
+    _T.Literal.String.Escape:      '#AE81FF',
+    _T.Comment:                    '#75715E',
+    _T.Literal.Number:             '#AE81FF',
+    _T.Operator:                   '#F92672',
+    _T.Operator.Word:              '#F92672',
+    _T.Punctuation:                '#F8F8F2',
+}
+
+def _tok_color(ttype) -> str:
+    while ttype:
+        if ttype in _MONOKAI:
+            return _MONOKAI[ttype]
+        ttype = ttype.parent
+    return _CODE_CLR_DEFAULT
+
+def _tok_to_lines(code: str, lang: str = 'python'):
+    """Tokenize code → list of lines, each line = list of (text, color) pairs."""
+    try:
+        lg = lang.lower()
+        if lg in ('javascript', 'js'):   lexer = _JsLex(stripnl=False)
+        elif lg in ('typescript', 'ts'): lexer = _TsLex(stripnl=False)
+        else:                            lexer = _PyLex(stripnl=False)
+        raw_tokens = list(_pgx_lex(code, lexer))
+    except Exception:
+        # Fallback: single colour
+        return [[(ln, _CODE_CLR_DEFAULT)] for ln in code.split('\n')]
+
+    lines, cur = [], []
+    for ttype, value in raw_tokens:
+        for i, part in enumerate(value.split('\n')):
+            if i:
+                lines.append(cur)
+                cur = []
+            if part:
+                cur.append((part, _tok_color(ttype)))
+    if cur:
+        lines.append(cur)
+    return lines
+
+def _line_to_xml(tokens: list) -> str:
+    """Convert (text, color) token list → ReportLab Paragraph XML for one line."""
+    if not tokens:
+        return '&nbsp;'
+    out = ''
+    for text, color in tokens:
+        # Preserve leading spaces as &nbsp; so Paragraph doesn't collapse them
+        n = len(text) - len(text.lstrip(' '))
+        body = '&nbsp;' * n + safe_xml(text[n:])
+        if body:
+            out += f'<font color="{color}">{body}</font>'
+    return out or '&nbsp;'
+
+_CODE_ST_DARK = ParagraphStyle(
+    'ccd', fontName='Menlo', fontSize=S['code'].fontSize,
+    leading=S['code'].leading + 0.5,
+    textColor=HexColor(_CODE_CLR_DEFAULT),
+)
+
+def code_panel(code: str, lang: str = 'python') -> list:
+    """Syntax-highlighted code block with monokai dark background."""
     if not code.strip():
         return []
+    lines = _tok_to_lines(code, lang)
     items = []
-    all_lines = code.split('\n')
-    for i in range(0, len(all_lines), _CODE_CHUNK):
-        xml_lines = [indent_xml(ln) for ln in all_lines[i:i+_CODE_CHUNK]]
-        cell      = Paragraph('<br/>'.join(xml_lines), S['code'])
-        tbl   = Table([[cell]], colWidths=[USE_W])
+    for i in range(0, len(lines), _CODE_CHUNK):
+        chunk = lines[i:i + _CODE_CHUNK]
+        xml   = '<br/>'.join(_line_to_xml(ln) for ln in chunk)
+        try:
+            cell = Paragraph(xml, _CODE_ST_DARK)
+        except Exception:
+            # Fallback to plain text chunk if markup is broken
+            plain = '<br/>'.join(indent_xml(ln) for ln in
+                                 code.split('\n')[i:i+_CODE_CHUNK])
+            cell = Paragraph(plain, S['code'])
+        tbl = Table([[cell]], colWidths=[USE_W])
         tbl.setStyle(TableStyle([
-            ('BACKGROUND',    (0,0), (-1,-1), white),
+            ('BACKGROUND',    (0,0), (-1,-1), _BG_CODE),
             ('TOPPADDING',    (0,0), (-1,-1), 3),
             ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-            ('LEFTPADDING',   (0,0), (-1,-1), 4),
-            ('RIGHTPADDING',  (0,0), (-1,-1), 4),
-            ('BOX',           (0,0), (-1,-1), 1.0, BLACK),
+            ('LEFTPADDING',   (0,0), (-1,-1), 5),
+            ('RIGHTPADDING',  (0,0), (-1,-1), 5),
+            ('BOX',           (0,0), (-1,-1), 0.5, _DIM_BORDER),
         ]))
         items.append(tbl)
     return items
@@ -528,7 +618,7 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
                 key = b['code'][:100]
                 if key in seen: continue
                 seen.add(key)
-                items += code_panel(b['code'])
+                items += code_panel(b['code'], lang=b.get('lang','javascript'))
         if not has_any:
             items.append(Spacer(1, 3))
             items.append(Paragraph(
@@ -554,7 +644,7 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
                 key = b['code'][:100]
                 if key in seen: continue
                 seen.add(key)
-                items += code_panel(b['code'])
+                items += code_panel(b['code'], lang='python')
 
         if not has_any:
             fallback = (q.get('python_solution') or '').strip()
@@ -564,7 +654,7 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
                     '<b>★ Solution (Python)</b>',
                     ParagraphStyle('cs_hdr', fontName='LG-Bold', fontSize=6.5,
                                    textColor=BLACK, spaceAfter=2)))
-                items += code_panel(fallback)
+                items += code_panel(fallback, lang='python')
 
     # Inline Quick Review summary — follows immediately after solutions
     items += build_question_inline_summary(q)
