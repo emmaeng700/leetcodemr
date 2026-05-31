@@ -490,9 +490,8 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
             ParagraphStyle('src', fontName='LG-Bold', fontSize=5.5,
                            textColor=BLACK, leading=7, spaceAfter=2)))
 
-    expl = q.get('explanation', '').strip()
-    if expl:
-        items.append(Paragraph(f'<b>⏱ {safe_xml(expl[:200])}</b>', S['body_sm']))
+    # Complexity / explanation removed from header — it now lives in the
+    # inline Quick Review summary that follows every question's solutions.
 
     desc_html = doocs_cache.get(str(qid), {}).get('desc_html')
     if desc_html:
@@ -567,8 +566,61 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
                                    textColor=BLACK, spaceAfter=2)))
                 items += code_panel(fallback)
 
+    # Inline Quick Review summary — follows immediately after solutions
+    items += build_question_inline_summary(q)
+
     items.append(PageBreak())
     return items
+
+
+# ─── Per-question inline Quick Review summary ─────────────────────────────────
+def build_question_inline_summary(q: dict) -> list:
+    """
+    Key insights · Space & Time · Solution explanation — appended inline after
+    each question's code solutions so the reader doesn't need to flip elsewhere.
+    """
+    slug = q.get('slug', '')
+    info = _QR_DATA.get(slug, {})
+    if not info:
+        return []
+    ki  = info.get('key_insights', '').strip()
+    cx  = info.get('complexity', '').strip()
+    sol = info.get('solution', '').strip()
+    if not any([ki, cx, sol]):
+        return []
+
+    label_st = ParagraphStyle('iqrl', fontName='LG-Bold', fontSize=5.8,
+                               textColor=BLACK, leading=8, spaceBefore=4, spaceAfter=1)
+    body_st  = ParagraphStyle('iqrb', fontName='LG-Bold', fontSize=5.5,
+                               textColor=BLACK, leading=7.5, leftIndent=6, spaceAfter=1)
+
+    items = [
+        Spacer(1, 4),
+        hr(GRAY_300, 0.5),
+        Paragraph('<b>◆ Quick Review</b>',
+                  ParagraphStyle('iqrhdr', fontName='LG-Bold', fontSize=6,
+                                 textColor=BLACK, leading=8, spaceAfter=2)),
+    ]
+    if ki:
+        items.append(Paragraph('<b>Key Insights</b>', label_st))
+        for line in ki.split('\n'):
+            line = line.strip().lstrip('-• ').strip()
+            if line:
+                items.append(Paragraph(f'• {safe_xml(line)}', body_st))
+    if cx:
+        items.append(Paragraph('<b>Space &amp; Time</b>', label_st))
+        for line in cx.split('\n'):
+            line = line.strip()
+            if line:
+                items.append(Paragraph(safe_xml(line), body_st))
+    if sol:
+        items.append(Paragraph('<b>Solution</b>', label_st))
+        for para in sol.split('\n\n'):
+            para = re.sub(r'\s*\n\s*', ' ', para).strip()
+            if para:
+                items.append(Paragraph(safe_xml(para), body_st))
+    return items
+
 
 # ─── Chapter Quick-Review summary ────────────────────────────────────────────
 def build_round_summary(round_num: int, priority: str, difficulty: str,
@@ -806,8 +858,8 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
             for q in qs:
                 story += build_question_block(q, sites, doocs, pat['name'], pat)
 
-        # End-of-chapter Quick Review summary
-        story += build_round_summary(round_num, priority, difficulty, pattern_groups)
+        # Per-round summary removed — each question now carries its own
+        # inline Quick Review summary. Chapter 2 still collects all summaries.
 
     # ── Chapter 2: Master Quick-Review collection (all rounds together) ───────
     story.append(PageBreak())
