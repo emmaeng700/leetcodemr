@@ -797,7 +797,8 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
         for pat, q in all_qs_in_round:
             story.append(Paragraph(
                 f'   #{q["id"]} {safe_xml(q["title"])}',
-                ParagraphStyle('tqe', fontName='LG', fontSize=5.5, textColor=BLACK, leading=7.5)))
+                ParagraphStyle('tqe', fontName='LG', fontSize=5.5, textColor=BLACK,
+                               leading=8.5, spaceAfter=3)))
     story.append(PageBreak())
 
     # ── Rounds / Chapters ─────────────────────────────────────────────────────
