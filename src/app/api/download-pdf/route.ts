@@ -4,9 +4,9 @@ import path from 'path'
 
 const ALLOWED: Record<string, string> = {
   'LeetMastery_Study_Order.epub':              'application/epub+zip',
-  'LeetMastery_Study_Order_2x1_Landscape.pdf': 'application/pdf',
+  'pattern_run.pdf': 'application/pdf',
+  'the_digest.pdf':  'application/pdf',
   'LeetMastery_Study_Order_2x2_Landscape.pdf': 'application/pdf',
-  'LeetMastery_Chapter2_Summary_1x1.pdf':      'application/pdf',
 }
 
 export async function GET(req: NextRequest) {

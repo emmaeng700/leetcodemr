@@ -78,8 +78,8 @@ SITES_CACHE = SCRIPT_DIR / ".full_langs_cache.json"
 DOOCS_CACHE = SCRIPT_DIR / ".doocs_cache.json"
 INNER_PDF   = SCRIPT_DIR / "_study_order_inner.pdf"
 OUTPUT_PDF  = SCRIPT_DIR / (
-    "LeetMastery_Chapter2_Summary_1x1.pdf"       if CHAPTER2_PDF
-    else "LeetMastery_Study_Order_2x1_Landscape.pdf"  if GRID_2X1
+    "the_digest.pdf"       if CHAPTER2_PDF
+    else "pattern_run.pdf" if GRID_2X1
     else "LeetMastery_Study_Order_2x2_Landscape.pdf"  if GRID_2X2
     else "LeetMastery_Study_Order_4x4_Landscape.pdf"  if GRID_4X4
     else "LeetMastery_Study_Order_36up_Landscape.pdf" if LANDSCAPE
