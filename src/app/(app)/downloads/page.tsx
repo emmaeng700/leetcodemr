@@ -25,6 +25,17 @@ const FILES = [
     previewable: true,
   },
   {
+    title: 'Chapter 2 — Quick-Review Summary (1×1 Portrait)',
+    description: 'All 331 questions — key insights, space & time complexity, and solution explanation per question. One full page per question entry, 388 pages total. Great for reading or listening on the go. No code — pure concept review.',
+    file: 'LeetMastery_Chapter2_Summary_1x1.pdf',
+    size: '716 KB',
+    icon: FileText,
+    accent: 'from-emerald-500 to-teal-600',
+    badge: 'PDF · Summary',
+    badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    previewable: true,
+  },
+  {
     title: 'Study-Order PDF — 2×2 Landscape',
     description: '331 questions, 4 mini-pages per sheet in landscape layout. Includes problem descriptions, community Python solutions, checkboxes, ← Contents links, and Chapter 2 master Quick Review summary.',
     file: 'LeetMastery_Study_Order_2x2_Landscape.pdf',

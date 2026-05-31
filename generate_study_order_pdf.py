@@ -28,10 +28,11 @@ Usage:
 import json, re, sys
 from pathlib import Path
 
-LANDSCAPE  = '--landscape' in sys.argv
-GRID_4X4   = '--4x4'      in sys.argv
-GRID_2X2   = '--2x2'      in sys.argv
-GRID_2X1   = '--2x1'      in sys.argv
+LANDSCAPE    = '--landscape'  in sys.argv
+GRID_4X4     = '--4x4'       in sys.argv
+GRID_2X2     = '--2x2'       in sys.argv
+GRID_2X1     = '--2x1'       in sys.argv
+CHAPTER2_PDF = '--chapter2'  in sys.argv
 
 # ─── Font registration ────────────────────────────────────────────────────────
 from reportlab.pdfbase import pdfmetrics
@@ -77,7 +78,8 @@ SITES_CACHE = SCRIPT_DIR / ".full_langs_cache.json"
 DOOCS_CACHE = SCRIPT_DIR / ".doocs_cache.json"
 INNER_PDF   = SCRIPT_DIR / "_study_order_inner.pdf"
 OUTPUT_PDF  = SCRIPT_DIR / (
-    "LeetMastery_Study_Order_2x1_Landscape.pdf"  if GRID_2X1
+    "LeetMastery_Chapter2_Summary_1x1.pdf"       if CHAPTER2_PDF
+    else "LeetMastery_Study_Order_2x1_Landscape.pdf"  if GRID_2X1
     else "LeetMastery_Study_Order_2x2_Landscape.pdf"  if GRID_2X2
     else "LeetMastery_Study_Order_4x4_Landscape.pdf"  if GRID_4X4
     else "LeetMastery_Study_Order_36up_Landscape.pdf" if LANDSCAPE
@@ -969,39 +971,7 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
         # Per-round summary removed — each question now carries its own
         # inline Quick Review summary. Chapter 2 still collects all summaries.
 
-    # ── Chapter 2: Master Quick-Review collection (all rounds together) ───────
-    story.append(PageBreak())
-
-    # Chapter 2 splash page
-    story.append(Spacer(1, USE_H * 0.1))
-    ch2_banner = Table([[Paragraph(
-        '<b>Chapter 2</b>',
-        ParagraphStyle('ch2n', fontName='LG-Bold', fontSize=14,
-                       textColor=BLACK, alignment=TA_CENTER),
-    )]], colWidths=[USE_W])
-    ch2_banner.setStyle(TableStyle([
-        ('BACKGROUND',    (0,0), (-1,-1), HexColor('#EFF6FF')),
-        ('TOPPADDING',    (0,0), (-1,-1), 8),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-        ('BOX',           (0,0), (-1,-1), 1.0, HexColor('#3B82F6')),
-    ]))
-    story.append(ch2_banner)
-    story.append(Spacer(1, 5))
-    story.append(Paragraph(
-        '<b>Master Quick-Review Summary</b>',
-        ParagraphStyle('ch2t', fontName='LG-Bold', fontSize=10,
-                       textColor=BLACK, alignment=TA_CENTER, leading=13)))
-    story.append(Spacer(1, 3))
-    story.append(Paragraph(
-        'All 9 rounds · key insights · complexity · solution · organised by priority &amp; difficulty',
-        ParagraphStyle('ch2s', fontName='LG-Bold', fontSize=6,
-                       textColor=BLACK, alignment=TA_CENTER)))
-    story.append(PageBreak())
-
-    # One summary section per round
-    for round_num, priority, difficulty, pattern_groups in rounds:
-        story += build_round_summary(round_num, priority, difficulty, pattern_groups,
-                                     chapter2=True)
+    # Chapter 2 is now a separate PDF (--chapter2 flag). Not included here.
 
     doc.build(story, onFirstPage=counter.on_page, onLaterPages=counter.on_page)
     print(f'Inner PDF: {counter.n} mini-pages → {INNER_PDF.name}')
@@ -1373,6 +1343,89 @@ def _add_links_2x1(output_path: Path, page_types: dict,
           f'|  ← Contents: {n_sheets - len(toc_sheets)} sheets')
 
 
+# ─── Chapter-2-only inner PDF builder ────────────────────────────────────────
+def build_chapter2_inner(rounds: list):
+    """Builds an inner PDF containing ONLY the master quick-review summaries."""
+    counter = PageCounter()
+    doc = SimpleDocTemplate(
+        str(INNER_PDF),
+        pagesize=(MP_W, MP_H),
+        rightMargin=MG, leftMargin=MG,
+        topMargin=MG, bottomMargin=MG + 5,
+    )
+    story = []
+
+    # Cover splash
+    story.append(Spacer(1, USE_H * 0.12))
+    banner = Table([[Paragraph(
+        '<b>Chapter 2</b>',
+        ParagraphStyle('ch2cn', fontName='LG-Bold', fontSize=14,
+                       textColor=BLACK, alignment=TA_CENTER),
+    )]], colWidths=[USE_W])
+    banner.setStyle(TableStyle([
+        ('BACKGROUND',    (0,0), (-1,-1), HexColor('#EFF6FF')),
+        ('TOPPADDING',    (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+        ('BOX',           (0,0), (-1,-1), 1.0, HexColor('#3B82F6')),
+    ]))
+    story.append(banner)
+    story.append(Spacer(1, 5))
+    story.append(Paragraph(
+        '<b>Master Quick-Review Summary</b>',
+        ParagraphStyle('ch2ct', fontName='LG-Bold', fontSize=10,
+                       textColor=BLACK, alignment=TA_CENTER, leading=13)))
+    story.append(Spacer(1, 3))
+    total = sum(len(qs) for _, _, _, pgs in rounds for _, qs in pgs)
+    story.append(Paragraph(
+        f'{total} questions  ·  9 rounds  ·  key insights · complexity · solution',
+        ParagraphStyle('ch2cs', fontName='LG-Bold', fontSize=6,
+                       textColor=BLACK, alignment=TA_CENTER)))
+    story.append(Paragraph(
+        'High Easy → High Med → High Hard → Mid Easy → Mid Med → Mid Hard → Low Easy → Low Med → Low Hard',
+        ParagraphStyle('ch2cs2', fontName='LG-Bold', fontSize=5.5,
+                       textColor=BLACK, alignment=TA_CENTER, leading=8)))
+    story.append(PageBreak())
+
+    for round_num, priority, difficulty, pattern_groups in rounds:
+        story += build_round_summary(round_num, priority, difficulty,
+                                     pattern_groups, chapter2=True)
+
+    doc.build(story, onFirstPage=counter.on_page, onLaterPages=counter.on_page)
+    print(f'Chapter 2 inner: {counter.n} mini-pages → {INNER_PDF.name}')
+    return counter.n
+
+
+# ─── 1×1 portrait imposer (one mini-page per full letter sheet) ───────────────
+def impose_1x1_portrait(src_path: Path, dst_path: Path):
+    """
+    Each inner mini-page (204×264) fills one portrait letter sheet (612×792).
+    Scale = exactly 3× on both axes — text is large and very readable.
+    """
+    src = fitz.open(str(src_path))
+    dst = fitz.open()
+    n   = len(src)
+
+    L_W, L_H = 612.0, 792.0   # portrait letter
+    GAP = 6.0
+
+    for i in range(n):
+        sheet = dst.new_page(width=L_W, height=L_H)
+        rect  = fitz.Rect(GAP, GAP, L_W - GAP, L_H - GAP)
+        sheet.show_pdf_page(rect, src, i)
+
+    num_sheets = len(dst)
+    for pg_idx in range(num_sheets):
+        dst[pg_idx].insert_text(
+            fitz.Point(L_W / 2 - 110, L_H - 4),
+            f'Page {pg_idx + 1}/{num_sheets}  ·  LeetMastery Chapter 2 · Quick-Review Summary',
+            fontsize=5, color=(0.5, 0.5, 0.5),
+        )
+
+    dst.save(str(dst_path), garbage=4, deflate=True)
+    src.close(); dst.close()
+    print(f'1×1 portrait: {n} pages → {dst_path.name}')
+
+
 # ─── 2×2 link enrichment ─────────────────────────────────────────────────────
 
 def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
@@ -1565,6 +1618,16 @@ if __name__ == '__main__':
         total = sum(len(qs) for _, qs in pattern_groups)
         pats  = ', '.join(p['name'] for p, _ in pattern_groups)
         print(f'  Round {round_num}  {priority:4s} {difficulty:7s}  {total:3d} q  [{pats}]')
+
+    if CHAPTER2_PDF:
+        print('\nBuilding Chapter 2 (Quick-Review summary only)…')
+        n_pages = build_chapter2_inner(rounds)
+        print('Imposing 1×1 portrait (one page per sheet)…')
+        impose_1x1_portrait(INNER_PDF, OUTPUT_PDF)
+        INNER_PDF.unlink(missing_ok=True)
+        kb = OUTPUT_PDF.stat().st_size // 1024
+        print(f'\nDone → {OUTPUT_PDF}  ({kb:,} KB)  ·  {n_pages} pages')
+        sys.exit(0)
 
     print('\nBuilding inner mini-page PDF…')
     n_pages = build_inner_pdf(rounds, sites, doocs)
