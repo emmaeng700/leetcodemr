@@ -14,7 +14,7 @@ import {
 const STARRED_LINKS = [
   { href: '/daily',      label: '★ Daily',      icon: Calendar, also: ['/speedster'] },
   { href: '/review',     label: '★ Reviews',    icon: Brain,    also: ['/quick-review', '/sr-queue', '/pattern-review', '/best-solutions'] },
-  { href: '/learn',      label: '★ Learn',      icon: BookOpen },
+  { href: '/learn',      label: '★ Learn',      icon: BookOpen, also: ['/cycles'] },
   { href: '/flashcards', label: '★ Flashcards', icon: Layers },
 ]
 
@@ -25,7 +25,6 @@ const STUDY_LINKS = [
 const DRILL_LINKS = [
   { href: '/mock',      label: 'Mock',      icon: Timer },
   { href: '/patterns',  label: 'Patterns',  icon: GitBranch },
-  { href: '/cycles',    label: 'Cycles',    icon: RefreshCw },
   { href: '/clipboard', label: 'Clipboard', icon: ClipboardList },
 ]
 const PRACTICE_LINKS = [...STUDY_LINKS, ...DRILL_LINKS]
