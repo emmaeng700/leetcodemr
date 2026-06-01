@@ -142,9 +142,11 @@ function LearnInner() {
   }, [])
   const setCycleRange = (range: { start: number; end: number } | null) => {
     setCycleRangeRaw(range)
-    // Reset gamification counters whenever the cycle changes
+    // Reset ALL gamification counters whenever the cycle changes
     setCycleRepsRaw(0); try { sessionStorage.setItem('lm_learn_cycle_reps', '0') } catch {}
     setCyclePosRaw(0);  try { sessionStorage.setItem('lm_learn_cycle_pos',  '0') } catch {}
+    cycleAcceptedRef.current = new Set()
+    try { sessionStorage.removeItem('lm_learn_cycle_accepted') } catch {}
     try {
       if (range) sessionStorage.setItem('lm_learn_cycle', JSON.stringify(range))
       else sessionStorage.removeItem('lm_learn_cycle')
@@ -170,6 +172,27 @@ function LearnInner() {
     try { sessionStorage.setItem('lm_learn_cycle_pos', String(n)) } catch {}
   }
   const CYCLE_REP_TARGET = 10
+
+  // Track which question IDs received an accepted solution in the current lap.
+  // Confetti only fires when ALL questions in the cycle range have been accepted.
+  const cycleAcceptedRef = useRef<Set<number>>(new Set())
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('lm_learn_cycle_accepted')
+      if (saved) cycleAcceptedRef.current = new Set(JSON.parse(saved) as number[])
+    } catch {}
+  }, [])
+  const recordCycleAccepted = (questionId: number) => {
+    cycleAcceptedRef.current.add(questionId)           // sync update for callbacks
+    try {
+      sessionStorage.setItem('lm_learn_cycle_accepted',
+        JSON.stringify([...cycleAcceptedRef.current]))
+    } catch {}
+  }
+  const resetCycleAccepted = () => {
+    cycleAcceptedRef.current = new Set()
+    try { sessionStorage.removeItem('lm_learn_cycle_accepted') } catch {}
+  }
 
   const [showCyclePanel, setShowCyclePanel] = useState(false)
   const [cycleFromInput, setCycleFromInput] = useState('1')
@@ -482,11 +505,13 @@ function LearnInner() {
   const gatedIdxRef      = useRef(gatedIdx)
   const cycleRangeRef    = useRef(cycleRange)
   const filteredLenRef   = useRef(filtered.length)
+  const filteredRef      = useRef(filtered)
   const learnQsRef       = useRef(learnQs)
-  useEffect(() => { gatedIdxRef.current    = gatedIdx },       [gatedIdx])
-  useEffect(() => { cycleRangeRef.current  = cycleRange },     [cycleRange])
+  useEffect(() => { gatedIdxRef.current    = gatedIdx },        [gatedIdx])
+  useEffect(() => { cycleRangeRef.current  = cycleRange },      [cycleRange])
   useEffect(() => { filteredLenRef.current = filtered.length }, [filtered.length])
-  useEffect(() => { learnQsRef.current     = learnQs },        [learnQs])
+  useEffect(() => { filteredRef.current    = filtered },        [filtered])
+  useEffect(() => { learnQsRef.current     = learnQs },         [learnQs])
 
   // Refs for gamification counters (same pattern — always fresh in callbacks)
   const cycleRepsRef = useRef(cycleReps)
@@ -531,21 +556,39 @@ function LearnInner() {
     const next  = wrapping ? start : idx + 1
     const qs    = learnQsRef.current
 
-    // Gamification: track position; confetti only fires on accepted-solution advances
+    // Gamification: track position; confetti only fires when ALL cycle questions
+    // were accepted in this lap (not just navigation to end).
     if (rng) {
       const newPos = wrapping ? 0 : cyclePosRef.current + 1
       setCyclePos(newPos)
-      if (wrapping) {
+      if (wrapping && fromAccepted) {
+        // Check every question in the cycle range had an accepted submission
+        const cycleQs   = filteredRef.current.slice(rng.start, rng.end + 1)
+        const cycleIds  = cycleQs.map(q => q.id)
+        const solvedIds = cycleIds.filter(id => cycleAcceptedRef.current.has(id))
+        const allSolved = solvedIds.length === cycleIds.length
+        const skipped   = cycleIds.length - solvedIds.length
+
+        resetCycleAccepted()   // clear for next lap
+
         const newReps = Math.min(cycleRepsRef.current + 1, CYCLE_REP_TARGET)
         setCycleReps(newReps)
-        if (fromAccepted) {
+
+        if (allSolved) {
           const isFinal = newReps >= CYCLE_REP_TARGET
           fireConfetti(isFinal)
           toast(LAP_MESSAGES[newReps - 1] ?? `Lap ${newReps} done! 🔥`, {
             duration: isFinal ? 6000 : 3500,
             icon: isFinal ? '🏆' : undefined,
           })
+        } else {
+          toast(
+            `Lap ${newReps} done — but ${skipped} question${skipped > 1 ? 's' : ''} skipped.\nSolve all ${cycleIds.length} for confetti! 🎯`,
+            { duration: 4000, icon: '⚠️' }
+          )
         }
+      } else if (wrapping) {
+        setCyclePos(0)
       }
     }
 
@@ -1332,6 +1375,7 @@ function LearnInner() {
               onAccepted={async () => {
                 toast.success('Accepted! Moving to next question.', { duration: 2000 })
                 if (due && !reviewDone) await handleCompleteReview()
+                if (q && cycleRange) recordCycleAccepted(q.id) // record BEFORE goNext reads the set
                 goNext({ fromAccepted: true })
               }}
             />
