@@ -919,10 +919,13 @@ function LearnInner() {
                   {cycleReps}/{CYCLE_REP_TARGET} full passes
                 </span>
                 {/* Bar fills as you accept questions this pass */}
-                <div className="w-full h-1 bg-indigo-200 rounded-full mt-0.5 overflow-hidden">
+                <div className="w-full h-2 bg-indigo-200 rounded-full mt-1 overflow-hidden border border-indigo-300">
                   <div
                     className="h-full bg-indigo-500 rounded-full transition-all duration-300"
-                    style={{ width: `${cycleRange ? (cycleAcceptedCount / (cycleRange.end - cycleRange.start + 1)) * 100 : 0}%` }}
+                    style={{
+                      width: `${cycleRange ? (cycleAcceptedCount / (cycleRange.end - cycleRange.start + 1)) * 100 : 0}%`,
+                      minWidth: cycleAcceptedCount > 0 ? '6px' : '0',
+                    }}
                   />
                 </div>
               </div>

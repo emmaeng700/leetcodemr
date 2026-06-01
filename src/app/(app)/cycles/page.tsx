@@ -145,10 +145,13 @@ export default function CyclesPage() {
     const pct = Math.min((reps / 10) * 100, 100)
     return (
       <div className="flex items-center gap-2">
-        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-          <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+        <div className="flex-1 h-3 bg-indigo-100 rounded-full overflow-hidden border border-indigo-200">
+          <div
+            className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+            style={{ width: `${pct}%`, minWidth: pct > 0 ? '8px' : '0' }}
+          />
         </div>
-        <span className="text-[11px] font-bold text-indigo-500 shrink-0">{reps}/10</span>
+        <span className="text-[11px] font-bold text-indigo-600 shrink-0">{reps}/10</span>
       </div>
     )
   }
