@@ -12,9 +12,9 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Brain, CheckCircle, Star,
   BookOpen, List, ExternalLink, Loader2, FileText,
-  Copy, Check, Sparkles,
+  Copy, Check, Sparkles, RefreshCw, X,
 } from 'lucide-react'
-import { getProgress, updateProgress, completeReview, failReview, getMasteryRunsByQuestion, addMasteryRunEvent, resetMasteryRuns } from '@/lib/db'
+import { getProgress, updateProgress, completeReview, failReview } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap, getPatternForQuestion } from '@/lib/patternUtils'
@@ -124,12 +124,18 @@ function LearnInner() {
   const [planOrder, setPlanOrder]   = useState<number[]>([])
   const [progress, setProgress]     = useState<Record<string, any>>({})
   const [runs, setRuns]             = useState<Record<string, number>>({})
-  const [resettingRuns, setResettingRuns] = useState(false)
   const [showList, setShowList]     = useState(false)
   const [reviewDone, setReviewDone] = useState(false)
   const [activeTab, setActiveTab]   = useState<'description' | 'editorial' | 'best' | 'accepted' | 'editor'>('description')
   // IMPORTANT: don't read localStorage during render (causes hydration mismatch).
   const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(null)
+
+  // ── Cycle marker ──────────────────────────────────────────────────────────────
+  const [cycleRange, setCycleRange]     = useState<{ start: number; end: number } | null>(null)
+  const [showCyclePanel, setShowCyclePanel] = useState(false)
+  const [cycleFromInput, setCycleFromInput] = useState('1')
+  const [cycleToInput,   setCycleToInput]   = useState('')
+  // ─────────────────────────────────────────────────────────────────────────────
   const [filterDiff, setFilterDiff]         = useState(initDiff)
   const [filterSource, setFilterSource]     = useState(initSource)
   const [filterPattern, setFilterPattern]   = useState<string | null>(
@@ -232,11 +238,9 @@ function LearnInner() {
     Promise.all([
       fetch('/questions_full.json').then(r => r.json()),
       getProgress(),
-      getMasteryRunsByQuestion(),
-    ]).then(([qs, prog, masteryRuns]) => {
+    ]).then(([qs, prog]) => {
       setQuestions(qs)
       setProgress(prog)
-      setRuns(masteryRuns)
       setPlanOrder(defaultStudyQuestionOrder(qs as Question[]))
     })
   }, [])
@@ -275,12 +279,9 @@ function LearnInner() {
     return true
   })
 
-  const firstIncompleteIdx = filtered.findIndex(fq => (runs[String(fq.id)] ?? 0) < 2)
-  const unlockedThrough = firstIncompleteIdx === -1 ? filtered.length - 1 : firstIncompleteIdx
-  const safeIdx = Math.min(routeIndex, Math.max(filtered.length - 1, 0))
-  const gatedIdx = filtered.length ? Math.min(safeIdx, Math.max(unlockedThrough, 0)) : safeIdx
-  const q         = filtered[gatedIdx] || null
-  const currentRuns = q ? Math.min(runs[String(q.id)] ?? 0, 2) : 0
+  const safeIdx  = filtered.length ? Math.min(Math.max(routeIndex, 0), filtered.length - 1) : 0
+  const gatedIdx = safeIdx
+  const q        = filtered[gatedIdx] || null
   const lcTitleSlug = q ? resolveLeetCodeSlug(q.id, q.slug) : undefined
   const p         = q ? (progress[String(q.id)] || {}) : {}
   const solved    = p.solved    || false
@@ -292,10 +293,10 @@ function LearnInner() {
 
   useEffect(() => {
     if (filtered.length === 0) return
-    if (routeIndex !== gatedIdx) {
-      router.replace(`/learn/${gatedIdx}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
+    if (routeIndex !== safeIdx) {
+      router.replace(`/learn/${safeIdx}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
     }
-  }, [filtered.length, routeIndex, gatedIdx, learnQs, router])
+  }, [filtered.length, routeIndex, safeIdx, learnQs, router])
 
   // Persist study mode to localStorage
   useEffect(() => {
@@ -426,72 +427,54 @@ function LearnInner() {
       .finally(() => setEditorialLoad(false))
   }, [activeTab, q?.id, q?.slug, lcSession, lcCsrf])
 
-  const goNext = () => {
-    if (gatedIdx < Math.min(filtered.length - 1, unlockedThrough)) {
-      const ni = gatedIdx + 1
-      router.push(`/learn/${ni}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
-    }
-  }
-  const goPrev = () => {
-    if (gatedIdx > 0) {
-      const ni = gatedIdx - 1
-      router.push(`/learn/${ni}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
-    }
-  }
+  // ── Cycle-aware navigation — wraps within the active range ───────────────────
+  const cycleStart = cycleRange?.start ?? 0
+  const cycleEnd   = cycleRange?.end   ?? Math.max(filtered.length - 1, 0)
+
+  const goNext = useCallback(() => {
+    if (filtered.length === 0) return
+    const next = gatedIdx >= cycleEnd ? cycleStart : gatedIdx + 1
+    router.push(`/learn/${next}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
+  }, [gatedIdx, cycleStart, cycleEnd, filtered.length, learnQs, router])
+
+  const goPrev = useCallback(() => {
+    if (filtered.length === 0) return
+    const prev = gatedIdx <= cycleStart ? cycleEnd : gatedIdx - 1
+    router.push(`/learn/${prev}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
+  }, [gatedIdx, cycleStart, cycleEnd, filtered.length, learnQs, router])
+
   const goTo = (i: number) => {
-    if (i > unlockedThrough) return
     router.push(`/learn/${i}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
     setShowList(false)
   }
 
-  const handleAcceptedRun = async () => {
-    if (!q) return
-    const before = runs[String(q.id)] ?? 0
-    const nextQuestion = gatedIdx < filtered.length - 1 ? filtered[gatedIdx + 1] : null
-    const res = await addMasteryRunEvent(q.id, 1)
-    if (!res.ok) {
-      toast.error(`Couldn't save mastery run: ${res.error ?? 'unknown error'}`)
-      return
+  // ── Cycle presets — auto-detect priority+difficulty boundaries ───────────────
+  const cyclePresets = useMemo(() => {
+    const PRI = ['High', 'Mid', 'Low'] as const
+    const DIFF = ['Easy', 'Medium', 'Hard'] as const
+    const out: { label: string; start: number; end: number }[] = []
+    for (const pri of PRI) {
+      for (const diff of DIFF) {
+        const indices = filtered
+          .map((fq, i) => ({ i, pri: PATTERN_PRIORITY[exclusiveMap[fq.id] ?? ''] ?? null, diff: fq.difficulty }))
+          .filter(x => x.pri === pri && x.diff === diff)
+          .map(x => x.i)
+        if (indices.length > 1)
+          out.push({ label: `${pri} ${diff} (${indices.length})`, start: indices[0], end: indices[indices.length - 1] })
+      }
     }
-    const rawAfter = before + 1
-    const after = Math.min(rawAfter, 2)
-    setRuns(prev => ({ ...prev, [String(q.id)]: rawAfter }))
-    if (after >= 2) {
-      toast.success(
-        nextQuestion
-          ? `Learn complete: 2/2. ${nextQuestion.title} is now unlocked.`
-          : 'Learn complete: 2/2. This lane is fully unlocked.',
-        { duration: 4500 }
-      )
-    } else {
-      toast.success(`Learn progress: ${after}/2`, { duration: 3000 })
-    }
+    return out
+  }, [filtered, exclusiveMap])
 
-    if (after >= 2 && nextQuestion) {
-      router.push(`/learn/${gatedIdx + 1}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
-    }
+  const applyCycleRange = (start: number, end: number) => {
+    const s = Math.max(0, Math.min(start, filtered.length - 1))
+    const e = Math.max(s, Math.min(end, filtered.length - 1))
+    setCycleRange({ start: s, end: e })
+    setShowCyclePanel(false)
+    if (gatedIdx < s || gatedIdx > e)
+      router.push(`/learn/${s}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
   }
-
-  const handleResetRuns = async () => {
-    if (resettingRuns || filtered.length === 0) return
-    const ok = window.confirm('Reset the current Learn /2 progress for the questions in this lane/filter?')
-    if (!ok) return
-    setResettingRuns(true)
-    const ids = filtered.map(item => item.id)
-    const res = await resetMasteryRuns(ids)
-    if (!res.ok) {
-      toast.error(`Couldn't reset Learn /2 progress: ${res.error ?? 'unknown error'}`)
-      setResettingRuns(false)
-      return
-    }
-    setRuns(prev => {
-      const next = { ...prev }
-      for (const id of ids) delete next[String(id)]
-      return next
-    })
-    toast.success('Learn /2 progress reset for this lane')
-    setResettingRuns(false)
-  }
+  // ─────────────────────────────────────────────────────────────────────────────
 
   /** Open a question in this Learn view (editor). Resets URL filters if the question is hidden by current filters. */
   const openQuestionInLearn = useCallback(
@@ -539,7 +522,7 @@ function LearnInner() {
     setReviewDone(true)
   }
 
-  const solvedCount = filtered.filter(fq => progress[String(fq.id)]?.solved).length
+  const solvedCount  = filtered.filter(fq => progress[String(fq.id)]?.solved).length
 
   // Pattern context for current question — uses exclusive map (no repetition)
   const currentPatternName = q ? (exclusiveMap[q.id] ?? null) : null
@@ -554,7 +537,7 @@ function LearnInner() {
     <>
       {filtered.map((fq, i) => {
         const fp = progress[String(fq.id)] || {}
-        const unlocked = i <= unlockedThrough
+        const inRange = cycleRange ? i >= cycleRange.start && i <= cycleRange.end : true
         const curPat = exclusiveMap[fq.id] ?? null
         const curPri = curPat ? (PATTERN_PRIORITY[curPat] ?? null) : null
         const prev = i > 0 ? filtered[i - 1] : null
@@ -566,21 +549,16 @@ function LearnInner() {
             {showRound && <StudyRoundHeader priority={curPri!} difficulty={fq.difficulty} />}
             <button
               type="button"
-              disabled={!unlocked}
               onClick={() => goTo(i)}
-              className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors border-b border-gray-50 ${unlocked ? 'hover:bg-indigo-50' : 'opacity-50 cursor-not-allowed'} ${i === gatedIdx ? 'bg-indigo-50' : ''}`}
+              className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors border-b border-gray-50 hover:bg-indigo-50 ${i === gatedIdx ? 'bg-indigo-50' : ''} ${!inRange && cycleRange ? 'opacity-40' : ''}`}
             >
               <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{fq.id}</span>
               <span className="min-w-0 flex-1 truncate text-gray-700">{fq.title}</span>
-              <span
-                className={`text-xs font-semibold shrink-0 ${fq.difficulty === 'Easy' ? 'text-green-600' : fq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}
-              >
+              <span className={`text-xs font-semibold shrink-0 ${fq.difficulty === 'Easy' ? 'text-green-600' : fq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
                 {fq.difficulty[0]}
               </span>
-              <span className="shrink-0 text-[10px] font-bold text-cyan-600">
-                {Math.min(runs[String(fq.id)] ?? 0, 2)}/2
-              </span>
               {fp.solved && <CheckCircle size={11} className="text-green-500 shrink-0" />}
+              {inRange && cycleRange && <span className="shrink-0 text-[10px] text-indigo-400">●</span>}
             </button>
           </div>
         )
@@ -670,7 +648,6 @@ function LearnInner() {
             <span className="font-mono">{gatedIdx + 1}/{filtered.length}</span>
             <span className="hidden sm:inline text-gray-400">·</span>
             <span className="hidden sm:inline text-green-600">{solvedCount} solved</span>
-            {q && <span className="hidden sm:inline text-cyan-600">· {currentRuns}/2</span>}
           </button>
 
           {/* Question list: mobile = fixed, centered on viewport; sm+ = under button */}
@@ -686,8 +663,8 @@ function LearnInner() {
           )}
         </div>
 
-        <button onClick={goNext} disabled={gatedIdx >= Math.min(filtered.length - 1, unlockedThrough)}
-          className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 transition-colors">
+        <button onClick={goNext}
+          className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors">
           <ChevronRight size={15} />
         </button>
 
@@ -702,14 +679,78 @@ function LearnInner() {
           className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${showFilters ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-500 hover:border-indigo-300'}`}>
           Filter {filterDiff !== 'All' || filterSource !== 'All' || filterPattern ? '•' : ''}
         </button>
-        <button
-          type="button"
-          onClick={handleResetRuns}
-          disabled={resettingRuns || filtered.length === 0}
-          className="px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs font-semibold transition-colors hover:bg-rose-100 disabled:opacity-40"
-        >
-          {resettingRuns ? 'Resetting…' : 'Reset /2'}
-        </button>
+
+        {/* Cycle marker */}
+        <div className="relative">
+          {cycleRange ? (
+            <div className="flex items-center gap-1">
+              <span className="px-2 py-1 rounded-lg bg-indigo-100 border border-indigo-300 text-indigo-700 text-xs font-bold">
+                🔄 {cycleRange.start + 1}–{cycleRange.end + 1}
+              </span>
+              <button type="button" onClick={() => setCycleRange(null)}
+                className="p-1 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50 transition-colors">
+                <X size={12} />
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setShowCyclePanel(v => !v)}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${showCyclePanel ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-500 hover:border-indigo-300'}`}>
+              <RefreshCw size={11} /> Cycle
+            </button>
+          )}
+
+          {showCyclePanel && !cycleRange && (
+            <div className="absolute right-0 top-full mt-1 z-50 w-72 bg-white border border-gray-200 rounded-xl shadow-xl p-3">
+              <p className="text-xs font-bold text-gray-700 mb-2">🔄 Set Cycle Range</p>
+              <p className="text-[11px] text-gray-400 mb-3">Cycle within a range — → wraps back to start automatically.</p>
+
+              {/* Quick presets */}
+              {cyclePresets.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Quick presets</p>
+                  <div className="flex flex-wrap gap-1">
+                    {cyclePresets.map(p => (
+                      <button key={p.label} type="button"
+                        onClick={() => applyCycleRange(p.start, p.end)}
+                        className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-indigo-200 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors">
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Custom range */}
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Custom range</p>
+              <div className="flex items-center gap-2">
+                <input type="number" min={1} max={filtered.length}
+                  value={cycleFromInput}
+                  onChange={e => setCycleFromInput(e.target.value)}
+                  placeholder="From"
+                  className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-center focus:border-indigo-400 outline-none" />
+                <span className="text-xs text-gray-400">–</span>
+                <input type="number" min={1} max={filtered.length}
+                  value={cycleToInput}
+                  onChange={e => setCycleToInput(e.target.value)}
+                  placeholder={String(filtered.length)}
+                  className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-center focus:border-indigo-400 outline-none" />
+                <button type="button"
+                  onClick={() => {
+                    const s = (parseInt(cycleFromInput, 10) || 1) - 1
+                    const e = (parseInt(cycleToInput, 10) || filtered.length) - 1
+                    applyCycleRange(s, e)
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors">
+                  Set
+                </button>
+              </div>
+              <button type="button" onClick={() => setShowCyclePanel(false)}
+                className="mt-2 w-full text-[11px] text-gray-400 hover:text-gray-600 transition-colors">
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
 
         {q && (
           <>
@@ -753,7 +794,6 @@ function LearnInner() {
           {patternPct >= 50 && patternPct < 80 && <span className="text-[10px] font-bold text-indigo-500  shrink-0">💪 Solid progress</span>}
           {patternPct > 0 && patternPct < 50 && <span className="text-[10px] font-semibold text-amber-500 shrink-0">📈 Building momentum</span>}
           {patternPct === 0 && <span className="text-[10px] font-semibold text-[var(--text-subtle)] shrink-0">🧩 Fresh territory</span>}
-          <span className="text-[11px] font-bold text-cyan-700 shrink-0">{currentRuns}/2</span>
           <div className="flex items-center gap-1.5 ml-auto shrink-0">
             <div className="w-16 sm:w-24 h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
               <div
@@ -1096,8 +1136,9 @@ function LearnInner() {
               slug={q.slug}
               preferredLangs={q.tags?.includes('JavaScript') ? ['javascript', 'python3', 'cpp'] : undefined}
               onAccepted={async () => {
-                await handleAcceptedRun()
+                toast.success('Accepted! Moving to next question.', { duration: 2000 })
                 if (due && !reviewDone) await handleCompleteReview()
+                goNext()
               }}
             />
           </div>

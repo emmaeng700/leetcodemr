@@ -17,7 +17,6 @@ const STARRED_LINKS = [
   { href: '/flashcards',      label: '★ Flashcards',      icon: Layers },
   { href: '/best-solutions',  label: '★ My Best',         icon: Bookmark },
   { href: '/speedster',       label: '★ Speedster',       icon: Gauge },
-  { href: '/imbibition',      label: '★ Imbibition',      icon: BookOpen },
   { href: '/pattern-review',  label: '★ Pattern Review',  icon: BookOpen },
   { href: '/clipboard',       label: '★ Clipboard',       icon: ClipboardList },
   { href: '/downloads',       label: '★ Downloads',       icon: Download },
@@ -30,7 +29,6 @@ const STUDY_LINKS = [
   { href: '/answers',      label: 'Answers',      icon: Library },
 ]
 const DRILL_LINKS = [
-  { href: '/line-game', label: 'Game',     icon: Gamepad2 },
   { href: '/mock',      label: 'Mock',     icon: Timer },
   { href: '/patterns',  label: 'Patterns', icon: GitBranch },
 ]
