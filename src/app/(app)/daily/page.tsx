@@ -220,7 +220,6 @@ export default function DailyPage() {
   useClickOutside(listWrapRef, () => setShowList(false), showList)
 
   // Extra days
-  const [extraDays, setExtraDays] = useState(0)
 
   const [breathers, setBreathers] = useState<ActiveBreather[]>([])
 
@@ -1329,108 +1328,6 @@ export default function DailyPage() {
             </div>
           )}
 
-          {/* Sneak peek days */}
-          {Array.from({ length: extraDays }, (_, i) => {
-            const nextDayIdx = (todayInfo.dayNumber ?? 1) - 1 + i + 1
-            if (nextDayIdx >= totalDays) return null
-            const { questionIds: nextIds, questions: nextQs } = getDayInfo(plan, nextDayIdx, allQuestions, progress)
-            const alreadySolved = nextIds.filter(id => isSolved(id)).length
-            const allPreSolved = alreadySolved === nextQs.length
-            return (
-              <div key={nextDayIdx} className="mt-4 border-t border-dashed border-purple-100 pt-4">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-[var(--text-muted)] text-sm flex items-center gap-2">
-                    <span className="text-base">👀</span>
-                    Day {nextDayIdx + 1}
-                    <span className="text-xs font-normal text-purple-400">sneak peek</span>
-                  </h3>
-                  {alreadySolved > 0 && (
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                      allPreSolved ? 'bg-green-100  text-green-700 ' : 'bg-purple-100  text-purple-600 '
-                    }`}>
-                      {alreadySolved}/{nextQs.length} pre-solved ✓
-                    </span>
-                  )}
-                </div>
-
-                {/* Hint */}
-                <p className="text-xs text-[var(--text-subtle)] mb-3 italic">
-                  Start learning now — these count on their allocated day, not today.
-                </p>
-
-                <div className="space-y-2">
-                  {nextQs.map(q => {
-                    const solved = isSolved(q.id)
-                    return (
-                      <div
-                        key={q.id}
-                        className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                          solved
-                            ? 'bg-green-50  border-green-200 '
-                            : 'bg-purple-50/40 border-purple-100 hover:border-purple-200'
-                        }`}
-                      >
-                        {/* Solved indicator */}
-                        <div className="shrink-0">
-                          {solved
-                            ? <CheckCircle2 size={18} className="text-green-500" />
-                            : <Circle size={18} className="text-purple-200" />}
-                        </div>
-
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
-                            <span className={`text-sm font-medium truncate ${solved ? 'text-green-500  line-through' : 'text-[var(--text)]'}`}>
-                              {q.title}
-                            </span>
-                          </div>
-                          <div className="mt-1 flex items-center gap-2">
-                            <DifficultyBadge difficulty={q.difficulty} />
-                            {solved && <span className="text-xs text-green-400 font-medium">already solved ✓</span>}
-                          </div>
-                        </div>
-
-                        {/* Star */}
-                        <button
-                          type="button"
-                          onClick={() => toggleStar(q.id)}
-                          className={`shrink-0 p-1.5 rounded-lg border transition-colors ${isStarred(q.id) ? 'bg-yellow-50 border-yellow-200' : 'border-[var(--border)] hover:border-yellow-300'}`}
-                          aria-label={isStarred(q.id) ? 'Unstar' : 'Star'}
-                        >
-                          <Star size={13} className={isStarred(q.id) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'} />
-                        </button>
-
-                        {/* Preview link — read-only intent, not solve pressure */}
-                        <Link
-                          href={`/practice/${q.id}`}
-                          className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
-                            solved
-                              ? 'border-green-200  text-green-600  bg-green-50  hover:bg-green-100 '
-                              : 'border-purple-200  text-purple-600  bg-white  hover:bg-purple-50 '
-                          }`}
-                        >
-                          {solved ? 'Review' : 'Preview'}
-                        </Link>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
-
-          {/* Do More button — only unlocked when all reps are done today */}
-          {todayAllRepsDone && todayQs.length > 0 &&
-           (todayInfo.dayNumber ?? 1) - 1 + extraDays + 1 < totalDays && (
-            <button
-              onClick={() => setExtraDays(e => e + 1)}
-              className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-dashed border-purple-200 text-purple-600 text-sm font-semibold rounded-xl hover:bg-purple-50 transition-colors"
-            >
-              👀 Sneak peek tomorrow <ArrowRight size={14} />
-            </button>
-          )}
         </div>
       )}
 
