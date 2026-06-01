@@ -12,10 +12,9 @@ import {
 
 // ── Starred (core daily-use pages) ───────────────────────────────────────────
 const STARRED_LINKS = [
-  { href: '/daily',      label: '★ Daily',      icon: Calendar, also: ['/speedster'] },
-  { href: '/review',     label: '★ Reviews',    icon: Brain,    also: ['/quick-review', '/sr-queue', '/pattern-review', '/best-solutions'] },
-  { href: '/learn',      label: '★ Learn',      icon: BookOpen, also: ['/cycles'] },
-  { href: '/flashcards', label: '★ Flashcards', icon: Layers },
+  { href: '/daily',  label: '★ Daily',   icon: Calendar },
+  { href: '/review', label: '★ Reviews', icon: Brain,    also: ['/quick-review', '/sr-queue', '/pattern-review', '/best-solutions'] },
+  { href: '/learn',  label: '★ Learn',   icon: BookOpen, also: ['/cycles', '/flashcards', '/speedster'] },
 ]
 
 // ── Secondary (practice & reference) ─────────────────────────────────────────

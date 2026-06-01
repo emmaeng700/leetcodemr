@@ -1,10 +1,19 @@
 'use client'
 import { useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { BookOpen, RefreshCw } from 'lucide-react'
+import { BookOpen, RefreshCw, Layers, Gauge } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
-const CyclesPage = dynamic(() => import('../cycles/page'), { ssr: false })
+const CyclesPage     = dynamic(() => import('../cycles/page'),     { ssr: false })
+const FlashcardsPage = dynamic(() => import('../flashcards/page'), { ssr: false })
+const SpeedsterPage  = dynamic(() => import('../speedster/page'),  { ssr: false })
+
+const TABS = [
+  { key: 'questions',  label: 'Questions',  icon: BookOpen  },
+  { key: 'flashcards', label: 'Flashcards', icon: Layers    },
+  { key: 'speedster',  label: 'Speedster',  icon: Gauge     },
+  { key: 'cycles',     label: 'Cycles',     icon: RefreshCw },
+]
 
 function LearnHub() {
   const searchParams = useSearchParams()
@@ -26,14 +35,10 @@ function LearnHub() {
   // While "questions" tab is active the redirect is in flight — show nothing
   if (tab === 'questions') return null
 
-  // Any other tab renders inline with the shared tab bar
   return (
     <div className="flex flex-col min-h-[calc(100dvh-56px)]">
       <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
-        {[
-          { key: 'questions', label: 'Questions', icon: BookOpen },
-          { key: 'cycles',    label: 'Cycles',    icon: RefreshCw },
-        ].map(({ key, label, icon: Icon }) => (
+        {TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => router.replace(`/learn?tab=${key}`, { scroll: false })}
@@ -50,7 +55,9 @@ function LearnHub() {
       </div>
 
       <div className="flex-1 min-h-0">
-        {tab === 'cycles' && <CyclesPage />}
+        {tab === 'flashcards' && <FlashcardsPage />}
+        {tab === 'speedster'  && <SpeedsterPage />}
+        {tab === 'cycles'     && <CyclesPage />}
       </div>
     </div>
   )
