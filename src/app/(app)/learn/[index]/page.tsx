@@ -159,6 +159,7 @@ function LearnInner() {
     setCycleRepsRaw(0); try { sessionStorage.setItem('lm_learn_cycle_reps', '0') } catch {}
     setCyclePosRaw(0);  try { sessionStorage.setItem('lm_learn_cycle_pos',  '0') } catch {}
     cycleAcceptedRef.current = new Set()
+    setCycleAcceptedCount(0)
     try { sessionStorage.removeItem('lm_learn_cycle_accepted') } catch {}
     try {
       if (range) sessionStorage.setItem('lm_learn_cycle', JSON.stringify(range))
@@ -189,23 +190,31 @@ function LearnInner() {
   const CYCLE_REP_TARGET = 10
 
   // Track which question IDs received an accepted solution in the current lap.
-  // Confetti only fires when ALL questions in the cycle range have been accepted.
+  // cycleAcceptedCount (state) drives the badge display; ref is used in callbacks.
   const cycleAcceptedRef = useRef<Set<number>>(new Set())
+  const [cycleAcceptedCount, setCycleAcceptedCount] = useState(0)
   useEffect(() => {
     try {
       const saved = sessionStorage.getItem('lm_learn_cycle_accepted')
-      if (saved) cycleAcceptedRef.current = new Set(JSON.parse(saved) as number[])
+      if (saved) {
+        const arr = JSON.parse(saved) as number[]
+        cycleAcceptedRef.current = new Set(arr)
+        setCycleAcceptedCount(arr.length)
+      }
     } catch {}
   }, [])
-  const recordCycleAccepted = (questionId: number) => {
-    cycleAcceptedRef.current.add(questionId)           // sync update for callbacks
-    try {
-      sessionStorage.setItem('lm_learn_cycle_accepted',
-        JSON.stringify([...cycleAcceptedRef.current]))
-    } catch {}
+  // Returns true if this question ID was NEW (not already accepted this lap)
+  const recordCycleAccepted = (questionId: number): boolean => {
+    if (cycleAcceptedRef.current.has(questionId)) return false  // duplicate — no re-fire
+    cycleAcceptedRef.current.add(questionId)
+    const n = cycleAcceptedRef.current.size
+    setCycleAcceptedCount(n)
+    try { sessionStorage.setItem('lm_learn_cycle_accepted', JSON.stringify([...cycleAcceptedRef.current])) } catch {}
+    return true
   }
   const resetCycleAccepted = () => {
     cycleAcceptedRef.current = new Set()
+    setCycleAcceptedCount(0)
     try { sessionStorage.removeItem('lm_learn_cycle_accepted') } catch {}
   }
 
@@ -899,21 +908,21 @@ function LearnInner() {
           {cycleRange ? (
             <div className="flex items-center gap-1">
               <div className="flex flex-col items-start px-2 py-1 rounded-lg bg-indigo-100 border border-indigo-300 text-indigo-700 text-xs font-bold leading-tight">
-                {/* Lap counter */}
+                {/* Solved this pass */}
                 <span className="flex items-center gap-1">
                   🔄
-                  <span>{cycleReps}/{CYCLE_REP_TARGET}</span>
-                  <span className="text-indigo-400 font-normal">laps</span>
+                  <span>{cycleAcceptedCount}/{cycleRange.end - cycleRange.start + 1}</span>
+                  <span className="text-indigo-400 font-normal">solved</span>
                 </span>
-                {/* Position in current lap */}
+                {/* Laps counter */}
                 <span className="text-[10px] text-indigo-500 font-semibold">
-                  {cyclePos + 1}/{cycleRange.end - cycleRange.start + 1} in lap
+                  {cycleReps}/{CYCLE_REP_TARGET} laps
                 </span>
-                {/* Mini progress bar */}
+                {/* Mini progress bar — tracks solves in current pass */}
                 <div className="w-full h-1 bg-indigo-200 rounded-full mt-0.5 overflow-hidden">
                   <div
                     className="h-full bg-indigo-500 rounded-full transition-all duration-300"
-                    style={{ width: `${(cycleReps / CYCLE_REP_TARGET) * 100}%` }}
+                    style={{ width: `${cycleRange ? (cycleAcceptedCount / (cycleRange.end - cycleRange.start + 1)) * 100 : 0}%` }}
                   />
                 </div>
               </div>
@@ -1381,8 +1390,9 @@ function LearnInner() {
                 toast.success('Accepted! Moving to next question.', { duration: 2000 })
                 if (due && !reviewDone) await handleCompleteReview()
                 if (q && cycleRange) {
-                  recordCycleAccepted(q.id)   // record first
-                  checkCycleLapComplete()      // check immediately — fires confetti if all done
+                  const isNew = recordCycleAccepted(q.id)   // returns true if first time this lap
+                  if (isNew) fireConfetti(false)             // small burst for each new solve
+                  checkCycleLapComplete()                    // big burst + lap++ if all done
                 }
                 goNext()
               }}
