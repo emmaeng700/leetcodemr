@@ -23,10 +23,9 @@ const STARRED_LINKS = [
 
 // ── Secondary (practice & reference) ─────────────────────────────────────────
 const STUDY_LINKS = [
-  { href: '/',               label: 'Questions',      icon: Home,         also: ['/practice', '/question'] },
-  { href: '/answers',        label: 'Answers',        icon: Library },
-  { href: '/quick-review',   label: 'Quick Review',   icon: Clock },
-  { href: '/sr-queue',       label: 'SR Queue',       icon: RefreshCw },
+  { href: '/',               label: 'Questions',    icon: Home,     also: ['/practice', '/question'] },
+  { href: '/quick-review',   label: 'Quick Review', icon: Clock },
+  { href: '/sr-queue',       label: 'SR Queue',     icon: RefreshCw },
 ]
 const DRILL_LINKS = [
   { href: '/mock',           label: 'Mock',           icon: Timer },
@@ -38,8 +37,7 @@ const DRILL_LINKS = [
 const PRACTICE_LINKS = [...STUDY_LINKS, ...DRILL_LINKS]
 
 const SITES_LINKS = [
-  { href: '/neetcode',     label: 'NeetCode 150', icon: Rocket },
-  { href: '/leetcode-api', label: 'LeetCode',     icon: Zap },
+  { href: '/sites', label: 'Sites', icon: Zap, also: ['/neetcode', '/leetcode-api', '/answers'] },
 ]
 
 // Behavioral, System Design, Gems, DSA → merged under /resources
@@ -55,7 +53,7 @@ const MOBILE_SECTIONS = [
   { emoji: '⭐', label: 'Core',      group: STARRED_LINKS },
   { emoji: '📖', label: 'Practice',  group: STUDY_LINKS },
   { emoji: '🎯', label: 'Tools',     group: DRILL_LINKS },
-  { emoji: '🌐', label: 'Sites',     group: SITES_LINKS },
+  { emoji: '🌐', label: 'Sites',     group: SITES_LINKS  },
   { emoji: '📚', label: 'Resources', group: TOPIC_LINKS },
   { emoji: '⚙️', label: 'More',     group: META_LINKS },
 ]
