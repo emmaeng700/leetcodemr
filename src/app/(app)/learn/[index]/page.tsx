@@ -520,7 +520,7 @@ function LearnInner() {
     '🏆 10/10 LAPS COMPLETE! You\'ve mastered this set!',
   ]
 
-  const goNext = useCallback(() => {
+  const goNext = useCallback(({ fromAccepted = false }: { fromAccepted?: boolean } = {}) => {
     const n   = filteredLenRef.current
     if (n === 0) return
     const idx  = gatedIdxRef.current
@@ -531,20 +531,21 @@ function LearnInner() {
     const next  = wrapping ? start : idx + 1
     const qs    = learnQsRef.current
 
-    // Gamification: count steps and detect lap completions
+    // Gamification: track position; confetti only fires on accepted-solution advances
     if (rng) {
-      const lapSize = end - start + 1
-      const newPos  = wrapping ? 0 : cyclePosRef.current + 1
+      const newPos = wrapping ? 0 : cyclePosRef.current + 1
       setCyclePos(newPos)
       if (wrapping) {
         const newReps = Math.min(cycleRepsRef.current + 1, CYCLE_REP_TARGET)
         setCycleReps(newReps)
-        const isFinal = newReps >= CYCLE_REP_TARGET
-        fireConfetti(isFinal)
-        toast(LAP_MESSAGES[newReps - 1] ?? `Lap ${newReps} done! 🔥`, {
-          duration: isFinal ? 6000 : 3500,
-          icon: isFinal ? '🏆' : undefined,
-        })
+        if (fromAccepted) {
+          const isFinal = newReps >= CYCLE_REP_TARGET
+          fireConfetti(isFinal)
+          toast(LAP_MESSAGES[newReps - 1] ?? `Lap ${newReps} done! 🔥`, {
+            duration: isFinal ? 6000 : 3500,
+            icon: isFinal ? '🏆' : undefined,
+          })
+        }
       }
     }
 
@@ -828,7 +829,7 @@ function LearnInner() {
           )}
         </div>
 
-        <button onClick={goNext}
+        <button onClick={() => goNext()}
           className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors">
           <ChevronRight size={15} />
         </button>
@@ -1331,7 +1332,7 @@ function LearnInner() {
               onAccepted={async () => {
                 toast.success('Accepted! Moving to next question.', { duration: 2000 })
                 if (due && !reviewDone) await handleCompleteReview()
-                goNext()
+                goNext({ fromAccepted: true })
               }}
             />
           </div>
