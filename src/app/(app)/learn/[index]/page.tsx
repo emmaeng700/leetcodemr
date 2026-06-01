@@ -700,7 +700,18 @@ function LearnInner() {
           )}
 
           {showCyclePanel && !cycleRange && (
-            <div className="absolute right-0 top-full mt-1 z-50 w-72 bg-white border border-gray-200 rounded-xl shadow-xl p-3">
+            <>
+              {/* Mobile backdrop */}
+              <div
+                className="sm:hidden fixed inset-0 z-40 bg-black/40"
+                onClick={() => setShowCyclePanel(false)}
+              />
+            <div className="
+              fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50
+              w-[min(92vw,18rem)]
+              sm:absolute sm:fixed-none sm:left-auto sm:top-full sm:translate-x-0 sm:translate-y-0
+              sm:right-0 sm:mt-1 sm:w-72
+              bg-white border border-gray-200 rounded-xl shadow-xl p-4">
               <p className="text-xs font-bold text-gray-700 mb-2">🔄 Set Cycle Range</p>
               <p className="text-[11px] text-gray-400 mb-3">Cycle within a range — → wraps back to start automatically.</p>
 
@@ -749,6 +760,7 @@ function LearnInner() {
                 Cancel
               </button>
             </div>
+            </>
           )}
         </div>
 
