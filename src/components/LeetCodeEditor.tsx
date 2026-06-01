@@ -885,8 +885,10 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       }
     }
 
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    // capture:true → fires before CodeMirror's own keydown handler so
+    // preventDefault() stops the Enter newline from being inserted first.
+    window.addEventListener('keydown', onKeyDown, { capture: true })
+    return () => window.removeEventListener('keydown', onKeyDown, { capture: true })
   }, [runSubmit, runTest, running, sessionOK, showSolutionsModal])
 
   const isAC = result?.status_code === 10
