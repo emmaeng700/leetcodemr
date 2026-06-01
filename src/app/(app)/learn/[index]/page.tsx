@@ -572,6 +572,23 @@ function LearnInner() {
 
   const questionListItems = (
     <>
+      {/* Cycle banner — shown at top of list when a cycle is active */}
+      {cycleRange && (
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 py-2 bg-indigo-50 border-b border-indigo-100">
+          <span className="text-[11px] font-semibold text-indigo-600">
+            🔄 Cycle active: questions {cycleRange.start + 1}–{cycleRange.end + 1}
+            <span className="text-indigo-400 font-normal ml-1">· dimmed = outside cycle</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => { setCycleRange(null); setShowList(false) }}
+            className="shrink-0 flex items-center gap-1 text-[11px] font-bold text-rose-500 hover:text-rose-700 transition-colors"
+          >
+            <X size={11} /> Cancel
+          </button>
+        </div>
+      )}
+
       {filtered.map((fq, i) => {
         const fp = progress[String(fq.id)] || {}
         const inRange = cycleRange ? i >= cycleRange.start && i <= cycleRange.end : true
@@ -587,15 +604,20 @@ function LearnInner() {
             <button
               type="button"
               onClick={() => goTo(i)}
-              className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors border-b border-gray-50 hover:bg-indigo-50 ${i === gatedIdx ? 'bg-indigo-50' : ''} ${!inRange && cycleRange ? 'opacity-40' : ''}`}
+              className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors border-b border-gray-50 hover:bg-indigo-50 ${i === gatedIdx ? 'bg-indigo-50' : ''} ${!inRange && cycleRange ? 'opacity-30' : ''}`}
             >
               <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{fq.id}</span>
               <span className="min-w-0 flex-1 truncate text-gray-700">{fq.title}</span>
+              {!inRange && cycleRange
+                ? <span className="shrink-0 text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">outside cycle</span>
+                : inRange && cycleRange
+                  ? <span className="shrink-0 text-[10px] text-indigo-400">●</span>
+                  : null
+              }
               <span className={`text-xs font-semibold shrink-0 ${fq.difficulty === 'Easy' ? 'text-green-600' : fq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
                 {fq.difficulty[0]}
               </span>
               {fp.solved && <CheckCircle size={11} className="text-green-500 shrink-0" />}
-              {inRange && cycleRange && <span className="shrink-0 text-[10px] text-indigo-400">●</span>}
             </button>
           </div>
         )
