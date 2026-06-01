@@ -313,6 +313,11 @@ function LearnInner() {
     }
   }, [filtered.length, routeIndex, safeIdx, learnQs, router])
 
+  // Persist current question index so coming back to /learn restores position
+  useEffect(() => {
+    try { localStorage.setItem('lm_learn_idx', String(gatedIdx)) } catch {}
+  }, [gatedIdx])
+
   // Persist study mode to localStorage
   useEffect(() => {
     if (studyMode !== null) localStorage.setItem('lm_study_mode', studyMode)
