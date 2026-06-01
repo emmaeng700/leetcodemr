@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { RefreshCw, Plus, Trash2, Play, ChevronRight, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { getSavedCycles, setSavedCycles, saveCycleState, type SavedCycle } from '@/lib/db'
+import { getSavedCycles, setSavedCycles, saveCycleState, getCycleState, type SavedCycle } from '@/lib/db'
 import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { PATTERN_PRIORITY, QUICK_PATTERNS } from '@/lib/constants'
@@ -101,7 +101,25 @@ export default function CyclesPage() {
     const next = cycles.filter(c => c.id !== id)
     await setSavedCycles(next)
     setCycles(next)
-    toast.success('Cycle deleted')
+
+    // If this was the active cycle in Learn, clear it too
+    const active = await getCycleState()
+    const isActive = active?.cycleRange &&
+      active.cycleRange.start === cycle.range.start &&
+      active.cycleRange.end   === cycle.range.end
+    if (isActive) {
+      await saveCycleState(null)
+      // Clear Learn page sessionStorage so the badge disappears immediately
+      try {
+        sessionStorage.removeItem('lm_learn_cycle')
+        sessionStorage.removeItem('lm_learn_cycle_reps')
+        sessionStorage.removeItem('lm_learn_cycle_pos')
+        sessionStorage.removeItem('lm_learn_cycle_accepted')
+      } catch {}
+      toast.success(`"${cycle.name}" deleted and deactivated from Learn`)
+    } else {
+      toast.success(`"${cycle.name}" deleted`)
+    }
   }
 
   const handleActivate = async (cycle: SavedCycle) => {
