@@ -166,6 +166,10 @@ SITE_META = [
     ('leetcodeca', 'LC.ca'),
 ]
 
+TOC_CB_PT     = 7.0   # inner-page pt — matches toc/title font size
+TOC_CB_GAP    = 8.0   # inner-page pt — space between checkbox and #id text
+TOC_ARROW_PAD = 4.0   # inner-page pt — gap between title end and ↗ arrow
+
 # ─── Styles ──────────────────────────────────────────────────────────────────
 # 4×4 mode: inner pages match cell size (no scaling), so use full readable sizes.
 # Default: pages scaled down ~58% when imposed, so source sizes are small.
@@ -179,6 +183,18 @@ if GRID_4X4:
         'toc':         ParagraphStyle('tc',  fontName='LG-Bold',    fontSize=11, textColor=BLACK, leading=14),
         'cover_title': ParagraphStyle('ct',  fontName='LG-Bold',    fontSize=8, textColor=BLACK, alignment=TA_CENTER, leading=10),
         'cover_sub':   ParagraphStyle('cs',  fontName='LG-Bold',    fontSize=8, textColor=BLACK, alignment=TA_CENTER, leading=10),
+    }
+elif GRID_2X1 or CHAPTER2_PDF:
+    # pattern_run / the_digest: compact body text; titles slightly larger.
+    S = {
+        'title':       ParagraphStyle('ttl', fontName='LG-Bold',    fontSize=7, textColor=BLACK, leading=9,   spaceAfter=1),
+        'body':        ParagraphStyle('bd',  fontName='LG-Bold',    fontSize=5.0, textColor=BLACK, leading=6.5, spaceAfter=1),
+        'body_sm':     ParagraphStyle('bds', fontName='LG-Bold',    fontSize=5.0, textColor=BLACK, leading=6.5, spaceAfter=1),
+        'code':        ParagraphStyle('cd',  fontName='Menlo-Bold', fontSize=3.5, textColor=BLACK, leading=4.6),
+        'head2':       ParagraphStyle('h2',  fontName='LG-Bold',    fontSize=5.0, textColor=BLACK, leading=6.5, spaceAfter=1),
+        'toc':         ParagraphStyle('tc',  fontName='LG-Bold',    fontSize=7, textColor=BLACK, leading=9),
+        'cover_title': ParagraphStyle('ct',  fontName='LG-Bold',    fontSize=13,  textColor=BLACK, alignment=TA_CENTER, leading=16),
+        'cover_sub':   ParagraphStyle('cs',  fontName='LG-Bold',    fontSize=7,   textColor=BLACK, alignment=TA_CENTER, leading=10),
     }
 else:
     S = {
@@ -264,10 +280,14 @@ def build_rounds(questions: list) -> list:
 def desc_to_mini_flowables(desc_html: str) -> list:
     if not desc_html:
         return []
-    body_st = ParagraphStyle('dbody', fontName='LG-Bold', fontSize=6,   textColor=BLACK, leading=8,   spaceAfter=1)
-    li_st   = ParagraphStyle('dli',   fontName='LG-Bold', fontSize=5.8, textColor=BLACK, leading=7.5, leftIndent=8, spaceAfter=1)
-    hdr_st  = ParagraphStyle('dhdr',  fontName='LG-Bold', fontSize=6.5, textColor=BLACK, leading=9,   spaceAfter=1, spaceBefore=3)
-    pre_st  = ParagraphStyle('dpre',  fontName='Menlo-Bold', fontSize=5, textColor=BLACK, leading=7)
+    body_st = ParagraphStyle('dbody', fontName='LG-Bold', fontSize=S['body'].fontSize,
+                             textColor=BLACK, leading=S['body'].leading, spaceAfter=1)
+    li_st   = ParagraphStyle('dli',   fontName='LG-Bold', fontSize=S['body'].fontSize,
+                             textColor=BLACK, leading=S['body'].leading, leftIndent=8, spaceAfter=1)
+    hdr_st  = ParagraphStyle('dhdr',  fontName='LG-Bold', fontSize=S['head2'].fontSize,
+                             textColor=BLACK, leading=S['head2'].leading, spaceAfter=1, spaceBefore=3)
+    pre_st  = ParagraphStyle('dpre',  fontName='Menlo-Bold', fontSize=S['body'].fontSize,
+                             textColor=BLACK, leading=S['body'].leading)
 
     flowables = []
     block_re  = re.compile(
@@ -471,7 +491,7 @@ def cat_bar(text: str, bg=None) -> Table:
     bar_bg = bg if bg else white
     tbl = Table([[Paragraph(
         f'<b>{safe_xml(text)}</b>',
-        ParagraphStyle('cb', fontName='LG-Bold', fontSize=5.5, textColor=BLACK),
+        ParagraphStyle('cb', fontName='LG-Bold', fontSize=S['body_sm'].fontSize, textColor=BLACK),
     )]], colWidths=[USE_W])
     tbl.setStyle(TableStyle([
         ('BACKGROUND',    (0,0), (-1,-1), bar_bg),
@@ -486,8 +506,8 @@ def cat_bar(text: str, bg=None) -> Table:
 def site_label_p(label: str) -> Paragraph:
     return Paragraph(
         f'<b>● {label}</b>',
-        ParagraphStyle(f'sl_{label}', fontName='LG-Bold', fontSize=5.5,
-                       textColor=BLACK, leading=7, spaceBefore=3))
+        ParagraphStyle(f'sl_{label}', fontName='LG-Bold', fontSize=S['body_sm'].fontSize,
+                       textColor=BLACK, leading=S['body_sm'].leading, spaceBefore=3))
 
 # ─── Page state ───────────────────────────────────────────────────────────────
 _PAGE_STATE: dict = {'round': ''}
@@ -566,21 +586,22 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
         f'<a href="https://leetcode.com/problems/{slug}/" color="#000000">LeetCode</a>'
     )
     items.append(Paragraph(links, ParagraphStyle(
-        'lnk', fontName='LG-Bold', fontSize=5.5, textColor=BLACK, leading=8, spaceAfter=2)))
+        'lnk', fontName='LG-Bold', fontSize=S['body_sm'].fontSize, textColor=BLACK,
+        leading=S['body_sm'].leading, spaceAfter=2)))
 
     tags = q.get('tags', [])
     if tags:
         items.append(Paragraph(
             '  ·  '.join(safe_xml(t) for t in tags[:10]),
-            ParagraphStyle('tg', fontName='LG-Bold', fontSize=5.5,
-                           textColor=BLACK, leading=7, spaceAfter=2)))
+            ParagraphStyle('tg', fontName='LG-Bold', fontSize=S['body_sm'].fontSize,
+                           textColor=BLACK, leading=S['body_sm'].leading, spaceAfter=2)))
 
     source = q.get('source', [])
     if source:
         items.append(Paragraph(
             f"Lists: {'  |  '.join(safe_xml(s) for s in source)}",
-            ParagraphStyle('src', fontName='LG-Bold', fontSize=5.5,
-                           textColor=BLACK, leading=7, spaceAfter=2)))
+            ParagraphStyle('src', fontName='LG-Bold', fontSize=S['body_sm'].fontSize,
+                           textColor=BLACK, leading=S['body_sm'].leading, spaceAfter=2)))
 
     # Complexity / explanation removed from header — it now lives in the
     # inline Quick Review summary that follows every question's solutions.
@@ -610,9 +631,7 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
             if not has_any:
                 items.append(Spacer(1, 3))
                 items.append(Paragraph(
-                    '<b>★ Community Solutions (JavaScript / TypeScript)</b>',
-                    ParagraphStyle('cs_hdr', fontName='LG-Bold', fontSize=6.5,
-                                   textColor=BLACK, spaceAfter=2)))
+                    '<b>★ Community Solutions (JavaScript / TypeScript)</b>', S['head2']))
                 has_any = True
             items.append(site_label_p(site_label_str))
             seen = set()
@@ -624,9 +643,7 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
         if not has_any:
             items.append(Spacer(1, 3))
             items.append(Paragraph(
-                'No JavaScript / TypeScript community solution in cache.',
-                ParagraphStyle('njs', fontName='LG-Bold', fontSize=6,
-                               textColor=BLACK, leading=8)))
+                'No JavaScript / TypeScript community solution in cache.', S['body']))
     else:
         has_any = False
         for site_key, site_label_str in SITE_META:
@@ -636,9 +653,7 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
             if not has_any:
                 items.append(Spacer(1, 3))
                 items.append(Paragraph(
-                    '<b>★ Community Solutions (Python)</b>',
-                    ParagraphStyle('cs_hdr', fontName='LG-Bold', fontSize=6.5,
-                                   textColor=BLACK, spaceAfter=2)))
+                    '<b>★ Community Solutions (Python)</b>', S['head2']))
                 has_any = True
             items.append(site_label_p(site_label_str))
             seen = set()
@@ -653,9 +668,7 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
             if fallback:
                 items.append(Spacer(1, 3))
                 items.append(Paragraph(
-                    '<b>★ Solution (Python)</b>',
-                    ParagraphStyle('cs_hdr', fontName='LG-Bold', fontSize=6.5,
-                                   textColor=BLACK, spaceAfter=2)))
+                    '<b>★ Solution (Python)</b>', S['head2']))
                 items += code_panel(fallback, lang='python')
 
     # Inline Quick Review summary — follows immediately after solutions
@@ -681,17 +694,17 @@ def build_question_inline_summary(q: dict) -> list:
     if not any([ki, cx, sol]):
         return []
 
-    label_st = ParagraphStyle('iqrl', fontName='LG-Bold', fontSize=5.8,
-                               textColor=BLACK, leading=8, spaceBefore=4, spaceAfter=1)
-    body_st  = ParagraphStyle('iqrb', fontName='LG-Bold', fontSize=5.5,
-                               textColor=BLACK, leading=7.5, leftIndent=6, spaceAfter=1)
+    label_st = ParagraphStyle('iqrl', fontName='LG-Bold', fontSize=S['body'].fontSize,
+                               textColor=BLACK, leading=S['body'].leading,
+                               spaceBefore=4, spaceAfter=1)
+    body_st  = ParagraphStyle('iqrb', fontName='LG-Bold', fontSize=S['body_sm'].fontSize,
+                               textColor=BLACK, leading=S['body_sm'].leading,
+                               leftIndent=6, spaceAfter=1)
 
     items = [
         Spacer(1, 4),
         hr(GRAY_300, 0.5),
-        Paragraph('<b>◆ Quick Review</b>',
-                  ParagraphStyle('iqrhdr', fontName='LG-Bold', fontSize=6,
-                                 textColor=BLACK, leading=8, spaceAfter=2)),
+        Paragraph('<b>◆ Quick Review</b>', S['head2']),
     ]
     if ki:
         items.append(Paragraph('<b>Key Insights</b>', label_st))
@@ -734,7 +747,7 @@ def build_round_summary(round_num: int, priority: str, difficulty: str,
         sub_banner = Table([[Paragraph(
             f'<b>R{round_num}  ·  {priority} · {diff_dot} {difficulty}  '
             f'({len(all_qs)} q)</b>',
-            ParagraphStyle('ch2rb', fontName='LG-Bold', fontSize=7,
+            ParagraphStyle('ch2rb', fontName='LG-Bold', fontSize=S['body'].fontSize,
                            textColor=BLACK, alignment=TA_CENTER),
         )]], colWidths=[USE_W])
         sub_banner.setStyle(TableStyle([
@@ -753,14 +766,15 @@ def build_round_summary(round_num: int, priority: str, difficulty: str,
     items.append(Spacer(1, 2))
     items.append(Paragraph(
         f'<b>{len(all_qs)} question{"s" if len(all_qs) != 1 else ""}  ·  key insights · complexity · solution</b>',
-        ParagraphStyle('qr_sub', fontName='LG-Bold', fontSize=6,
-                       textColor=BLACK, leading=8, spaceAfter=3)))
+        S['body']))
     items.append(hr(GRAY_300, 0.3))
 
-    label_st = ParagraphStyle('qrl', fontName='LG-Bold', fontSize=6,
-                               textColor=BLACK, leading=8, spaceBefore=4, spaceAfter=1)
-    body_st  = ParagraphStyle('qrb', fontName='LG-Bold', fontSize=5.8,
-                               textColor=BLACK, leading=8, leftIndent=6, spaceAfter=1)
+    label_st = ParagraphStyle('qrl', fontName='LG-Bold', fontSize=S['body'].fontSize,
+                               textColor=BLACK, leading=S['body'].leading,
+                               spaceBefore=4, spaceAfter=1)
+    body_st  = ParagraphStyle('qrb', fontName='LG-Bold', fontSize=S['body_sm'].fontSize,
+                               textColor=BLACK, leading=S['body_sm'].leading,
+                               leftIndent=6, spaceAfter=1)
     diff_colors = {'Easy': '#16A34A', 'Medium': '#D97706', 'Hard': '#DC2626'}
 
     for pat, q in all_qs:
@@ -773,8 +787,9 @@ def build_round_summary(round_num: int, priority: str, difficulty: str,
             f'<b>#{q["id"]}  {safe_xml(q["title"])}</b>  '
             f'<font color="{dc}">[{diff}]</font>  '
             f'<font color="#6B7280">· {safe_xml(pat["name"])}</font>',
-            ParagraphStyle('qrt', fontName='LG-Bold', fontSize=6.5,
-                           textColor=BLACK, leading=9, spaceBefore=6, spaceAfter=1)))
+            ParagraphStyle('qrt', fontName='LG-Bold', fontSize=S['title'].fontSize,
+                           textColor=BLACK, leading=S['title'].leading,
+                           spaceBefore=6, spaceAfter=1)))
 
         if info:
             ki = info.get('key_insights', '')
@@ -802,9 +817,7 @@ def build_round_summary(round_num: int, priority: str, difficulty: str,
                         items.append(Paragraph(safe_xml(para), body_st))
         else:
             items.append(Paragraph(
-                'No quick-review data available.',
-                ParagraphStyle('nqr', fontName='LG-Bold', fontSize=5.8,
-                               textColor=BLACK, leading=8)))
+                'No quick-review data available.', S['body_sm']))
 
         items.append(HRFlowable(width='100%', thickness=0.3, color=GRAY_300, spaceAfter=2))
 
@@ -859,6 +872,9 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
         'High Easy → High Med → High Hard → Mid Easy → Mid Med → Mid Hard → Low Easy → Low Med → Low Hard',
         ParagraphStyle('ci2', fontName='LG-Bold', fontSize=5.5, textColor=BLACK, alignment=TA_CENTER, leading=8)))
     story.append(PageBreak())
+    if GRID_2X1:
+        story.append(Spacer(1, 0.1))
+        story.append(PageBreak())  # one blank mini-page between cover and Contents
 
     # ── Table of Contents ─────────────────────────────────────────────────────
     story.append(Paragraph('Contents', ParagraphStyle(
@@ -887,10 +903,19 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
         ]))
         story.append(row)
         for pat, q in all_qs_in_round:
-            story.append(Paragraph(
-                f'   #{q["id"]} {safe_xml(q["title"])}',
-                ParagraphStyle('tqe', fontName='LG', fontSize=5.5, textColor=BLACK,
-                               leading=8.5, spaceAfter=3)))
+            label = f'#{q["id"]} {safe_xml(q["title"])}'
+            if GRID_2X1:
+                tqe_st = ParagraphStyle(
+                    'tqe', fontName='LG', fontSize=S['toc'].fontSize,
+                    textColor=BLACK, leading=S['toc'].leading, spaceAfter=4,
+                    alignment=TA_LEFT,
+                    leftIndent=TOC_CB_PT + TOC_CB_GAP + 4)  # checkbox + gap + pad
+            else:
+                tqe_st = ParagraphStyle(
+                    'tqe', fontName='LG', fontSize=S['toc'].fontSize,
+                    textColor=BLACK, leading=8.5, spaceAfter=3)
+                label = f'   {label}'
+            story.append(Paragraph(label, tqe_st))
     story.append(PageBreak())
 
     # ── Rounds / Chapters ─────────────────────────────────────────────────────
@@ -1240,6 +1265,26 @@ def impose_2x1_landscape(src_path: Path, dst_path: Path):
 
 
 # ─── 2×1 precise link enrichment ─────────────────────────────────────────────
+def _draw_toc_goto_arrow(page, line_dest: fitz.Rect, sc: float) -> fitz.Rect:
+    """Draw a small ↗ after the title; return a mobile-friendly link rect."""
+    sz   = TOC_CB_PT * sc
+    pad  = TOC_ARROW_PAD * sc
+    cx   = line_dest.x1 + pad + sz * 0.55
+    cy   = (line_dest.y0 + line_dest.y1) * 0.5
+    half = sz * 0.42
+    p0   = fitz.Point(cx - half, cy + half)
+    p1   = fitz.Point(cx + half, cy - half)
+    shape = page.new_shape()
+    shape.draw_line(p0, p1)
+    ah = half * 0.55
+    shape.draw_line(p1, fitz.Point(p1.x - ah, p1.y))
+    shape.draw_line(p1, fitz.Point(p1.x, p1.y + ah))
+    shape.finish(color=(0.2, 0.2, 0.2), width=max(0.7, 0.6 * sc))
+    shape.commit()
+    tap = max(sz * 1.6, 16.0)
+    return fitz.Rect(cx - tap * 0.5, cy - tap * 0.5, cx + tap * 0.5, cy + tap * 0.5)
+
+
 def _add_links_2x1(output_path: Path, page_types: dict,
                    qid_first_page: dict, toc_link_rects: dict,
                    per_sheet: int = 2, cols: int = 2,
@@ -1247,8 +1292,7 @@ def _add_links_2x1(output_path: Path, page_types: dict,
                    L_W: float = 792.0, L_H: float = 612.0, GAP: float = 3.0):
     """
     Post-process 2×1 PDF:
-      • TOC entry → question, linking to the EXACT column position on the sheet
-        so the view lands directly on the question with no panning required
+      • ↗ arrow after each TOC title → jumps to that question (title text not linked)
       • Draw visible checkbox squares on TOC entries
       • '← Contents' button on every non-TOC sheet
     """
@@ -1289,24 +1333,27 @@ def _add_links_2x1(output_path: Path, page_types: dict,
             dest       = qid_sheet.get(qid)
             dest_slot  = qid_slot.get(qid, 0)
 
-            # Link — starts at '#' text, NOT x=0, so checkbox area is free
+            cx0, cy0, ox, oy, sc = txfm
+            line_dest = tx_rect(rect_info['line'], cx0, cy0, ox, oy, sc)
+
+            # ↗ arrow link — only tap target to open the question
             if dest is not None:
-                # Precise x destination: left edge of the question's column
-                dest_x = dest_slot * CW   # 0 for left column, 396 for right
+                dest_x = dest_slot * CW
+                arrow_rect = _draw_toc_goto_arrow(out_pg, line_dest, sc)
                 out_pg.insert_link({
                     'kind': fitz.LINK_GOTO,
-                    'from': tx_rect(rect_info['row'], *txfm),
+                    'from': arrow_rect,
                     'page': dest,
-                    'to':   fitz.Point(dest_x, 0),  # land exactly on question column
+                    'to':   fitz.Point(dest_x, 0),
                     'zoom': 0,
                 })
                 n_links += 1
 
-            # Checkbox square
-            txt_dest = tx_rect(rect_info['txt'], *txfm)
-            cb_h   = 9.0
-            cb_y0  = txt_dest.y0 + (txt_dest.height - cb_h) / 2
-            cb_x1  = txt_dest.x0 - 3
+            # Checkbox to the left of the entry line (scale with imposed cell)
+            cb_h   = TOC_CB_PT * sc
+            gap    = TOC_CB_GAP * sc
+            cb_y0  = line_dest.y0 + (line_dest.height - cb_h) / 2
+            cb_x1  = line_dest.x0 - gap
             cb_x0  = cb_x1 - cb_h
             cb_rect = fitz.Rect(cb_x0, cb_y0, cb_x1, cb_y0 + cb_h)
             out_pg.draw_rect(cb_rect, color=(0.2, 0.2, 0.2),
@@ -1339,7 +1386,7 @@ def _add_links_2x1(output_path: Path, page_types: dict,
     doc.save(str(tmp), garbage=4, deflate=True, incremental=False)
     doc.close()
     tmp.replace(output_path)
-    print(f'  Links: {n_links} (precise col-dest)  |  Checkboxes: {n_boxes}  '
+    print(f'  Links: {n_links} (↗ arrow)  |  Checkboxes: {n_boxes}  '
           f'|  ← Contents: {n_sheets - len(toc_sheets)} sheets')
 
 
@@ -1395,18 +1442,18 @@ def build_chapter2_inner(rounds: list):
     return counter.n
 
 
-# ─── 1×1 portrait imposer (one mini-page per full letter sheet) ───────────────
+# ─── 1×1 landscape imposer (one mini-page per full landscape sheet) ──────────
 def impose_1x1_portrait(src_path: Path, dst_path: Path):
     """
-    Each inner mini-page (204×264) fills one portrait letter sheet (612×792).
-    Scale = exactly 3× on both axes — text is large and very readable.
+    Each inner mini-page (204×264) fills one landscape letter sheet (792×612).
+    Scales up ~3× on the long axis — large, readable quick-review pages.
     """
     src = fitz.open(str(src_path))
     dst = fitz.open()
     n   = len(src)
 
-    L_W, L_H = 612.0, 792.0   # portrait letter
-    GAP = 6.0
+    L_W, L_H = 792.0, 612.0   # landscape letter
+    GAP = 8.0
 
     for i in range(n):
         sheet = dst.new_page(width=L_W, height=L_H)
@@ -1427,6 +1474,58 @@ def impose_1x1_portrait(src_path: Path, dst_path: Path):
 
 
 # ─── 2×2 link enrichment ─────────────────────────────────────────────────────
+
+def _find_toc_entry_rects(page, qid: int):
+    """Return {line, title} inner-page rects for a TOC entry."""
+    prefix = f'#{qid} '
+    pat_q  = re.compile(rf'#{qid}\b')
+    for block in page.get_text('dict').get('blocks', []):
+        if block.get('type') != 0:
+            continue
+        for line in block.get('lines', []):
+            spans = line['spans']
+            text  = ''.join(s['text'] for s in spans)
+            if not pat_q.search(text):
+                continue
+            x0, y0, x1, y1 = line['bbox']
+            line_rect = fitz.Rect(x0, y0, x1, y1)
+
+            title_x0 = x1
+            if prefix in text:
+                need, consumed = len(prefix), 0
+                for s in spans:
+                    st = s['text']
+                    sx0, _, sx1, _ = s['bbox']
+                    if consumed + len(st) <= need:
+                        consumed += len(st)
+                        continue
+                    if consumed >= need:
+                        title_x0 = sx0
+                    else:
+                        off = need - consumed
+                        title_x0 = sx0 + (off / len(st)) * (sx1 - sx0)
+                    break
+
+            title_rect = fitz.Rect(title_x0, y0 - 2, x1, y1 + 2)
+            return {'line': line_rect, 'title': title_rect}
+
+    hits = page.search_for(f'#{qid} ')
+    if not hits:
+        hits = page.search_for(f'#{qid}')
+    if hits:
+        r = hits[0]
+        return {
+            'line':  fitz.Rect(r.x0, r.y0, r.x1, r.y1),
+            'title': fitz.Rect(r.x1, r.y0, r.x1 + 1, r.y1),
+        }
+    return None
+
+
+def _find_toc_line_rect(page, qid: int):
+    """Full-line bbox for a TOC entry."""
+    entry = _find_toc_entry_rects(page, qid)
+    return entry['line'] if entry else None
+
 
 def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
     """
@@ -1469,20 +1568,10 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
             page_types[pg] = 'toc'
             rects = {}
             for qid in unique:
-                # Search with trailing space first to avoid substring matches:
-                # e.g. "#11 " won't match "#1138 "; "#57 " won't match "#572 "
-                hits = page.search_for(f'#{qid} ')
-                if not hits:
-                    hits = page.search_for(f'#{qid}')   # fallback (end-of-line)
-                if hits:
-                    r = hits[0]
-                    # Link starts at the '#' character (not x=0) so the checkbox
-                    # area to its left is never covered by the link annotation.
-                    # This prevents the link from intercepting checkbox taps on mobile.
-                    rects[qid] = {
-                        'row': fitz.Rect(r.x0, r.y0 - 1, page.rect.width, r.y1 + 2),
-                        'txt': r,
-                    }
+                entry = _find_toc_entry_rects(page, qid)
+                if entry is None:
+                    continue
+                rects[qid] = entry
             toc_link_rects[pg] = rects
         elif unique:
             page_types[pg] = 'question'
