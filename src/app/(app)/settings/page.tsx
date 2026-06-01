@@ -409,6 +409,16 @@ export default function SettingsPage() {
         <p className="text-[10px] text-[var(--text-subtle)] text-center mt-3 mb-4">
           Reminders stop once you complete your daily questions.
         </p>
+
+        {/* About */}
+        <div className="mt-6 pt-5 border-t border-[var(--border)]">
+          <h2 className="text-xs font-bold text-[var(--text-subtle)] uppercase tracking-widest mb-3">About</h2>
+          <div className="bg-[var(--bg-muted)] rounded-xl p-4 text-xs text-[var(--text-muted)] space-y-1.5 leading-relaxed">
+            <p><strong className="text-[var(--text)]">LeetMastery</strong> — a personal LeetCode study companion.</p>
+            <p>Priority-grouped · Difficulty-first · Spaced repetition · Cycle training</p>
+            <p className="text-[var(--text-subtle)] pt-1">Built for the July 2026 recruitment cycle 🚀</p>
+          </div>
+        </div>
       </div>
     </div>
   )

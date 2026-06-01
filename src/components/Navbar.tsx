@@ -10,50 +10,50 @@ import {
   BookOpen, Swords, Rocket, Download, Bookmark, ClipboardList, Settings, Check,
 } from 'lucide-react'
 
+// ── Starred (core daily-use pages) ───────────────────────────────────────────
 const STARRED_LINKS = [
-  { href: '/daily',           label: '★ Daily',           icon: Calendar },
-  { href: '/review',          label: '★ Reviews',         icon: Brain },
-  { href: '/learn',           label: '★ Learn',           icon: BookOpen },
-  { href: '/cycles',          label: '★ Cycles',          icon: RefreshCw },
-  { href: '/flashcards',      label: '★ Flashcards',      icon: Layers },
-  { href: '/best-solutions',  label: '★ My Best',         icon: Bookmark },
-  { href: '/speedster',       label: '★ Speedster',       icon: Gauge },
-  { href: '/pattern-review',  label: '★ Pattern Review',  icon: BookOpen },
-  { href: '/clipboard',       label: '★ Clipboard',       icon: ClipboardList },
-  { href: '/downloads',       label: '★ Downloads',       icon: Download },
+  { href: '/daily',          label: '★ Daily',      icon: Calendar },
+  { href: '/review',         label: '★ Reviews',    icon: Brain },
+  { href: '/learn',          label: '★ Learn',      icon: BookOpen },
+  { href: '/flashcards',     label: '★ Flashcards', icon: Layers },
+  { href: '/best-solutions', label: '★ My Best',    icon: Bookmark },
+  { href: '/speedster',      label: '★ Speedster',  icon: Gauge },
+  { href: '/downloads',      label: '★ Downloads',  icon: Download },
 ]
+
+// ── Secondary (practice & reference) ─────────────────────────────────────────
 const STUDY_LINKS = [
-  { href: '/',             label: 'Questions',    icon: Home,     also: ['/practice', '/question'] },
-  { href: '/quick-review', label: 'Quick Review', icon: Clock },
-  { href: '/neetcode',     label: 'NeetCode 150', icon: Rocket },
-  { href: '/leetcode-api', label: 'LeetCode',     icon: Zap },
-  { href: '/answers',      label: 'Answers',      icon: Library },
+  { href: '/',               label: 'Questions',      icon: Home,         also: ['/practice', '/question'] },
+  { href: '/neetcode',       label: 'NeetCode 150',   icon: Rocket },
+  { href: '/leetcode-api',   label: 'LeetCode',       icon: Zap },
+  { href: '/answers',        label: 'Answers',        icon: Library },
+  { href: '/quick-review',   label: 'Quick Review',   icon: Clock },
+  { href: '/sr-queue',       label: 'SR Queue',       icon: RefreshCw },
 ]
 const DRILL_LINKS = [
-  { href: '/mock',      label: 'Mock',     icon: Timer },
-  { href: '/patterns',  label: 'Patterns', icon: GitBranch },
+  { href: '/mock',           label: 'Mock',           icon: Timer },
+  { href: '/patterns',       label: 'Patterns',       icon: GitBranch },
+  { href: '/pattern-review', label: 'Pattern Review', icon: BookOpen },
+  { href: '/cycles',         label: 'Cycles',         icon: RefreshCw },
+  { href: '/clipboard',      label: 'Clipboard',      icon: ClipboardList },
 ]
 const PRACTICE_LINKS = [...STUDY_LINKS, ...DRILL_LINKS]
+
+// Behavioral, System Design, Gems, DSA → merged under /resources
 const TOPIC_LINKS = [
-  { href: '/behavioral',    label: 'Behavioral',    icon: MessageSquare },
-  { href: '/system-design', label: 'System Design', icon: Server },
-  { href: '/gems',          label: 'Gems',          icon: Gem },
-  { href: '/dsa',           label: 'DSA',           icon: Code2 },
+  { href: '/resources', label: 'Resources', icon: Server },
 ]
 const META_LINKS = [
-  { href: '/sr-queue',  label: 'SR Queue',  icon: RefreshCw },
-  { href: '/pileup',    label: 'Pileup',    icon: Layers },
-  { href: '/stats',     label: 'Stats',     icon: BarChart2 },
-  { href: '/settings',  label: 'Settings',  icon: Settings },
-  { href: '/about',     label: 'About',     icon: Info },
+  { href: '/stats',    label: 'Stats',    icon: BarChart2 },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
 const MOBILE_SECTIONS = [
-  { emoji: '⭐', label: 'Core',   group: STARRED_LINKS },
-  { emoji: '⚔️', label: 'Study',  group: STUDY_LINKS },   // includes Quick Review
-  { emoji: '🎯', label: 'Drill',  group: DRILL_LINKS },
-  { emoji: '📚', label: 'Topics', group: TOPIC_LINKS },
-  { emoji: '⚙️', label: 'More',   group: META_LINKS },
+  { emoji: '⭐', label: 'Core',      group: STARRED_LINKS },
+  { emoji: '📖', label: 'Practice',  group: STUDY_LINKS },
+  { emoji: '🎯', label: 'Tools',     group: DRILL_LINKS },
+  { emoji: '📚', label: 'Resources', group: TOPIC_LINKS },
+  { emoji: '⚙️', label: 'More',     group: META_LINKS },
 ]
 
 function buildAnswersNavHref(): string {
