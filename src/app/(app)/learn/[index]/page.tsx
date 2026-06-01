@@ -131,12 +131,15 @@ function LearnInner() {
   const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(null)
 
   // ── Cycle marker — persisted in sessionStorage so it survives route remounts ──
-  const [cycleRange, setCycleRangeRaw] = useState<{ start: number; end: number } | null>(() => {
+  // Start as null on BOTH server and client to avoid hydration mismatch.
+  // useEffect (client-only) restores the saved value after mount.
+  const [cycleRange, setCycleRangeRaw] = useState<{ start: number; end: number } | null>(null)
+  useEffect(() => {
     try {
       const saved = sessionStorage.getItem('lm_learn_cycle')
-      return saved ? JSON.parse(saved) : null
-    } catch { return null }
-  })
+      if (saved) setCycleRangeRaw(JSON.parse(saved))
+    } catch {}
+  }, [])
   const setCycleRange = (range: { start: number; end: number } | null) => {
     setCycleRangeRaw(range)
     try {
@@ -603,8 +606,31 @@ function LearnInner() {
             {showRound && <StudyRoundHeader priority={curPri!} difficulty={fq.difficulty} />}
             <button
               type="button"
-              onClick={() => goTo(i)}
-              className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors border-b border-gray-50 hover:bg-indigo-50 ${i === gatedIdx ? 'bg-indigo-50' : ''} ${!inRange && cycleRange ? 'opacity-30' : ''}`}
+              onClick={() => {
+                if (!inRange && cycleRange) {
+                  // Don't navigate — show toast with escape options
+                  toast(t => (
+                    <span className="flex items-center gap-2 text-xs">
+                      <span>🔄 Outside cycle</span>
+                      <button
+                        onClick={() => { setCycleRange(null); goTo(i); toast.dismiss(t.id) }}
+                        className="px-2 py-0.5 rounded bg-indigo-600 text-white font-semibold"
+                      >
+                        Cancel cycle &amp; go
+                      </button>
+                      <button
+                        onClick={() => toast.dismiss(t.id)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        Stay
+                      </button>
+                    </span>
+                  ), { duration: 5000 })
+                  return
+                }
+                goTo(i)
+              }}
+              className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm border-b border-gray-50 transition-colors ${!inRange && cycleRange ? 'opacity-30 cursor-not-allowed' : 'hover:bg-indigo-50'} ${i === gatedIdx ? 'bg-indigo-50' : ''}`}
             >
               <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{fq.id}</span>
               <span className="min-w-0 flex-1 truncate text-gray-700">{fq.title}</span>
