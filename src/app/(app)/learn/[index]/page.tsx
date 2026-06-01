@@ -142,11 +142,35 @@ function LearnInner() {
   }, [])
   const setCycleRange = (range: { start: number; end: number } | null) => {
     setCycleRangeRaw(range)
+    // Reset gamification counters whenever the cycle changes
+    setCycleRepsRaw(0); try { sessionStorage.setItem('lm_learn_cycle_reps', '0') } catch {}
+    setCyclePosRaw(0);  try { sessionStorage.setItem('lm_learn_cycle_pos',  '0') } catch {}
     try {
       if (range) sessionStorage.setItem('lm_learn_cycle', JSON.stringify(range))
       else sessionStorage.removeItem('lm_learn_cycle')
     } catch {}
   }
+  // Cycle gamification — laps completed (0-10 target) and position in current lap
+  const [cycleReps, setCycleRepsRaw] = useState(0)
+  const [cyclePos,  setCyclePosRaw]  = useState(0) // how many steps taken in current lap
+  useEffect(() => {
+    try {
+      const r = sessionStorage.getItem('lm_learn_cycle_reps')
+      const p = sessionStorage.getItem('lm_learn_cycle_pos')
+      if (r) setCycleRepsRaw(Number(r))
+      if (p) setCyclePosRaw(Number(p))
+    } catch {}
+  }, [])
+  const setCycleReps = (n: number) => {
+    setCycleRepsRaw(n)
+    try { sessionStorage.setItem('lm_learn_cycle_reps', String(n)) } catch {}
+  }
+  const setCyclePos = (n: number) => {
+    setCyclePosRaw(n)
+    try { sessionStorage.setItem('lm_learn_cycle_pos', String(n)) } catch {}
+  }
+  const CYCLE_REP_TARGET = 10
+
   const [showCyclePanel, setShowCyclePanel] = useState(false)
   const [cycleFromInput, setCycleFromInput] = useState('1')
   const [cycleToInput,   setCycleToInput]   = useState('')
@@ -464,6 +488,38 @@ function LearnInner() {
   useEffect(() => { filteredLenRef.current = filtered.length }, [filtered.length])
   useEffect(() => { learnQsRef.current     = learnQs },        [learnQs])
 
+  // Refs for gamification counters (same pattern — always fresh in callbacks)
+  const cycleRepsRef = useRef(cycleReps)
+  const cyclePosRef  = useRef(cyclePos)
+  useEffect(() => { cycleRepsRef.current = cycleReps }, [cycleReps])
+  useEffect(() => { cyclePosRef.current  = cyclePos  }, [cyclePos])
+
+  const fireConfetti = useCallback((big = false) => {
+    import('canvas-confetti').then(({ default: confetti }) => {
+      if (big) {
+        // Cannon burst from both sides for 10/10
+        confetti({ particleCount: 120, spread: 70, origin: { x: 0.2, y: 0.6 } })
+        setTimeout(() => confetti({ particleCount: 120, spread: 70, origin: { x: 0.8, y: 0.6 } }), 200)
+        setTimeout(() => confetti({ particleCount: 80, spread: 100, origin: { x: 0.5, y: 0.4 } }), 400)
+      } else {
+        confetti({ particleCount: 60, spread: 55, origin: { x: 0.5, y: 0.6 } })
+      }
+    }).catch(() => {})
+  }, [])
+
+  const LAP_MESSAGES = [
+    'Lap 1 done! 🔥 Warming up!',
+    'Lap 2 done! 💪 You\'re building momentum!',
+    'Lap 3 done! 🧠 Patterns are sinking in!',
+    'Lap 4 done! ⚡ Getting faster!',
+    'Lap 5 done! 🎯 Halfway there! You\'re unstoppable!',
+    'Lap 6 done! 🚀 More than halfway — keep pushing!',
+    'Lap 7 done! 🏃 In the zone now!',
+    'Lap 8 done! 💎 Almost elite level!',
+    'Lap 9 done! 🔑 One more lap — you\'ve got this!',
+    '🏆 10/10 LAPS COMPLETE! You\'ve mastered this set!',
+  ]
+
   const goNext = useCallback(() => {
     const n   = filteredLenRef.current
     if (n === 0) return
@@ -471,10 +527,29 @@ function LearnInner() {
     const rng  = cycleRangeRef.current
     const start = rng?.start ?? 0
     const end   = rng?.end   ?? Math.max(n - 1, 0)
-    const next  = idx >= end ? start : idx + 1
+    const wrapping = idx >= end
+    const next  = wrapping ? start : idx + 1
     const qs    = learnQsRef.current
+
+    // Gamification: count steps and detect lap completions
+    if (rng) {
+      const lapSize = end - start + 1
+      const newPos  = wrapping ? 0 : cyclePosRef.current + 1
+      setCyclePos(newPos)
+      if (wrapping) {
+        const newReps = Math.min(cycleRepsRef.current + 1, CYCLE_REP_TARGET)
+        setCycleReps(newReps)
+        const isFinal = newReps >= CYCLE_REP_TARGET
+        fireConfetti(isFinal)
+        toast(LAP_MESSAGES[newReps - 1] ?? `Lap ${newReps} done! 🔥`, {
+          duration: isFinal ? 6000 : 3500,
+          icon: isFinal ? '🏆' : undefined,
+        })
+      }
+    }
+
     router.push(`/learn/${next}${qs ? `?${qs}` : ''}`, { scroll: false })
-  }, [router])
+  }, [router, fireConfetti, setCyclePos, setCycleReps])
 
   const goPrev = useCallback(() => {
     const n   = filteredLenRef.current
@@ -774,9 +849,25 @@ function LearnInner() {
         <div className="relative">
           {cycleRange ? (
             <div className="flex items-center gap-1">
-              <span className="px-2 py-1 rounded-lg bg-indigo-100 border border-indigo-300 text-indigo-700 text-xs font-bold">
-                🔄 {cycleRange.start + 1}–{cycleRange.end + 1}
-              </span>
+              <div className="flex flex-col items-start px-2 py-1 rounded-lg bg-indigo-100 border border-indigo-300 text-indigo-700 text-xs font-bold leading-tight">
+                {/* Lap counter */}
+                <span className="flex items-center gap-1">
+                  🔄
+                  <span>{cycleReps}/{CYCLE_REP_TARGET}</span>
+                  <span className="text-indigo-400 font-normal">laps</span>
+                </span>
+                {/* Position in current lap */}
+                <span className="text-[10px] text-indigo-500 font-semibold">
+                  {cyclePos + 1}/{cycleRange.end - cycleRange.start + 1} in lap
+                </span>
+                {/* Mini progress bar */}
+                <div className="w-full h-1 bg-indigo-200 rounded-full mt-0.5 overflow-hidden">
+                  <div
+                    className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                    style={{ width: `${(cycleReps / CYCLE_REP_TARGET) * 100}%` }}
+                  />
+                </div>
+              </div>
               <button type="button" onClick={() => setCycleRange(null)}
                 className="p-1 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50 transition-colors">
                 <X size={12} />
