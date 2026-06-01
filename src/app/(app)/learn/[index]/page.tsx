@@ -130,8 +130,20 @@ function LearnInner() {
   // IMPORTANT: don't read localStorage during render (causes hydration mismatch).
   const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(null)
 
-  // ── Cycle marker ──────────────────────────────────────────────────────────────
-  const [cycleRange, setCycleRange]     = useState<{ start: number; end: number } | null>(null)
+  // ── Cycle marker — persisted in sessionStorage so it survives route remounts ──
+  const [cycleRange, setCycleRangeRaw] = useState<{ start: number; end: number } | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('lm_learn_cycle')
+      return saved ? JSON.parse(saved) : null
+    } catch { return null }
+  })
+  const setCycleRange = (range: { start: number; end: number } | null) => {
+    setCycleRangeRaw(range)
+    try {
+      if (range) sessionStorage.setItem('lm_learn_cycle', JSON.stringify(range))
+      else sessionStorage.removeItem('lm_learn_cycle')
+    } catch {}
+  }
   const [showCyclePanel, setShowCyclePanel] = useState(false)
   const [cycleFromInput, setCycleFromInput] = useState('1')
   const [cycleToInput,   setCycleToInput]   = useState('')
