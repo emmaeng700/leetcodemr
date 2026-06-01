@@ -12,11 +12,10 @@ import {
 
 // ── Starred (core daily-use pages) ───────────────────────────────────────────
 const STARRED_LINKS = [
-  { href: '/daily',      label: '★ Daily',      icon: Calendar },
+  { href: '/daily',      label: '★ Daily',      icon: Calendar, also: ['/speedster'] },
   { href: '/review',     label: '★ Reviews',    icon: Brain,    also: ['/quick-review', '/sr-queue', '/pattern-review', '/best-solutions'] },
   { href: '/learn',      label: '★ Learn',      icon: BookOpen },
   { href: '/flashcards', label: '★ Flashcards', icon: Layers },
-  { href: '/speedster',  label: '★ Speedster',  icon: Gauge },
 ]
 
 // ── Secondary (practice & reference) ─────────────────────────────────────────
