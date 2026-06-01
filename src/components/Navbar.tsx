@@ -13,7 +13,7 @@ import {
 // ── Starred (core daily-use pages) ───────────────────────────────────────────
 const STARRED_LINKS = [
   { href: '/daily',          label: '★ Daily',      icon: Calendar },
-  { href: '/review',         label: '★ Reviews',    icon: Brain },
+  { href: '/review',         label: '★ Reviews',    icon: Brain,  also: ['/quick-review', '/sr-queue', '/pattern-review'] },
   { href: '/learn',          label: '★ Learn',      icon: BookOpen },
   { href: '/flashcards',     label: '★ Flashcards', icon: Layers },
   { href: '/best-solutions', label: '★ My Best',    icon: Bookmark },
@@ -23,16 +23,13 @@ const STARRED_LINKS = [
 
 // ── Secondary (practice & reference) ─────────────────────────────────────────
 const STUDY_LINKS = [
-  { href: '/',               label: 'Questions',    icon: Home,     also: ['/practice', '/question'] },
-  { href: '/quick-review',   label: 'Quick Review', icon: Clock },
-  { href: '/sr-queue',       label: 'SR Queue',     icon: RefreshCw },
+  { href: '/',          label: 'Questions', icon: Home, also: ['/practice', '/question'] },
 ]
 const DRILL_LINKS = [
-  { href: '/mock',           label: 'Mock',           icon: Timer },
-  { href: '/patterns',       label: 'Patterns',       icon: GitBranch },
-  { href: '/pattern-review', label: 'Pattern Review', icon: BookOpen },
-  { href: '/cycles',         label: 'Cycles',         icon: RefreshCw },
-  { href: '/clipboard',      label: 'Clipboard',      icon: ClipboardList },
+  { href: '/mock',      label: 'Mock',      icon: Timer },
+  { href: '/patterns',  label: 'Patterns',  icon: GitBranch },
+  { href: '/cycles',    label: 'Cycles',    icon: RefreshCw },
+  { href: '/clipboard', label: 'Clipboard', icon: ClipboardList },
 ]
 const PRACTICE_LINKS = [...STUDY_LINKS, ...DRILL_LINKS]
 
