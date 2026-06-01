@@ -907,18 +907,18 @@ function LearnInner() {
         <div className="relative">
           {cycleRange ? (
             <div className="flex items-center gap-1">
-              <div className="flex flex-col items-start px-2 py-1 rounded-lg bg-indigo-100 border border-indigo-300 text-indigo-700 text-xs font-bold leading-tight">
-                {/* Solved this pass */}
+              <div className="flex flex-col items-start px-2 py-1 rounded-lg bg-indigo-100 border border-indigo-300 text-indigo-700 text-xs font-bold leading-tight min-w-[96px]">
+                {/* Per-solve progress — ticks up on every accepted solution */}
                 <span className="flex items-center gap-1">
                   🔄
                   <span>{cycleAcceptedCount}/{cycleRange.end - cycleRange.start + 1}</span>
-                  <span className="text-indigo-400 font-normal">solved</span>
+                  <span className="text-indigo-400 font-normal">accepted</span>
                 </span>
-                {/* Laps counter */}
+                {/* Full-pass counter — only ticks when ALL questions accepted */}
                 <span className="text-[10px] text-indigo-500 font-semibold">
-                  {cycleReps}/{CYCLE_REP_TARGET} laps
+                  {cycleReps}/{CYCLE_REP_TARGET} full passes
                 </span>
-                {/* Mini progress bar — tracks solves in current pass */}
+                {/* Bar fills as you accept questions this pass */}
                 <div className="w-full h-1 bg-indigo-200 rounded-full mt-0.5 overflow-hidden">
                   <div
                     className="h-full bg-indigo-500 rounded-full transition-all duration-300"
