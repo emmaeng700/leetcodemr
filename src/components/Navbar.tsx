@@ -14,6 +14,7 @@ const STARRED_LINKS = [
   { href: '/daily',           label: '★ Daily',           icon: Calendar },
   { href: '/review',          label: '★ Reviews',         icon: Brain },
   { href: '/learn',           label: '★ Learn',           icon: BookOpen },
+  { href: '/cycles',          label: '★ Cycles',          icon: RefreshCw },
   { href: '/flashcards',      label: '★ Flashcards',      icon: Layers },
   { href: '/best-solutions',  label: '★ My Best',         icon: Bookmark },
   { href: '/speedster',       label: '★ Speedster',       icon: Gauge },

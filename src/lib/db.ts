@@ -1127,6 +1127,44 @@ export async function saveUserProfile(profile: UserProfile): Promise<boolean> {
   return true
 }
 
+// ─── Saved Cycles (multi-cycle library, persists until the user deletes them) ────
+
+export interface SavedCycle {
+  id:         string                           // uuid
+  name:       string                           // user-given label
+  rangeLabel: string                           // e.g. "High Easy (43)" or "Custom 1–10"
+  range:      { start: number; end: number }   // indices in study order
+  reps:       number                           // total laps completed in this cycle
+  createdAt:  string                           // ISO timestamp
+}
+
+export async function getSavedCycles(): Promise<SavedCycle[]> {
+  const { data, error } = await supabase
+    .from('user_settings')
+    .select('user_cycles')
+    .eq('user_id', USER_ID)
+    .maybeSingle()
+  if (error) {
+    if (isMissingTableError(error.message) || isMissingColumnError(error.message)) return []
+    console.error('[db] getSavedCycles:', error.message)
+    return []
+  }
+  try {
+    const raw = (data as Record<string, unknown>)?.user_cycles as string | null
+    return raw ? (JSON.parse(raw) as SavedCycle[]) : []
+  } catch { return [] }
+}
+
+export async function setSavedCycles(cycles: SavedCycle[]): Promise<void> {
+  const { error } = await supabase
+    .from('user_settings')
+    .upsert({ user_id: USER_ID, updated_at: new Date().toISOString(), user_cycles: JSON.stringify(cycles) }, { onConflict: 'user_id' })
+  if (error) {
+    if (isMissingTableError(error.message) || isMissingColumnError(error.message)) return
+    console.error('[db] setSavedCycles:', error.message)
+  }
+}
+
 // ─── Learn Cycle State (persisted per user so it survives tab close / device switch) ──
 
 export interface CycleState {
