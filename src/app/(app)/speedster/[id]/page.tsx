@@ -62,7 +62,7 @@ export default function SpeedsterQuestionPage() {
   const [starred, setStarred] = useState(false)
   const [activeTab, setActiveTab] = useState<'description' | 'best' | 'accepted' | 'editor'>('description')
   const [modeRuns, setModeRuns] = useState<Record<string, number>>({})
-  const [repsTarget, setRepsTarget] = useState(3)
+  const [repsTarget, setRepsTarget] = useState(2)
 
   const [lcContent, setLcContent] = useState<string | null>(null)
   const [lcLoading, setLcLoading] = useState(false)

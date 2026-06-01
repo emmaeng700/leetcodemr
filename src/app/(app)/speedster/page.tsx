@@ -62,8 +62,8 @@ export default function SpeedsterPage() {
   const [questions, setQuestions] = useState<Question[]>([])
   const [planOrder, setPlanOrder] = useState<number[]>([])
   const [progress,  setProgress]  = useState<Record<string, any>>({})
-  const [perDay,    setPerDay]    = useState(3)
-  const [repsTarget, setRepsTarget] = useState(3)
+  const [perDay,    setPerDay]    = useState(2)
+  const [repsTarget, setRepsTarget] = useState(2)
   const [loading,   setLoading]  = useState(true)
 
   // Day card state — initialised from sessionStorage so back-nav restores the correct day

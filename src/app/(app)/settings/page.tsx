@@ -39,7 +39,7 @@ export default function SettingsPage() {
   const [emailEnabled,    setEmailEnabled]    = useState(true)
   const [timezone,        setTimezone]        = useState('America/Chicago')
   const [reviewStartDays, setReviewStartDays] = useState(14)
-  const [revisionCap,     setRevisionCap]     = useState(3)
+  const [revisionCap,     setRevisionCap]     = useState(2)
   const [repsPerQ,        setRepsPerQ]        = useState(2)
   // per_day from study_plan (null = no plan set)
   const [perDay,          setPerDay]          = useState<number | null>(null)
@@ -51,7 +51,7 @@ export default function SettingsPage() {
       fetch('/api/study-plan').then(r => r.json()).catch(() => ({ plan: null })),
     ]).then(([pd, sp]) => {
       const p = pd.profile ?? {}
-      const cap: number = Math.min(Math.max(p.revisionCap ?? 3, 1), 3)
+      const cap: number = Math.min(Math.max(p.revisionCap ?? 2, 1), 10)
       // DB wins — ensures changes saved on any device propagate everywhere.
       const profileReps = typeof p.repsPerQ === 'number' && p.repsPerQ > 0 ? p.repsPerQ : 0
       const localReps   = Number.parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '', 10)

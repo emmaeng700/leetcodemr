@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
   UNIQUE(user_id)
 );
 -- Migration: add revision_cap if it doesn't exist yet
-ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS revision_cap INTEGER DEFAULT 3;
+ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS revision_cap INTEGER DEFAULT 2;
 ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS cycle_state  TEXT    DEFAULT NULL;
 
 -- FC daily log (flashcards viewed per day)

@@ -845,7 +845,7 @@ export function getDailyReviewCapChicago(_dateISOChicago = todayISOChicago()): n
   return 3 // kept for any legacy callers; real cap comes from getUserRevisionCap()
 }
 
-/** Read the user's configured daily review limit from user_settings (default 3). */
+/** Read the user's configured daily review limit from user_settings (default 2). */
 export async function getUserRevisionCap(): Promise<number> {
   const { data } = await supabase
     .from('user_settings')
@@ -1103,7 +1103,7 @@ export async function getUserProfile(): Promise<UserProfile | null> {
     emailTimes:      [],
     timezone:        'America/Chicago',
     reviewStartDays: 14,
-    revisionCap:     (row.revision_cap as number | undefined) ?? 3,
+    revisionCap:     (row.revision_cap as number | undefined) ?? 2,
     repsPerQ:        2,
   }
 }

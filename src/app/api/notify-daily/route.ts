@@ -146,7 +146,7 @@ export async function GET(req: NextRequest) {
   }
   const settingsReviewDays = (settings?.review_start_days as number | null) ?? null
   // How many reviews/day the user has configured (falls back to 3)
-  const revisionCap: number = (settings?.revision_cap as number | null) ?? 3
+  const revisionCap: number = (settings?.revision_cap as number | null) ?? 2
 
   const qMap = loadQuestionMap()
 
