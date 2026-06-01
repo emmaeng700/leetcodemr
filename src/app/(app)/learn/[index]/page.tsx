@@ -560,57 +560,45 @@ function LearnInner() {
     '🏆 10/10 LAPS COMPLETE! You\'ve mastered this set!',
   ]
 
-  const goNext = useCallback(({ fromAccepted = false }: { fromAccepted?: boolean } = {}) => {
+  // ── Lap completion check — runs after EVERY accepted solution, not just on wrap ──
+  // Returns true if the lap just completed (all questions in cycle were solved).
+  const checkCycleLapComplete = useCallback(() => {
+    const rng = cycleRangeRef.current
+    if (!rng) return false
+
+    const cycleQs  = filteredRef.current.slice(rng.start, rng.end + 1)
+    const cycleIds = cycleQs.map(q => q.id)
+    const solved   = cycleIds.filter(id => cycleAcceptedRef.current.has(id))
+    if (solved.length < cycleIds.length) return false   // not done yet
+
+    // All solved — celebrate and reset for next lap
+    resetCycleAccepted()
+    const newReps = Math.min(cycleRepsRef.current + 1, CYCLE_REP_TARGET)
+    setCycleReps(newReps)
+    saveCycleState({ cycleRange: rng, cycleReps: newReps, cyclePos: 0, cycleAccepted: [] }).catch(() => {})
+
+    const isFinal = newReps >= CYCLE_REP_TARGET
+    fireConfetti(isFinal)
+    toast(LAP_MESSAGES[newReps - 1] ?? `Lap ${newReps} done! 🔥`, {
+      duration: isFinal ? 6000 : 3500,
+      icon: isFinal ? '🏆' : undefined,
+    })
+    return true
+  }, [fireConfetti, setCycleReps])
+
+  const goNext = useCallback(() => {
     const n   = filteredLenRef.current
     if (n === 0) return
-    const idx  = gatedIdxRef.current
-    const rng  = cycleRangeRef.current
+    const idx   = gatedIdxRef.current
+    const rng   = cycleRangeRef.current
     const start = rng?.start ?? 0
     const end   = rng?.end   ?? Math.max(n - 1, 0)
-    const wrapping = idx >= end
-    const next  = wrapping ? start : idx + 1
+    const next  = idx >= end ? start : idx + 1
     const qs    = learnQsRef.current
-
-    // Gamification: track position; confetti only fires when ALL cycle questions
-    // were accepted in this lap (not just navigation to end).
-    if (rng) {
-      const newPos = wrapping ? 0 : cyclePosRef.current + 1
-      setCyclePos(newPos)
-      if (wrapping && fromAccepted) {
-        // Check every question in the cycle range had an accepted submission
-        const cycleQs   = filteredRef.current.slice(rng.start, rng.end + 1)
-        const cycleIds  = cycleQs.map(q => q.id)
-        const solvedIds = cycleIds.filter(id => cycleAcceptedRef.current.has(id))
-        const allSolved = solvedIds.length === cycleIds.length
-        const skipped   = cycleIds.length - solvedIds.length
-
-        resetCycleAccepted()   // clear for next lap
-
-        const newReps = Math.min(cycleRepsRef.current + 1, CYCLE_REP_TARGET)
-        setCycleReps(newReps)
-        // Persist updated rep count to Supabase
-        saveCycleState({ cycleRange: rng, cycleReps: newReps, cyclePos: 0, cycleAccepted: [] }).catch(() => {})
-
-        if (allSolved) {
-          const isFinal = newReps >= CYCLE_REP_TARGET
-          fireConfetti(isFinal)
-          toast(LAP_MESSAGES[newReps - 1] ?? `Lap ${newReps} done! 🔥`, {
-            duration: isFinal ? 6000 : 3500,
-            icon: isFinal ? '🏆' : undefined,
-          })
-        } else {
-          toast(
-            `Lap ${newReps} done — but ${skipped} question${skipped > 1 ? 's' : ''} skipped.\nSolve all ${cycleIds.length} for confetti! 🎯`,
-            { duration: 4000, icon: '⚠️' }
-          )
-        }
-      } else if (wrapping) {
-        setCyclePos(0)
-      }
-    }
-
+    // Update cycle position counter
+    if (rng) setCyclePos(next === start ? 0 : cyclePosRef.current + 1)
     router.push(`/learn/${next}${qs ? `?${qs}` : ''}`, { scroll: false })
-  }, [router, fireConfetti, setCyclePos, setCycleReps])
+  }, [router, setCyclePos])
 
   const goPrev = useCallback(() => {
     const n   = filteredLenRef.current
@@ -1392,8 +1380,11 @@ function LearnInner() {
               onAccepted={async () => {
                 toast.success('Accepted! Moving to next question.', { duration: 2000 })
                 if (due && !reviewDone) await handleCompleteReview()
-                if (q && cycleRange) recordCycleAccepted(q.id) // record BEFORE goNext reads the set
-                goNext({ fromAccepted: true })
+                if (q && cycleRange) {
+                  recordCycleAccepted(q.id)   // record first
+                  checkCycleLapComplete()      // check immediately — fires confetti if all done
+                }
+                goNext()
               }}
             />
           </div>
