@@ -1,5 +1,6 @@
 'use client'
-import { Download, BookOpen, FileText } from 'lucide-react'
+import { useState } from 'react'
+import { Download, BookOpen, FileText, X, Eye } from 'lucide-react'
 
 const FILES = [
   {
@@ -49,6 +50,9 @@ const FILES = [
 ]
 
 export default function DownloadsPage() {
+  const [previewFile, setPreviewFile] = useState<string | null>(null)
+  const previewItem = FILES.find(f => f.file === previewFile)
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="mb-8">
@@ -88,14 +92,12 @@ export default function DownloadsPage() {
 
               <div className="mt-4 flex gap-2">
                 {previewable && (
-                  <a
-                    href={`/pdfs/${file}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={() => setPreviewFile(file)}
                     className="flex items-center justify-center gap-2 flex-1 py-2.5 rounded-xl text-sm font-semibold border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-muted)] active:scale-[0.98] transition-all"
                   >
-                    Preview
-                  </a>
+                    <Eye size={14} /> Preview
+                  </button>
                 )}
                 <a
                   href={`/api/download-pdf?file=${encodeURIComponent(file)}`}
@@ -109,6 +111,45 @@ export default function DownloadsPage() {
           </div>
         ))}
       </div>
+
+      {/* Preview modal */}
+      {previewFile && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col bg-black/80 backdrop-blur-sm"
+          onClick={() => setPreviewFile(null)}
+        >
+          {/* Header bar */}
+          <div
+            className="flex items-center justify-between px-4 py-3 bg-[var(--bg-card)] border-b border-[var(--border)] shrink-0"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <Eye size={15} className="text-indigo-500 shrink-0" />
+              <span className="text-sm font-bold text-[var(--text)] truncate">
+                {previewItem?.title ?? previewFile}
+              </span>
+              <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">
+                {previewItem?.size}
+              </span>
+            </div>
+            <button
+              onClick={() => setPreviewFile(null)}
+              className="ml-4 shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-muted)] transition-colors text-xs font-semibold"
+            >
+              <X size={14} /> Close
+            </button>
+          </div>
+
+          {/* PDF iframe */}
+          <div className="flex-1 min-h-0" onClick={e => e.stopPropagation()}>
+            <iframe
+              src={`/pdfs/${previewFile}`}
+              className="w-full h-full border-0"
+              title={previewItem?.title ?? previewFile}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
