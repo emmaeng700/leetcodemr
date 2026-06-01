@@ -1127,6 +1127,48 @@ export async function saveUserProfile(profile: UserProfile): Promise<boolean> {
   return true
 }
 
+// ─── Learn Cycle State (persisted per user so it survives tab close / device switch) ──
+
+export interface CycleState {
+  cycleRange:    { start: number; end: number } | null
+  cycleReps:     number
+  cyclePos:      number
+  cycleAccepted: number[]   // question IDs accepted in current lap
+}
+
+export async function getCycleState(): Promise<CycleState | null> {
+  const { data, error } = await supabase
+    .from('user_settings')
+    .select('cycle_state')
+    .eq('user_id', USER_ID)
+    .maybeSingle()
+  if (error) {
+    if (isMissingTableError(error.message) || isMissingColumnError(error.message)) return null
+    console.error('[db] getCycleState:', error.message)
+    return null
+  }
+  if (!data) return null
+  try {
+    const raw = (data as Record<string, unknown>).cycle_state as string | null
+    return raw ? (JSON.parse(raw) as CycleState) : null
+  } catch { return null }
+}
+
+export async function saveCycleState(state: CycleState | null): Promise<void> {
+  const payload: Record<string, unknown> = {
+    user_id:     USER_ID,
+    updated_at:  new Date().toISOString(),
+    cycle_state: state ? JSON.stringify(state) : null,
+  }
+  const { error } = await supabase
+    .from('user_settings')
+    .upsert(payload, { onConflict: 'user_id' })
+  if (error) {
+    if (isMissingTableError(error.message) || isMissingColumnError(error.message)) return
+    console.error('[db] saveCycleState:', error.message)
+  }
+}
+
 // ─── Speedster Runs (isolated — never marks questions as solved) ──────────────
 
 export async function getSpeedsterRuns(): Promise<Record<string, number>> {

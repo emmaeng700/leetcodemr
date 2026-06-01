@@ -14,7 +14,7 @@ import {
   BookOpen, List, ExternalLink, Loader2, FileText,
   Copy, Check, Sparkles, RefreshCw, X,
 } from 'lucide-react'
-import { getProgress, updateProgress, completeReview, failReview } from '@/lib/db'
+import { getProgress, updateProgress, completeReview, failReview, getCycleState, saveCycleState } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap, getPatternForQuestion } from '@/lib/patternUtils'
@@ -130,16 +130,29 @@ function LearnInner() {
   // IMPORTANT: don't read localStorage during render (causes hydration mismatch).
   const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(null)
 
-  // ── Cycle marker — persisted in sessionStorage so it survives route remounts ──
-  // Start as null on BOTH server and client to avoid hydration mismatch.
-  // useEffect (client-only) restores the saved value after mount.
+  // ── Cycle marker — persisted in Supabase (cross-device) + sessionStorage (fast cache) ──
   const [cycleRange, setCycleRangeRaw] = useState<{ start: number; end: number } | null>(null)
+
+  // On mount: sessionStorage first (instant, same session), then Supabase fallback (cross-device)
   useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem('lm_learn_cycle')
-      if (saved) setCycleRangeRaw(JSON.parse(saved))
-    } catch {}
+    const local = (() => {
+      try { const s = sessionStorage.getItem('lm_learn_cycle'); return s ? JSON.parse(s) : null } catch { return null }
+    })()
+    if (local) { setCycleRangeRaw(local); return }
+    getCycleState().then(state => {
+      if (!state?.cycleRange) return
+      setCycleRangeRaw(state.cycleRange)
+      try { sessionStorage.setItem('lm_learn_cycle', JSON.stringify(state.cycleRange)) } catch {}
+      if (typeof state.cycleReps === 'number') { setCycleRepsRaw(state.cycleReps); try { sessionStorage.setItem('lm_learn_cycle_reps', String(state.cycleReps)) } catch {} }
+      if (typeof state.cyclePos  === 'number') { setCyclePosRaw(state.cyclePos);   try { sessionStorage.setItem('lm_learn_cycle_pos',  String(state.cyclePos))  } catch {} }
+      if (Array.isArray(state.cycleAccepted)) {
+        cycleAcceptedRef.current = new Set(state.cycleAccepted)
+        try { sessionStorage.setItem('lm_learn_cycle_accepted', JSON.stringify(state.cycleAccepted)) } catch {}
+      }
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
   const setCycleRange = (range: { start: number; end: number } | null) => {
     setCycleRangeRaw(range)
     // Reset ALL gamification counters whenever the cycle changes
@@ -151,6 +164,8 @@ function LearnInner() {
       if (range) sessionStorage.setItem('lm_learn_cycle', JSON.stringify(range))
       else sessionStorage.removeItem('lm_learn_cycle')
     } catch {}
+    // Persist to Supabase so any device picks it up
+    saveCycleState(range ? { cycleRange: range, cycleReps: 0, cyclePos: 0, cycleAccepted: [] } : null).catch(() => {})
   }
   // Cycle gamification — laps completed (0-10 target) and position in current lap
   const [cycleReps, setCycleRepsRaw] = useState(0)
@@ -573,6 +588,8 @@ function LearnInner() {
 
         const newReps = Math.min(cycleRepsRef.current + 1, CYCLE_REP_TARGET)
         setCycleReps(newReps)
+        // Persist updated rep count to Supabase
+        saveCycleState({ cycleRange: rng, cycleReps: newReps, cyclePos: 0, cycleAccepted: [] }).catch(() => {})
 
         if (allSolved) {
           const isFinal = newReps >= CYCLE_REP_TARGET
