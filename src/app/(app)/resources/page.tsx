@@ -2,19 +2,21 @@
 import { useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Suspense } from 'react'
-import { MessageSquare, Server, Gem, Code2 } from 'lucide-react'
+import { MessageSquare, Server, Gem, Code2, Download } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 const BehavioralPage   = dynamic(() => import('../behavioral/page'),   { ssr: false })
 const SystemDesignPage = dynamic(() => import('../system-design/page'), { ssr: false })
 const GemsPage         = dynamic(() => import('../gems/page'),          { ssr: false })
 const DsaPage          = dynamic(() => import('../dsa/page'),           { ssr: false })
+const DownloadsPage    = dynamic(() => import('../downloads/page'),     { ssr: false })
 
 const TABS = [
-  { key: 'behavioral',    label: 'Behavioral',    icon: MessageSquare, Page: BehavioralPage },
+  { key: 'behavioral',    label: 'Behavioral',    icon: MessageSquare, Page: BehavioralPage   },
   { key: 'system-design', label: 'System Design', icon: Server,        Page: SystemDesignPage },
-  { key: 'gems',          label: 'Gems',          icon: Gem,           Page: GemsPage },
-  { key: 'dsa',           label: 'DSA',           icon: Code2,         Page: DsaPage },
+  { key: 'gems',          label: 'Gems',          icon: Gem,           Page: GemsPage         },
+  { key: 'dsa',           label: 'DSA',           icon: Code2,         Page: DsaPage          },
+  { key: 'downloads',     label: 'Downloads',     icon: Download,      Page: DownloadsPage    },
 ]
 
 function ResourcesInner() {

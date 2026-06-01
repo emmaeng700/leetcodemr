@@ -12,13 +12,11 @@ import {
 
 // ── Starred (core daily-use pages) ───────────────────────────────────────────
 const STARRED_LINKS = [
-  { href: '/daily',          label: '★ Daily',      icon: Calendar },
-  { href: '/review',         label: '★ Reviews',    icon: Brain,  also: ['/quick-review', '/sr-queue', '/pattern-review'] },
-  { href: '/learn',          label: '★ Learn',      icon: BookOpen },
-  { href: '/flashcards',     label: '★ Flashcards', icon: Layers },
-  { href: '/best-solutions', label: '★ My Best',    icon: Bookmark },
-  { href: '/speedster',      label: '★ Speedster',  icon: Gauge },
-  { href: '/downloads',      label: '★ Downloads',  icon: Download },
+  { href: '/daily',      label: '★ Daily',      icon: Calendar },
+  { href: '/review',     label: '★ Reviews',    icon: Brain,    also: ['/quick-review', '/sr-queue', '/pattern-review', '/best-solutions'] },
+  { href: '/learn',      label: '★ Learn',      icon: BookOpen },
+  { href: '/flashcards', label: '★ Flashcards', icon: Layers },
+  { href: '/speedster',  label: '★ Speedster',  icon: Gauge },
 ]
 
 // ── Secondary (practice & reference) ─────────────────────────────────────────
@@ -39,7 +37,7 @@ const SITES_LINKS = [
 
 // Behavioral, System Design, Gems, DSA → merged under /resources
 const TOPIC_LINKS = [
-  { href: '/resources', label: 'Resources', icon: Server },
+  { href: '/resources', label: 'Resources', icon: Server, also: ['/behavioral', '/system-design', '/gems', '/dsa', '/downloads'] },
 ]
 const META_LINKS = [
   { href: '/stats',    label: 'Stats',    icon: BarChart2 },

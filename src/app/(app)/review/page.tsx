@@ -1,19 +1,21 @@
 'use client'
 import { useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Brain, Clock, GitBranch, RefreshCw } from 'lucide-react'
+import { Brain, Clock, GitBranch, RefreshCw, Bookmark } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 const ReviewContent      = dynamic(() => import('./ReviewContent'),                    { ssr: false })
 const QuickReviewPage    = dynamic(() => import('../quick-review/page'),               { ssr: false })
 const PatternReviewPage  = dynamic(() => import('../pattern-review/page'),             { ssr: false })
 const SRQueuePage        = dynamic(() => import('../sr-queue/page'),                   { ssr: false })
+const BestSolutionsPage  = dynamic(() => import('../best-solutions/page'),             { ssr: false })
 
 const TABS = [
   { key: 'reviews',        label: 'Reviews',        icon: Brain,      Page: ReviewContent     },
   { key: 'quick-review',   label: 'Quick Review',   icon: Clock,      Page: QuickReviewPage   },
   { key: 'pattern-review', label: 'Pattern Review', icon: GitBranch,  Page: PatternReviewPage },
   { key: 'sr-queue',       label: 'SR Queue',       icon: RefreshCw,  Page: SRQueuePage       },
+  { key: 'my-best',        label: 'My Best',        icon: Bookmark,   Page: BestSolutionsPage },
 ]
 
 function ReviewsInner() {
