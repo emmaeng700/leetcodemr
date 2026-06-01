@@ -24,8 +24,6 @@ const STARRED_LINKS = [
 // ── Secondary (practice & reference) ─────────────────────────────────────────
 const STUDY_LINKS = [
   { href: '/',               label: 'Questions',      icon: Home,         also: ['/practice', '/question'] },
-  { href: '/neetcode',       label: 'NeetCode 150',   icon: Rocket },
-  { href: '/leetcode-api',   label: 'LeetCode',       icon: Zap },
   { href: '/answers',        label: 'Answers',        icon: Library },
   { href: '/quick-review',   label: 'Quick Review',   icon: Clock },
   { href: '/sr-queue',       label: 'SR Queue',       icon: RefreshCw },
@@ -38,6 +36,11 @@ const DRILL_LINKS = [
   { href: '/clipboard',      label: 'Clipboard',      icon: ClipboardList },
 ]
 const PRACTICE_LINKS = [...STUDY_LINKS, ...DRILL_LINKS]
+
+const SITES_LINKS = [
+  { href: '/neetcode',     label: 'NeetCode 150', icon: Rocket },
+  { href: '/leetcode-api', label: 'LeetCode',     icon: Zap },
+]
 
 // Behavioral, System Design, Gems, DSA → merged under /resources
 const TOPIC_LINKS = [
@@ -52,6 +55,7 @@ const MOBILE_SECTIONS = [
   { emoji: '⭐', label: 'Core',      group: STARRED_LINKS },
   { emoji: '📖', label: 'Practice',  group: STUDY_LINKS },
   { emoji: '🎯', label: 'Tools',     group: DRILL_LINKS },
+  { emoji: '🌐', label: 'Sites',     group: SITES_LINKS },
   { emoji: '📚', label: 'Resources', group: TOPIC_LINKS },
   { emoji: '⚙️', label: 'More',     group: META_LINKS },
 ]
@@ -161,7 +165,7 @@ export default function Navbar() {
 
         {/* ── Desktop Nav ────────────────────────────────────────── */}
         <div className="hidden md:flex flex-wrap items-center gap-1 pb-2.5">
-          {[STARRED_LINKS, STUDY_LINKS, DRILL_LINKS, TOPIC_LINKS, META_LINKS].map((group, gi) => (
+          {[STARRED_LINKS, STUDY_LINKS, DRILL_LINKS, SITES_LINKS, TOPIC_LINKS, META_LINKS].map((group, gi) => (
             <React.Fragment key={gi}>
               {gi > 0 && (
                 <span className="w-px h-4 mx-1.5 shrink-0 rounded-full" style={{ background: 'var(--border)' }} />
