@@ -428,20 +428,45 @@ function LearnInner() {
   }, [activeTab, q?.id, q?.slug, lcSession, lcCsrf])
 
   // ── Cycle-aware navigation — wraps within the active range ───────────────────
+  // Derived convenience values (used in JSX for display)
   const cycleStart = cycleRange?.start ?? 0
   const cycleEnd   = cycleRange?.end   ?? Math.max(filtered.length - 1, 0)
 
+  // Refs hold always-fresh copies so goNext/goPrev never close over stale values.
+  // This prevents the race where a useCallback closure sees old gatedIdx/cycleEnd
+  // when the user clicks → before the re-render from router.push completes.
+  const gatedIdxRef      = useRef(gatedIdx)
+  const cycleRangeRef    = useRef(cycleRange)
+  const filteredLenRef   = useRef(filtered.length)
+  const learnQsRef       = useRef(learnQs)
+  useEffect(() => { gatedIdxRef.current    = gatedIdx },       [gatedIdx])
+  useEffect(() => { cycleRangeRef.current  = cycleRange },     [cycleRange])
+  useEffect(() => { filteredLenRef.current = filtered.length }, [filtered.length])
+  useEffect(() => { learnQsRef.current     = learnQs },        [learnQs])
+
   const goNext = useCallback(() => {
-    if (filtered.length === 0) return
-    const next = gatedIdx >= cycleEnd ? cycleStart : gatedIdx + 1
-    router.push(`/learn/${next}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
-  }, [gatedIdx, cycleStart, cycleEnd, filtered.length, learnQs, router])
+    const n   = filteredLenRef.current
+    if (n === 0) return
+    const idx  = gatedIdxRef.current
+    const rng  = cycleRangeRef.current
+    const start = rng?.start ?? 0
+    const end   = rng?.end   ?? Math.max(n - 1, 0)
+    const next  = idx >= end ? start : idx + 1
+    const qs    = learnQsRef.current
+    router.push(`/learn/${next}${qs ? `?${qs}` : ''}`, { scroll: false })
+  }, [router])
 
   const goPrev = useCallback(() => {
-    if (filtered.length === 0) return
-    const prev = gatedIdx <= cycleStart ? cycleEnd : gatedIdx - 1
-    router.push(`/learn/${prev}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
-  }, [gatedIdx, cycleStart, cycleEnd, filtered.length, learnQs, router])
+    const n   = filteredLenRef.current
+    if (n === 0) return
+    const idx  = gatedIdxRef.current
+    const rng  = cycleRangeRef.current
+    const start = rng?.start ?? 0
+    const end   = rng?.end   ?? Math.max(n - 1, 0)
+    const prev  = idx <= start ? end : idx - 1
+    const qs    = learnQsRef.current
+    router.push(`/learn/${prev}${qs ? `?${qs}` : ''}`, { scroll: false })
+  }, [router])
 
   const goTo = (i: number) => {
     router.push(`/learn/${i}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
