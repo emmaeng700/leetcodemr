@@ -14,7 +14,7 @@ import {
 const STARRED_LINKS = [
   { href: '/daily',  label: '★ Daily',   icon: Calendar },
   { href: '/review', label: '★ Reviews', icon: Brain,    also: ['/quick-review', '/sr-queue', '/pattern-review', '/best-solutions'] },
-  { href: '/learn',  label: '★ Learn',   icon: BookOpen, also: ['/cycles', '/flashcards', '/speedster'] },
+  { href: '/learn',  label: '★ Learn',   icon: BookOpen, also: ['/cycles'] },
 ]
 
 // ── Secondary (practice & reference) ─────────────────────────────────────────
@@ -22,9 +22,11 @@ const STUDY_LINKS = [
   { href: '/',          label: 'Questions', icon: Home, also: ['/practice', '/question'] },
 ]
 const DRILL_LINKS = [
-  { href: '/mock',      label: 'Mock',      icon: Timer },
-  { href: '/patterns',  label: 'Patterns',  icon: GitBranch },
-  { href: '/clipboard', label: 'Clipboard', icon: ClipboardList },
+  { href: '/flashcards', label: 'Flashcards', icon: Layers },
+  { href: '/speedster',  label: 'Speedster',  icon: Gauge },
+  { href: '/mock',       label: 'Mock',       icon: Timer },
+  { href: '/patterns',   label: 'Patterns',   icon: GitBranch },
+  { href: '/clipboard',  label: 'Clipboard',  icon: ClipboardList },
 ]
 const PRACTICE_LINKS = [...STUDY_LINKS, ...DRILL_LINKS]
 

@@ -1,18 +1,14 @@
 'use client'
 import { useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { BookOpen, RefreshCw, Layers, Gauge } from 'lucide-react'
+import { BookOpen, RefreshCw } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
-const CyclesPage     = dynamic(() => import('../cycles/page'),     { ssr: false })
-const FlashcardsPage = dynamic(() => import('../flashcards/page'), { ssr: false })
-const SpeedsterPage  = dynamic(() => import('../speedster/page'),  { ssr: false })
+const CyclesPage = dynamic(() => import('../cycles/page'), { ssr: false })
 
 const TABS = [
-  { key: 'questions',  label: 'Questions',  icon: BookOpen  },
-  { key: 'flashcards', label: 'Flashcards', icon: Layers    },
-  { key: 'speedster',  label: 'Speedster',  icon: Gauge     },
-  { key: 'cycles',     label: 'Cycles',     icon: RefreshCw },
+  { key: 'questions', label: 'Questions', icon: BookOpen  },
+  { key: 'cycles',    label: 'Cycles',    icon: RefreshCw },
 ]
 
 function LearnHub() {
@@ -55,9 +51,7 @@ function LearnHub() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-hidden">
-        {tab === 'flashcards' && <FlashcardsPage />}
-        {tab === 'speedster'  && <SpeedsterPage />}
-        {tab === 'cycles'     && <CyclesPage />}
+        {tab === 'cycles' && <CyclesPage />}
       </div>
     </div>
   )
