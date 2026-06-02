@@ -2,6 +2,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { BookOpen, ExternalLink, Layers, X, ChevronRight } from 'lucide-react'
 import { DISPLAY_PATTERN_ORDER, PATTERN_PRIORITY } from '@/lib/constants'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import PriorityBadge from '@/components/PriorityBadge'
 import DifficultyBadge from '@/components/DifficultyBadge'
 
@@ -11,7 +12,8 @@ interface ReviewQuestion {
   slug: string
   solution_url: string
   key_insights: string
-  space_and_time_complexity: string
+  space_and_time_complexity?: string
+  complexity?: string          // alternate field name used by some generator versions
   solution: string
   pattern: string
 }
@@ -19,6 +21,7 @@ interface ReviewQuestion {
 interface FullQuestion {
   id: number
   difficulty: string
+  tags?: string[]
 }
 
 // Hub-safe version — uses h-full so the parent constrains the height.
@@ -36,7 +39,16 @@ export default function PatternReviewContent() {
       fetch('/quick_review_info.json').then(r => r.json()),
       fetch('/questions_full.json').then(r => r.json()),
     ]).then(([review, full]: [ReviewQuestion[], FullQuestion[]]) => {
-      setReviewData(review)
+      // Build pattern map from full questions (exclusive assignment — same logic as the rest of the app)
+      const patternMap = buildExclusivePatternMap(full as any[])
+
+      // Merge derived pattern into each review entry when the JSON doesn't have it
+      const merged: ReviewQuestion[] = (review as ReviewQuestion[]).map(q => ({
+        ...q,
+        pattern: q.pattern || patternMap[q.id] || '',
+      }))
+
+      setReviewData(merged)
       const dm: Record<number, string> = {}
       for (const q of full) dm[q.id] = q.difficulty
       setDiffMap(dm)
@@ -208,7 +220,7 @@ export default function PatternReviewContent() {
                     .map(l => l.replace(/^[-•]\s*/, '').trim())
                     .filter(Boolean)
 
-                  const complexityLines = q.space_and_time_complexity
+                  const complexityLines = (q.space_and_time_complexity || q.complexity || '')
                     .split('\n')
                     .map(l => l.trim())
                     .filter(Boolean)
