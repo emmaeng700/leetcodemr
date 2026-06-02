@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic'
 
 const ReviewContent      = dynamic(() => import('./ReviewContent'),                    { ssr: false })
 const QuickReviewPage    = dynamic(() => import('../quick-review/page'),               { ssr: false })
-const PatternReviewPage  = dynamic(() => import('../pattern-review/page'),             { ssr: false })
+const PatternReviewPage  = dynamic(() => import('../pattern-review/PatternReviewContent'), { ssr: false })
 const SRQueuePage        = dynamic(() => import('../sr-queue/page'),                   { ssr: false })
 const BestSolutionsPage  = dynamic(() => import('../best-solutions/page'),             { ssr: false })
 
@@ -48,7 +48,7 @@ function ReviewsInner() {
           </button>
         ))}
       </div>
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <current.Page />
       </div>
     </div>
