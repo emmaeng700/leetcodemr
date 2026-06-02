@@ -81,14 +81,19 @@ export default function PatternReviewContent() {
     const el = sectionRefs.current[pattern]
     if (!el) return
     const container = scrollContainerRef.current
-    if (container) {
-      const elTop = el.getBoundingClientRect().top
-      const containerTop = container.getBoundingClientRect().top
-      const targetScroll = container.scrollTop + (elTop - containerTop) - 8
-      container.scrollTo({ top: targetScroll, behavior: 'smooth' })
-    } else {
+    if (!container) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
     }
+    // Walk offsetParent chain to get the section's true offset from the scroll
+    // container's content top — getBoundingClientRect drifts with sticky headers.
+    let offsetTop = 0
+    let cur: HTMLElement | null = el
+    while (cur && cur !== container) {
+      offsetTop += cur.offsetTop
+      cur = cur.offsetParent as HTMLElement | null
+    }
+    container.scrollTo({ top: offsetTop, behavior: 'smooth' })
   }
 
   // Highlight active pattern on scroll (using getBoundingClientRect for accuracy)
