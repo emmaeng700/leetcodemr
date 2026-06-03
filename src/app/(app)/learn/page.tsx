@@ -3,6 +3,7 @@ import { useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { BookOpen, RefreshCw } from 'lucide-react'
 import dynamic from 'next/dynamic'
+import { clampCycleIdx, getCycleState } from '@/lib/db'
 
 const CyclesPage = dynamic(() => import('../cycles/page'), { ssr: false })
 
@@ -16,16 +17,27 @@ function LearnHub() {
   const router = useRouter()
   const tab = searchParams.get('tab') ?? 'questions'
 
-  // "questions" tab → restore last-visited question and navigate into the learn flow
+  // "questions" tab → restore last-visited question (prefer saved index inside active cycle)
   useEffect(() => {
     if (tab !== 'questions') return
-    try {
-      const saved = parseInt(localStorage.getItem('lm_learn_idx') ?? '0', 10)
-      const idx   = Number.isFinite(saved) && saved > 0 ? saved : 0
-      router.replace(`/learn/${idx}`)
-    } catch {
-      router.replace('/learn/0')
-    }
+    let cancelled = false
+    ;(async () => {
+      let idx = 0
+      let fallback = 0
+      try {
+        const saved = parseInt(localStorage.getItem('lm_learn_idx') ?? '0', 10)
+        fallback = Number.isFinite(saved) ? saved : 0
+        idx = fallback
+      } catch {}
+      try {
+        const state = await getCycleState()
+        if (!cancelled && state?.cycleRange) {
+          idx = clampCycleIdx(state.cycleIdx ?? fallback, state.cycleRange)
+        }
+      } catch {}
+      if (!cancelled) router.replace(`/learn/${Math.max(0, idx)}`)
+    })()
+    return () => { cancelled = true }
   }, [tab, router])
 
   // While "questions" tab is active the redirect is in flight — show nothing

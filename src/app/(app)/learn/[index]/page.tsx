@@ -139,11 +139,13 @@ function LearnInner() {
   const cycleRangeForSave = useRef<{ start: number; end: number } | null>(null)
   const cycleRepsRef = useRef(cycleReps)
   const cyclePosRef = useRef(cyclePos)
+  const cycleIdxRef = useRef(0)
 
   const syncCycleToSession = (state: {
     cycleRange: { start: number; end: number } | null
     cycleReps: number
     cyclePos: number
+    cycleIdx?: number
     cycleAccepted: number[]
   }) => {
     try {
@@ -151,11 +153,15 @@ function LearnInner() {
         sessionStorage.setItem('lm_learn_cycle', JSON.stringify(state.cycleRange))
         sessionStorage.setItem('lm_learn_cycle_reps', String(state.cycleReps))
         sessionStorage.setItem('lm_learn_cycle_pos', String(state.cyclePos))
+        if (typeof state.cycleIdx === 'number') {
+          sessionStorage.setItem('lm_learn_cycle_idx', String(state.cycleIdx))
+        }
         sessionStorage.setItem('lm_learn_cycle_accepted', JSON.stringify(state.cycleAccepted))
       } else {
         sessionStorage.removeItem('lm_learn_cycle')
         sessionStorage.removeItem('lm_learn_cycle_reps')
         sessionStorage.removeItem('lm_learn_cycle_pos')
+        sessionStorage.removeItem('lm_learn_cycle_idx')
         sessionStorage.removeItem('lm_learn_cycle_accepted')
       }
     } catch {}
@@ -165,11 +171,15 @@ function LearnInner() {
     cycleRange: { start: number; end: number } | null
     cycleReps: number
     cyclePos: number
+    cycleIdx?: number
     cycleAccepted: number[]
   }) => {
     setCycleRangeRaw(state.cycleRange)
     setCycleRepsRaw(state.cycleReps)
     setCyclePosRaw(state.cyclePos)
+    if (state.cycleRange && typeof state.cycleIdx === 'number') {
+      cycleIdxRef.current = state.cycleIdx
+    }
     cycleAcceptedRef.current = new Set(state.cycleAccepted)
     setCycleAcceptedCount(state.cycleAccepted.length)
     cycleRangeForSave.current = state.cycleRange
@@ -180,6 +190,7 @@ function LearnInner() {
     cycleRange: { start: number; end: number } | null
     cycleReps: number
     cyclePos: number
+    cycleIdx?: number
     cycleAccepted: number[]
   } | null) => {
     syncCycleToSession(state ?? {
@@ -200,6 +211,7 @@ function LearnInner() {
         cycleRange: state.cycleRange,
         cycleReps: state.cycleReps ?? 0,
         cyclePos: state.cyclePos ?? 0,
+        cycleIdx: state.cycleIdx ?? state.cycleRange.start,
         cycleAccepted: Array.isArray(state.cycleAccepted) ? state.cycleAccepted : [],
       })
     }).catch(() => {})
@@ -222,8 +234,10 @@ function LearnInner() {
       return
     }
 
-    applyCycleState({ cycleRange: range, cycleReps: 0, cyclePos: 0, cycleAccepted: [] })
-    persistCycleState({ cycleRange: range, cycleReps: 0, cyclePos: 0, cycleAccepted: [] })
+    const startIdx = range.start
+    cycleIdxRef.current = startIdx
+    applyCycleState({ cycleRange: range, cycleReps: 0, cyclePos: 0, cycleIdx: startIdx, cycleAccepted: [] })
+    persistCycleState({ cycleRange: range, cycleReps: 0, cyclePos: 0, cycleIdx: startIdx, cycleAccepted: [] })
   }
 
   const setCycleReps = (n: number) => {
@@ -234,6 +248,7 @@ function LearnInner() {
       cycleRange: rng,
       cycleReps: n,
       cyclePos: cyclePosRef.current,
+      cycleIdx: cycleIdxRef.current,
       cycleAccepted: [...cycleAcceptedRef.current],
     })
   }
@@ -245,6 +260,7 @@ function LearnInner() {
       cycleRange: rng,
       cycleReps: cycleRepsRef.current,
       cyclePos: n,
+      cycleIdx: cycleIdxRef.current,
       cycleAccepted: [...cycleAcceptedRef.current],
     })
   }
@@ -261,6 +277,7 @@ function LearnInner() {
         cycleRange: rng,
         cycleReps: cycleRepsRef.current,
         cyclePos: cyclePosRef.current,
+        cycleIdx: cycleIdxRef.current,
         cycleAccepted: arr,
       })
     }
@@ -275,6 +292,7 @@ function LearnInner() {
         cycleRange: rng,
         cycleReps: cycleRepsRef.current,
         cyclePos: cyclePosRef.current,
+        cycleIdx: cycleIdxRef.current,
         cycleAccepted: [],
       })
     }
@@ -449,6 +467,22 @@ function LearnInner() {
   // Persist current question index so coming back to /learn restores position
   useEffect(() => {
     try { localStorage.setItem('lm_learn_idx', String(gatedIdx)) } catch {}
+  }, [gatedIdx])
+
+  // Persist position within active cycle (used when re-opening from Cycles page)
+  useEffect(() => {
+    const rng = cycleRangeForSave.current
+    if (!rng) return
+    if (gatedIdx < rng.start || gatedIdx > rng.end) return
+    cycleIdxRef.current = gatedIdx
+    persistCycleState({
+      cycleRange: rng,
+      cycleReps: cycleRepsRef.current,
+      cyclePos: cyclePosRef.current,
+      cycleIdx: gatedIdx,
+      cycleAccepted: [...cycleAcceptedRef.current],
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gatedIdx])
 
   // Persist study mode to localStorage
@@ -640,7 +674,14 @@ function LearnInner() {
     resetCycleAccepted()
     const newReps = Math.min(cycleRepsRef.current + 1, CYCLE_REP_TARGET)
     setCycleReps(newReps)
-    saveCycleState({ cycleRange: rng, cycleReps: newReps, cyclePos: 0, cycleAccepted: [] }).catch(() => {})
+    cycleIdxRef.current = rng.start
+    saveCycleState({
+      cycleRange: rng,
+      cycleReps: newReps,
+      cyclePos: 0,
+      cycleIdx: rng.start,
+      cycleAccepted: [],
+    }).catch(() => {})
 
     const isFinal = newReps >= CYCLE_REP_TARGET
     fireConfetti(isFinal)
@@ -705,8 +746,11 @@ function LearnInner() {
     const e = Math.max(s, Math.min(end, filtered.length - 1))
     setCycleRange({ start: s, end: e })
     setShowCyclePanel(false)
-    if (gatedIdx < s || gatedIdx > e)
-      router.push(`/learn/${s}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
+    const target = gatedIdx < s || gatedIdx > e ? s : gatedIdx
+    cycleIdxRef.current = target
+    if (gatedIdx !== target) {
+      router.push(`/learn/${target}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
+    }
   }
   // ─────────────────────────────────────────────────────────────────────────────
 

@@ -1135,7 +1135,8 @@ export interface SavedCycle {
   rangeLabel: string                           // e.g. "High Easy (43)" or "Custom 1–10"
   range:      { start: number; end: number }   // indices in study order
   reps:       number                           // total laps completed in this cycle
-  cyclePos?:  number                           // position in current lap
+  cyclePos?:  number                           // steps taken in current lap
+  cycleIdx?:  number                           // last question index in study order (filtered)
   cycleAccepted?: number[]                     // question IDs accepted this lap
   createdAt:  string                           // ISO timestamp
 }
@@ -1173,7 +1174,16 @@ export interface CycleState {
   cycleRange:    { start: number; end: number } | null
   cycleReps:     number
   cyclePos:      number
+  cycleIdx?:     number      // last visited index within cycleRange (study order)
   cycleAccepted: number[]   // question IDs accepted in current lap
+}
+
+export function clampCycleIdx(
+  idx: number | undefined | null,
+  range: { start: number; end: number },
+): number {
+  if (typeof idx !== 'number' || !Number.isFinite(idx)) return range.start
+  return Math.max(range.start, Math.min(idx, range.end))
 }
 
 const CYCLE_STATE_LOCAL_KEY = 'lm_cycle_state_v1'
@@ -1215,6 +1225,7 @@ async function syncSavedCycleProgress(state: CycleState): Promise<void> {
       ...c,
       reps: state.cycleReps,
       cyclePos: state.cyclePos,
+      cycleIdx: state.cycleIdx,
       cycleAccepted: state.cycleAccepted,
     }
   })

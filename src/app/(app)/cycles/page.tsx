@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { RefreshCw, Plus, Trash2, Play, ChevronRight, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { getSavedCycles, setSavedCycles, saveCycleState, getCycleState, type SavedCycle } from '@/lib/db'
+import { getSavedCycles, setSavedCycles, saveCycleState, getCycleState, clampCycleIdx, type SavedCycle } from '@/lib/db'
 import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { PATTERN_PRIORITY, QUICK_PATTERNS } from '@/lib/constants'
@@ -114,6 +114,7 @@ export default function CyclesPage() {
         sessionStorage.removeItem('lm_learn_cycle')
         sessionStorage.removeItem('lm_learn_cycle_reps')
         sessionStorage.removeItem('lm_learn_cycle_pos')
+        sessionStorage.removeItem('lm_learn_cycle_idx')
         sessionStorage.removeItem('lm_learn_cycle_accepted')
       } catch {}
       toast.success(`"${cycle.name}" deleted and deactivated from Learn`)
@@ -130,18 +131,28 @@ export default function CyclesPage() {
 
     let cycleReps = cycle.reps
     let cyclePos = cycle.cyclePos ?? 0
+    let cycleIdx = cycle.cycleIdx
     let cycleAccepted = Array.isArray(cycle.cycleAccepted) ? cycle.cycleAccepted : []
 
     if (sameAsActive && active) {
       cycleReps = active.cycleReps ?? cycle.reps
       cyclePos = active.cyclePos ?? 0
+      cycleIdx = active.cycleIdx ?? cycle.cycleIdx
       cycleAccepted = Array.isArray(active.cycleAccepted) ? active.cycleAccepted : []
     }
+
+    let fallbackIdx: number | undefined
+    try {
+      const stored = parseInt(localStorage.getItem('lm_learn_idx') ?? '', 10)
+      if (Number.isFinite(stored)) fallbackIdx = stored
+    } catch {}
+    const idx = clampCycleIdx(cycleIdx ?? fallbackIdx, cycle.range)
 
     const state = {
       cycleRange: cycle.range,
       cycleReps,
       cyclePos,
+      cycleIdx: idx,
       cycleAccepted,
     }
 
@@ -150,10 +161,12 @@ export default function CyclesPage() {
       sessionStorage.setItem('lm_learn_cycle', JSON.stringify(cycle.range))
       sessionStorage.setItem('lm_learn_cycle_reps', String(cycleReps))
       sessionStorage.setItem('lm_learn_cycle_pos', String(cyclePos))
+      sessionStorage.setItem('lm_learn_cycle_idx', String(idx))
       sessionStorage.setItem('lm_learn_cycle_accepted', JSON.stringify(cycleAccepted))
+      localStorage.setItem('lm_learn_idx', String(idx))
     } catch {}
     toast.success(`"${cycle.name}" activated — opening Learn`)
-    router.push('/learn')
+    router.push(`/learn/${idx}`)
   }
 
   const lapBar = (reps: number) => {
