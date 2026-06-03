@@ -12,9 +12,9 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Brain, CheckCircle, Star,
   BookOpen, List, ExternalLink, Loader2, FileText,
-  Copy, Check, Sparkles, RefreshCw, X,
+  Copy, Check, Sparkles, RefreshCw, X, Play,
 } from 'lucide-react'
-import { getProgress, updateProgress, completeReview, failReview, getCycleState, saveCycleState } from '@/lib/db'
+import { getProgress, updateProgress, completeReview, failReview, getCycleState, saveCycleState, clampCycleIdx } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap, getPatternForQuestion } from '@/lib/patternUtils'
@@ -618,6 +618,8 @@ function LearnInner() {
   // Derived convenience values (used in JSX for display)
   const cycleStart = cycleRange?.start ?? 0
   const cycleEnd   = cycleRange?.end   ?? Math.max(filtered.length - 1, 0)
+  const cycleResumeIdx = cycleRange ? clampCycleIdx(cycleIdxRef.current, cycleRange) : null
+  const needsCycleResume = !!cycleRange && cycleResumeIdx != null && gatedIdx !== cycleResumeIdx
 
   // Refs hold always-fresh copies so goNext/goPrev never close over stale values.
   // This prevents the race where a useCallback closure sees old gatedIdx/cycleEnd
@@ -632,6 +634,15 @@ function LearnInner() {
   useEffect(() => { filteredLenRef.current = filtered.length }, [filtered.length])
   useEffect(() => { filteredRef.current    = filtered },        [filtered])
   useEffect(() => { learnQsRef.current     = learnQs },         [learnQs])
+
+  const resumeCycle = useCallback(() => {
+    const rng = cycleRangeRef.current
+    if (!rng) return
+    const idx = clampCycleIdx(cycleIdxRef.current, rng)
+    const qs = learnQsRef.current
+    router.push(`/learn/${idx}${qs ? `?${qs}` : ''}`, { scroll: false })
+    toast.success(`Resumed cycle at question ${idx + 1}`)
+  }, [router])
 
   const fireConfetti = useCallback((big = false) => {
     import('canvas-confetti').then(({ default: confetti }) => {
@@ -820,13 +831,24 @@ function LearnInner() {
             🔄 Cycle active: questions {cycleRange.start + 1}–{cycleRange.end + 1}
             <span className="text-indigo-400 font-normal ml-1">· dimmed = outside cycle</span>
           </span>
-          <button
-            type="button"
-            onClick={() => { setCycleRange(null); setShowList(false) }}
-            className="shrink-0 flex items-center gap-1 text-[11px] font-bold text-rose-500 hover:text-rose-700 transition-colors"
-          >
-            <X size={11} /> Cancel
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {needsCycleResume && (
+              <button
+                type="button"
+                onClick={() => { resumeCycle(); setShowList(false) }}
+                className="flex items-center gap-1 text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-2 py-1 rounded-lg transition-colors"
+              >
+                <Play size={10} /> Resume
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => { setCycleRange(null); setShowList(false) }}
+              className="flex items-center gap-1 text-[11px] font-bold text-rose-500 hover:text-rose-700 transition-colors"
+            >
+              <X size={11} /> Cancel
+            </button>
+          </div>
         </div>
       )}
 
@@ -1008,17 +1030,14 @@ function LearnInner() {
           {cycleRange ? (
             <div className="flex items-center gap-1">
               <div className="flex flex-col items-start px-2 py-1 rounded-lg bg-indigo-100 border border-indigo-300 text-indigo-700 text-xs font-bold leading-tight min-w-[96px]">
-                {/* Per-solve progress — ticks up on every accepted solution */}
                 <span className="flex items-center gap-1">
                   🔄
                   <span>{cycleAcceptedCount}/{cycleRange.end - cycleRange.start + 1}</span>
                   <span className="text-indigo-400 font-normal">accepted</span>
                 </span>
-                {/* Full-pass counter — only ticks when ALL questions accepted */}
                 <span className="text-[10px] text-indigo-500 font-semibold">
                   {cycleReps}/{CYCLE_REP_TARGET} full passes
                 </span>
-                {/* Bar fills as you accept questions this pass */}
                 <div className="w-full h-2 bg-indigo-200 rounded-full mt-1 overflow-hidden border border-indigo-300">
                   <div
                     className="h-full bg-indigo-500 rounded-full transition-all duration-300"
@@ -1028,6 +1047,15 @@ function LearnInner() {
                     }}
                   />
                 </div>
+                {needsCycleResume && (
+                  <button
+                    type="button"
+                    onClick={resumeCycle}
+                    className="mt-1.5 w-full flex items-center justify-center gap-1 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold transition-colors"
+                  >
+                    <Play size={9} /> Resume #{cycleResumeIdx! + 1}
+                  </button>
+                )}
               </div>
               <button type="button" onClick={() => setCycleRange(null)}
                 className="p-1 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50 transition-colors">
@@ -1043,7 +1071,6 @@ function LearnInner() {
 
           {showCyclePanel && !cycleRange && (
             <>
-              {/* Mobile backdrop */}
               <div
                 className="sm:hidden fixed inset-0 z-40 bg-black/40"
                 onClick={() => setShowCyclePanel(false)}
@@ -1057,7 +1084,6 @@ function LearnInner() {
               <p className="text-xs font-bold text-gray-700 mb-2">🔄 Set Cycle Range</p>
               <p className="text-[11px] text-gray-400 mb-3">Cycle within a range — → wraps back to start automatically.</p>
 
-              {/* Quick presets */}
               {cyclePresets.length > 0 && (
                 <div className="mb-3">
                   <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Quick presets</p>
@@ -1073,7 +1099,6 @@ function LearnInner() {
                 </div>
               )}
 
-              {/* Custom range */}
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Custom range</p>
               <div className="flex items-center gap-2">
                 <input type="number" min={1} max={filtered.length}
@@ -1108,13 +1133,11 @@ function LearnInner() {
 
         {q && (
           <>
-            {/* Star */}
             <button onClick={() => save({ starred: !starred })}
               className={`p-1.5 rounded-lg border transition-colors ${starred ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-200 hover:border-yellow-300'}`}>
               <Star size={13} className={starred ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'} />
             </button>
 
-            {/* Mark solved */}
             <button onClick={() => save({ solved: !solved })}
               className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${solved ? 'bg-green-50 text-green-600 border-green-200' : 'bg-white text-gray-500 border-gray-200 hover:border-green-300'}`}>
               <CheckCircle size={12} className={solved ? 'fill-green-500 text-white' : ''} />
@@ -1122,17 +1145,33 @@ function LearnInner() {
               <span className="sm:hidden">{solved ? '✓' : '+'}</span>
             </button>
 
-            {/* Open on LeetCode */}
             <a href={leetCodeUrl(lcTitleSlug)} target="_blank" rel="noopener noreferrer"
               className="p-1.5 text-gray-300 hover:text-orange-400 transition-colors" title="Open on LeetCode">
               <ExternalLink size={14} />
             </a>
 
-            {/* Question title — own line below buttons on all screen sizes */}
             <p className="order-last w-full text-sm font-bold text-gray-800 leading-snug">{q.title}</p>
           </>
         )}
       </div>
+
+      {/* Resume cycle — prominent when arriving from Flashcards at wrong question */}
+      {fromFlashcards && cycleRange && needsCycleResume && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-200 bg-indigo-50 px-3 py-2 shrink-0">
+          <p className="text-xs text-indigo-800">
+            <span className="font-bold">Cycle in progress</span>
+            {' '}· {cycleAcceptedCount}/{cycleRange.end - cycleRange.start + 1} accepted
+            {' '}· jump back to question {cycleResumeIdx! + 1} to continue
+          </p>
+          <button
+            type="button"
+            onClick={resumeCycle}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors shrink-0"
+          >
+            <Play size={12} /> Resume cycle
+          </button>
+        </div>
+      )}
 
       {/* Pattern context strip */}
       {currentPattern && (
