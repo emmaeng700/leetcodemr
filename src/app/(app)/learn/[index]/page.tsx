@@ -130,119 +130,154 @@ function LearnInner() {
   // IMPORTANT: don't read localStorage during render (causes hydration mismatch).
   const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(null)
 
-  // ── Cycle marker — persisted in Supabase (cross-device) + sessionStorage (fast cache) ──
+  // ── Cycle marker — persisted in Supabase + localStorage + sessionStorage ──
   const [cycleRange, setCycleRangeRaw] = useState<{ start: number; end: number } | null>(null)
+  const [cycleReps, setCycleRepsRaw] = useState(0)
+  const [cyclePos, setCyclePosRaw] = useState(0)
+  const cycleAcceptedRef = useRef<Set<number>>(new Set())
+  const [cycleAcceptedCount, setCycleAcceptedCount] = useState(0)
+  const cycleRangeForSave = useRef<{ start: number; end: number } | null>(null)
+  const cycleRepsRef = useRef(cycleReps)
+  const cyclePosRef = useRef(cyclePos)
 
-  // On mount: sessionStorage first (instant, same session), then Supabase fallback (cross-device)
-  useEffect(() => {
-    const local = (() => {
-      try { const s = sessionStorage.getItem('lm_learn_cycle'); return s ? JSON.parse(s) : null } catch { return null }
-    })()
-    if (local) { setCycleRangeRaw(local); return }
-    getCycleState().then(state => {
-      if (!state?.cycleRange) return
-      setCycleRangeRaw(state.cycleRange)
-      try { sessionStorage.setItem('lm_learn_cycle', JSON.stringify(state.cycleRange)) } catch {}
-      if (typeof state.cycleReps === 'number') { setCycleRepsRaw(state.cycleReps); try { sessionStorage.setItem('lm_learn_cycle_reps', String(state.cycleReps)) } catch {} }
-      if (typeof state.cyclePos  === 'number') { setCyclePosRaw(state.cyclePos);   try { sessionStorage.setItem('lm_learn_cycle_pos',  String(state.cyclePos))  } catch {} }
-      if (Array.isArray(state.cycleAccepted)) {
-        cycleAcceptedRef.current = new Set(state.cycleAccepted)
-        try { sessionStorage.setItem('lm_learn_cycle_accepted', JSON.stringify(state.cycleAccepted)) } catch {}
+  const syncCycleToSession = (state: {
+    cycleRange: { start: number; end: number } | null
+    cycleReps: number
+    cyclePos: number
+    cycleAccepted: number[]
+  }) => {
+    try {
+      if (state.cycleRange) {
+        sessionStorage.setItem('lm_learn_cycle', JSON.stringify(state.cycleRange))
+        sessionStorage.setItem('lm_learn_cycle_reps', String(state.cycleReps))
+        sessionStorage.setItem('lm_learn_cycle_pos', String(state.cyclePos))
+        sessionStorage.setItem('lm_learn_cycle_accepted', JSON.stringify(state.cycleAccepted))
+      } else {
+        sessionStorage.removeItem('lm_learn_cycle')
+        sessionStorage.removeItem('lm_learn_cycle_reps')
+        sessionStorage.removeItem('lm_learn_cycle_pos')
+        sessionStorage.removeItem('lm_learn_cycle_accepted')
       }
+    } catch {}
+  }
+
+  const applyCycleState = (state: {
+    cycleRange: { start: number; end: number } | null
+    cycleReps: number
+    cyclePos: number
+    cycleAccepted: number[]
+  }) => {
+    setCycleRangeRaw(state.cycleRange)
+    setCycleRepsRaw(state.cycleReps)
+    setCyclePosRaw(state.cyclePos)
+    cycleAcceptedRef.current = new Set(state.cycleAccepted)
+    setCycleAcceptedCount(state.cycleAccepted.length)
+    cycleRangeForSave.current = state.cycleRange
+    syncCycleToSession(state)
+  }
+
+  const persistCycleState = (state: {
+    cycleRange: { start: number; end: number } | null
+    cycleReps: number
+    cyclePos: number
+    cycleAccepted: number[]
+  } | null) => {
+    syncCycleToSession(state ?? {
+      cycleRange: null,
+      cycleReps: 0,
+      cyclePos: 0,
+      cycleAccepted: [],
+    })
+    saveCycleState(state).catch(() => {})
+  }
+
+  // Restore full cycle progress on mount (survives tab close / navigation away)
+  useEffect(() => {
+    let cancelled = false
+    getCycleState().then(state => {
+      if (cancelled || !state?.cycleRange) return
+      applyCycleState({
+        cycleRange: state.cycleRange,
+        cycleReps: state.cycleReps ?? 0,
+        cyclePos: state.cyclePos ?? 0,
+        cycleAccepted: Array.isArray(state.cycleAccepted) ? state.cycleAccepted : [],
+      })
     }).catch(() => {})
+    return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => { cycleRangeForSave.current = cycleRange }, [cycleRange])
+  useEffect(() => { cycleRepsRef.current = cycleReps }, [cycleReps])
+  useEffect(() => { cyclePosRef.current = cyclePos }, [cyclePos])
+
   const setCycleRange = (range: { start: number; end: number } | null) => {
-    setCycleRangeRaw(range)
-    // Reset ALL gamification counters whenever the cycle changes
-    setCycleRepsRaw(0); try { sessionStorage.setItem('lm_learn_cycle_reps', '0') } catch {}
-    setCyclePosRaw(0);  try { sessionStorage.setItem('lm_learn_cycle_pos',  '0') } catch {}
-    cycleAcceptedRef.current = new Set()
-    setCycleAcceptedCount(0)
-    try { sessionStorage.removeItem('lm_learn_cycle_accepted') } catch {}
-    try {
-      if (range) sessionStorage.setItem('lm_learn_cycle', JSON.stringify(range))
-      else sessionStorage.removeItem('lm_learn_cycle')
-    } catch {}
-    // Persist to Supabase so any device picks it up
-    saveCycleState(range ? { cycleRange: range, cycleReps: 0, cyclePos: 0, cycleAccepted: [] } : null).catch(() => {})
+    const prev = cycleRangeForSave.current
+    const sameRange = !!range && !!prev && range.start === prev.start && range.end === prev.end
+    if (sameRange) return
+
+    if (!range) {
+      applyCycleState({ cycleRange: null, cycleReps: 0, cyclePos: 0, cycleAccepted: [] })
+      persistCycleState(null)
+      return
+    }
+
+    applyCycleState({ cycleRange: range, cycleReps: 0, cyclePos: 0, cycleAccepted: [] })
+    persistCycleState({ cycleRange: range, cycleReps: 0, cyclePos: 0, cycleAccepted: [] })
   }
-  // Cycle gamification — laps completed (0-10 target) and position in current lap
-  const [cycleReps, setCycleRepsRaw] = useState(0)
-  const [cyclePos,  setCyclePosRaw]  = useState(0) // how many steps taken in current lap
-  useEffect(() => {
-    try {
-      const r = sessionStorage.getItem('lm_learn_cycle_reps')
-      const p = sessionStorage.getItem('lm_learn_cycle_pos')
-      if (r) setCycleRepsRaw(Number(r))
-      if (p) setCyclePosRaw(Number(p))
-    } catch {}
-  }, [])
+
   const setCycleReps = (n: number) => {
     setCycleRepsRaw(n)
-    try { sessionStorage.setItem('lm_learn_cycle_reps', String(n)) } catch {}
+    const rng = cycleRangeForSave.current
+    if (!rng) return
+    persistCycleState({
+      cycleRange: rng,
+      cycleReps: n,
+      cyclePos: cyclePosRef.current,
+      cycleAccepted: [...cycleAcceptedRef.current],
+    })
   }
   const setCyclePos = (n: number) => {
     setCyclePosRaw(n)
-    try { sessionStorage.setItem('lm_learn_cycle_pos', String(n)) } catch {}
+    const rng = cycleRangeForSave.current
+    if (!rng) return
+    persistCycleState({
+      cycleRange: rng,
+      cycleReps: cycleRepsRef.current,
+      cyclePos: n,
+      cycleAccepted: [...cycleAcceptedRef.current],
+    })
   }
   const CYCLE_REP_TARGET = 10
 
-  // Track which question IDs received an accepted solution in the current lap.
-  // Persisted in BOTH sessionStorage (fast, same-tab) AND Supabase (cross-tab/device).
-  const cycleAcceptedRef = useRef<Set<number>>(new Set())
-  const [cycleAcceptedCount, setCycleAcceptedCount] = useState(0)
-  useEffect(() => {
-    // 1. Try sessionStorage first (instant)
-    try {
-      const saved = sessionStorage.getItem('lm_learn_cycle_accepted')
-      if (saved) {
-        const arr = JSON.parse(saved) as number[]
-        cycleAcceptedRef.current = new Set(arr)
-        setCycleAcceptedCount(arr.length)
-        return
-      }
-    } catch {}
-    // 2. Fallback to Supabase (new tab / different device)
-    getCycleState().then(state => {
-      if (state?.cycleAccepted?.length) {
-        const arr = state.cycleAccepted
-        cycleAcceptedRef.current = new Set(arr)
-        setCycleAcceptedCount(arr.length)
-        try { sessionStorage.setItem('lm_learn_cycle_accepted', JSON.stringify(arr)) } catch {}
-      }
-    }).catch(() => {})
-  }, [])
-
-  const cycleRangeForSave = useRef(cycleRange)
-  useEffect(() => { cycleRangeForSave.current = cycleRange }, [cycleRange])
-
-  // Returns true if this question ID was NEW (not already accepted this lap)
   const recordCycleAccepted = (questionId: number): boolean => {
     if (cycleAcceptedRef.current.has(questionId)) return false
     cycleAcceptedRef.current.add(questionId)
-    const n = cycleAcceptedRef.current.size
     const arr = [...cycleAcceptedRef.current]
-    setCycleAcceptedCount(n)
-    // Save to sessionStorage immediately
-    try { sessionStorage.setItem('lm_learn_cycle_accepted', JSON.stringify(arr)) } catch {}
-    // Save to Supabase so other tabs/devices see it
+    setCycleAcceptedCount(arr.length)
     const rng = cycleRangeForSave.current
     if (rng) {
-      saveCycleState({
+      persistCycleState({
         cycleRange: rng,
         cycleReps: cycleRepsRef.current,
         cyclePos: cyclePosRef.current,
         cycleAccepted: arr,
-      }).catch(() => {})
+      })
     }
     return true
   }
   const resetCycleAccepted = () => {
     cycleAcceptedRef.current = new Set()
     setCycleAcceptedCount(0)
-    try { sessionStorage.removeItem('lm_learn_cycle_accepted') } catch {}
+    const rng = cycleRangeForSave.current
+    if (rng) {
+      persistCycleState({
+        cycleRange: rng,
+        cycleReps: cycleRepsRef.current,
+        cyclePos: cyclePosRef.current,
+        cycleAccepted: [],
+      })
+    }
   }
 
   const [showCyclePanel, setShowCyclePanel] = useState(false)
@@ -563,12 +598,6 @@ function LearnInner() {
   useEffect(() => { filteredLenRef.current = filtered.length }, [filtered.length])
   useEffect(() => { filteredRef.current    = filtered },        [filtered])
   useEffect(() => { learnQsRef.current     = learnQs },         [learnQs])
-
-  // Refs for gamification counters (same pattern — always fresh in callbacks)
-  const cycleRepsRef = useRef(cycleReps)
-  const cyclePosRef  = useRef(cyclePos)
-  useEffect(() => { cycleRepsRef.current = cycleReps }, [cycleReps])
-  useEffect(() => { cyclePosRef.current  = cyclePos  }, [cyclePos])
 
   const fireConfetti = useCallback((big = false) => {
     import('canvas-confetti').then(({ default: confetti }) => {

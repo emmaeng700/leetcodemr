@@ -1135,6 +1135,8 @@ export interface SavedCycle {
   rangeLabel: string                           // e.g. "High Easy (43)" or "Custom 1–10"
   range:      { start: number; end: number }   // indices in study order
   reps:       number                           // total laps completed in this cycle
+  cyclePos?:  number                           // position in current lap
+  cycleAccepted?: number[]                     // question IDs accepted this lap
   createdAt:  string                           // ISO timestamp
 }
 
@@ -1174,25 +1176,95 @@ export interface CycleState {
   cycleAccepted: number[]   // question IDs accepted in current lap
 }
 
-export async function getCycleState(): Promise<CycleState | null> {
-  const { data, error } = await supabase
-    .from('user_settings')
-    .select('cycle_state')
-    .eq('user_id', USER_ID)
-    .maybeSingle()
-  if (error) {
-    if (isMissingTableError(error.message) || isMissingColumnError(error.message)) return null
-    console.error('[db] getCycleState:', error.message)
+const CYCLE_STATE_LOCAL_KEY = 'lm_cycle_state_v1'
+
+function readLocalCycleState(): CycleState | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(CYCLE_STATE_LOCAL_KEY)
+    return raw ? (JSON.parse(raw) as CycleState) : null
+  } catch {
     return null
   }
-  if (!data) return null
+}
+
+function writeLocalCycleState(state: CycleState | null) {
+  if (typeof window === 'undefined') return
   try {
+    if (state) localStorage.setItem(CYCLE_STATE_LOCAL_KEY, JSON.stringify(state))
+    else localStorage.removeItem(CYCLE_STATE_LOCAL_KEY)
+  } catch {}
+}
+
+function cycleRangesEqual(
+  a: { start: number; end: number } | null | undefined,
+  b: { start: number; end: number } | null | undefined,
+): boolean {
+  if (!a || !b) return false
+  return a.start === b.start && a.end === b.end
+}
+
+async function syncSavedCycleProgress(state: CycleState): Promise<void> {
+  if (!state.cycleRange) return
+  const cycles = await getSavedCycles()
+  let changed = false
+  const next = cycles.map(c => {
+    if (!cycleRangesEqual(c.range, state.cycleRange)) return c
+    changed = true
+    return {
+      ...c,
+      reps: state.cycleReps,
+      cyclePos: state.cyclePos,
+      cycleAccepted: state.cycleAccepted,
+    }
+  })
+  if (changed) await setSavedCycles(next)
+}
+
+function cycleStateScore(state: CycleState | null | undefined): number {
+  if (!state?.cycleRange) return -1
+  return (state.cycleReps ?? 0) * 10_000 + (state.cycleAccepted?.length ?? 0)
+}
+
+function pickBestCycleState(local: CycleState | null, remote: CycleState | null): CycleState | null {
+  if (!local?.cycleRange) return remote
+  if (!remote?.cycleRange) return local
+  if (!cycleRangesEqual(local.cycleRange, remote.cycleRange)) return remote
+  return cycleStateScore(local) >= cycleStateScore(remote) ? local : remote
+}
+
+export async function getCycleState(): Promise<CycleState | null> {
+  const local = readLocalCycleState()
+  try {
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('cycle_state')
+      .eq('user_id', USER_ID)
+      .maybeSingle()
+    if (error) {
+      if (!isMissingTableError(error.message) && !isMissingColumnError(error.message)) {
+        console.error('[db] getCycleState:', error.message)
+      }
+      return local
+    }
+    if (!data) return local
     const raw = (data as Record<string, unknown>).cycle_state as string | null
-    return raw ? (JSON.parse(raw) as CycleState) : null
-  } catch { return null }
+    if (!raw) return local
+    const remote = JSON.parse(raw) as CycleState
+    const best = pickBestCycleState(local, remote)
+    writeLocalCycleState(best)
+    if (best && cycleStateScore(local) > cycleStateScore(remote)) {
+      saveCycleState(best).catch(() => {})
+    }
+    return best
+  } catch {
+    return local
+  }
 }
 
 export async function saveCycleState(state: CycleState | null): Promise<void> {
+  writeLocalCycleState(state)
+
   const payload: Record<string, unknown> = {
     user_id:     USER_ID,
     updated_at:  new Date().toISOString(),
@@ -1202,8 +1274,13 @@ export async function saveCycleState(state: CycleState | null): Promise<void> {
     .from('user_settings')
     .upsert(payload, { onConflict: 'user_id' })
   if (error) {
-    if (isMissingTableError(error.message) || isMissingColumnError(error.message)) return
-    console.error('[db] saveCycleState:', error.message)
+    if (!isMissingTableError(error.message) && !isMissingColumnError(error.message)) {
+      console.error('[db] saveCycleState:', error.message)
+    }
+  }
+
+  if (state?.cycleRange) {
+    await syncSavedCycleProgress(state)
   }
 }
 

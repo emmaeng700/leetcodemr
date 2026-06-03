@@ -32,6 +32,7 @@ LANDSCAPE    = '--landscape'  in sys.argv
 GRID_4X4     = '--4x4'       in sys.argv
 GRID_2X2     = '--2x2'       in sys.argv
 GRID_2X1     = '--2x1'       in sys.argv
+GRID_6X4     = '--6x4'       in sys.argv   # 24-up landscape — print edition
 CHAPTER2_PDF = '--chapter2'  in sys.argv
 
 # ─── Font registration ────────────────────────────────────────────────────────
@@ -78,8 +79,9 @@ SITES_CACHE = SCRIPT_DIR / ".full_langs_cache.json"
 DOOCS_CACHE = SCRIPT_DIR / ".doocs_cache.json"
 INNER_PDF   = SCRIPT_DIR / "_study_order_inner.pdf"
 OUTPUT_PDF  = SCRIPT_DIR / (
-    "the_digest.pdf"       if CHAPTER2_PDF
-    else "pattern_run.pdf" if GRID_2X1
+    "the_digest.pdf"            if CHAPTER2_PDF
+    else "pattern_run.pdf"      if GRID_2X1
+    else "pattern_run_print.pdf" if GRID_6X4
     else "LeetMastery_Study_Order_2x2_Landscape.pdf"  if GRID_2X2
     else "LeetMastery_Study_Order_4x4_Landscape.pdf"  if GRID_4X4
     else "LeetMastery_Study_Order_36up_Landscape.pdf" if LANDSCAPE
@@ -460,9 +462,30 @@ _CODE_ST_DARK = ParagraphStyle(
 )
 
 def code_panel(code: str, lang: str = 'python') -> list:
-    """Syntax-highlighted code block with monokai dark background."""
+    """Code block — monokai dark for screen PDFs, plain B&W for print (--6x4)."""
     if not code.strip():
         return []
+
+    # ── Print mode: plain black-on-white, bold, no colours ───────────────────
+    if GRID_6X4:
+        all_lines = code.split('\n')
+        items = []
+        for i in range(0, len(all_lines), _CODE_CHUNK):
+            xml_lines = [indent_xml(ln) for ln in all_lines[i:i+_CODE_CHUNK]]
+            cell = Paragraph('<br/>'.join(xml_lines), S['code'])
+            tbl  = Table([[cell]], colWidths=[USE_W])
+            tbl.setStyle(TableStyle([
+                ('BACKGROUND',    (0,0), (-1,-1), white),
+                ('TOPPADDING',    (0,0), (-1,-1), 3),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+                ('LEFTPADDING',   (0,0), (-1,-1), 4),
+                ('RIGHTPADDING',  (0,0), (-1,-1), 4),
+                ('BOX',           (0,0), (-1,-1), 0.8, BLACK),
+            ]))
+            items.append(tbl)
+        return items
+
+    # ── Screen mode: monokai dark ─────────────────────────────────────────────
     lines = _tok_to_lines(code, lang)
     items = []
     for i in range(0, len(lines), _CODE_CHUNK):
@@ -963,8 +986,14 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
             q_ids = '  '.join(f'#{q["id"]}' for q in qs)
             story.append(Paragraph(
                 f'<b>{safe_xml(pat["name"])}</b>  {safe_xml(q_ids)}',
-                ParagraphStyle('splash_pat', fontName='LG-Bold', fontSize=5.5,
-                               textColor=BLACK, leading=7.5, spaceBefore=2)))
+                ParagraphStyle(
+                    'splash_pat',
+                    fontName='LG-Bold',
+                    fontSize=S['body'].fontSize,
+                    textColor=BLACK,
+                    leading=S['body'].leading,
+                    spaceBefore=2,
+                )))
         story.append(PageBreak())
 
         # Questions: grouped by pattern within the round
@@ -1367,18 +1396,18 @@ def _add_links_2x1(output_path: Path, page_types: dict,
             out_pg.add_widget(widget)
             n_boxes += 1
 
-    # ← Contents button — top-right of each non-TOC sheet
-    BW, BH = 90, 14
-    btn = fitz.Rect(L_W - BW - 6, 4, L_W - 6, 4 + BH)
+    # ← Contents button — top-right of each non-TOC sheet, larger and bolder
+    BW, BH = 110, 18
+    btn = fitz.Rect(L_W - BW - 6, 5, L_W - 6, 5 + BH)
     n_sheets = len(doc)
     for sh in range(n_sheets):
         if sh in toc_sheets:
             continue
         pg = doc[sh]
-        pg.draw_rect(btn, color=(0.31, 0.38, 0.94), fill=(0.12, 0.11, 0.29), width=0.5)
-        pg.insert_text(fitz.Point(btn.x0 + 6, btn.y0 + 9),
-                       '← Contents', fontsize=7,
-                       color=(0.82, 0.82, 1.0), fontname='helv')
+        pg.draw_rect(btn, color=(0.22, 0.28, 0.90), fill=(0.08, 0.08, 0.45), width=1.0)
+        pg.insert_text(fitz.Point(btn.x0 + 7, btn.y0 + 12),
+                       '← Contents', fontsize=9,
+                       color=(1.0, 1.0, 1.0), fontname='helv')
         pg.insert_link({'kind': fitz.LINK_GOTO, 'from': btn,
                         'page': toc_sheet0, 'to': fitz.Point(0, 0), 'zoom': 0})
 
@@ -1630,19 +1659,38 @@ def _add_links_2x2(output_path: Path, page_types: dict,
         for qid, rect_info in rects.items():
             dest = qid_sheet.get(qid)
 
-            # Clickable link (full row)
+            # Support both key formats: old ('row'/'txt') and new ('line'/'title')
+            # 'line' = full text line bbox (starts at '#'), 'title' = after #id prefix
+            line_src = rect_info.get('row') or rect_info.get('line')
+            if line_src is None:
+                continue
+
             if dest is not None:
+                row_dest = tx_rect(line_src, *txfm)
+                cx0, cy0, ox, oy, sc = txfm
+                arr_font = max(4, row_dest.height * 0.75)
+                # Place '>' at the cell's right edge — never overlaps title text
+                cell_right = cx0 + (L_W / cols) - GAP
+                arr_x = cell_right - arr_font * 1.4
+                arr_y = row_dest.y1 - row_dest.height * 0.1
+                out_pg.insert_text(fitz.Point(arr_x, arr_y), '>',
+                                   fontsize=arr_font, color=(0.4, 0.4, 0.4),
+                                   fontname='helv')
+                # Link covers ONLY the '>' glyph area — not the number/title
+                arr_rect = fitz.Rect(arr_x - 1, row_dest.y0,
+                                     arr_x + arr_font + 1, row_dest.y1)
                 out_pg.insert_link({
                     'kind': fitz.LINK_GOTO,
-                    'from': tx_rect(rect_info['row'], *txfm),
+                    'from': arr_rect,
                     'page': dest,
                     'to':   fitz.Point(0, 0),
                     'zoom': 0,
                 })
                 n_links += 1
 
-            # Checkbox — drawn square + AcroForm widget on top
-            txt_dest = tx_rect(rect_info['txt'], *txfm)
+            # Checkbox — anchored to the LEFT of the '#' character (line_src.x0)
+            # Using line_src ensures the box sits before '#id', not between id and title
+            txt_dest = tx_rect(line_src, *txfm)
             cb_h   = 7.0                               # 7pt fits inside 8.5pt line spacing
             cb_y0  = txt_dest.y0 + (txt_dest.height - cb_h) / 2
             cb_x1  = txt_dest.x0 - 3                  # just left of the '#'
@@ -1693,6 +1741,57 @@ def _add_links_2x2(output_path: Path, page_types: dict,
     print(f'  Links: {n_links} TOC→question  |  Checkboxes: {n_boxes}  |  ← Contents: {n_sheets - len(toc_sheets)} sheets')
 
 
+# ─── 6×4 landscape imposer — print edition (24 per sheet, landscape 792×612) ──
+def impose_6x4_landscape(src_path: Path, dst_path: Path):
+    """
+    6 columns × 4 rows = 24 mini-pages per sheet on landscape letter.
+    Cells are 132×153 pts — wider than 6×6 so portrait inner pages fill
+    the height better, making text more readable when printed.
+    No interactive features (checkboxes/links) — optimised for paper.
+    """
+    src = fitz.open(str(src_path))
+    dst = fitz.open()
+    n   = len(src)
+
+    L_W, L_H  = 792.0, 612.0   # landscape letter
+    COLS, ROWS = 6, 4
+    PER_SHEET  = COLS * ROWS    # 24
+    CW = L_W / COLS             # 132 pts
+    RH = L_H / ROWS             # 153 pts
+    GAP = 1.5
+
+    for i in range(0, n, PER_SHEET):
+        sheet = dst.new_page(width=L_W, height=L_H)
+        for j in range(min(PER_SHEET, n - i)):
+            col  = j % COLS
+            row  = j // COLS
+            rect = fitz.Rect(
+                col * CW + GAP, row * RH + GAP,
+                (col + 1) * CW - GAP, (row + 1) * RH - GAP,
+            )
+            sheet.show_pdf_page(rect, src, i + j)
+
+        shape = sheet.new_shape()
+        for cx in [CW * c for c in range(1, COLS)]:
+            shape.draw_line(fitz.Point(cx, 0), fitz.Point(cx, L_H))
+        for ry in [RH * r for r in range(1, ROWS)]:
+            shape.draw_line(fitz.Point(0, ry), fitz.Point(L_W, ry))
+        shape.finish(color=(0.5, 0.5, 0.5), width=0.4)
+        shape.commit()
+
+    num_sheets = len(dst)
+    for pg_idx in range(num_sheets):
+        dst[pg_idx].insert_text(
+            fitz.Point(L_W / 2 - 120, L_H - 3),
+            f'Sheet {pg_idx + 1}/{num_sheets}  ·  LeetMastery  ·  6×4 Print Edition',
+            fontsize=5, color=(0.5, 0.5, 0.5),
+        )
+
+    dst.save(str(dst_path), garbage=4, deflate=True)
+    src.close(); dst.close()
+    print(f'6×4 landscape (print): {n} mini-pages → {num_sheets} sheets → {dst_path.name}')
+
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
     print('Loading data…')
@@ -1735,6 +1834,9 @@ if __name__ == '__main__':
         impose_2x2_landscape(INNER_PDF, OUTPUT_PDF)
         print('Adding hyperlinks…')
         _add_links_2x2(OUTPUT_PDF, page_types, qid_first_page, toc_link_rects)
+    elif GRID_6X4:
+        print('Imposing 6×4 landscape print edition (24-up)…')
+        impose_6x4_landscape(INNER_PDF, OUTPUT_PDF)
     elif GRID_4X4:
         print('Imposing 4×4 landscape (16-up)…')
         impose_4x4_landscape(INNER_PDF, OUTPUT_PDF)

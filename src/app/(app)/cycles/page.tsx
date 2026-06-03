@@ -123,19 +123,34 @@ export default function CyclesPage() {
   }
 
   const handleActivate = async (cycle: SavedCycle) => {
-    // Set as the active cycle in the learn page (writes to cycle_state in Supabase)
-    await saveCycleState({
-      cycleRange:    cycle.range,
-      cycleReps:     cycle.reps,
-      cyclePos:      0,
-      cycleAccepted: [],
-    })
-    // Also write to sessionStorage so learn page picks it up instantly
+    const active = await getCycleState()
+    const sameAsActive = !!active?.cycleRange &&
+      active.cycleRange.start === cycle.range.start &&
+      active.cycleRange.end === cycle.range.end
+
+    let cycleReps = cycle.reps
+    let cyclePos = cycle.cyclePos ?? 0
+    let cycleAccepted = Array.isArray(cycle.cycleAccepted) ? cycle.cycleAccepted : []
+
+    if (sameAsActive && active) {
+      cycleReps = active.cycleReps ?? cycle.reps
+      cyclePos = active.cyclePos ?? 0
+      cycleAccepted = Array.isArray(active.cycleAccepted) ? active.cycleAccepted : []
+    }
+
+    const state = {
+      cycleRange: cycle.range,
+      cycleReps,
+      cyclePos,
+      cycleAccepted,
+    }
+
+    await saveCycleState(state)
     try {
       sessionStorage.setItem('lm_learn_cycle', JSON.stringify(cycle.range))
-      sessionStorage.setItem('lm_learn_cycle_reps', String(cycle.reps))
-      sessionStorage.setItem('lm_learn_cycle_pos',  '0')
-      sessionStorage.removeItem('lm_learn_cycle_accepted')
+      sessionStorage.setItem('lm_learn_cycle_reps', String(cycleReps))
+      sessionStorage.setItem('lm_learn_cycle_pos', String(cyclePos))
+      sessionStorage.setItem('lm_learn_cycle_accepted', JSON.stringify(cycleAccepted))
     } catch {}
     toast.success(`"${cycle.name}" activated — opening Learn`)
     router.push('/learn')
@@ -301,6 +316,11 @@ export default function CyclesPage() {
                     <span className="text-[11px] text-gray-400">{new Date(cycle.createdAt).toLocaleDateString()}</span>
                   </div>
                   {lapBar(cycle.reps)}
+                  {Array.isArray(cycle.cycleAccepted) && cycle.cycleAccepted.length > 0 && (
+                    <p className="text-[11px] text-indigo-600 font-semibold mt-2">
+                      Current lap: {cycle.cycleAccepted.length}/{cycle.range.end - cycle.range.start + 1} accepted
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => handleActivate(cycle)}
