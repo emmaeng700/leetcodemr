@@ -24,6 +24,7 @@ const STUDY_LINKS = [
 const DRILL_LINKS = [
   { href: '/flashcards', label: 'Flashcards', icon: Layers },
   { href: '/speedster',  label: 'Speedster',  icon: Gauge },
+  { href: '/cycles',     label: 'Cycles',     icon: RefreshCw },
   { href: '/mock',       label: 'Mock',       icon: Timer },
   { href: '/patterns',   label: 'Patterns',   icon: GitBranch },
   { href: '/clipboard',  label: 'Clipboard',  icon: ClipboardList },
