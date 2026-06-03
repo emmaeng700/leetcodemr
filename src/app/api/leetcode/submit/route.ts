@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.ok) {
       const hint =
         parsed.error === 'non_json_html'
-          ? `LeetCode returned HTML instead of JSON (HTTP ${res.status}). This is usually Cloudflare/WAF blocking server-side requests.\n\nFix: paste your full leetcode.com Cookie header (including cf_clearance/__cf_bm if present) into the session field, then retry. If it still fails, LeetCode may be blocking your deployment’s IP/TLS fingerprint and server-side submit/run will not work reliably.`
+          ? `LeetCode returned HTML instead of JSON (HTTP ${res.status}). This is a network/session block (Cloudflare/WAF), not a Python syntax error — parentheses and \`and\`/\`or\` in your code are fine.\n\nFix: paste your full leetcode.com Cookie header (including cf_clearance/__cf_bm if present) into the session field, then retry. For reliable Run/Submit on Vercel, use the browser extension or \`npm run lc:connector\` locally.`
           : parsed.error
       return NextResponse.json({ error: hint, httpStatus: res.status }, { status: 502 })
     }

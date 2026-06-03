@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
           hint =
             'LeetCode rate-limited this run (HTTP 429). Wait a bit and try again — repeated Run attempts can trigger temporary blocks.'
         } else {
-            hint = `LeetCode returned HTML instead of JSON (HTTP ${st}). This is usually Cloudflare/WAF blocking server-side requests.\n\nFix: paste your full leetcode.com Cookie header (including cf_clearance/__cf_bm if present) into the session field, then retry. If it still fails, LeetCode may be blocking your deployment’s IP/TLS fingerprint and server-side submit/run will not work reliably.`
+            hint = `LeetCode returned HTML instead of JSON (HTTP ${st}). This is a network/session block (Cloudflare/WAF), not a Python syntax error — parentheses and \`and\`/\`or\` in your code are fine.\n\nFix: paste your full leetcode.com Cookie header (including cf_clearance/__cf_bm if present) into the session field, then retry. For reliable Run/Submit on Vercel, use the browser extension or \`npm run lc:connector\` locally.`
         }
       } else {
         hint = parsed.error
