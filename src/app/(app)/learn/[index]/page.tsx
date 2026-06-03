@@ -190,26 +190,53 @@ function LearnInner() {
   const CYCLE_REP_TARGET = 10
 
   // Track which question IDs received an accepted solution in the current lap.
-  // cycleAcceptedCount (state) drives the badge display; ref is used in callbacks.
+  // Persisted in BOTH sessionStorage (fast, same-tab) AND Supabase (cross-tab/device).
   const cycleAcceptedRef = useRef<Set<number>>(new Set())
   const [cycleAcceptedCount, setCycleAcceptedCount] = useState(0)
   useEffect(() => {
+    // 1. Try sessionStorage first (instant)
     try {
       const saved = sessionStorage.getItem('lm_learn_cycle_accepted')
       if (saved) {
         const arr = JSON.parse(saved) as number[]
         cycleAcceptedRef.current = new Set(arr)
         setCycleAcceptedCount(arr.length)
+        return
       }
     } catch {}
+    // 2. Fallback to Supabase (new tab / different device)
+    getCycleState().then(state => {
+      if (state?.cycleAccepted?.length) {
+        const arr = state.cycleAccepted
+        cycleAcceptedRef.current = new Set(arr)
+        setCycleAcceptedCount(arr.length)
+        try { sessionStorage.setItem('lm_learn_cycle_accepted', JSON.stringify(arr)) } catch {}
+      }
+    }).catch(() => {})
   }, [])
+
+  const cycleRangeForSave = useRef(cycleRange)
+  useEffect(() => { cycleRangeForSave.current = cycleRange }, [cycleRange])
+
   // Returns true if this question ID was NEW (not already accepted this lap)
   const recordCycleAccepted = (questionId: number): boolean => {
-    if (cycleAcceptedRef.current.has(questionId)) return false  // duplicate — no re-fire
+    if (cycleAcceptedRef.current.has(questionId)) return false
     cycleAcceptedRef.current.add(questionId)
     const n = cycleAcceptedRef.current.size
+    const arr = [...cycleAcceptedRef.current]
     setCycleAcceptedCount(n)
-    try { sessionStorage.setItem('lm_learn_cycle_accepted', JSON.stringify([...cycleAcceptedRef.current])) } catch {}
+    // Save to sessionStorage immediately
+    try { sessionStorage.setItem('lm_learn_cycle_accepted', JSON.stringify(arr)) } catch {}
+    // Save to Supabase so other tabs/devices see it
+    const rng = cycleRangeForSave.current
+    if (rng) {
+      saveCycleState({
+        cycleRange: rng,
+        cycleReps: cycleRepsRef.current,
+        cyclePos: cyclePosRef.current,
+        cycleAccepted: arr,
+      }).catch(() => {})
+    }
     return true
   }
   const resetCycleAccepted = () => {
