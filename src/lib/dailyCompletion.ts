@@ -1,6 +1,7 @@
 /**
- * Daily block completion ù independent of Learn `progress.solved`.
- * Done for today = reps on the Daily flow (localStorage) OR `last_daily_done` = today (DB).
+ * Daily block completion - independent of Learn progress.solved for today.
+ * Past plan days still credit prior solved so you don't redo Day 1-7.
+ * Today / catch-up = Daily reps (localStorage) OR last_daily_done = today (DB).
  */
 
 import { diffDaysSincePlanStart, todayISOChicago, type StudyPlanForStreak } from './studyPlanDay'
