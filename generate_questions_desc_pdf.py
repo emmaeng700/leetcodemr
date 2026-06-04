@@ -103,6 +103,22 @@ class FooterLabel(Flowable):
         setattr(self.canv, "_lm_footer_label", self.label)
 
 
+class NamedDest(Flowable):
+    """Reliable PDF named destination for internal links (footer + << Contents)."""
+
+    def __init__(self, name: str):
+        super().__init__()
+        self.name = name
+
+    def wrap(self, availWidth, availHeight):
+        return 0, 0
+
+    def draw(self):
+        canv = self.canv
+        x, y = canv.absolutePosition(0, 0)
+        canv.bookmarkHorizontal(self.name, x, y)
+
+
 def link_to(href: str, label: str, *, bold: bool = False) -> str:
     col = LINK_COLOR_PRINT
     text = safe_xml(label)
@@ -172,11 +188,15 @@ def get_desc_html(q: dict, doocs_cache: dict, lc_cache: dict) -> str:
     return (q.get("description") or "").strip()
 
 
-def _anchor_para(name: str) -> Paragraph:
-    return Paragraph(
-        anchor_tag(name),
-        ParagraphStyle("anch", fontSize=1, leading=1, spaceBefore=0, spaceAfter=0),
-    )
+def _anchor_para(name: str) -> list:
+    """Named destination + legacy anchor tag for Platypus <link href=\"#...\">."""
+    return [
+        NamedDest(name),
+        Paragraph(
+            anchor_tag(name),
+            ParagraphStyle("anch", fontSize=1, leading=1, spaceBefore=0, spaceAfter=0),
+        ),
+    ]
 
 
 def _back_link_para(href: str = TOC_ANCHOR) -> Paragraph:
@@ -201,8 +221,8 @@ def count_round_questions(pattern_groups: list) -> int:
 def build_toc(rounds: list) -> list:
     """TOC in study order: 9 rounds (High Easy -> Low Hard), then patterns, then questions."""
     story: list = []
-    story.append(_anchor_para(TOC_ANCHOR))
-    story.append(PdfBookmark(TOC_ANCHOR, "Table of Contents", level=0))
+    story += _anchor_para(TOC_ANCHOR)
+    story.append(PdfBookmark("toc_outline", "Table of Contents", level=0))
     story.append(
         Paragraph(
             "<b>Table of Contents</b>",
@@ -269,7 +289,7 @@ def build_desc_question_block(
     qa = anchor_q(qid)
 
     story.append(PdfBookmark(qa, f"#{qid} {q['title']}", level=2))
-    story.append(_anchor_para(qa))
+    story += _anchor_para(qa)
     if show_back:
         story.append(_back_link_para(TOC_ANCHOR))
 
@@ -360,7 +380,7 @@ def build_round_banner(
     )
     return [
         PdfBookmark(ra, round_label(round_num, priority, difficulty), level=0),
-        _anchor_para(ra),
+        *_anchor_para(ra),
         FooterLabel(round_label(round_num, priority, difficulty)),
         tbl,
     ]
@@ -387,7 +407,7 @@ def build_pattern_subhead(pat: dict, n_q: int) -> list:
     )
     return [
         PdfBookmark(pa, pat["name"], level=1),
-        _anchor_para(pa),
+        *_anchor_para(pa),
         FooterLabel(pat["name"]),
         Spacer(1, 4),
         tbl,
@@ -469,32 +489,38 @@ def build_pdf(
 
     def _footer(canvas, doc):
         canvas.saveState()
-        canvas.setFont("LG-Bold", 7.5)
-        canvas.setFillColor(HexColor("#6B7280"))
+        font, size = "LG-Bold", 7.5
+        canvas.setFont(font, size)
         w, _h = doc.pagesize
         pn = canvas.getPageNumber()
+        y0 = 0.38 * inch
         footer = getattr(canvas, "_lm_footer_label", None) or getattr(canvas, "_lm_pattern_name", "")
         left = f"{footer}  |  {title}" if footer else title
-        canvas.drawString(0.75 * inch, 0.38 * inch, left[:90])
-        canvas.drawCentredString(w / 2, 0.38 * inch, f"- {pn} -")
-        # Footer link to contents (clickable annotation)
-        if include_toc and pn > 2:
-            toc_w = canvas.stringWidth("Contents", "LG-Bold", 7.5)
-            x0 = w - 0.75 * inch - toc_w - 52
-            y0 = 0.38 * inch
-            canvas.linkURL(
-                f"#{TOC_ANCHOR}",
-                (x0, y0, x0 + toc_w + 4, y0 + 10),
-                relative=1,
-                thickness=0,
-                color=None,
+        canvas.setFillColor(HexColor("#6B7280"))
+        canvas.drawString(0.75 * inch, y0, left[:90])
+        canvas.drawCentredString(w / 2, y0, f"- {pn} -")
+
+        right_margin = 0.75 * inch
+        brand = "LeetMastery"
+        brand_w = canvas.stringWidth(brand, font, size)
+        brand_x = w - right_margin - brand_w
+
+        if include_toc and pn >= 3:
+            label = "Contents"
+            label_w = canvas.stringWidth(label, font, size)
+            gap = 10
+            label_x = brand_x - gap - label_w
+            canvas.linkAbsolute(
+                "",
+                TOC_ANCHOR,
+                (label_x, y0 - 1, label_x + label_w + 2, y0 + size + 1),
             )
             canvas.setFillColor(HexColor(LINK_COLOR_PRINT))
-            canvas.drawString(x0, y0, "Contents")
+            canvas.drawString(label_x, y0, label)
             canvas.setFillColor(HexColor("#6B7280"))
-            canvas.drawRightString(w - 0.75 * inch, 0.38 * inch, "LeetMastery")
+            canvas.drawString(brand_x, y0, brand)
         else:
-            canvas.drawRightString(w - 0.75 * inch, 0.38 * inch, "LeetMastery")
+            canvas.drawString(brand_x, y0, brand)
         canvas.restoreState()
 
     output.parent.mkdir(parents=True, exist_ok=True)
