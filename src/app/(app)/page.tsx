@@ -14,7 +14,13 @@ const ORDERED_QUICK_PATTERNS = QUICK_PATTERNS
       DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
   )
 import { getProgress, updateProgress, getActivityLog, getDueReviews, getReviewsCompletedToday, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getUserRevisionCap, getTodaySolvedCount, getSolvedLog } from '@/lib/db'
-import { computeDailyGoalsMetToday, computePlanStreakDisplayNumber, normalizeStudyPlanRow } from '@/lib/streakGoals'
+import {
+  computeDailyGoalsMetToday,
+  computePlanStreakDisplayNumber,
+  isActiveDailyBlockComplete,
+  isDayComplete,
+  normalizeStudyPlanRow,
+} from '@/lib/streakGoals'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import toast from 'react-hot-toast'
@@ -441,8 +447,10 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   const planMode = (studyPlan as any)?.mode ?? (planNorm as any)?.mode
   const isRandomPlan = planMode === 'random'
 
-  // Today's dot uses live daily+SR rules (mode-aware).
-  const goalsMetToday = dueReviews.length === 0
+  const dailyGoalsOpts = { mode: planMode, solvedTodayCount: solvedTodayCount }
+  const goalsMetToday = planNorm
+    ? computeDailyGoalsMetToday(studyPlan, progress, dueReviews.length, dailyGoalsOpts)
+    : dueReviews.length === 0
 
   // Only show activity log dots from the current plan's start date onwards.
   // Old plan entries shouldn't bleed into a freshly generated plan's week view.
@@ -499,8 +507,8 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
       const tdSolved = Math.min(solvedTodayCount, planNorm.per_day)
       const yesterdayDone = ydSolved >= planNorm.per_day
       const todayDone     = tdSolved  >= planNorm.per_day
-      const dailiesHit    = todayDone && yesterdayDone
-      const allDone       = dailiesHit && dueReviews.length === 0
+      const dailyDone     = isActiveDailyBlockComplete(planNorm, progress, dailyGoalsOpts)
+      const allDone       = isDayComplete(studyPlan, progress, dueReviews.length, dailyGoalsOpts)
       return (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-5">
           {/* Header */}
@@ -547,15 +555,17 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
           <div className="mt-3 pt-3 border-t border-[var(--border-soft)]">
             {allDone ? (
               <p className="text-sm font-bold text-green-500">All done — day complete! 🎉</p>
-            ) : dailiesHit ? (
+            ) : dailyDone && dueReviews.length > 0 ? (
               <>
-                <p className="text-xs text-[var(--text-subtle)] mb-1">Questions done — clear your reviews.</p>
+                <p className="text-xs text-[var(--text-subtle)] mb-1">Daily quota done — clear your reviews to finish the day.</p>
                 <Link href="/review" className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:underline">
                   Open reviews <ChevronRight size={12} />
                 </Link>
               </>
+            ) : todayDone ? (
+              <p className="text-xs text-[var(--text-subtle)]">Quota hit — mark questions solved in Daily to lock in today.</p>
             ) : (
-              <p className="text-xs text-[var(--text-subtle)]">Solve your questions and mark them done in the app.</p>
+              <p className="text-xs text-[var(--text-subtle)]">Solve your daily quota and mark questions done in the app.</p>
             )}
           </div>
         </div>
@@ -577,7 +587,8 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     const dayQs = dayIds.map((id: number) => qMap[id]).filter(Boolean)
     if (!dayQs.length) return null
     const doneCnt = dayIds.filter((id: number) => progress[String(id)]?.solved).length
-    const allDone = doneCnt === dayIds.length && dueReviews.length === 0
+    const dailyDone = isActiveDailyBlockComplete(planNorm, progress, dailyGoalsOpts)
+    const allDone = isDayComplete(studyPlan, progress, dueReviews.length, dailyGoalsOpts)
     const isOverdue = activeDayIndex < diffDays // active day is behind today's scheduled day
     return (
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-5">
@@ -592,23 +603,32 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
         </div>
         {allDone ? (
           <p className="text-sm font-bold text-green-500">All done — day complete! 🎉</p>
+        ) : dailyDone && dueReviews.length > 0 ? (
+          <>
+            <p className="text-xs text-[var(--text-subtle)] mb-2">Daily questions done — clear your reviews to finish the day.</p>
+            <Link href="/review" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
+              Open reviews <ChevronRight size={12} />
+            </Link>
+          </>
         ) : doneCnt < dayIds.length ? (
           <>
             {isOverdue && (
               <p className="text-xs font-semibold text-orange-500 mb-1">⚠️ Day {activeDayIndex + 1} is overdue — finish it to catch up</p>
             )}
-            <p className="text-xs text-[var(--text-subtle)] mb-2">{doneCnt}/{dayIds.length} questions solved.</p>
+            <p className="text-xs text-[var(--text-subtle)] mb-2">{doneCnt}/{dayIds.length} questions marked solved.</p>
             <Link href="/daily" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
               Go to Daily <ChevronRight size={12} />
             </Link>
           </>
-        ) : (
+        ) : dueReviews.length > 0 ? (
           <>
-            <p className="text-xs text-[var(--text-subtle)] mb-2">Questions done — clear your reviews to finish.</p>
+            <p className="text-xs text-[var(--text-subtle)] mb-2">Questions done — clear your reviews to finish the day.</p>
             <Link href="/review" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
               Open reviews <ChevronRight size={12} />
             </Link>
           </>
+        ) : (
+          <p className="text-sm font-bold text-green-500">Daily done — no reviews due today! 🎉</p>
         )}
       </div>
     )

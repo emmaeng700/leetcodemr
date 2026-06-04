@@ -1029,7 +1029,7 @@ export async function rebalanceReviews(horizonDays = 60): Promise<void> {
   }
 }
 
-/** Same rules as notify-daily email: streak day counts only when today's active daily block is fully solved AND no SR reviews are due.
+/** Same rules as notify-daily email: streak day counts when today's active daily block is fully solved; if SR reviews are due, they must be cleared too.
  *  @param modeOverride  Pass the plan mode explicitly when known (e.g. from daily page state).
  *                       Falls back to localStorage → plan.mode → 'strict'. */
 export async function syncStreakActivityFromGoals(modeOverride?: string): Promise<void> {
@@ -1044,7 +1044,7 @@ export async function syncStreakActivityFromGoals(modeOverride?: string): Promis
   // Lightweight due-review count — plain SELECT count, no recalibrate/spread
   // side effects. getDueReviews() is too heavy here and can mis-report after
   // spreading reviews mid-flight, causing the streak to silently not get marked.
-  const [plan, { count: rawDueCount }] = await Promise.all([
+  const [plan, { count: rawDueCount }, progress, solvedToday] = await Promise.all([
     getStudyPlan(),
     supabase
       .from('progress')
@@ -1053,15 +1053,18 @@ export async function syncStreakActivityFromGoals(modeOverride?: string): Promis
       .eq('solved', true)
       .not('next_review', 'is', null)
       .lte('next_review', today),
+    getProgress(),
+    getTodaySolvedCount(),
   ])
   const dueCount = rawDueCount ?? 0
 
   // Priority: explicit override → localStorage → plan.mode from DB → 'strict'
   const mode = modeOverride ?? localMode ?? (plan as any)?.mode ?? 'strict'
 
-  // Day is done when all due reviews are cleared — only write, never delete
-  // (deleting mid-session would wipe a streak that was already earned today)
-  const goalsMet = dueCount === 0
+  const goalsMet = computeDailyGoalsMetToday(plan, progress, dueCount, {
+    mode,
+    solvedTodayCount: solvedToday,
+  })
 
   if (goalsMet) {
     const { error } = await supabase.from('activity_log').upsert({

@@ -237,7 +237,7 @@ export default function SettingsPage() {
           </div>
 
           <p className="text-[10px] text-[var(--text-subtle)]">
-            Separate from your daily new questions — both need to be done for the full day to be complete.
+            Daily questions must be done first. Reviews only block &quot;done for the day&quot; when some are due today.
           </p>
         </div>
 

@@ -17,6 +17,7 @@ import PriorityBadge from '@/components/PriorityBadge'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
+import { isActiveDailyBlockComplete, isDayComplete } from '@/lib/streakGoals'
 
 interface Question {
   id: number
@@ -851,6 +852,16 @@ export default function DailyPage() {
   // Random mode: day goal met when per_day new questions solved today
   const randomGoalMet = isRandomMode && todaySolvedCount >= plan.per_day
 
+  const dailyGoalsOpts = { mode: activePlanMode, solvedTodayCount: todaySolvedCount }
+  const planForGoals = {
+    start_date: plan.start_date,
+    per_day: plan.per_day,
+    question_order: plan.question_order,
+    mode: activePlanMode,
+  }
+  const dailyBlockDone = isActiveDailyBlockComplete(planForGoals, progress, dailyGoalsOpts)
+  const dayComplete = isDayComplete(plan, progress, dueReviews.length, dailyGoalsOpts)
+
   function launchDailyQuestion(qid: number) {
     const strictQueue = todayQs.map(q => q.id)
     const randomQueue = [qid, ...randomFocusQs.filter(q => q.id !== qid).map(q => q.id)].slice(0, plan!.per_day)
@@ -1063,6 +1074,34 @@ export default function DailyPage() {
         </div>
       ))}
 
+      {/* Day complete / daily done banners */}
+      {!todayInfo.pending && dayComplete && (
+        <div className="mb-4 rounded-xl border border-green-300 bg-gradient-to-br from-green-50 to-emerald-50 p-4 text-center shadow-sm">
+          <p className="text-base font-black text-green-700">Done for the day! 🎉</p>
+          <p className="mt-1 text-xs text-green-600">
+            Daily questions finished{dueReviews.length > 0 ? ' and reviews cleared' : ''} — streak counts for today.
+          </p>
+        </div>
+      )}
+      {!todayInfo.pending && !dayComplete && dailyBlockDone && dueReviews.length > 0 && (
+        <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-indigo-800">
+            Daily done — finish {dueReviews.length} review{dueReviews.length !== 1 ? 's' : ''} to complete today.
+          </p>
+          <Link
+            href="/review"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors"
+          >
+            Open reviews <ArrowRight size={12} />
+          </Link>
+        </div>
+      )}
+      {!todayInfo.pending && !dayComplete && dailyBlockDone && dueReviews.length === 0 && (
+        <div className="mb-4 rounded-xl border border-green-200 bg-green-50 p-3 text-center">
+          <p className="text-sm font-bold text-green-700">Daily complete — no reviews due. You&apos;re done for today! 🎉</p>
+        </div>
+      )}
+
       {/* Progress bar */}
       {!todayInfo.pending && (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-4">
@@ -1132,9 +1171,14 @@ export default function DailyPage() {
             </span>
           </div>
 
-          {randomGoalMet && (
+          {randomGoalMet && !dayComplete && dueReviews.length > 0 && (
+            <div className="mb-4 text-center text-indigo-700 font-bold text-sm bg-indigo-50 border border-indigo-200 rounded-xl py-2">
+              🎉 Daily quota hit — clear reviews to finish the day.
+            </div>
+          )}
+          {randomGoalMet && dayComplete && (
             <div className="mb-4 text-center text-green-600 font-bold text-sm bg-green-50 border border-green-200 rounded-xl py-2">
-              🎉 Daily quota hit! Reviews next, then you&apos;re done for today.
+              🎉 Done for the day — quota and reviews complete!
             </div>
           )}
 
@@ -1322,9 +1366,19 @@ export default function DailyPage() {
             })}
           </div>
 
-          {todayAllRepsDone && todayQs.length > 0 && (
+          {todayAllRepsDone && todayQs.length > 0 && !dailyBlockDone && (
+            <div className="mt-4 text-center text-amber-600 font-semibold text-sm bg-amber-50 border border-amber-200 rounded-xl py-2">
+              Reps complete — mark each question solved in the app to count daily as done.
+            </div>
+          )}
+          {todayAllRepsDone && dailyBlockDone && !dayComplete && dueReviews.length > 0 && (
+            <div className="mt-4 text-center text-indigo-600 font-bold text-sm">
+              Daily questions done — finish reviews to complete today.
+            </div>
+          )}
+          {dayComplete && todayQs.length > 0 && (
             <div className="mt-4 text-center text-green-500 font-bold text-sm">
-              🎉 All {repsPerQ} reps done for today! See you tomorrow.
+              🎉 Done for the day! See you tomorrow.
             </div>
           )}
 
