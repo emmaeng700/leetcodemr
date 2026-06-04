@@ -38,16 +38,18 @@ from generate_patterns_pdf import (
     DOOCS_CACHE,
     LC_CACHE,
     MAX_W,
-    PATTERN_DISPLAY_ORDER,
     PRINT_BANNER_BG,
     QUESTIONS,
     PatternMarker,
-    build_groups,
     build_styles,
     desc_to_flowables,
     diff_badge,
     safe_xml,
 )
+from generate_study_order_pdf import PRIORITY_COLORS, build_rounds
+
+DIFF_EMOJI = {"Easy": "E", "Medium": "M", "Hard": "H"}
+DIFF_EMOJI_VIS = {"Easy": "\U0001f7e2", "Medium": "\U0001f7e1", "Hard": "\U0001f534"}
 
 SCRIPT_DIR = Path(__file__).parent
 DEFAULT_DESKTOP = Path.home() / "Desktop"
@@ -80,6 +82,24 @@ def anchor_pat(pat_name: str) -> str:
 
 def anchor_q(qid: int) -> str:
     return f"q_{qid}"
+
+
+def anchor_round(round_num: int) -> str:
+    return f"round_{round_num}"
+
+
+class FooterLabel(Flowable):
+    """Sets footer text for the current page (round / pattern context)."""
+
+    def __init__(self, label: str):
+        super().__init__()
+        self.label = label
+
+    def wrap(self, availWidth, availHeight):
+        return 0, 0
+
+    def draw(self):
+        setattr(self.canv, "_lm_footer_label", self.label)
 
 
 def link_to(href: str, label: str, *, bold: bool = False) -> str:
@@ -168,8 +188,17 @@ def _back_link_para(href: str = TOC_ANCHOR) -> Paragraph:
     )
 
 
-def build_toc(groups: list, styles: dict, *, full_doc: bool) -> list:
-    """Clickable table of contents (patterns + questions)."""
+def round_label(round_num: int, priority: str, difficulty: str) -> str:
+    dot = DIFF_EMOJI_VIS.get(difficulty, "")
+    return f"Round {round_num}  |  {priority}  |  {dot} {difficulty}"
+
+
+def count_round_questions(pattern_groups: list) -> int:
+    return sum(len(qs) for _, qs in pattern_groups)
+
+
+def build_toc(rounds: list) -> list:
+    """TOC in study order: 9 rounds (High Easy -> Low Hard), then patterns, then questions."""
     story: list = []
     story.append(_anchor_para(TOC_ANCHOR))
     story.append(PdfBookmark(TOC_ANCHOR, "Table of Contents", level=0))
@@ -178,13 +207,14 @@ def build_toc(groups: list, styles: dict, *, full_doc: bool) -> list:
             "<b>Table of Contents</b>",
             ParagraphStyle(
                 "toc_h", fontSize=16, fontName="LG-Bold", textColor=HexColor("#111827"),
-                spaceAfter=10, spaceBefore=0,
+                spaceAfter=8, spaceBefore=0,
             ),
         )
     )
     story.append(
         Paragraph(
-            "Click a pattern or question to jump. Use <b>&lt;&lt; Contents</b> on each page to return here.",
+            "Study order: <b>High Easy</b> &rarr; <b>High Med</b> &rarr; <b>High Hard</b> "
+            "&rarr; Mid &rarr; Low. Click to jump; <b>&lt;&lt; Contents</b> returns here.",
             ParagraphStyle(
                 "toc_hint", fontSize=9, fontName="LG", textColor=HexColor("#6B7280"),
                 spaceAfter=12, leading=13,
@@ -192,25 +222,32 @@ def build_toc(groups: list, styles: dict, *, full_doc: bool) -> list:
         )
     )
 
+    round_style = ParagraphStyle(
+        "toc_rnd", fontSize=11, fontName="LG-Bold", spaceBefore=10, spaceAfter=2, leading=14,
+    )
     pat_style = ParagraphStyle(
-        "toc_pat", fontSize=11, fontName="LG-Bold", spaceBefore=8, spaceAfter=3, leading=14,
+        "toc_pat", fontSize=10, fontName="LG-Bold", leftIndent=14, spaceAfter=2, leading=13,
     )
     q_style = ParagraphStyle(
-        "toc_q", fontSize=9.5, fontName="LG", leftIndent=16, spaceAfter=2, leading=13,
+        "toc_q", fontSize=9.5, fontName="LG", leftIndent=28, spaceAfter=1, leading=12,
     )
 
-    for rank, (pat, qs) in enumerate((g for g in groups if g[1]), start=1):
-        if not qs:
+    for round_num, priority, difficulty, pattern_groups in rounds:
+        n_q = count_round_questions(pattern_groups)
+        if n_q == 0:
             continue
-        pa = anchor_pat(pat["name"])
-        pat_label = f"{rank}. {pat['name']} ({len(qs)})"
-        if full_doc:
-            story.append(Paragraph(link_to(pa, pat_label, bold=True), pat_style))
-        for q in qs:
-            qa = anchor_q(q["id"])
-            diff = q.get("difficulty", "")[:1].upper() if q.get("difficulty") else "?"
-            label = f"#{q['id']} {q['title']} [{diff}]"
-            story.append(Paragraph(link_to(qa, label), q_style))
+        ra = anchor_round(round_num)
+        rnd_text = f"{round_label(round_num, priority, difficulty)}  ({n_q})"
+        story.append(Paragraph(link_to(ra, rnd_text, bold=True), round_style))
+        for pat, qs in pattern_groups:
+            pa = anchor_pat(pat["name"])
+            story.append(
+                Paragraph(link_to(pa, f"{pat['name']} ({len(qs)})", bold=True), pat_style)
+            )
+            for q in qs:
+                qa = anchor_q(q["id"])
+                label = f"#{q['id']} {q['title']}"
+                story.append(Paragraph(link_to(qa, label), q_style))
 
     story.append(PageBreak())
     return story
@@ -230,7 +267,7 @@ def build_desc_question_block(
     slug = q.get("slug", "")
     qa = anchor_q(qid)
 
-    story.append(PdfBookmark(qa, f"#{qid} {q['title']}", level=1))
+    story.append(PdfBookmark(qa, f"#{qid} {q['title']}", level=2))
     story.append(_anchor_para(qa))
     if show_back:
         story.append(_back_link_para(TOC_ANCHOR))
@@ -284,42 +321,77 @@ def build_desc_question_block(
     return story
 
 
-def pattern_banner(pat: dict, qs: list, *, show_back: bool, pat_anchor: str):
-    back_cell = ""
-    if show_back:
-        back_cell = link_to(TOC_ANCHOR, "<< Contents")
+def build_round_banner(
+    round_num: int,
+    priority: str,
+    difficulty: str,
+    q_count: int,
+    *,
+    show_back: bool,
+) -> list:
+    ra = anchor_round(round_num)
+    pri_c = PRIORITY_COLORS[priority]
+    dot = DIFF_EMOJI_VIS.get(difficulty, "")
+    back_cell = link_to(TOC_ANCHOR, "<< Contents") if show_back else ""
 
     tbl = Table(
         [[
             Paragraph(
-                f"<font color='#111827'><b>{pat['name']}</b>"
-                f"  <font size='11'>- {len(qs)} questions</font></font>",
-                ParagraphStyle("bshp", fontSize=18, fontName="LG-Bold", textColor=HexColor("#111827")),
+                f"<font color='#111827'><b>Round {round_num}</b>"
+                f"  <font size='12'>|  {priority} Priority  |  {dot} {difficulty}"
+                f"  <font size='10'> ({q_count} questions)</font></font></font>",
+                ParagraphStyle("rb", fontSize=16, fontName="LG-Bold", textColor=HexColor("#111827")),
             ),
-            Paragraph(
-                back_cell,
-                ParagraphStyle("bb", fontSize=9, fontName="LG-Bold", alignment=TA_LEFT),
-            ) if show_back else Paragraph("", ParagraphStyle("bb", fontSize=9)),
+            Paragraph(back_cell, ParagraphStyle("bb", fontSize=9, fontName="LG-Bold")),
         ]],
         colWidths=[5.2 * inch, 1.8 * inch],
     )
     tbl.setStyle(
         TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), PRINT_BANNER_BG),
-            ("TOPPADDING", (0, 0), (-1, -1), 14),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 14),
+            ("BACKGROUND", (0, 0), (-1, -1), pri_c["pill_bg"]),
+            ("TOPPADDING", (0, 0), (-1, -1), 16),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 16),
             ("LEFTPADDING", (0, 0), (-1, -1), 14),
             ("RIGHTPADDING", (0, 0), (-1, -1), 14),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("BOX", (0, 0), (-1, -1), 0.75, HexColor("#9CA3AF")),
+            ("BOX", (0, 0), (-1, -1), 1.0, pri_c["bar"]),
         ])
     )
-    story = [
-        PdfBookmark(pat_anchor, pat["name"], level=0),
-        _anchor_para(pat_anchor),
+    return [
+        PdfBookmark(ra, round_label(round_num, priority, difficulty), level=0),
+        _anchor_para(ra),
+        FooterLabel(round_label(round_num, priority, difficulty)),
         tbl,
     ]
-    return story
+
+
+def build_pattern_subhead(pat: dict, n_q: int) -> list:
+    pa = anchor_pat(pat["name"])
+    tbl = Table(
+        [[Paragraph(
+            f"<font color='#374151'><b>{pat['name']}</b>"
+            f"  <font size='10'> ({n_q})</font></font>",
+            ParagraphStyle("psh", fontSize=12, fontName="LG-Bold", textColor=HexColor("#374151")),
+        )]],
+        colWidths=[MAX_W],
+    )
+    tbl.setStyle(
+        TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), PRINT_BANNER_BG),
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("LEFTPADDING", (0, 0), (-1, -1), 10),
+            ("BOX", (0, 0), (-1, -1), 0.5, HexColor("#D1D5DB")),
+        ])
+    )
+    return [
+        PdfBookmark(pa, pat["name"], level=1),
+        _anchor_para(pa),
+        FooterLabel(pat["name"]),
+        Spacer(1, 4),
+        tbl,
+        Spacer(1, 8),
+    ]
 
 
 def build_pdf(
@@ -331,13 +403,9 @@ def build_pdf(
     title: str = "LeetMastery - Question Descriptions",
     include_toc: bool = True,
 ) -> None:
-    groups = build_groups(questions)
-    _disp_idx = {n: i for i, n in enumerate(PATTERN_DISPLAY_ORDER)}
-    groups.sort(key=lambda g: _disp_idx.get(g[0]["name"], 99))
+    rounds = build_rounds(questions)
     styles = build_styles(printable=True)
     printable = True
-    n_pat_sections = sum(1 for _, qs in groups if qs)
-    full_doc = include_toc and n_pat_sections > 1
 
     doc = SimpleDocTemplate(
         str(output),
@@ -350,46 +418,53 @@ def build_pdf(
         author="Emmanuel Oppong",
     )
 
-    pat_list = "  |  ".join(p["name"] for p, qs in groups if qs)
+    round_order = "  |  ".join(
+        f"R{n}" for n, pr, di, pg in rounds if count_round_questions(pg) > 0
+    )
     story = [
         PatternMarker("Cover"),
-        Spacer(1, 1.8 * inch),
+        Spacer(1, 1.6 * inch),
         Paragraph("LeetMastery", styles["cover_title"]),
         Paragraph("Question Descriptions", styles["cover_sub"]),
+        Paragraph("Study order: High Easy to Low Hard (9 rounds)", styles["cover_sub"]),
         Paragraph("Problem statements, examples, constraints", styles["cover_sub"]),
         Paragraph(
             link_to(TOC_ANCHOR, "Open Table of Contents"),
             ParagraphStyle(
                 "coverlnk", fontSize=12, fontName="LG-Bold", textColor=HexColor(LINK_COLOR_PRINT),
-                alignment=TA_CENTER, spaceBefore=16, spaceAfter=8,
+                alignment=TA_CENTER, spaceBefore=14, spaceAfter=8,
             ),
         ),
-        Spacer(1, 0.15 * inch),
-        Paragraph(pat_list, ParagraphStyle(
-            "pl", fontSize=9, textColor=HexColor("#6B7280"),
-            alignment=TA_CENTER, fontName="LG", leading=15, spaceBefore=6,
+        Spacer(1, 0.1 * inch),
+        Paragraph(round_order, ParagraphStyle(
+            "pl", fontSize=8, textColor=HexColor("#6B7280"),
+            alignment=TA_CENTER, fontName="LG", leading=14, spaceBefore=4,
         )),
         Paragraph(f"{len(questions)} questions", styles["cover_sub"]),
         PageBreak(),
     ]
 
     if include_toc:
-        story += build_toc(groups, styles, full_doc=full_doc)
+        story += build_toc(rounds)
 
     show_back = include_toc
-    for pat, qs in groups:
-        if not qs:
+    for round_num, priority, difficulty, pattern_groups in rounds:
+        n_q = count_round_questions(pattern_groups)
+        if n_q == 0:
             continue
-        pa = anchor_pat(pat["name"])
         story.append(PageBreak())
-        story.append(PatternMarker(pat["name"]))
-        story += pattern_banner(pat, qs, show_back=show_back, pat_anchor=pa)
-        story.append(Spacer(1, 12))
-        for q in qs:
-            story += build_desc_question_block(
-                q, styles, doocs_cache, lc_cache,
-                printable=printable, show_back=show_back,
-            )
+        story.append(PatternMarker(round_label(round_num, priority, difficulty)))
+        story += build_round_banner(
+            round_num, priority, difficulty, n_q, show_back=show_back,
+        )
+        story.append(Spacer(1, 10))
+        for pat, qs in pattern_groups:
+            story += build_pattern_subhead(pat, len(qs))
+            for q in qs:
+                story += build_desc_question_block(
+                    q, styles, doocs_cache, lc_cache,
+                    printable=printable, show_back=show_back,
+                )
 
     def _footer(canvas, doc):
         canvas.saveState()
@@ -397,8 +472,8 @@ def build_pdf(
         canvas.setFillColor(HexColor("#6B7280"))
         w, _h = doc.pagesize
         pn = canvas.getPageNumber()
-        pat = getattr(canvas, "_lm_pattern_name", "")
-        left = f"{pat}  |  {title}" if pat else title
+        footer = getattr(canvas, "_lm_footer_label", None) or getattr(canvas, "_lm_pattern_name", "")
+        left = f"{footer}  |  {title}" if footer else title
         canvas.drawString(0.75 * inch, 0.38 * inch, left[:90])
         canvas.drawCentredString(w / 2, 0.38 * inch, f"- {pn} -")
         # Footer link to contents (clickable annotation)
@@ -455,9 +530,6 @@ def main():
     build_pdf(questions, doocs_cache, lc_cache, args.out, include_toc=include_toc)
 
     if args.split:
-        groups = build_groups(questions)
-        _disp_idx = {n: i for i, n in enumerate(PATTERN_DISPLAY_ORDER)}
-        groups.sort(key=lambda g: _disp_idx.get(g[0]["name"], 99))
         args.split_dir.mkdir(parents=True, exist_ok=True)
         print(f"\nBuilding per-pattern PDFs in {args.split_dir}...")
         for rank, (pat, qs) in enumerate((g for g in groups if g[1]), start=1):
