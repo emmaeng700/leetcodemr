@@ -919,8 +919,8 @@ export default function DailyPage() {
       >
         {q.difficulty[0]}
       </span>
-      {isRepDone(q.id) && <CheckCircle2 size={11} className="text-green-400 shrink-0" />}
-      {!isRepDone(q.id) && isLearned(q.id) && <CheckCircle2 size={11} className="text-indigo-400 shrink-0" />}
+      {isRepDone(q.id) && <CheckCircle2 size={11} className="text-green-400 shrink-0" aria-label="Daily done" />}
+      {isLearned(q.id) && <CheckCircle2 size={11} className="text-indigo-400 shrink-0" aria-label="Learn solved" />}
     </button>
   ))
   const pastDayCount = todayInfo.dayNumber ? todayInfo.dayNumber - 1 : totalDays
@@ -1314,9 +1314,14 @@ export default function DailyPage() {
               todayAllRepsDone ? 'bg-green-100 text-green-700' :
               todayRepsDone > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
             }`}>
-              {todayRepsDone}/{todayQs.length} done
+              {todayRepsDone}/{todayQs.length} daily
             </span>
           </div>
+          <p className="text-[10px] text-[var(--text-subtle)] mb-3">
+            <span className="text-green-600 font-semibold">Daily ✓</span> = today&apos;s reps done
+            {' · '}
+            <span className="text-indigo-500 font-semibold">Learn ✓</span> = marked solved on Learn
+          </p>
 
           <div className="space-y-3">
             {todayQs.map((q, idx) => {
@@ -1374,8 +1379,11 @@ export default function DailyPage() {
                         <span className={`text-[10px] font-bold ${repDone ? 'text-green-600' : repCount > 0 ? 'text-indigo-500' : 'text-[var(--text-subtle)]'}`}>
                           {Math.min(repCount, repsPerQ)}/{repsPerQ}
                         </span>
-                        {learned && !repDone && (
-                          <span className="text-[10px] font-semibold text-indigo-500">Learned</span>
+                        {repDone && (
+                          <span className="text-[10px] font-semibold text-green-600">Daily ✓</span>
+                        )}
+                        {learned && (
+                          <span className="text-[10px] font-semibold text-indigo-500">Learn ✓</span>
                         )}
                       </div>
                     </div>
@@ -1606,11 +1614,15 @@ export default function DailyPage() {
                         return (
                         <div key={q.id} className="flex items-center gap-2 text-sm py-1">
                           {dailyDone
-                            ? <CheckCircle2 size={14} className="text-green-400 shrink-0" />
+                            ? <CheckCircle2 size={14} className="text-green-400 shrink-0" aria-label="Daily done" />
                             : learned
-                              ? <CheckCircle2 size={14} className="text-indigo-400 shrink-0" />
+                              ? <CheckCircle2 size={14} className="text-indigo-400 shrink-0" aria-label="Learn only" />
                               : <Circle size={14} className="text-[var(--text-subtle)] shrink-0" />
                           }
+                          <span className="flex items-center gap-1 shrink-0">
+                            {dailyDone && <span className="text-[9px] font-bold text-green-600">Daily</span>}
+                            {learned && <span className="text-[9px] font-bold text-indigo-500">Learn</span>}
+                          </span>
                           <Link href={`/practice/${q.id}`} className="text-[var(--text)] hover:text-indigo-500 truncate flex-1 min-w-0">
                             {q.title}
                           </Link>
