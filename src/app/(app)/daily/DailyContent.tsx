@@ -1515,16 +1515,6 @@ export default function DailyPage() {
               </button>
             </div>
           </div>
-          {(() => {
-            const learnedCnt = previewDayInfo.questionIds.filter(id => isLearned(id)).length
-            if (learnedCnt === 0) return null
-            return (
-              <p className="text-xs text-indigo-600 font-medium mb-2">
-                {learnedCnt}/{previewDayInfo.questions.length} learned in Learn
-                <span className="text-[var(--text-subtle)] font-normal"> · Daily reps when this day arrives</span>
-              </p>
-            )
-          })()}
           <div className="space-y-1.5">
             {previewDayInfo.questions.map((q, idx) => {
               const learned = isLearned(q.id)
@@ -1542,9 +1532,14 @@ export default function DailyPage() {
                       : <Circle size={14} className="text-[var(--text-subtle)] shrink-0" />
                     }
                     <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
-                    <Link href={`/practice/${q.id}`} className="text-sm text-[var(--text)] hover:text-indigo-500 truncate flex-1 min-w-0">
-                      {q.title}
-                    </Link>
+                    <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+                      <Link href={`/practice/${q.id}`} className="text-sm text-[var(--text)] hover:text-indigo-500 truncate">
+                        {q.title}
+                      </Link>
+                      {learned && (
+                        <span className="text-[10px] font-semibold text-indigo-500 shrink-0">Learn ✓</span>
+                      )}
+                    </div>
                     <a
                       href={leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))}
                       target="_blank"
