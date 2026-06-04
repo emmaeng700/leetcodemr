@@ -20,6 +20,7 @@ import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import {
   DAILY_REPS_PREFIX,
   isActiveDailyBlockComplete,
+  isPlanDayComplete,
   isQuestionDoneForDailyToday,
 } from '@/lib/dailyCompletion'
 import { isDayComplete } from '@/lib/streakGoals'
@@ -139,10 +140,7 @@ function getTodayInfo(
   let activeDayIndex = diffDays
   for (let i = 0; i <= diffDays; i++) {
     const { questionIds } = getDayInfo(plan, i, allQuestions, progress)
-    const allSolved = questionIds.every(id =>
-      isQuestionDoneForDailyToday(id, progress, todayISO(), dailyReps, repsPerQ),
-    )
-    if (!allSolved) {
+    if (!isPlanDayComplete(i, questionIds, progress, diffDays, todayISO(), dailyReps, repsPerQ)) {
       activeDayIndex = i
       break
     }

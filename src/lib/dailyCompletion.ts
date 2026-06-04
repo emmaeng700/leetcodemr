@@ -9,6 +9,7 @@ export const DAILY_REPS_PREFIX = 'lm_daily_reps_'
 
 export type DailyProgressSlice = {
   last_daily_done?: string | null
+  solved?: boolean
 }
 
 export function readDailyRepsLocal(today = todayISOChicago()): Record<string, number> {
@@ -47,6 +48,25 @@ export function isQuestionDoneForDailyToday(
   return progress[String(id)]?.last_daily_done === today
 }
 
+/** Whether a strict-plan day slot is cleared (past days vs today/catch-up). */
+export function isPlanDayComplete(
+  dayIndex: number,
+  questionIds: number[],
+  progress: Record<string, DailyProgressSlice | undefined>,
+  calendarDiffDays: number,
+  today = todayISOChicago(),
+  dailyReps?: Record<string, number>,
+  repsPerQ = 2,
+): boolean {
+  if (questionIds.length === 0) return true
+  if (dayIndex < calendarDiffDays) {
+    return questionIds.every(id => !!progress[String(id)]?.solved)
+  }
+  return questionIds.every(id =>
+    isQuestionDoneForDailyToday(id, progress, today, dailyReps, repsPerQ),
+  )
+}
+
 /** First plan day (up to calendar today) that still has questions not done for today. */
 export function findActiveDayIndex(
   plan: StudyPlanForStreak,
@@ -68,7 +88,7 @@ export function findActiveDayIndex(
   let activeDayIndex = Math.min(diffDays, totalDays - 1)
   for (let i = 0; i <= Math.min(diffDays, totalDays - 1); i++) {
     const slice = plan.question_order.slice(i * plan.per_day, i * plan.per_day + plan.per_day)
-    if (slice.some(id => !isQuestionDoneForDailyToday(id, progress, today, opts?.dailyReps, repsPerQ))) {
+    if (!isPlanDayComplete(i, slice, progress, diffDays, today, opts?.dailyReps, repsPerQ)) {
       activeDayIndex = i
       break
     }
