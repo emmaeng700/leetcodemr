@@ -41,6 +41,7 @@ from generate_patterns_pdf import (
     PRINT_BANNER_BG,
     QUESTIONS,
     PatternMarker,
+    build_groups,
     build_styles,
     desc_to_flowables,
     diff_badge,
@@ -532,7 +533,7 @@ def main():
     if args.split:
         args.split_dir.mkdir(parents=True, exist_ok=True)
         print(f"\nBuilding per-pattern PDFs in {args.split_dir}...")
-        for rank, (pat, qs) in enumerate((g for g in groups if g[1]), start=1):
+        for rank, (pat, qs) in enumerate((g for g in build_groups(questions) if g[1]), start=1):
             if not qs:
                 continue
             fname = f"LeetMastery_{rank:02d}_{slugify_pattern(pat['name'])}_Descriptions.pdf"
