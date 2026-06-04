@@ -1,12 +1,15 @@
 /**
- * What counts as "done" for today's daily block (Daily UI, streak, emails).
- * A question done earlier in Learn still appears on today's list until finished
- * again today (reps or marked solved with last_reviewed = today).
+ * Daily block completion ù independent of Learn `progress.solved`.
+ * Done for today = reps on the Daily flow (localStorage) OR `last_daily_done` = today (DB).
  */
 
-import { diffDaysSincePlanStart, normalizeStudyPlanRow, todayISOChicago, type StudyPlanForStreak } from './studyPlanDay'
+import { diffDaysSincePlanStart, todayISOChicago, type StudyPlanForStreak } from './studyPlanDay'
 
 export const DAILY_REPS_PREFIX = 'lm_daily_reps_'
+
+export type DailyProgressSlice = {
+  last_daily_done?: string | null
+}
 
 export function readDailyRepsLocal(today = todayISOChicago()): Record<string, number> {
   if (typeof window === 'undefined') return {}
@@ -26,22 +29,28 @@ export function bumpDailyRepLocal(questionId: number, today = todayISOChicago())
   return next
 }
 
+export function setDailyRepsLocal(questionId: number, count: number, today = todayISOChicago()): void {
+  if (typeof window === 'undefined') return
+  const reps = readDailyRepsLocal(today)
+  reps[String(questionId)] = count
+  localStorage.setItem(`${DAILY_REPS_PREFIX}${today}`, JSON.stringify(reps))
+}
+
 export function isQuestionDoneForDailyToday(
   id: number,
-  progress: Record<string, { solved?: boolean; last_reviewed?: string | null } | undefined>,
+  progress: Record<string, DailyProgressSlice | undefined>,
   today = todayISOChicago(),
   dailyReps?: Record<string, number>,
   repsPerQ = 2,
 ): boolean {
   if ((dailyReps?.[String(id)] ?? 0) >= repsPerQ) return true
-  const p = progress[String(id)]
-  return !!(p?.solved && p.last_reviewed === today)
+  return progress[String(id)]?.last_daily_done === today
 }
 
 /** First plan day (up to calendar today) that still has questions not done for today. */
 export function findActiveDayIndex(
   plan: StudyPlanForStreak,
-  progress: Record<string, { solved?: boolean; last_reviewed?: string | null } | undefined>,
+  progress: Record<string, DailyProgressSlice | undefined>,
   opts?: { dailyReps?: Record<string, number>; repsPerQ?: number; today?: string },
 ): { activeDayIndex: number; diffDays: number; totalDays: number } | null {
   const today = opts?.today ?? todayISOChicago()
@@ -70,7 +79,7 @@ export function findActiveDayIndex(
 
 export function getActiveDayQuestionIds(
   plan: StudyPlanForStreak,
-  progress: Record<string, { solved?: boolean; last_reviewed?: string | null } | undefined>,
+  progress: Record<string, DailyProgressSlice | undefined>,
   opts?: { dailyReps?: Record<string, number>; repsPerQ?: number; today?: string },
 ): number[] {
   const meta = findActiveDayIndex(plan, progress, opts)
@@ -84,9 +93,12 @@ export function getActiveDayQuestionIds(
 
 export function isActiveDailyBlockComplete(
   plan: StudyPlanForStreak,
-  progress: Record<string, { solved?: boolean; last_reviewed?: string | null } | undefined>,
+  progress: Record<string, DailyProgressSlice | undefined>,
   opts?: {
     mode?: string
+    /** Random mode: questions marked done on Daily today (daily_log). */
+    dailyDoneTodayCount?: number
+    /** @deprecated use dailyDoneTodayCount */
     solvedTodayCount?: number
     dailyReps?: Record<string, number>
     repsPerQ?: number
@@ -98,7 +110,8 @@ export function isActiveDailyBlockComplete(
   const repsPerQ = opts?.repsPerQ ?? 2
 
   if (mode === 'random') {
-    return (opts?.solvedTodayCount ?? 0) >= plan.per_day
+    const count = opts?.dailyDoneTodayCount ?? opts?.solvedTodayCount ?? 0
+    return count >= plan.per_day
   }
 
   const ids = getActiveDayQuestionIds(plan, progress, { dailyReps: opts?.dailyReps, repsPerQ, today })

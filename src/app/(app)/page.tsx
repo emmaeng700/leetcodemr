@@ -13,7 +13,7 @@ const ORDERED_QUICK_PATTERNS = QUICK_PATTERNS
       DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
       DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
   )
-import { getProgress, updateProgress, getActivityLog, getDueReviews, getReviewsCompletedToday, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getUserRevisionCap, getTodaySolvedCount, getSolvedLog } from '@/lib/db'
+import { getProgress, updateProgress, getActivityLog, getDueReviews, getReviewsCompletedToday, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getUserRevisionCap, getTodayDailyDoneCount, getDailyLog } from '@/lib/db'
 import { readDailyRepsLocal } from '@/lib/dailyCompletion'
 import {
   computeDailyGoalsMetToday,
@@ -42,6 +42,7 @@ interface Question {
 
 interface ProgressData {
   solved: boolean
+  last_daily_done?: string | null
   starred: boolean
   notes: string
   review_count?: number
@@ -387,8 +388,8 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   const [studyPlan, setStudyPlan] = useState<Awaited<ReturnType<typeof getStudyPlan>>>(null)
   const [dueReviews, setDueReviews] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
   const [reviewsCompletedToday, setReviewsCompletedToday] = useState(0)
-  const [solvedTodayCount, setSolvedTodayCount] = useState(0)
-  const [solvedLog, setSolvedLog] = useState<Record<string, number>>({})
+  const [dailyDoneTodayCount, setDailyDoneTodayCount] = useState(0)
+  const [dailyLog, setDailyLog] = useState<Record<string, number>>({})
   const [dailyQ, setDailyQ] = useState<Question | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [showAllReviews, setShowAllReviews] = useState(false)
@@ -396,22 +397,22 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const [log, interviewData, plan, due, reviewsDone, solvedToday, solvedLogData] = await Promise.all([
+      const [log, interviewData, plan, due, reviewsDone, dailyDoneToday, dailyLogData] = await Promise.all([
         getActivityLog(),
         getInterviewDate(),
         getStudyPlan(),
         getDueReviews(),
         getReviewsCompletedToday(),
-        getTodaySolvedCount(),
-        getSolvedLog(),
+        getTodayDailyDoneCount(),
+        getDailyLog(),
       ])
       if (cancelled) return
       setActivityLog(log)
       setStudyPlan(plan)
       setDueReviews(due)
       setReviewsCompletedToday(reviewsDone)
-      setSolvedTodayCount(solvedToday)
-      setSolvedLog(solvedLogData)
+      setDailyDoneTodayCount(dailyDoneToday)
+      setDailyLog(dailyLogData)
       if (interviewData?.target_date) setDate(interviewData.target_date)
       setLoaded(true)
     }
@@ -426,19 +427,19 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     }
     let cancelled = false
     ;(async () => {
-      const [log, due, reviewsDone, solvedToday, solvedLogData] = await Promise.all([
+      const [log, due, reviewsDone, dailyDoneToday, dailyLogData] = await Promise.all([
         getActivityLog(),
         getDueReviews(),
         getReviewsCompletedToday(),
-        getTodaySolvedCount(),
-        getSolvedLog(),
+        getTodayDailyDoneCount(),
+        getDailyLog(),
       ])
       if (cancelled) return
       setActivityLog(log)
       setDueReviews(due)
       setReviewsCompletedToday(reviewsDone)
-      setSolvedTodayCount(solvedToday)
-      setSolvedLog(solvedLogData)
+      setDailyDoneTodayCount(dailyDoneToday)
+      setDailyLog(dailyLogData)
     })()
     return () => { cancelled = true }
   }, [progress, loaded])
@@ -456,7 +457,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   })()
   const dailyGoalsOpts = {
     mode: planMode,
-    solvedTodayCount: solvedTodayCount,
+    dailyDoneTodayCount: dailyDoneTodayCount,
     dailyReps: readDailyRepsLocal(),
     repsPerQ: repsPerQHome,
   }
@@ -515,8 +516,8 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
       yd.setDate(yd.getDate() - 1)
       const isoYesterday = yd.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
       const planIncludesYesterday = isoYesterday >= planNorm.start_date
-      const ydSolved = planIncludesYesterday ? Math.min((solvedLog[isoYesterday] ?? 0) as number, planNorm.per_day) : planNorm.per_day
-      const tdSolved = Math.min(solvedTodayCount, planNorm.per_day)
+      const ydSolved = planIncludesYesterday ? Math.min((dailyLog[isoYesterday] ?? 0) as number, planNorm.per_day) : planNorm.per_day
+      const tdSolved = Math.min(dailyDoneTodayCount, planNorm.per_day)
       const yesterdayDone = ydSolved >= planNorm.per_day
       const todayDone     = tdSolved  >= planNorm.per_day
       const dailyDone     = isActiveDailyBlockComplete(planNorm, progress, dailyGoalsOpts)

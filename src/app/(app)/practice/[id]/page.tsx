@@ -4,7 +4,9 @@ import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
-import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan, addMasteryRunEvent, getMasteryRunsByQuestion } from '@/lib/db'
+import { setDailyRepsLocal } from '@/lib/dailyCompletion'
+import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan, addMasteryRunEvent, getMasteryRunsByQuestion, markDailyCompleteToday } from '@/lib/db'
+import { todayISOChicago } from '@/lib/studyPlanDay'
 import { formatTime, isDue, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import { getPatternForQuestion } from '@/lib/patternUtils'
@@ -92,6 +94,7 @@ export default function PracticePage() {
   const [planOrder, setPlanOrder] = useState<number[]>([])
   const [showList, setShowList] = useState(false)
   const [solved, setSolved] = useState(false)
+  const [dailyDoneToday, setDailyDoneToday] = useState(false)
   const [starred, setStarred] = useState(false)
   const [nextReview, setNextReview] = useState<string | null>(null)
   const [reviewDone, setReviewDone] = useState(false)
@@ -117,7 +120,7 @@ export default function PracticePage() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startRef = useRef(Date.now())
-  const progressRef = useRef<Record<string, { solved?: boolean }>>({})
+  const progressRef = useRef<Record<string, { solved?: boolean; last_daily_done?: string | null }>>({})
 
   // Load local data immediately — no spinner blocking the page
   useEffect(() => {
@@ -156,6 +159,13 @@ export default function PracticePage() {
       else if (plan?.question_order?.length) setPlanOrder(plan.question_order)
       else setPlanOrder((qs as Question[]).map((q: Question) => q.id))
       setSolved(!!prog[String(id)]?.solved)
+      const today = todayISOChicago()
+      const dailyRuns = isDailyMode ? readDailyRuns() : {}
+      const repTarget = getDailyRepTarget()
+      const dailyDone =
+        isDailyMode &&
+        ((dailyRuns[String(id)] ?? 0) >= repTarget || prog[String(id)]?.last_daily_done === today)
+      setDailyDoneToday(!!dailyDone)
       setStarred(!!prog[String(id)]?.starred)
       setNextReview(prog[String(id)]?.next_review ?? null)
       progressRef.current = prog
@@ -334,12 +344,16 @@ export default function PracticePage() {
 
     if (after >= targetReps) {
       if (isDailyMode) {
-        if (!solved) {
-          await updateProgress(question.id, { solved: true })
-          setSolved(true)
+        if (!dailyDoneToday) {
+          await markDailyCompleteToday(question.id)
+          setDailyDoneToday(true)
+          setDailyRepsLocal(question.id, targetReps)
           progressRef.current = {
             ...progressRef.current,
-            [String(question.id)]: { ...progressRef.current[String(question.id)], solved: true },
+            [String(question.id)]: {
+              ...progressRef.current[String(question.id)],
+              last_daily_done: todayISOChicago(),
+            },
           }
         }
         const remainingQueue = planOrder.filter(qid => qid !== question.id)
@@ -398,6 +412,25 @@ export default function PracticePage() {
 
   async function handleMarkSolved() {
     if (!question) return
+    if (isDailyMode) {
+      if (dailyDoneToday) {
+        toast.success('Already done for today\'s Daily block')
+        return
+      }
+      await markDailyCompleteToday(id)
+      setDailyDoneToday(true)
+      setDailyRepsLocal(id, targetReps)
+      const updated = readDailyRuns()
+      updated[String(id)] = targetReps
+      writeDailyRuns(updated)
+      setModeRuns(prev => ({ ...prev, [String(id)]: targetReps }))
+      progressRef.current = {
+        ...progressRef.current,
+        [String(id)]: { ...progressRef.current[String(id)], last_daily_done: todayISOChicago() },
+      }
+      toast.success('Marked done for today\'s Daily — Learn progress unchanged', { duration: 3500 })
+      return
+    }
     const newSolved = !solved
     setSolved(newSolved)
     progressRef.current = { ...progressRef.current, [String(id)]: { ...progressRef.current[String(id)], solved: newSolved } }
@@ -560,14 +593,20 @@ export default function PracticePage() {
             onClick={handleMarkSolved}
             disabled={!question}
             className={`flex min-w-0 items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-colors border disabled:opacity-40 ${
-              solved
-                ? 'bg-green-50 text-green-600 border-green-200'
-                : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)] hover:border-green-500/50 hover:text-green-400'
+              isDailyMode
+                ? dailyDoneToday
+                  ? 'bg-green-50 text-green-600 border-green-200'
+                  : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)] hover:border-green-500/50 hover:text-green-400'
+                : solved
+                  ? 'bg-green-50 text-green-600 border-green-200'
+                  : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)] hover:border-green-500/50 hover:text-green-400'
             }`}
           >
-            <CheckCircle size={13} className={solved ? 'fill-green-500 text-white' : ''} />
-            <span className="hidden sm:inline">{solved ? 'Solved ✓' : 'Mark Solved'}</span>
-            <span className="sm:hidden">{solved ? '✓' : 'Solve'}</span>
+            <CheckCircle size={13} className={(isDailyMode ? dailyDoneToday : solved) ? 'fill-green-500 text-white' : ''} />
+            <span className="hidden sm:inline">
+              {isDailyMode ? (dailyDoneToday ? 'Daily done ✓' : 'Mark daily done') : solved ? 'Solved ✓' : 'Mark Solved'}
+            </span>
+            <span className="sm:hidden">{isDailyMode ? (dailyDoneToday ? '✓' : 'Daily') : solved ? '✓' : 'Solve'}</span>
           </button>
         </div>
       </div>

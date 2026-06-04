@@ -1,6 +1,7 @@
 /**
  * Day-complete rules (app, streak, emails):
- * - Today's active daily questions must be done *for today* (reps or solved today).
+ * - Today's active daily questions must be done on the Daily flow (reps or last_daily_done).
+ * - Learn `solved` does not count toward the daily block.
  * - If SR reviews are due today, clear them too before the day is complete.
  */
 
@@ -21,7 +22,9 @@ export {
 
 export type DailyGoalsOpts = {
   mode?: string
-  /** Random mode: new solves logged today (solved_log). */
+  /** Random mode: questions finished on Daily today (daily_log). */
+  dailyDoneTodayCount?: number
+  /** @deprecated use dailyDoneTodayCount */
   solvedTodayCount?: number
   /** Strict mode: today's rep counts from localStorage (client only). */
   dailyReps?: Record<string, number>
@@ -31,7 +34,7 @@ export type DailyGoalsOpts = {
 /** Full day complete: daily block done for today, and no SR reviews left due today. */
 export function isDayComplete(
   plan: unknown,
-  progress: Record<string, { solved?: boolean; last_reviewed?: string | null } | undefined>,
+  progress: Record<string, { last_daily_done?: string | null } | undefined>,
   dueReviewCount: number,
   opts?: DailyGoalsOpts,
 ): boolean {
@@ -42,7 +45,7 @@ export function isDayComplete(
 
 function computePlanStreakCore(
   plan: StudyPlanForStreak,
-  progress: Record<string, { solved?: boolean; last_reviewed?: string | null } | undefined>,
+  progress: Record<string, { last_daily_done?: string | null } | undefined>,
   dueReviewCount: number,
   opts?: DailyGoalsOpts,
 ): { goalsMet: boolean; streakNumber: number } {
@@ -61,7 +64,7 @@ function computePlanStreakCore(
 
 export function computeDailyGoalsMetToday(
   plan: unknown,
-  progress: Record<string, { solved?: boolean; last_reviewed?: string | null } | undefined>,
+  progress: Record<string, { last_daily_done?: string | null } | undefined>,
   dueReviewCount: number,
   opts?: DailyGoalsOpts,
 ): boolean {
@@ -73,7 +76,7 @@ export function computeDailyGoalsMetToday(
 /** Headline streak when a study plan exists: completed “police” days in order (not activity_log). */
 export function computePlanStreakDisplayNumber(
   plan: unknown,
-  progress: Record<string, { solved?: boolean; last_reviewed?: string | null } | undefined>,
+  progress: Record<string, { last_daily_done?: string | null } | undefined>,
   dueReviewCount: number,
   opts?: DailyGoalsOpts,
 ): number | null {

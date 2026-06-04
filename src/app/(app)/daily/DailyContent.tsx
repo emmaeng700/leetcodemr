@@ -6,7 +6,7 @@ import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ExternalLink, List, Brain, Star, Wind, Bell, BookOpen, Settings } from 'lucide-react'
-import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodaySolvedCount, syncStreakActivityFromGoals, getUserRevisionCap } from '@/lib/db'
+import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodayDailyDoneCount, syncStreakActivityFromGoals, getUserRevisionCap } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
 import { studyOrder } from '@/lib/studyOrder'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
@@ -37,6 +37,7 @@ interface ProgressData {
   starred: boolean
   notes: string
   last_reviewed?: string | null
+  last_daily_done?: string | null
 }
 
 type PlanMode = 'strict' | 'random'
@@ -188,7 +189,7 @@ export default function DailyPage() {
   // Active plan mode + random-mode state
   const [activePlanMode, setActivePlanMode] = useState<PlanMode>('strict')
   const [focusPattern, setFocusPattern] = useState<string | null>(null)
-  const [todaySolvedCount, setTodaySolvedCount] = useState(0)
+  const [todayDailyDoneCount, setTodayDailyDoneCount] = useState(0)
 
   // Rep tracking
   const [repsPerQ, setRepsPerQ] = useState(2)
@@ -287,9 +288,9 @@ export default function DailyPage() {
 
   const refreshProgress = useCallback(async () => {
     try {
-      const [prog, solvedToday] = await Promise.all([getProgress(), getTodaySolvedCount()])
+      const [prog, dailyDoneToday] = await Promise.all([getProgress(), getTodayDailyDoneCount()])
       setProgress(prog)
-      setTodaySolvedCount(solvedToday)
+      setTodayDailyDoneCount(dailyDoneToday)
       setBreathers(getActiveBreathers())
     } catch {
       /* ignore */
@@ -323,12 +324,12 @@ export default function DailyPage() {
       const savedFocus = localStorage.getItem(FOCUS_PATTERN_KEY)
       if (savedFocus) setFocusPattern(savedFocus)
 
-      const [qs, prog, p, due, solvedToday, profileRes] = await Promise.all([
+      const [qs, prog, p, due, dailyDoneToday, profileRes] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getProgress(),
         getStudyPlan(),
         getDueReviews(),
-        getTodaySolvedCount(),
+        getTodayDailyDoneCount(),
         fetch('/api/user/profile')
           .then(r => (r.ok ? r.json() : null))
           .catch(() => null),
@@ -390,7 +391,7 @@ export default function DailyPage() {
       setProgress(prog)
       setPlan(migratedPlan)
       setDueReviews(due)
-      setTodaySolvedCount(solvedToday)
+      setTodayDailyDoneCount(dailyDoneToday)
       setBreathers(getActiveBreathers())
       setLoading(false)
 
@@ -854,11 +855,11 @@ export default function DailyPage() {
   const nextFocusId = todayQs.find(q => !isRepDone(q.id))?.id ?? null
 
   // Random mode: day goal met when per_day new questions solved today
-  const randomGoalMet = isRandomMode && todaySolvedCount >= plan.per_day
+  const randomGoalMet = isRandomMode && todayDailyDoneCount >= plan.per_day
 
   const dailyGoalsOpts = {
     mode: activePlanMode,
-    solvedTodayCount: todaySolvedCount,
+    dailyDoneTodayCount: todayDailyDoneCount,
     dailyReps,
     repsPerQ,
   }
@@ -1132,11 +1133,11 @@ export default function DailyPage() {
                 <div className="flex-1 h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${randomGoalMet ? 'bg-green-500' : 'bg-amber-400'}`}
-                    style={{ width: `${Math.min(100, Math.round((todaySolvedCount / plan.per_day) * 100))}%` }}
+                    style={{ width: `${Math.min(100, Math.round((todayDailyDoneCount / plan.per_day) * 100))}%` }}
                   />
                 </div>
                 <span className={`text-xs font-bold shrink-0 ${randomGoalMet ? 'text-green-600' : 'text-amber-600'}`}>
-                  {todaySolvedCount}/{plan.per_day}
+                  {todayDailyDoneCount}/{plan.per_day}
                   {randomGoalMet ? ' ✓' : ''}
                 </span>
               </div>
@@ -1174,9 +1175,9 @@ export default function DailyPage() {
             </h2>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
               randomGoalMet ? 'bg-green-100 text-green-700' :
-              todaySolvedCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-purple-100 text-purple-700'
+              todayDailyDoneCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-purple-100 text-purple-700'
             }`}>
-              {todaySolvedCount}/{plan.per_day} today
+              {todayDailyDoneCount}/{plan.per_day} today
             </span>
           </div>
 
@@ -1375,11 +1376,6 @@ export default function DailyPage() {
             })}
           </div>
 
-          {todayAllRepsDone && !dailyBlockDone && (
-            <div className="mt-4 text-center text-amber-600 font-semibold text-sm bg-amber-50 border border-amber-200 rounded-xl py-2">
-              Reps complete — tap Mark Solved on each question (or finish via Daily Solve) so today counts for streak &amp; email.
-            </div>
-          )}
           {dailyBlockDone && !dayComplete && dueReviews.length > 0 && (
             <div className="mt-4 text-center text-indigo-600 font-bold text-sm">
               Daily questions done — finish reviews to complete today.

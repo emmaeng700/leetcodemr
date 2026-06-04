@@ -74,6 +74,7 @@ export async function getProgress() {
         review_count: row.review_count,
         next_review: row.next_review,
         last_reviewed: row.last_reviewed,
+        last_daily_done: row.last_daily_done ?? null,
       }
     }
     return result
@@ -162,6 +163,11 @@ export async function updateProgress(questionId: number, data: any) {
     lastReviewed = null
   }
 
+  const lastDailyDone =
+    data.last_daily_done !== undefined
+      ? data.last_daily_done
+      : (existing?.last_daily_done ?? null)
+
   const { error: upsertErr } = await supabase.from('progress').upsert({
     user_id: USER_ID,
     question_id: questionId,
@@ -172,6 +178,7 @@ export async function updateProgress(questionId: number, data: any) {
     review_count: reviewCount,
     next_review: nextReview,
     last_reviewed: lastReviewed,
+    last_daily_done: lastDailyDone,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,question_id' })
   if (upsertErr) console.error('[db] updateProgress:', upsertErr.message)
@@ -287,6 +294,114 @@ export async function logSolvedToday() {
   }, { onConflict: 'user_id,date' })
 }
 
+/** Increment when a question is finished on the Daily page (not Learn). */
+export async function logDailyDoneToday() {
+  const today = todayISOChicago()
+  const localToday = localTodayISO()
+
+  const { data: ctRow } = await supabase
+    .from('daily_log')
+    .select('count')
+    .eq('user_id', USER_ID)
+    .eq('date', today)
+    .single()
+
+  let base = ctRow?.count ?? 0
+  if (base === 0 && localToday !== today) {
+    const { data: localRow } = await supabase
+      .from('daily_log')
+      .select('count')
+      .eq('user_id', USER_ID)
+      .eq('date', localToday)
+      .maybeSingle()
+    if (typeof localRow?.count === 'number' && localRow.count > 0) {
+      base = localRow.count
+    }
+  }
+
+  await supabase.from('daily_log').upsert({
+    user_id: USER_ID,
+    date: today,
+    count: base + 1,
+  }, { onConflict: 'user_id,date' })
+}
+
+/** Mark today's Daily block item complete — does not set Learn `solved`. */
+export async function markDailyCompleteToday(questionId: number) {
+  const today = todayISOChicago()
+  const { data: existing } = await supabase
+    .from('progress')
+    .select('*')
+    .eq('user_id', USER_ID)
+    .eq('question_id', questionId)
+    .maybeSingle()
+
+  const alreadyToday = (existing?.last_daily_done as string | null) === today
+
+  const { error: upsertErr } = await supabase.from('progress').upsert({
+    user_id: USER_ID,
+    question_id: questionId,
+    solved: existing?.solved ?? false,
+    starred: existing?.starred ?? false,
+    notes: existing?.notes ?? '',
+    status: existing?.status ?? null,
+    review_count: existing?.review_count ?? 0,
+    next_review: existing?.next_review ?? null,
+    last_reviewed: existing?.last_reviewed ?? null,
+    last_daily_done: today,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id,question_id' })
+  if (upsertErr) console.error('[db] markDailyCompleteToday:', upsertErr.message)
+
+  if (!alreadyToday) {
+    try {
+      await logDailyDoneToday()
+    } catch (e) {
+      console.error('[db] logDailyDoneToday:', e)
+    }
+  }
+
+  try {
+    await syncStreakActivityFromGoals()
+  } catch (e) {
+    console.error('[db] syncStreakActivityFromGoals:', e)
+  }
+  return upsertErr?.message ?? null
+}
+
+export async function getTodayDailyDoneCount(): Promise<number> {
+  const today = todayISOChicago()
+  const { data: ctRow } = await supabase
+    .from('daily_log')
+    .select('count')
+    .eq('user_id', USER_ID)
+    .eq('date', today)
+    .maybeSingle()
+
+  if (typeof ctRow?.count === 'number') return ctRow.count
+
+  const localToday = localTodayISO()
+  if (localToday === today) return 0
+
+  const { data: localRow } = await supabase
+    .from('daily_log')
+    .select('count')
+    .eq('user_id', USER_ID)
+    .eq('date', localToday)
+    .maybeSingle()
+
+  const localCount = (localRow?.count ?? 0) as number
+  if (localCount > 0) {
+    await supabase.from('daily_log').upsert({
+      user_id: USER_ID,
+      date: today,
+      count: localCount,
+    }, { onConflict: 'user_id,date' })
+    return localCount
+  }
+  return 0
+}
+
 export async function getActivityLog(): Promise<Record<string, number>> {
   const { data } = await supabase
     .from('activity_log')
@@ -305,6 +420,24 @@ export async function getSolvedLog(): Promise<Record<string, number>> {
     .from('solved_log')
     .select('date,count')
     .eq('user_id', USER_ID)
+
+  const result: Record<string, number> = {}
+  for (const row of data || []) {
+    result[row.date] = row.count
+  }
+  return result
+}
+
+export async function getDailyLog(): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from('daily_log')
+    .select('date,count')
+    .eq('user_id', USER_ID)
+  if (error) {
+    if (isMissingTableError(error.message)) return {}
+    console.error('[db] getDailyLog:', error.message)
+    return {}
+  }
 
   const result: Record<string, number> = {}
   for (const row of data || []) {
@@ -1045,7 +1178,7 @@ export async function syncStreakActivityFromGoals(modeOverride?: string): Promis
   // Lightweight due-review count — plain SELECT count, no recalibrate/spread
   // side effects. getDueReviews() is too heavy here and can mis-report after
   // spreading reviews mid-flight, causing the streak to silently not get marked.
-  const [plan, { count: rawDueCount }, progress, solvedToday] = await Promise.all([
+  const [plan, { count: rawDueCount }, progress, dailyDoneToday] = await Promise.all([
     getStudyPlan(),
     supabase
       .from('progress')
@@ -1055,7 +1188,7 @@ export async function syncStreakActivityFromGoals(modeOverride?: string): Promis
       .not('next_review', 'is', null)
       .lte('next_review', today),
     getProgress(),
-    getTodaySolvedCount(),
+    getTodayDailyDoneCount(),
   ])
   const dueCount = rawDueCount ?? 0
 
@@ -1075,7 +1208,7 @@ export async function syncStreakActivityFromGoals(modeOverride?: string): Promis
 
   const goalsMet = computeDailyGoalsMetToday(plan, progress, dueCount, {
     mode,
-    solvedTodayCount: solvedToday,
+    dailyDoneTodayCount: dailyDoneToday,
     dailyReps,
     repsPerQ,
   })

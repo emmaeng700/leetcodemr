@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS progress (
   review_count INTEGER DEFAULT 0,
   next_review DATE,
   last_reviewed DATE,
+  last_daily_done DATE,
   status TEXT,
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, question_id)
@@ -19,6 +20,15 @@ CREATE TABLE IF NOT EXISTS progress (
 
 -- Activity log (daily activity count for heatmap)
 CREATE TABLE IF NOT EXISTS activity_log (
+  id SERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL DEFAULT 'emmanuel',
+  date DATE NOT NULL,
+  count INTEGER DEFAULT 0,
+  UNIQUE(user_id, date)
+);
+
+-- Daily log (questions finished on the Daily page today — not Learn solves)
+CREATE TABLE IF NOT EXISTS daily_log (
   id SERIAL PRIMARY KEY,
   user_id TEXT NOT NULL DEFAULT 'emmanuel',
   date DATE NOT NULL,

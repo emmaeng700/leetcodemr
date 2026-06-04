@@ -50,18 +50,18 @@ async function getTodayPlanQuestions(
 ): Promise<Array<{ id: number; title: string; difficulty: string; slug: string; solved: boolean; doneForToday: boolean }>> {
   const [planRes, progressRes] = await Promise.all([
     supabase.from('study_plan').select('question_order,start_date,per_day').eq('user_id', USER_ID).maybeSingle(),
-    supabase.from('progress').select('question_id,solved,last_reviewed').eq('user_id', USER_ID),
+    supabase.from('progress').select('question_id,solved,last_daily_done').eq('user_id', USER_ID),
   ])
 
   const plan = planRes.data as { question_order: number[]; start_date: string; per_day: number } | null
   if (!plan?.question_order?.length || !plan?.start_date || !plan?.per_day) return []
 
-  const progress: Record<string, { solved?: boolean; last_reviewed?: string | null }> = {}
+  const progress: Record<string, { solved?: boolean; last_daily_done?: string | null }> = {}
   for (const row of progressRes.data ?? []) {
     const id = String((row as { question_id: number }).question_id)
     progress[id] = {
       solved: !!(row as { solved?: boolean }).solved,
-      last_reviewed: (row as { last_reviewed?: string | null }).last_reviewed ?? null,
+      last_daily_done: (row as { last_daily_done?: string | null }).last_daily_done ?? null,
     }
   }
 
