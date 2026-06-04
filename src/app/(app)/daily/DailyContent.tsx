@@ -544,6 +544,26 @@ export default function DailyPage() {
     return !!progress[String(id)]?.solved
   }
 
+  /** Learn progress only — does not mean today's Daily block is done. */
+  function isLearned(id: number) {
+    return isSolved(id)
+  }
+
+  /** Daily quota met for a question on its scheduled plan day. */
+  function isDailyDoneForPlanDay(dayIdx: number, id: number) {
+    if (dayIdx < calendarDayIndex) {
+      return !!progress[String(id)]?.solved
+    }
+    if (dayIdx > calendarDayIndex) {
+      return false
+    }
+    return isQuestionDoneForDailyToday(id, progress, todayISO(), dailyReps, repsPerQRef.current)
+  }
+
+  function countDailyDoneOnPlanDay(dayIdx: number, questionIds: number[]) {
+    return questionIds.filter(id => isDailyDoneForPlanDay(dayIdx, id)).length
+  }
+
   function isStarred(id: number) {
     return !!progress[String(id)]?.starred
   }
@@ -844,7 +864,7 @@ export default function DailyPage() {
 
   const todayQs    = todayInfo.questions || []
   todayQsRef.current = todayQs   // keep ref fresh for incrementRep auto-advance
-  const todayDone  = (todayInfo.questionIds || []).filter(id => isSolved(id)).length
+  const todayDone  = todayQs.filter(q => isRepDone(q.id)).length
 
   // Rep-based day completion
   const todayRepsDone   = todayQs.filter(q => isRepDone(q.id)).length
@@ -899,7 +919,8 @@ export default function DailyPage() {
       >
         {q.difficulty[0]}
       </span>
-      {isSolved(q.id) && <CheckCircle2 size={11} className="text-green-400 shrink-0" />}
+      {isRepDone(q.id) && <CheckCircle2 size={11} className="text-green-400 shrink-0" />}
+      {!isRepDone(q.id) && isLearned(q.id) && <CheckCircle2 size={11} className="text-indigo-400 shrink-0" />}
     </button>
   ))
   const pastDayCount = todayInfo.dayNumber ? todayInfo.dayNumber - 1 : totalDays
@@ -1299,9 +1320,9 @@ export default function DailyPage() {
 
           <div className="space-y-3">
             {todayQs.map((q, idx) => {
-              const solved    = isSolved(q.id)
+              const learned   = isLearned(q.id)
               const repCount  = getDailyRep(q.id)
-              const repDone   = repCount >= repsPerQ
+              const repDone   = isRepDone(q.id)
               const isFocus   = q.id === nextFocusId
               const topic     = topicMap[q.id] ?? 'Other'
               const curPri    = PATTERN_PRIORITY[topic] ?? null
@@ -1325,7 +1346,7 @@ export default function DailyPage() {
                     <div className="shrink-0">
                       {repDone
                         ? <CheckCircle2 size={20} className="text-green-500" />
-                        : solved
+                        : learned
                           ? <CheckCircle2 size={20} className="text-indigo-400" />
                           : <Circle size={20} className="text-[var(--text-subtle)]" />}
                     </div>
@@ -1353,6 +1374,9 @@ export default function DailyPage() {
                         <span className={`text-[10px] font-bold ${repDone ? 'text-green-600' : repCount > 0 ? 'text-indigo-500' : 'text-[var(--text-subtle)]'}`}>
                           {Math.min(repCount, repsPerQ)}/{repsPerQ}
                         </span>
+                        {learned && !repDone && (
+                          <span className="text-[10px] font-semibold text-indigo-500">Learned</span>
+                        )}
                       </div>
                     </div>
                     <button
@@ -1483,13 +1507,19 @@ export default function DailyPage() {
               </button>
             </div>
           </div>
-          {previewDayInfo.questionIds.filter(id => isSolved(id)).length > 0 && (
-            <p className="text-xs text-green-600 font-medium mb-2">
-              {previewDayInfo.questionIds.filter(id => isSolved(id)).length}/{previewDayInfo.questions.length} already solved ✓
-            </p>
-          )}
+          {(() => {
+            const learnedCnt = previewDayInfo.questionIds.filter(id => isLearned(id)).length
+            if (learnedCnt === 0) return null
+            return (
+              <p className="text-xs text-indigo-600 font-medium mb-2">
+                {learnedCnt}/{previewDayInfo.questions.length} learned in Learn
+                <span className="text-[var(--text-subtle)] font-normal"> · Daily reps when this day arrives</span>
+              </p>
+            )
+          })()}
           <div className="space-y-1.5">
             {previewDayInfo.questions.map((q, idx) => {
+              const learned = isLearned(q.id)
               const pTopic  = topicMap[q.id] ?? 'Other'
               const curPri  = PATTERN_PRIORITY[pTopic] ?? null
               const prev    = idx > 0 ? previewDayInfo.questions[idx - 1] : null
@@ -1499,8 +1529,8 @@ export default function DailyPage() {
                 <div key={q.id}>
                   {showRound && <StudyRoundHeader priority={curPri!} difficulty={q.difficulty} className="py-1" />}
                   <div className="flex items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-[var(--bg-muted)] transition-colors">
-                    {isSolved(q.id)
-                      ? <CheckCircle2 size={14} className="text-green-400 shrink-0" />
+                    {learned
+                      ? <CheckCircle2 size={14} className="text-indigo-400 shrink-0" />
                       : <Circle size={14} className="text-[var(--text-subtle)] shrink-0" />
                     }
                     <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
@@ -1549,7 +1579,7 @@ export default function DailyPage() {
               const dayIdx = (todayInfo.dayNumber ? todayInfo.dayNumber - 2 - i : totalDays - 1 - i)
               if (dayIdx < 0) return null
               const { questionIds, questions: dayQs } = getDayInfo(plan, dayIdx, allQuestions, progress)
-              const doneCnt = questionIds.filter(id => isSolved(id)).length
+              const doneCnt = countDailyDoneOnPlanDay(dayIdx, questionIds)
               const expanded = expandedDays[dayIdx]
               return (
                 <div key={dayIdx} className="border border-[var(--border)] rounded-xl overflow-hidden">
@@ -1570,11 +1600,16 @@ export default function DailyPage() {
                   </button>
                   {expanded && (
                     <div className="px-4 pb-3 space-y-1.5 border-t border-[var(--border-soft)]">
-                      {dayQs.map(q => (
+                      {dayQs.map(q => {
+                        const learned = isLearned(q.id)
+                        const dailyDone = isDailyDoneForPlanDay(dayIdx, q.id)
+                        return (
                         <div key={q.id} className="flex items-center gap-2 text-sm py-1">
-                          {isSolved(q.id)
+                          {dailyDone
                             ? <CheckCircle2 size={14} className="text-green-400 shrink-0" />
-                            : <Circle size={14} className="text-[var(--text-subtle)] shrink-0" />
+                            : learned
+                              ? <CheckCircle2 size={14} className="text-indigo-400 shrink-0" />
+                              : <Circle size={14} className="text-[var(--text-subtle)] shrink-0" />
                           }
                           <Link href={`/practice/${q.id}`} className="text-[var(--text)] hover:text-indigo-500 truncate flex-1 min-w-0">
                             {q.title}
@@ -1590,7 +1625,8 @@ export default function DailyPage() {
                           </a>
                           <DifficultyBadge difficulty={q.difficulty} />
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>
