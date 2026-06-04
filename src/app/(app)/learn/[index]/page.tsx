@@ -14,7 +14,9 @@ import {
   BookOpen, List, ExternalLink, Loader2, FileText,
   Copy, Check, Sparkles, RefreshCw, X, Play,
 } from 'lucide-react'
-import { getProgress, updateProgress, completeReview, failReview, getCycleState, saveCycleState, clampCycleIdx } from '@/lib/db'
+import { bumpDailyRepLocal, getActiveDayQuestionIds, readDailyRepsLocal } from '@/lib/dailyCompletion'
+import { getProgress, updateProgress, completeReview, failReview, getCycleState, saveCycleState, clampCycleIdx, getStudyPlan, syncStreakActivityFromGoals } from '@/lib/db'
+import { normalizeStudyPlanRow } from '@/lib/streakGoals'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap, getPatternForQuestion } from '@/lib/patternUtils'
@@ -1531,6 +1533,27 @@ function LearnInner() {
               onAccepted={async () => {
                 toast.success('Accepted! Moving to next question.', { duration: 2000 })
                 if (due && !reviewDone) await handleCompleteReview()
+                if (q) {
+                  try {
+                    const [planRow, prog] = await Promise.all([getStudyPlan(), getProgress()])
+                    const planNorm = normalizeStudyPlanRow(planRow)
+                    if (planNorm) {
+                      let repsPerQ = 2
+                      try {
+                        const n = Number.parseInt(localStorage.getItem('lm_reps_per_q') ?? '2', 10)
+                        if (Number.isFinite(n) && n > 0) repsPerQ = n
+                      } catch {}
+                      const activeIds = getActiveDayQuestionIds(planNorm, prog, {
+                        dailyReps: readDailyRepsLocal(),
+                        repsPerQ,
+                      })
+                      if (activeIds.includes(q.id)) {
+                        bumpDailyRepLocal(q.id)
+                        void syncStreakActivityFromGoals(planNorm.mode)
+                      }
+                    }
+                  } catch { /* non-blocking */ }
+                }
                 if (q && cycleRange) {
                   const isNew = recordCycleAccepted(q.id)   // returns true if first time this lap
                   if (isNew) fireConfetti(false)             // small burst for each new solve

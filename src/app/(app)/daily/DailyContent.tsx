@@ -17,7 +17,12 @@ import PriorityBadge from '@/components/PriorityBadge'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
-import { isActiveDailyBlockComplete, isDayComplete } from '@/lib/streakGoals'
+import {
+  DAILY_REPS_PREFIX,
+  isActiveDailyBlockComplete,
+  isQuestionDoneForDailyToday,
+} from '@/lib/dailyCompletion'
+import { isDayComplete } from '@/lib/streakGoals'
 
 interface Question {
   id: number
@@ -38,7 +43,6 @@ type PlanMode = 'strict' | 'random'
 const PLAN_MODE_KEY      = 'lm_plan_mode_v1'
 const FOCUS_PATTERN_KEY  = 'lm_focus_pattern_v1'
 const REPS_PER_Q_KEY     = 'lm_reps_per_q'
-const DAILY_REPS_PREFIX  = 'lm_daily_reps_'
 const DAILY_QUEUE_KEY    = 'lm_daily_queue'
 
 // ─── Rep dots ─────────────────────────────────────────────────────────────────
@@ -103,7 +107,13 @@ function getDayInfo(plan: StudyPlan, dayIndex: number, allQuestions: Question[],
   return { questionIds, questions }
 }
 
-function getTodayInfo(plan: StudyPlan, allQuestions: Question[], progress: Record<string, ProgressData>) {
+function getTodayInfo(
+  plan: StudyPlan,
+  allQuestions: Question[],
+  progress: Record<string, ProgressData>,
+  dailyReps: Record<string, number>,
+  repsPerQ: number,
+) {
   const today = todayISO()
   const start = new Date(plan.start_date)
   start.setHours(0, 0, 0, 0)
@@ -128,10 +138,9 @@ function getTodayInfo(plan: StudyPlan, allQuestions: Question[], progress: Recor
   let activeDayIndex = diffDays
   for (let i = 0; i <= diffDays; i++) {
     const { questionIds } = getDayInfo(plan, i, allQuestions, progress)
-    const allSolved = questionIds.every(id => {
-      const p = progress[String(id)]
-      return p && p.solved
-    })
+    const allSolved = questionIds.every(id =>
+      isQuestionDoneForDailyToday(id, progress, todayISO(), dailyReps, repsPerQ),
+    )
     if (!allSolved) {
       activeDayIndex = i
       break
@@ -446,7 +455,7 @@ export default function DailyPage() {
   // stuck day index — prevents spam if the user keeps opening the page.
   useEffect(() => {
     if (loading || isRandomMode || !plan) return
-    const todayInfo = getTodayInfo(plan, allQuestions, progress)
+    const todayInfo = getTodayInfo(plan, allQuestions, progress, dailyReps, repsPerQ)
     if (todayInfo.pending || todayInfo.complete || !todayInfo.dayNumber) return
     const activeDayIdx = todayInfo.dayNumber - 1
     if (calendarDayIndex <= activeDayIdx) return  // on schedule or ahead
@@ -558,12 +567,7 @@ export default function DailyPage() {
   // ── Rep helpers ─────────────────────────────────────────────────────────────
   function getDailyRep(id: number) { return dailyReps[String(id)] ?? 0 }
   function isRepDone(id: number) {
-    // Local reps done today on this device
-    if (getDailyRep(id) >= repsPerQRef.current) return true
-    // Cross-device fallback: if the question was solved today on any device,
-    // last_reviewed (stored in Supabase) will equal today — treat as done.
-    const p = progress[String(id)]
-    return !!(p?.solved && p?.last_reviewed === todayISO())
+    return isQuestionDoneForDailyToday(id, progress, todayISO(), dailyReps, repsPerQRef.current)
   }
 
   function saveRepsPerQ(n: number) {
@@ -832,7 +836,7 @@ export default function DailyPage() {
   }
 
   // ── Active view derived data (plan is guaranteed non-null here) ────────────
-  const todayInfo = getTodayInfo(plan, allQuestions, progress)
+  const todayInfo = getTodayInfo(plan, allQuestions, progress, dailyReps, repsPerQ)
   const totalDays = Math.ceil(plan.question_order.length / plan.per_day)
 
   const progressPct = isRandomMode
@@ -852,7 +856,12 @@ export default function DailyPage() {
   // Random mode: day goal met when per_day new questions solved today
   const randomGoalMet = isRandomMode && todaySolvedCount >= plan.per_day
 
-  const dailyGoalsOpts = { mode: activePlanMode, solvedTodayCount: todaySolvedCount }
+  const dailyGoalsOpts = {
+    mode: activePlanMode,
+    solvedTodayCount: todaySolvedCount,
+    dailyReps,
+    repsPerQ,
+  }
   const planForGoals = {
     start_date: plan.start_date,
     per_day: plan.per_day,
@@ -1366,12 +1375,12 @@ export default function DailyPage() {
             })}
           </div>
 
-          {todayAllRepsDone && todayQs.length > 0 && !dailyBlockDone && (
+          {todayAllRepsDone && !dailyBlockDone && (
             <div className="mt-4 text-center text-amber-600 font-semibold text-sm bg-amber-50 border border-amber-200 rounded-xl py-2">
-              Reps complete — mark each question solved in the app to count daily as done.
+              Reps complete — tap Mark Solved on each question (or finish via Daily Solve) so today counts for streak &amp; email.
             </div>
           )}
-          {todayAllRepsDone && dailyBlockDone && !dayComplete && dueReviews.length > 0 && (
+          {dailyBlockDone && !dayComplete && dueReviews.length > 0 && (
             <div className="mt-4 text-center text-indigo-600 font-bold text-sm">
               Daily questions done — finish reviews to complete today.
             </div>

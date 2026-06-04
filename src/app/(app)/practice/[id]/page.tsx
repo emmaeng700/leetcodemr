@@ -334,6 +334,14 @@ export default function PracticePage() {
 
     if (after >= targetReps) {
       if (isDailyMode) {
+        if (!solved) {
+          await updateProgress(question.id, { solved: true })
+          setSolved(true)
+          progressRef.current = {
+            ...progressRef.current,
+            [String(question.id)]: { ...progressRef.current[String(question.id)], solved: true },
+          }
+        }
         const remainingQueue = planOrder.filter(qid => qid !== question.id)
         sessionStorage.setItem('lm_daily_queue', JSON.stringify(remainingQueue))
         autoAdvanceId = remainingQueue[0] ?? null

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { readDailyRepsLocal } from './dailyCompletion'
 import { computeDailyGoalsMetToday } from './streakGoals'
 import { todayISOChicago } from './studyPlanDay'
 import { srInterval } from './utils'
@@ -1061,9 +1062,22 @@ export async function syncStreakActivityFromGoals(modeOverride?: string): Promis
   // Priority: explicit override → localStorage → plan.mode from DB → 'strict'
   const mode = modeOverride ?? localMode ?? (plan as any)?.mode ?? 'strict'
 
+  let dailyReps: Record<string, number> | undefined
+  let repsPerQ = 2
+  if (typeof window !== 'undefined') {
+    dailyReps = readDailyRepsLocal(today)
+    try {
+      const raw = localStorage.getItem('lm_reps_per_q')
+      const n = Number.parseInt(raw ?? '2', 10)
+      if (Number.isFinite(n) && n > 0) repsPerQ = n
+    } catch {}
+  }
+
   const goalsMet = computeDailyGoalsMetToday(plan, progress, dueCount, {
     mode,
     solvedTodayCount: solvedToday,
+    dailyReps,
+    repsPerQ,
   })
 
   if (goalsMet) {

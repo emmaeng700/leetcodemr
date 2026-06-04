@@ -3,6 +3,7 @@ import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { findActiveDayIndex, isQuestionDoneForDailyToday } from '@/lib/dailyCompletion'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 
 const USER_ID = 'emmanuel'
@@ -46,41 +47,47 @@ async function getTodayPlanQuestions(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   qMap: Record<number, QuestionMeta>,
-): Promise<Array<{ id: number; title: string; difficulty: string; slug: string; solved: boolean }>> {
+): Promise<Array<{ id: number; title: string; difficulty: string; slug: string; solved: boolean; doneForToday: boolean }>> {
   const [planRes, progressRes] = await Promise.all([
     supabase.from('study_plan').select('question_order,start_date,per_day').eq('user_id', USER_ID).maybeSingle(),
-    supabase.from('progress').select('question_id').eq('user_id', USER_ID).eq('solved', true),
+    supabase.from('progress').select('question_id,solved,last_reviewed').eq('user_id', USER_ID),
   ])
 
   const plan = planRes.data as { question_order: number[]; start_date: string; per_day: number } | null
   if (!plan?.question_order?.length || !plan?.start_date || !plan?.per_day) return []
 
-  const solvedIds = new Set<number>((progressRes.data ?? []).map((r: any) => Number(r.question_id)))
-
-  const today    = todayCT()
-  const diffDays = daysBetween(plan.start_date, today)
-  if (diffDays < 0) return []
-
-  const order: number[] = plan.question_order
-  const perDay: number  = plan.per_day
-  const totalDays       = Math.ceil(order.length / perDay)
-
-  // Find the first day that still has unsolved questions (up to today's scheduled day)
-  let activeDayIndex = Math.min(diffDays, totalDays - 1)
-  for (let i = 0; i <= Math.min(diffDays, totalDays - 1); i++) {
-    const slice = order.slice(i * perDay, i * perDay + perDay)
-    if (slice.some(id => !solvedIds.has(id))) { activeDayIndex = i; break }
+  const progress: Record<string, { solved?: boolean; last_reviewed?: string | null }> = {}
+  for (const row of progressRes.data ?? []) {
+    const id = String((row as { question_id: number }).question_id)
+    progress[id] = {
+      solved: !!(row as { solved?: boolean }).solved,
+      last_reviewed: (row as { last_reviewed?: string | null }).last_reviewed ?? null,
+    }
   }
 
-  const todayIds = order.slice(activeDayIndex * perDay, activeDayIndex * perDay + perDay)
+  const today = todayCT()
+  const planForStreak = {
+    start_date: plan.start_date,
+    per_day: plan.per_day,
+    question_order: plan.question_order,
+  }
+  const meta = findActiveDayIndex(planForStreak, progress, { today })
+  if (!meta) return []
+
+  const todayIds = plan.question_order.slice(
+    meta.activeDayIndex * plan.per_day,
+    meta.activeDayIndex * plan.per_day + plan.per_day,
+  )
   return todayIds.map(id => {
     const q = qMap[id]
+    const doneForToday = isQuestionDoneForDailyToday(id, progress, today)
     return {
       id,
       title:      q?.title      ?? `Question ${id}`,
       difficulty: q?.difficulty ?? '',
       slug:       q?.slug       ?? '',
-      solved:     solvedIds.has(id),
+      solved:     !!progress[String(id)]?.solved,
+      doneForToday,
     }
   })
 }
@@ -157,9 +164,9 @@ export async function GET(req: NextRequest) {
   ])
   const hasPlan     = todayPlanQs.length > 0
 
-  const solvedCount = hasPlan ? todayPlanQs.filter(q => q.solved).length : 0
+  const solvedCount = hasPlan ? todayPlanQs.filter(q => q.doneForToday).length : 0
   const totalCount  = hasPlan ? todayPlanQs.length : 0
-  const unsolvedQs  = hasPlan ? todayPlanQs.filter(q => !q.solved) : []
+  const unsolvedQs  = hasPlan ? todayPlanQs.filter(q => !q.doneForToday) : []
   const dailiesDone = hasPlan && unsolvedQs.length === 0
   // per_day: user's configured daily question target; falls back to today's slice size
   const perDay: number = (planMeta.data?.per_day as number | null) ?? totalCount

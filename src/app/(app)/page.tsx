@@ -14,6 +14,7 @@ const ORDERED_QUICK_PATTERNS = QUICK_PATTERNS
       DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
   )
 import { getProgress, updateProgress, getActivityLog, getDueReviews, getReviewsCompletedToday, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getUserRevisionCap, getTodaySolvedCount, getSolvedLog } from '@/lib/db'
+import { readDailyRepsLocal } from '@/lib/dailyCompletion'
 import {
   computeDailyGoalsMetToday,
   computePlanStreakDisplayNumber,
@@ -447,7 +448,18 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   const planMode = (studyPlan as any)?.mode ?? (planNorm as any)?.mode
   const isRandomPlan = planMode === 'random'
 
-  const dailyGoalsOpts = { mode: planMode, solvedTodayCount: solvedTodayCount }
+  const repsPerQHome = (() => {
+    try {
+      const n = Number.parseInt(localStorage.getItem('lm_reps_per_q') ?? '2', 10)
+      return Number.isFinite(n) && n > 0 ? n : 2
+    } catch { return 2 }
+  })()
+  const dailyGoalsOpts = {
+    mode: planMode,
+    solvedTodayCount: solvedTodayCount,
+    dailyReps: readDailyRepsLocal(),
+    repsPerQ: repsPerQHome,
+  }
   const goalsMetToday = planNorm
     ? computeDailyGoalsMetToday(studyPlan, progress, dueReviews.length, dailyGoalsOpts)
     : dueReviews.length === 0
