@@ -107,7 +107,7 @@ export default function SpeedsterQuestionPage() {
       if (modeQueue) setPlanOrder(modeQueue)
       else if (plan?.question_order?.length) setPlanOrder(plan.question_order)
       else setPlanOrder((qs as Question[]).map((item: Question) => item.id))
-      setStarred(!!prog[String(id)]?.starred)
+      setStarred(!!(prog ?? {})[String(id)]?.starred)
     }
     load()
   }, [id])

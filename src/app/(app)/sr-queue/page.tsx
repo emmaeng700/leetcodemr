@@ -168,7 +168,7 @@ function SRQueueInner() {
 
       // Now fetch progress and due list with up-to-date review dates.
       const [prog, due] = await Promise.all([getProgress(), getDueReviews()])
-      setProgress(prog)
+      setProgress(prog ?? {})
       setDueList(due)
       setLoading(false)
     }

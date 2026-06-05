@@ -128,7 +128,7 @@ export default function SpeedsterPage() {
           getMasteryRunsByQuestion(),
         ])
         setQuestions(qs)
-        setProgress(prog)
+        setProgress(prog ?? {})
         setVisited(vis)
         setRuns(mr)
         const mode = (localStorage.getItem('lm_plan_mode_v1') ?? 'strict') as 'strict' | 'random'

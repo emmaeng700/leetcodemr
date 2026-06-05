@@ -751,7 +751,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
             return
           }
           void incrementAcSubmitCount(appQuestionId)
-          const prog = await getProgress()
+          const prog = (await getProgress()) ?? {}
           const alreadySolved = Array.isArray(prog)
             ? prog.some((p: any) => p.question_id === appQuestionId && p.solved)
             : (prog as any)?.[String(appQuestionId)]?.solved

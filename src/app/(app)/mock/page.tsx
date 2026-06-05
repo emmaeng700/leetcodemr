@@ -109,7 +109,7 @@ export default function MockInterviewPage() {
         getMockSessions(20),
       ])
       setAllQuestions(qs as Question[])
-      setProgress(prog)
+      setProgress(prog ?? {})
       setSessions(rawSessions.map(s => ({
         date: s.date,
         questionId: s.question_id,

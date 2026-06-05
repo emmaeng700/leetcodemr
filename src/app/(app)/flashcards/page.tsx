@@ -91,7 +91,7 @@ function FlashcardsInner() {
         getProgress(),
       ])
       setAll(qs)
-      setProgress(prog)
+      setProgress(prog ?? {})
       setVisited(vis)
       setLoading(false)
     }

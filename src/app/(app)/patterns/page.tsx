@@ -321,7 +321,7 @@ export default function PatternsPage() {
       getProgress(),
       getPatternFcVisited(),
     ]).then(([qs, prog, vis]) => {
-      setQuestions(qs); setProgress(prog); setVisited(vis); setLoading(false)
+      setQuestions(qs); setProgress(prog ?? {}); setVisited(vis); setLoading(false)
     })
   }, [])
 

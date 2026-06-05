@@ -406,7 +406,7 @@ function LearnInner() {
       getProgress(),
     ]).then(([qs, prog]) => {
       setQuestions(qs)
-      setProgress(prog)
+      setProgress(prog ?? {})
       setPlanOrder(defaultStudyQuestionOrder(qs as Question[]))
     })
   }, [])

@@ -37,8 +37,9 @@ export function getDailyRepCount(
 ): number {
   const row = progress[String(id)]
   let dbCount = 0
-  if (normalizeRepDate(row?.daily_rep_date) === today && (row.daily_rep_count ?? 0) > 0) {
-    dbCount = row.daily_rep_count!
+  const repCount = row?.daily_rep_count ?? 0
+  if (normalizeRepDate(row?.daily_rep_date) === today && repCount > 0) {
+    dbCount = repCount
   }
   const fromMap = dailyReps?.[String(id)]
   if (fromMap !== undefined && fromMap > dbCount) return fromMap
@@ -53,8 +54,9 @@ export function dailyRepsFromProgress(
 ): Record<string, number> {
   const out: Record<string, number> = {}
   for (const [id, row] of Object.entries(progress)) {
-    if (normalizeRepDate(row?.daily_rep_date) === today && (row.daily_rep_count ?? 0) > 0) {
-      out[id] = row.daily_rep_count!
+    const repCount = row?.daily_rep_count ?? 0
+    if (normalizeRepDate(row?.daily_rep_date) === today && repCount > 0) {
+      out[id] = repCount
     }
   }
   for (const [id, count] of Object.entries(readDailyRepsLocal(today))) {

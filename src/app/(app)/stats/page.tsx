@@ -51,14 +51,15 @@ export default function StatsPage() {
         getDailyTarget(),
         getMasteryRunsByQuestion(),
       ])
+      const safeProg = prog ?? {}
       setQuestions(qs)
-      setProgress(prog)
+      setProgress(safeProg)
       setSolvedLog(sl)
       setTimeData(td)
       setLoading(false)
 
       // Auto-clear stale mastery run data if no questions are solved but runs exist
-      const hasSolved = Object.values(prog).some((p: any) => p?.solved)
+      const hasSolved = Object.values(safeProg).some((p: any) => p?.solved)
       const hasRuns = Object.keys(masteryRuns).length > 0
       if (!hasSolved && hasRuns) {
         fetch('/api/user/clear-mastery', { method: 'POST' }).catch(() => {})
@@ -76,7 +77,7 @@ export default function StatsPage() {
         const totalDays = Math.ceil(plan.question_order.length / perDay)
         for (let day = 0; day < totalDays; day++) {
           const dayIds = plan.question_order.slice(day * perDay, day * perDay + perDay)
-          const solvedCount = dayIds.filter((id: number) => prog[String(id)]?.solved).length
+          const solvedCount = dayIds.filter((id: number) => safeProg[String(id)]?.solved).length
           if (solvedCount > 0) {
             // Use UTC midnight so date keys match db.ts todayISO() and StreakCalendar
             const date = new Date(plan.start_date + 'T00:00:00Z')

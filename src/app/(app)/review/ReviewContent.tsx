@@ -75,7 +75,7 @@ export default function ReviewPage() {
         }
 
         const [prog, due] = await Promise.all([getProgress(), getDueReviews()])
-        setProgress(prog)
+        setProgress(prog ?? {})
         setDueList(due)
         setLoading(false)
       } catch (e) {

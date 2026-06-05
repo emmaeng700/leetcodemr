@@ -62,8 +62,8 @@ export default function QuestionPage() {
       if (!q) { setLoading(false); return }
       setQuestion(q)
       allQuestionsRef.current = qs as Question[]
-      fullProgressRef.current = prog
-      const p = prog[String(id)] || { solved: false, starred: false }
+      fullProgressRef.current = prog ?? {}
+      const p = (prog ?? {})[String(id)] || { solved: false, starred: false }
       setProgress(p)
       setLoading(false)
     }
