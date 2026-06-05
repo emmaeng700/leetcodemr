@@ -290,14 +290,14 @@ if __name__ == '__main__':
 
         # Build inner PDF for this round only
         G.INNER_PDF = INNER_TMP
-        n_pages = G.build_inner_pdf(
+        n_pages, _, _ = G.build_inner_pdf(
             [(round_num, priority, difficulty, pattern_groups)],
             sites, doocs
         )
         print(f'  Inner pages: {n_pages}')
 
         # Analyse TOC entries before deleting inner PDF
-        page_types, qid_first_page, toc_link_rects = \
+        page_types, qid_first_page, toc_link_rects, _ = \
             G._analyze_inner_for_links(INNER_TMP, [(round_num, priority, difficulty, pattern_groups)])
 
         # Impose as 6×6 portrait (36 per sheet — print edition)

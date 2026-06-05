@@ -75,7 +75,7 @@ def impose_2x1(src_path: Path, dst_path: Path):
 # ── Add checkboxes + links (same as pattern_run.pdf) ─────────────────────────
 def add_links(output_path: Path, rounds):
     """Analyse inner PDF and add TOC links + ← Contents + checkboxes."""
-    page_types, qid_first_page, toc_link_rects = G._analyze_inner_for_links(
+    page_types, qid_first_page, toc_link_rects, _ = G._analyze_inner_for_links(
         INNER_TMP, rounds
     )
     G._add_links_2x2(
@@ -93,6 +93,11 @@ if __name__ == '__main__':
     questions = json.loads(QUESTIONS.read_text())
     sites     = json.loads(SITES_CACHE.read_text()) if SITES_CACHE.exists() else {}
     doocs     = json.loads(DOOCS_CACHE.read_text()) if DOOCS_CACHE.exists() else {}
+    from generate_patterns_pdf import repair_doocs_cache
+    n_repaired = repair_doocs_cache(doocs)
+    if n_repaired:
+        DOOCS_CACHE.write_text(json.dumps(doocs, ensure_ascii=False, indent=2))
+        print(f'  Repaired {n_repaired} poisoned Doocs description(s)')
     print(f'  {len(questions)} questions')
 
     print('Building study-order rounds…')
@@ -110,7 +115,7 @@ if __name__ == '__main__':
 
         # Build inner PDF for this round only
         G.INNER_PDF = INNER_TMP
-        n_pages = G.build_inner_pdf(
+        n_pages, _, _ = G.build_inner_pdf(
             [(round_num, priority, difficulty, pattern_groups)],
             sites, doocs
         )
@@ -119,7 +124,7 @@ if __name__ == '__main__':
         # Analyse for links before imposing
         print(f'  Analysing for links/checkboxes…')
         this_rounds = [(round_num, priority, difficulty, pattern_groups)]
-        page_types, qid_first_page, toc_link_rects = G._analyze_inner_for_links(
+        page_types, qid_first_page, toc_link_rects, _ = G._analyze_inner_for_links(
             INNER_TMP, this_rounds
         )
 

@@ -13,11 +13,11 @@ const ORDERED_QUICK_PATTERNS = QUICK_PATTERNS
       DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
       DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
   )
-import { getProgress, updateProgress, getActivityLog, getDueReviews, getReviewsCompletedToday, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getUserRevisionCap, getTodayDailyDoneCount, getDailyLog } from '@/lib/db'
-import { readDailyRepsLocal } from '@/lib/dailyCompletion'
+import { getProgress, updateProgress, getActivityLog, getDueReviews, getReviewsCompletedToday, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getUserRevisionCap, getTodayDailyDoneCount, getDailyLog, syncDailyRepsFromLocal } from '@/lib/db'
 import {
   computeDailyGoalsMetToday,
   computePlanStreakDisplayNumber,
+  dailyRepsFromProgress,
   isActiveDailyBlockComplete,
   isDayComplete,
   normalizeStudyPlanRow,
@@ -43,6 +43,8 @@ interface Question {
 interface ProgressData {
   solved: boolean
   last_daily_done?: string | null
+  daily_rep_count?: number
+  daily_rep_date?: string | null
   starred: boolean
   notes: string
   review_count?: number
@@ -458,7 +460,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
   const dailyGoalsOpts = {
     mode: planMode,
     dailyDoneTodayCount: dailyDoneTodayCount,
-    dailyReps: readDailyRepsLocal(),
+    dailyReps: dailyRepsFromProgress(progress, todayISOChicago()),
     repsPerQ: repsPerQHome,
   }
   const goalsMetToday = planNorm
@@ -1066,9 +1068,18 @@ function HomeInner() {
   const PAGE_SIZE = 10
 
   useEffect(() => {
-    Promise.all([fetch('/questions_full.json').then(r => r.json()), getProgress()]).then(([qs, prog]) => {
-      setQuestions(qs); setProgress(prog); setLoading(false)
-    })
+    async function load() {
+      const [qs] = await Promise.all([
+        fetch('/questions_full.json').then(r => r.json()),
+        getProgress(),
+      ])
+      await syncDailyRepsFromLocal()
+      const prog = await getProgress()
+      setQuestions(qs)
+      if (prog !== null) setProgress(prog)
+      setLoading(false)
+    }
+    void load()
   }, [])
 
   // Supabase is source of truth — reload is safe. Re-sync client state when returning to this page
@@ -1077,14 +1088,14 @@ function HomeInner() {
     const prev = prevPathRef.current
     prevPathRef.current = pathname
     if (pathname === '/' && prev !== null && prev !== '/') {
-      getProgress().then(prog => setProgress(prog)).catch(() => {})
+      getProgress().then(prog => { if (prog) setProgress(prog) }).catch(() => {})
     }
   }, [pathname])
 
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState !== 'visible' || pathname !== '/') return
-      getProgress().then(prog => setProgress(prog)).catch(() => {})
+      getProgress().then(prog => { if (prog) setProgress(prog) }).catch(() => {})
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)

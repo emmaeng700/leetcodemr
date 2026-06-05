@@ -1,12 +1,12 @@
 'use client'
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ExternalLink, List, Brain, Star, Wind, Bell, BookOpen, Settings } from 'lucide-react'
-import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodayDailyDoneCount, syncStreakActivityFromGoals, getUserRevisionCap } from '@/lib/db'
+import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodayDailyDoneCount, syncStreakActivityFromGoals, getUserRevisionCap, syncDailyRepsFromLocal } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
 import { studyOrder } from '@/lib/studyOrder'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
@@ -18,7 +18,9 @@ import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import {
-  DAILY_REPS_PREFIX,
+  DAILY_REPS_CHANGED,
+  dailyRepsFromProgress,
+  getDailyRepCount,
   isActiveDailyBlockComplete,
   isPlanDayComplete,
   isQuestionDoneForDailyToday,
@@ -39,6 +41,8 @@ interface ProgressData {
   notes: string
   last_reviewed?: string | null
   last_daily_done?: string | null
+  daily_rep_count?: number
+  daily_rep_date?: string | null
 }
 
 type PlanMode = 'strict' | 'random'
@@ -48,15 +52,19 @@ const REPS_PER_Q_KEY     = 'lm_reps_per_q'
 const DAILY_QUEUE_KEY    = 'lm_daily_queue'
 
 // ─── Rep dots ─────────────────────────────────────────────────────────────────
-function RepDots({ done, total }: { done: number; total: number }) {
-  const capped = Math.min(done, total)
+function RepDots({ done, total, complete }: { done: number; total: number; complete?: boolean }) {
+  const capped = Math.min(Math.max(0, done), total)
   return (
-    <div className="flex items-center gap-[3px]">
+    <div className="flex items-center gap-[3px]" aria-label={`${capped} of ${total} daily reps`}>
       {Array.from({ length: total }).map((_, i) => (
         <div
           key={i}
-          className={`w-2 h-2 rounded-full transition-colors ${
-            i < capped ? 'bg-indigo-500' : 'bg-[var(--border)]'
+          className={`w-2.5 h-2.5 rounded-full border transition-colors ${
+            i < capped
+              ? complete
+                ? 'bg-green-500 border-green-600'
+                : 'bg-indigo-500 border-indigo-600'
+              : 'bg-[var(--bg-input)] border-[var(--border)]'
           }`}
         />
       ))}
@@ -191,7 +199,6 @@ export default function DailyPage() {
 
   // Rep tracking
   const [repsPerQ, setRepsPerQ] = useState(2)
-  const [dailyReps, setDailyReps] = useState<Record<string, number>>({})
   const repsPerQRef = useRef(2)
   const todayQsRef  = useRef<Question[]>([])
   const questionRefs = useRef<Record<number, HTMLDivElement | null>>({})
@@ -242,14 +249,10 @@ export default function DailyPage() {
 
   const topicMap = useMemo(() => buildExclusivePatternMap(allQuestions), [allQuestions])
 
-  const refreshDailyReps = useCallback(() => {
-    try {
-      const raw = localStorage.getItem(`${DAILY_REPS_PREFIX}${todayISO()}`) ?? '{}'
-      setDailyReps(JSON.parse(raw) as Record<string, number>)
-    } catch {
-      setDailyReps({})
-    }
-  }, [])
+  const dailyReps = useMemo(
+    () => dailyRepsFromProgress(progress, todayISO()),
+    [progress],
+  )
 
   // ── Derived values that must live before any early return (Rules of Hooks) ──
   const isRandomMode = activePlanMode === 'random'
@@ -287,11 +290,11 @@ export default function DailyPage() {
   const refreshProgress = useCallback(async () => {
     try {
       const [prog, dailyDoneToday] = await Promise.all([getProgress(), getTodayDailyDoneCount()])
-      setProgress(prog)
+      if (prog !== null) setProgress(prog)
       setTodayDailyDoneCount(dailyDoneToday)
       setBreathers(getActiveBreathers())
     } catch {
-      /* ignore */
+      /* ignore — keep existing progress so rep dots don't vanish */
     }
   }, [])
 
@@ -346,7 +349,9 @@ export default function DailyPage() {
       setSetupRepsPerQ(savedRpq)
       repsPerQRef.current = savedRpq
       localStorage.setItem(REPS_PER_Q_KEY, String(savedRpq))
-      refreshDailyReps()
+      await syncDailyRepsFromLocal()
+      const progAfterMigrate = await getProgress()
+      if (progAfterMigrate !== null) setProgress(progAfterMigrate)
 
       // Resolve mode: localStorage wins; fall back to plan.mode from DB (once
       // that column is populated), then to 'strict'. Write back to localStorage
@@ -386,7 +391,8 @@ export default function DailyPage() {
       }
 
       setAllQuestions(qs)
-      setProgress(prog)
+      if (progAfterMigrate !== null) setProgress(progAfterMigrate)
+      else if (prog !== null) setProgress(prog)
       setPlan(migratedPlan)
       setDueReviews(due)
       setTodayDailyDoneCount(dailyDoneToday)
@@ -397,11 +403,13 @@ export default function DailyPage() {
       void syncStreakActivityFromGoals(resolvedMode).catch(() => {/* silent */})
     }
     load()
-  }, [refreshDailyReps])
+  }, [])
 
-  // When coming back from /practice (or any route), merge latest solved state immediately — no full-page reload.
-  // In random mode we also re-trigger the streak sync so the activity_log is
-  // marked correctly even if the practice-page trigger failed silently.
+  // Refresh progress (incl. daily reps) whenever Daily is shown again.
+  useLayoutEffect(() => {
+    if (pathname === '/daily' && !loading) void refreshProgress()
+  }, [pathname, loading, refreshProgress])
+
   useEffect(() => {
     if (!loading && pathname === '/daily') {
       const prev = prevPathRef.current
@@ -409,45 +417,42 @@ export default function DailyPage() {
       if (prev !== null && prev !== '/daily') {
         void refreshProgress()
         void refreshDue()
-        refreshDailyReps()
         if (activePlanMode === 'random') {
           void syncStreakActivityFromGoals(activePlanMode).catch(() => {/* silent */})
         }
       }
-    } else {
+    } else if (pathname !== '/daily') {
       prevPathRef.current = pathname
     }
-  }, [pathname, loading, refreshProgress, refreshDue, refreshDailyReps, activePlanMode])
+  }, [pathname, loading, refreshProgress, refreshDue, activePlanMode])
 
   useEffect(() => {
-    if (loading || pathname !== '/daily') return
+    if (pathname !== '/daily') return
+
+    const syncFromDb = () => {
+      if (!loading) {
+        void refreshProgress()
+        void refreshDue()
+      }
+    }
+
     const onVis = () => {
-      if (document.visibilityState === 'visible') {
-        void refreshProgress()
-        void refreshDue()
-        refreshDailyReps()
-        if (activePlanMode === 'random') {
-          void syncStreakActivityFromGoals(activePlanMode).catch(() => {/* silent */})
-        }
-      }
+      if (document.visibilityState === 'visible') syncFromDb()
     }
-    const onPageShow = (e: Event) => {
-      if ((e as PageTransitionEvent).persisted) {
-        void refreshProgress()
-        void refreshDue()
-        refreshDailyReps()
-        if (activePlanMode === 'random') {
-          void syncStreakActivityFromGoals(activePlanMode).catch(() => {/* silent */})
-        }
-      }
-    }
+
+    window.addEventListener(DAILY_REPS_CHANGED, syncFromDb)
+    window.addEventListener('focus', syncFromDb)
+    window.addEventListener('popstate', syncFromDb)
     document.addEventListener('visibilitychange', onVis)
-    window.addEventListener('pageshow', onPageShow)
+    window.addEventListener('pageshow', syncFromDb)
     return () => {
+      window.removeEventListener(DAILY_REPS_CHANGED, syncFromDb)
+      window.removeEventListener('focus', syncFromDb)
+      window.removeEventListener('popstate', syncFromDb)
       document.removeEventListener('visibilitychange', onVis)
-      window.removeEventListener('pageshow', onPageShow)
+      window.removeEventListener('pageshow', syncFromDb)
     }
-  }, [loading, pathname, refreshProgress, refreshDue, refreshDailyReps, activePlanMode])
+  }, [loading, pathname, refreshProgress, refreshDue])
 
   // ── Slacking email: fire once when behind calendar schedule ─────────────────
   // Only for strict mode. Guards with localStorage so we send at most once per
@@ -584,7 +589,9 @@ export default function DailyPage() {
   }
 
   // ── Rep helpers ─────────────────────────────────────────────────────────────
-  function getDailyRep(id: number) { return dailyReps[String(id)] ?? 0 }
+  function getDailyRep(id: number) {
+    return getDailyRepCount(id, progress, todayISO(), dailyReps)
+  }
   function isRepDone(id: number) {
     return isQuestionDoneForDailyToday(id, progress, todayISO(), dailyReps, repsPerQRef.current)
   }
@@ -1271,7 +1278,7 @@ export default function DailyPage() {
                         </div>
                         <div className="mt-1.5 flex items-center gap-2">
                           <DifficultyBadge difficulty={q.difficulty} />
-                          <RepDots done={repCount} total={repsPerQ} />
+                          <RepDots done={repCount} total={repsPerQ} complete={repDone} />
                           <span className={`text-[10px] font-bold ${repDone ? 'text-green-600' : repCount > 0 ? 'text-purple-500' : 'text-[var(--text-subtle)]'}`}>
                             {Math.min(repCount, repsPerQ)}/{repsPerQ}
                           </span>
@@ -1375,7 +1382,7 @@ export default function DailyPage() {
                       <div className="mt-1.5 flex items-center gap-2">
                         <DifficultyBadge difficulty={q.difficulty} />
                         <PriorityBadge pattern={topic} />
-                        <RepDots done={repCount} total={repsPerQ} />
+                        <RepDots done={repCount} total={repsPerQ} complete={repDone} />
                         <span className={`text-[10px] font-bold ${repDone ? 'text-green-600' : repCount > 0 ? 'text-indigo-500' : 'text-[var(--text-subtle)]'}`}>
                           {Math.min(repCount, repsPerQ)}/{repsPerQ}
                         </span>

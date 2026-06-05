@@ -4,8 +4,8 @@ import { useClickOutside } from '@/hooks/useClickOutside'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
-import { setDailyRepsLocal } from '@/lib/dailyCompletion'
-import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan, addMasteryRunEvent, getMasteryRunsByQuestion, markDailyCompleteToday } from '@/lib/db'
+import { dailyRepsFromProgress, normalizeRepDate } from '@/lib/dailyCompletion'
+import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan, addMasteryRunEvent, getMasteryRunsByQuestion, markDailyCompleteToday, bumpDailyRep, setDailyRep } from '@/lib/db'
 import { todayISOChicago } from '@/lib/studyPlanDay'
 import { formatTime, isDue, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
@@ -56,26 +56,10 @@ function PremiumBlock({ slug }: { slug?: string }) {
   )
 }
 
-function todayDailyRepsKey() {
-  return `lm_daily_reps_${new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })}`
-}
-
 function getDailyRepTarget() {
   const raw = localStorage.getItem('lm_reps_per_q')
   const parsed = Number.parseInt(raw ?? '2', 10)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 2
-}
-
-function readDailyRuns() {
-  try {
-    return JSON.parse(localStorage.getItem(todayDailyRepsKey()) ?? '{}') as Record<string, number>
-  } catch {
-    return {}
-  }
-}
-
-function writeDailyRuns(runs: Record<string, number>) {
-  localStorage.setItem(todayDailyRepsKey(), JSON.stringify(runs))
 }
 
 export default function PracticePage() {
@@ -120,7 +104,12 @@ export default function PracticePage() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startRef = useRef(Date.now())
-  const progressRef = useRef<Record<string, { solved?: boolean; last_daily_done?: string | null }>>({})
+  const progressRef = useRef<Record<string, {
+    solved?: boolean
+    last_daily_done?: string | null
+    daily_rep_count?: number
+    daily_rep_date?: string | null
+  }>>({})
 
   // Load local data immediately — no spinner blocking the page
   useEffect(() => {
@@ -130,6 +119,7 @@ export default function PracticePage() {
         getProgress(),
         getStudyPlan(),
       ])
+      const safeProg = prog ?? {}
       const q = (qs as Question[]).find((q: Question) => q.id === id)
       if (!q) return
       setQuestion(q)
@@ -148,7 +138,7 @@ export default function PracticePage() {
             const parsed = JSON.parse(stored) as number[]
             modeQueue = isReviewMode
               ? parsed.filter(qid => {
-                  const next = prog[String(qid)]?.next_review
+                  const next = safeProg[String(qid)]?.next_review
                   return !!next && isDue(next)
                 })
               : parsed   // daily: use as-is
@@ -158,20 +148,20 @@ export default function PracticePage() {
       if (modeQueue) setPlanOrder(modeQueue)
       else if (plan?.question_order?.length) setPlanOrder(plan.question_order)
       else setPlanOrder((qs as Question[]).map((q: Question) => q.id))
-      setSolved(!!prog[String(id)]?.solved)
+      setSolved(!!safeProg[String(id)]?.solved)
       const today = todayISOChicago()
-      const dailyRuns = isDailyMode ? readDailyRuns() : {}
+      const dailyRuns = isDailyMode ? dailyRepsFromProgress(safeProg, today) : {}
       const repTarget = getDailyRepTarget()
       const dailyDone =
         isDailyMode &&
-        ((dailyRuns[String(id)] ?? 0) >= repTarget || prog[String(id)]?.last_daily_done === today)
+        ((dailyRuns[String(id)] ?? 0) >= repTarget || normalizeRepDate(safeProg[String(id)]?.last_daily_done) === today)
       setDailyDoneToday(!!dailyDone)
-      setStarred(!!prog[String(id)]?.starred)
-      setNextReview(prog[String(id)]?.next_review ?? null)
-      progressRef.current = prog
+      setStarred(!!safeProg[String(id)]?.starred)
+      setNextReview(safeProg[String(id)]?.next_review ?? null)
+      progressRef.current = safeProg
       if (isDailyMode || isReviewMode) setDailyRepTarget(getDailyRepTarget())
       if (usesThreeSolveGate) {
-        const masteryRuns = isDailyMode ? readDailyRuns() : await getMasteryRunsByQuestion()
+        const masteryRuns = isDailyMode ? dailyRuns : await getMasteryRunsByQuestion()
         setModeRuns(masteryRuns)
       }
     }
@@ -287,9 +277,15 @@ export default function PracticePage() {
     const missing = targetReps - current
     setModeRuns(prev => ({ ...prev, [String(question.id)]: targetReps }))
     if (isDailyMode) {
-      const updated = readDailyRuns()
-      updated[String(question.id)] = targetReps
-      writeDailyRuns(updated)
+      await setDailyRep(question.id, targetReps)
+      progressRef.current = {
+        ...progressRef.current,
+        [String(question.id)]: {
+          ...progressRef.current[String(question.id)],
+          daily_rep_count: targetReps,
+          daily_rep_date: todayISOChicago(),
+        },
+      }
       return
     }
     const res = await addMasteryRunEvent(question.id, missing)
@@ -325,9 +321,19 @@ export default function PracticePage() {
     const nextQuestionId = currentIdx >= 0 ? planOrder[currentIdx + 1] : null
     const navSuffix = isDailyMode ? '?from=daily' : '?from=review'
     if (isDailyMode) {
-      const updated = readDailyRuns()
-      updated[String(question.id)] = (updated[String(question.id)] ?? 0) + 1
-      writeDailyRuns(updated)
+      const repRes = await bumpDailyRep(question.id)
+      if (!repRes.ok) {
+        toast.error(`Couldn't save daily rep: ${repRes.error ?? 'unknown error'}`)
+        return
+      }
+      progressRef.current = {
+        ...progressRef.current,
+        [String(question.id)]: {
+          ...progressRef.current[String(question.id)],
+          daily_rep_count: repRes.count,
+          daily_rep_date: todayISOChicago(),
+        },
+      }
     } else {
       const res = await addMasteryRunEvent(question.id, 1)
       if (!res.ok) {
@@ -347,12 +353,14 @@ export default function PracticePage() {
         if (!dailyDoneToday) {
           await markDailyCompleteToday(question.id)
           setDailyDoneToday(true)
-          setDailyRepsLocal(question.id, targetReps)
+          await setDailyRep(question.id, targetReps)
           progressRef.current = {
             ...progressRef.current,
             [String(question.id)]: {
               ...progressRef.current[String(question.id)],
               last_daily_done: todayISOChicago(),
+              daily_rep_count: targetReps,
+              daily_rep_date: todayISOChicago(),
             },
           }
         }
@@ -419,14 +427,16 @@ export default function PracticePage() {
       }
       await markDailyCompleteToday(id)
       setDailyDoneToday(true)
-      setDailyRepsLocal(id, targetReps)
-      const updated = readDailyRuns()
-      updated[String(id)] = targetReps
-      writeDailyRuns(updated)
+      await setDailyRep(id, targetReps)
       setModeRuns(prev => ({ ...prev, [String(id)]: targetReps }))
       progressRef.current = {
         ...progressRef.current,
-        [String(id)]: { ...progressRef.current[String(id)], last_daily_done: todayISOChicago() },
+        [String(id)]: {
+          ...progressRef.current[String(id)],
+          last_daily_done: todayISOChicago(),
+          daily_rep_count: targetReps,
+          daily_rep_date: todayISOChicago(),
+        },
       }
       toast.success('Marked done for today\'s Daily — Learn progress unchanged', { duration: 3500 })
       return

@@ -16,8 +16,8 @@ export {
   isQuestionDoneForDailyToday,
   getActiveDayQuestionIds,
   isActiveDailyBlockComplete,
-  bumpDailyRepLocal,
-  readDailyRepsLocal,
+  dailyRepsFromProgress,
+  getDailyRepCount,
 } from './dailyCompletion'
 
 export type DailyGoalsOpts = {
@@ -26,7 +26,7 @@ export type DailyGoalsOpts = {
   dailyDoneTodayCount?: number
   /** @deprecated use dailyDoneTodayCount */
   solvedTodayCount?: number
-  /** Strict mode: today's rep counts from localStorage (client only). */
+  /** Strict mode: optional rep map override (defaults to progress.daily_rep_*). */
   dailyReps?: Record<string, number>
   repsPerQ?: number
 }

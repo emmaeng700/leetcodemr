@@ -43,14 +43,30 @@ from generate_patterns_pdf import (
     PatternMarker,
     build_groups,
     build_styles,
+    desc_matches_question,
     desc_to_flowables,
     diff_badge,
+    download_image,
+    extract_doocs_description,
+    fetch_doocs,
+    format_question_label,
+    get_question_desc_html,
+    is_html_description,
+    is_premium_question,
+    plain_desc_to_paragraphs,
+    premium_star_markup,
     safe_xml,
 )
-from generate_study_order_pdf import PRIORITY_COLORS, build_rounds
+from generate_study_order_pdf import PRIORITY_COLORS, _analyze_inner_for_links, build_rounds
 
 DIFF_EMOJI = {"Easy": "E", "Medium": "M", "Hard": "H"}
 DIFF_EMOJI_VIS = {"Easy": "\U0001f7e2", "Medium": "\U0001f7e1", "Hard": "\U0001f534"}
+
+# Phone-friendly TOC: large checkbox + separate › jump (question text not linked)
+TOC_CB_PT = 18.0
+TOC_CB_GAP = 10.0
+TOC_GOTO_PT = 16.0
+PAGE_MARGIN_PT = 0.75 * inch
 
 SCRIPT_DIR = Path(__file__).parent
 DEFAULT_DESKTOP = Path.home() / "Desktop"
@@ -119,9 +135,26 @@ class NamedDest(Flowable):
         canv.bookmarkHorizontal(self.name, x, y)
 
 
-def link_to(href: str, label: str, *, bold: bool = False) -> str:
+class QPageMark(Flowable):
+    """Record which PDF page each question block starts on (for TOC › links)."""
+
+    def __init__(self, qid: int, registry: dict[int, int]):
+        super().__init__()
+        self.qid = qid
+        self.registry = registry
+
+    def wrap(self, availWidth, availHeight):
+        return 0, 0
+
+    def draw(self):
+        if self.qid not in self.registry:
+            self.registry[self.qid] = self.canv.getPageNumber()
+
+
+def link_to(href: str, label: str, *, bold: bool = False, markup: bool = False) -> str:
     col = LINK_COLOR_PRINT
-    text = safe_xml(label)
+    # Labels from format_question_label() include <font name="Sym">…</font> — must not escape.
+    text = label if markup else safe_xml(label)
     if bold:
         return f'<link href="#{href}" color="{col}"><b>{text}</b></link>'
     return f'<link href="#{href}" color="{col}">{text}</link>'
@@ -178,14 +211,67 @@ def trim_desc_html(desc_html: str) -> str:
 
 
 def get_desc_html(q: dict, doocs_cache: dict, lc_cache: dict) -> str:
-    qid = str(q["id"])
-    slug = q.get("slug", "")
-    doocs = doocs_cache.get(qid, {})
-    lc = lc_cache.get(slug, {})
-    html = doocs.get("desc_html") or lc.get("desc_html") or ""
-    if html:
+    html = get_question_desc_html(q, doocs_cache, lc_cache)
+    if html and "<" in html:
         return trim_desc_html(html)
-    return (q.get("description") or "").strip()
+    return html
+
+
+def extract_image_urls(desc_html: str) -> list[str]:
+    if not desc_html:
+        return []
+    urls = re.findall(r'(?:src|href)=["\'](https?://[^"\'>\s]+)["\']', desc_html, re.I)
+    out = []
+    for url in urls:
+        if "shields.io" in url or "badge" in url.lower():
+            continue
+        if "leetcode.com/problems/" in url and not url.lower().endswith((".jpg", ".png", ".gif", ".webp", ".svg")):
+            continue
+        out.append(url)
+    return out
+
+
+def predownload_desc_images(doocs_cache: dict, questions: list, lc_cache: dict | None = None) -> int:
+    """Warm image cache before PDF build so every URL maps to the right file."""
+    seen: set[str] = set()
+    ok = 0
+    for q in questions:
+        html = get_question_desc_html(q, doocs_cache, lc_cache)
+        if not html or not desc_matches_question(q, html):
+            continue
+        for url in extract_image_urls(trim_desc_html(html) if "<" in html else html):
+            if url in seen:
+                continue
+            seen.add(url)
+            if download_image(url):
+                ok += 1
+    return ok
+
+
+def purge_legacy_img_collisions() -> int:
+    """Remove old basename-only cache files (ex1.jpg shared across many problems)."""
+    from generate_patterns_pdf import IMG_DIR
+    removed = 0
+    if not IMG_DIR.exists():
+        return 0
+    generic = re.compile(
+        r"^(ex\d+|example[_-]?\d+|grid|diagram|image|pic|fig)(\.\w+)?$",
+        re.I,
+    )
+    for fpath in IMG_DIR.iterdir():
+        if not fpath.is_file():
+            continue
+        stem = fpath.stem
+        # Hashed files end with _<8 hex chars>
+        if re.search(r"_[0-9a-f]{8}$", stem, re.I):
+            continue
+        if generic.match(stem) or generic.match(fpath.name):
+            try:
+                fpath.unlink()
+                removed += 1
+            except OSError:
+                pass
+    return removed
 
 
 def _anchor_para(name: str) -> list:
@@ -203,14 +289,32 @@ def _back_link_para(href: str = TOC_ANCHOR) -> Paragraph:
     return Paragraph(
         link_to(href, "<< Contents"),
         ParagraphStyle(
-            "back", fontSize=9, fontName="LG-Bold", textColor=HexColor(LINK_COLOR_PRINT),
-            spaceAfter=4, alignment=TA_LEFT,
+            "back", fontSize=11, fontName="LG-Bold", textColor=HexColor(LINK_COLOR_PRINT),
+            spaceAfter=6, alignment=TA_LEFT,
         ),
     )
 
 
+def build_desc_styles():
+    """Readable letter-size PDF — sizes aligned with the web app (text-sm / text-base)."""
+    s = build_styles(printable=True)
+    s["cover_title"].fontSize = 36
+    s["cover_sub"].fontSize = 14
+    s["q_title"].fontSize = 18
+    s["q_title"].leading = 22
+    s["q_title"].spaceAfter = 6
+    s["body"].fontSize = 11
+    s["body"].leading = 17
+    s["body"].spaceAfter = 5
+    s["editorial"].fontSize = 11
+    s["editorial"].leading = 17
+    s["code"].fontSize = 10
+    s["code"].leading = 14
+    return s
+
+
 def round_label(round_num: int, priority: str, difficulty: str) -> str:
-    dot = DIFF_EMOJI_VIS.get(difficulty, "")
+    dot = {"Easy": "E", "Medium": "M", "Hard": "H"}.get(difficulty, "")
     return f"Round {round_num}  |  {priority}  |  {dot} {difficulty}"
 
 
@@ -227,30 +331,34 @@ def build_toc(rounds: list) -> list:
         Paragraph(
             "<b>Table of Contents</b>",
             ParagraphStyle(
-                "toc_h", fontSize=16, fontName="LG-Bold", textColor=HexColor("#111827"),
-                spaceAfter=8, spaceBefore=0,
+                "toc_h", fontSize=20, fontName="LG-Bold", textColor=HexColor("#111827"),
+                spaceAfter=10, spaceBefore=0,
             ),
         )
     )
     story.append(
         Paragraph(
             "Study order: <b>High Easy</b> &rarr; <b>High Med</b> &rarr; <b>High Hard</b> "
-            "&rarr; Mid &rarr; Low. Click to jump; <b>&lt;&lt; Contents</b> returns here.",
+            "&rarr; Mid &rarr; Low. Tap <b>&#9744;</b> to mark done; tap <b>&gt;</b> to open a question "
+            "(# and title are not links). <b>&lt;&lt; Contents</b> returns here. "
+            f"{premium_star_markup(bold=True)} = Premium.",
             ParagraphStyle(
-                "toc_hint", fontSize=9, fontName="LG", textColor=HexColor("#6B7280"),
-                spaceAfter=12, leading=13,
+                "toc_hint", fontSize=11, fontName="LG-Bold", textColor=HexColor("#6B7280"),
+                spaceAfter=14, leading=15,
             ),
         )
     )
 
+    q_left = TOC_CB_PT + TOC_CB_GAP + 6
     round_style = ParagraphStyle(
-        "toc_rnd", fontSize=11, fontName="LG-Bold", spaceBefore=10, spaceAfter=2, leading=14,
+        "toc_rnd", fontSize=14, fontName="LG-Bold", spaceBefore=12, spaceAfter=3, leading=18,
     )
     pat_style = ParagraphStyle(
-        "toc_pat", fontSize=10, fontName="LG-Bold", leftIndent=14, spaceAfter=2, leading=13,
+        "toc_pat", fontSize=13, fontName="LG-Bold", leftIndent=16, spaceAfter=3, leading=17,
     )
     q_style = ParagraphStyle(
-        "toc_q", fontSize=9.5, fontName="LG", leftIndent=28, spaceAfter=1, leading=12,
+        "toc_q", fontSize=12, fontName="LG-Bold", leftIndent=q_left,
+        spaceAfter=4, leading=16, textColor=HexColor("#111827"),
     )
 
     for round_num, priority, difficulty, pattern_groups in rounds:
@@ -266,9 +374,8 @@ def build_toc(rounds: list) -> list:
                 Paragraph(link_to(pa, f"{pat['name']} ({len(qs)})", bold=True), pat_style)
             )
             for q in qs:
-                qa = anchor_q(q["id"])
-                label = f"#{q['id']} {q['title']}"
-                story.append(Paragraph(link_to(qa, label), q_style))
+                label = format_question_label(q)
+                story.append(Paragraph(f"<b>{label}</b>", q_style))
 
     story.append(PageBreak())
     return story
@@ -282,13 +389,16 @@ def build_desc_question_block(
     *,
     printable=True,
     show_back: bool = True,
+    q_page_registry: dict[int, int] | None = None,
 ):
     story = []
     qid = q["id"]
     slug = q.get("slug", "")
     qa = anchor_q(qid)
 
-    story.append(PdfBookmark(qa, f"#{qid} {q['title']}", level=2))
+    if q_page_registry is not None:
+        story.append(QPageMark(qid, q_page_registry))
+    story.append(PdfBookmark(qa, format_question_label(q, plain=True), level=2))
     story += _anchor_para(qa)
     if show_back:
         story.append(_back_link_para(TOC_ANCHOR))
@@ -297,7 +407,7 @@ def build_desc_question_block(
         [[
             Paragraph(
                 f"<font color='#6B7280'>#{qid}</font>",
-                ParagraphStyle("mn", fontSize=10, fontName="LG-Bold"),
+                ParagraphStyle("mn", fontSize=12, fontName="LG-Bold"),
             ),
             diff_badge(q.get("difficulty", ""), printable=printable),
             Paragraph("", ParagraphStyle("sp", fontSize=10, fontName="LG-Bold")),
@@ -312,7 +422,25 @@ def build_desc_question_block(
         ])
     )
     story.append(meta)
-    story.append(Paragraph(safe_xml(q["title"]), styles["q_title"]))
+    if is_premium_question(q):
+        title_xml = (
+            f'{premium_star_markup()} {safe_xml(q["title"])} {premium_star_markup()}'
+        )
+    else:
+        title_xml = safe_xml(q["title"])
+    story.append(Paragraph(title_xml, styles["q_title"]))
+
+    source = q.get("source", [])
+    if source:
+        lists = "  |  ".join(safe_xml(s) for s in source)
+        if is_premium_question(q):
+            lists = f"{premium_star_markup()} Premium  |  {lists}"
+        story.append(
+            Paragraph(
+                f"Lists: {lists}",
+                ParagraphStyle("src", fontSize=10, fontName="LG-Bold", spaceAfter=5),
+            )
+        )
 
     ext_links = [
         f'<a href="https://leetcode.com/problems/{slug}/" color="#000000">LeetCode</a>',
@@ -321,15 +449,15 @@ def build_desc_question_block(
     story.append(
         Paragraph(
             "  |  ".join(ext_links),
-            ParagraphStyle("lnk", fontSize=8, fontName="LG-Bold", spaceAfter=6),
+            ParagraphStyle("lnk", fontSize=10, fontName="LG-Bold", spaceAfter=8),
         )
     )
 
     desc_html = get_desc_html(q, doocs_cache, lc_cache)
-    if desc_html and "<" in desc_html:
+    if desc_html and is_html_description(desc_html):
         story += desc_to_flowables(desc_html, styles, printable=printable, bold=False)
     elif desc_html:
-        story.append(Paragraph(safe_xml(desc_html), styles["body"]))
+        story += plain_desc_to_paragraphs(desc_html, styles["body"])
     else:
         story.append(
             Paragraph(
@@ -359,11 +487,11 @@ def build_round_banner(
         [[
             Paragraph(
                 f"<font color='#111827'><b>Round {round_num}</b>"
-                f"  <font size='12'>|  {priority} Priority  |  {dot} {difficulty}"
-                f"  <font size='10'> ({q_count} questions)</font></font></font>",
-                ParagraphStyle("rb", fontSize=16, fontName="LG-Bold", textColor=HexColor("#111827")),
+                f"  <font size='14'>|  {priority} Priority  |  {dot} {difficulty}"
+                f"  <font size='12'> ({q_count} questions)</font></font></font>",
+                ParagraphStyle("rb", fontSize=18, fontName="LG-Bold", textColor=HexColor("#111827")),
             ),
-            Paragraph(back_cell, ParagraphStyle("bb", fontSize=9, fontName="LG-Bold")),
+            Paragraph(back_cell, ParagraphStyle("bb", fontSize=11, fontName="LG-Bold")),
         ]],
         colWidths=[5.2 * inch, 1.8 * inch],
     )
@@ -391,8 +519,8 @@ def build_pattern_subhead(pat: dict, n_q: int) -> list:
     tbl = Table(
         [[Paragraph(
             f"<font color='#374151'><b>{pat['name']}</b>"
-            f"  <font size='10'> ({n_q})</font></font>",
-            ParagraphStyle("psh", fontSize=12, fontName="LG-Bold", textColor=HexColor("#374151")),
+            f"  <font size='11'> ({n_q})</font></font>",
+            ParagraphStyle("psh", fontSize=14, fontName="LG-Bold", textColor=HexColor("#374151")),
         )]],
         colWidths=[MAX_W],
     )
@@ -415,6 +543,84 @@ def build_pattern_subhead(pat: dict, n_q: int) -> list:
     ]
 
 
+def _add_toc_checkboxes_and_goto(
+    output_path: Path,
+    rounds: list,
+    q_page_registry: dict[int, int],
+) -> None:
+    """Post-process: large checkboxes + › jump links; question #/title stay plain text."""
+    import fitz
+
+    _, _, toc_link_rects, _ = _analyze_inner_for_links(output_path, rounds)
+    doc = fitz.open(str(output_path))
+    n_links = n_boxes = 0
+
+    for inner_pg, rects in toc_link_rects.items():
+        page = doc[inner_pg]
+        page_w = page.rect.width
+
+        for qid, rect_info in rects.items():
+            line = rect_info.get("line")
+            if line is None:
+                continue
+
+            cb_h = TOC_CB_PT
+            cb_y0 = line.y0 + (line.height - cb_h) / 2
+            cb_x1 = line.x0 - TOC_CB_GAP
+            cb_x0 = cb_x1 - cb_h
+            cb_rect = fitz.Rect(cb_x0, cb_y0, cb_x1, cb_y0 + cb_h)
+
+            page.draw_rect(
+                cb_rect,
+                color=(0.2, 0.2, 0.2),
+                fill=(1.0, 1.0, 1.0),
+                width=1.0,
+                overlay=True,
+            )
+            widget = fitz.Widget()
+            widget.rect = cb_rect
+            widget.field_type = fitz.PDF_WIDGET_TYPE_CHECKBOX
+            widget.field_name = f"desc_done_{qid}"
+            widget.field_value = "Off"
+            widget.on_state = "Yes"
+            page.add_widget(widget)
+            n_boxes += 1
+
+            dest = q_page_registry.get(qid)
+            if dest is not None:
+                arr_font = TOC_GOTO_PT
+                arr_x = page_w - PAGE_MARGIN_PT - arr_font * 1.4
+                arr_y = line.y1 - line.height * 0.12
+                page.insert_text(
+                    fitz.Point(arr_x, arr_y),
+                    ">",
+                    fontsize=arr_font,
+                    color=(0.35, 0.35, 0.35),
+                    fontname="helv",
+                )
+                tap = max(arr_font * 1.8, 28.0)
+                arr_rect = fitz.Rect(
+                    arr_x - 6,
+                    line.y0 - 4,
+                    arr_x + tap,
+                    line.y1 + 4,
+                )
+                page.insert_link({
+                    "kind": fitz.LINK_GOTO,
+                    "from": arr_rect,
+                    "page": dest - 1,  # fitz is 0-based
+                    "to": fitz.Point(0, 0),
+                    "zoom": 0,
+                })
+                n_links += 1
+
+    tmp = output_path.with_suffix(".tmp.pdf")
+    doc.save(str(tmp), garbage=4, deflate=True, incremental=False)
+    doc.close()
+    tmp.replace(output_path)
+    print(f"  TOC: {n_boxes} checkboxes  |  {n_links} › links (question text not linked)")
+
+
 def build_pdf(
     questions: list,
     doocs_cache: dict,
@@ -425,7 +631,7 @@ def build_pdf(
     include_toc: bool = True,
 ) -> None:
     rounds = build_rounds(questions)
-    styles = build_styles(printable=True)
+    styles = build_desc_styles()
     printable = True
 
     doc = SimpleDocTemplate(
@@ -452,14 +658,14 @@ def build_pdf(
         Paragraph(
             link_to(TOC_ANCHOR, "Open Table of Contents"),
             ParagraphStyle(
-                "coverlnk", fontSize=12, fontName="LG-Bold", textColor=HexColor(LINK_COLOR_PRINT),
+                "coverlnk", fontSize=14, fontName="LG-Bold", textColor=HexColor(LINK_COLOR_PRINT),
                 alignment=TA_CENTER, spaceBefore=14, spaceAfter=8,
             ),
         ),
         Spacer(1, 0.1 * inch),
         Paragraph(round_order, ParagraphStyle(
-            "pl", fontSize=8, textColor=HexColor("#6B7280"),
-            alignment=TA_CENTER, fontName="LG", leading=14, spaceBefore=4,
+            "pl", fontSize=10, textColor=HexColor("#6B7280"),
+            alignment=TA_CENTER, fontName="LG", leading=16, spaceBefore=4,
         )),
         Paragraph(f"{len(questions)} questions", styles["cover_sub"]),
         PageBreak(),
@@ -469,6 +675,7 @@ def build_pdf(
         story += build_toc(rounds)
 
     show_back = include_toc
+    q_page_registry: dict[int, int] = {}
     for round_num, priority, difficulty, pattern_groups in rounds:
         n_q = count_round_questions(pattern_groups)
         if n_q == 0:
@@ -485,6 +692,7 @@ def build_pdf(
                 story += build_desc_question_block(
                     q, styles, doocs_cache, lc_cache,
                     printable=printable, show_back=show_back,
+                    q_page_registry=q_page_registry,
                 )
 
     def _footer(canvas, doc):
@@ -525,6 +733,8 @@ def build_pdf(
 
     output.parent.mkdir(parents=True, exist_ok=True)
     doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
+    if include_toc:
+        _add_toc_checkboxes_and_goto(output, rounds, q_page_registry)
     kb = os.path.getsize(output) // 1024
     print(f"  Wrote {output} ({kb} KB)")
 
@@ -543,14 +753,52 @@ def main():
     )
     ap.add_argument("--split-dir", type=Path, default=DEFAULT_SPLIT_DIR)
     ap.add_argument("--no-toc", action="store_true", help="Skip TOC and internal links")
+    ap.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Re-fetch Doocs descriptions and refresh image cache before building",
+    )
     args = ap.parse_args()
 
     print("Loading questions and caches...")
     questions = json.loads(QUESTIONS.read_text())
     doocs_cache = json.loads(DOOCS_CACHE.read_text()) if DOOCS_CACHE.exists() else {}
     lc_cache = json.loads(LC_CACHE.read_text()) if LC_CACHE.exists() else {}
-    n_desc = sum(1 for v in doocs_cache.values() if v.get("desc_html"))
-    print(f"  {len(questions)} questions, {n_desc} Doocs descriptions")
+
+    if args.refresh:
+        print("Refreshing Doocs cache…")
+        doocs_cache = fetch_doocs(questions)
+
+    mismatches = [
+        q for q in questions
+        if doocs_cache.get(str(q["id"]), {}).get("desc_html")
+        and not desc_matches_question(q, doocs_cache[str(q["id"])]["desc_html"])
+    ]
+    if mismatches:
+        print(f"  Re-fetching {len(mismatches)} mismatched Doocs entries…")
+        from generate_patterns_pdf import scrape_doocs_full
+        for q in mismatches:
+            doocs_cache[str(q["id"])] = scrape_doocs_full(q["id"])
+        json.dump(doocs_cache, open(DOOCS_CACHE, "w"), indent=2)
+
+    removed = purge_legacy_img_collisions()
+    if removed:
+        print(f"  Purged {removed} legacy image-cache collision file(s)")
+
+    from generate_patterns_pdf import repair_doocs_cache
+    n_fixed = repair_doocs_cache(doocs_cache)
+    if n_fixed:
+        json.dump(doocs_cache, open(DOOCS_CACHE, "w"), indent=2)
+        print(f"  Repaired {n_fixed} poisoned Doocs cache entries")
+
+    n_imgs = predownload_desc_images(doocs_cache, questions, lc_cache)
+    print(f"  Pre-downloaded {n_imgs} description images")
+
+    n_desc = sum(
+        1 for q in questions
+        if get_desc_html(q, doocs_cache, lc_cache)
+    )
+    print(f"  {len(questions)} questions, {n_desc} descriptions ready")
 
     include_toc = not args.no_toc
     print("\nBuilding combined PDF...")

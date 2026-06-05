@@ -1,10 +1,10 @@
 'use client'
 import React, { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { getOpenQuestionContext } from '@/lib/openQuestionContext'
 import {
-  Menu, X, LogOut, Home, BarChart2, Brain,
+  Menu, X, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
   Calendar, Info, Timer, Code2, Zap, Gauge, Gamepad2, RefreshCw, Library,
   BookOpen, Swords, Rocket, Download, Bookmark, ClipboardList, Settings, Check,
@@ -62,7 +62,6 @@ function buildAnswersNavHref(): string {
 
 export default function Navbar() {
   const pathname = usePathname()
-  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [answersNavHref, setAnswersNavHref] = useState('/answers')
   const build = process.env.NEXT_PUBLIC_COMMIT_SHA
@@ -89,11 +88,6 @@ export default function Navbar() {
       setUpdateStatus('idle')
     }
   }, [])
-
-  async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    router.push('/login')
-  }
 
   return (
     <nav className="sticky top-0 z-[90] bg-[var(--bg-card)]/96 backdrop-blur-xl border-b border-[var(--border)] shadow-[0_2px_24px_rgba(0,0,0,0.07),0_0_0_0.5px_rgba(176,136,72,0.18)]">

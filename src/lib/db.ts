@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { readDailyRepsLocal } from './dailyCompletion'
+import { dailyRepsFromProgress, normalizeRepDate, notifyDailyRepsChanged, readDailyRepsLocal, writeDailyRepsLocal } from './dailyCompletion'
 import { computeDailyGoalsMetToday } from './streakGoals'
 import { todayISOChicago } from './studyPlanDay'
 import { srInterval } from './utils'
@@ -54,15 +54,20 @@ function localTodayISO() {
 }
 
 // ─── Progress ─────────────────────────────────────────────────────────────────
-export async function getProgress() {
+export async function getProgress(): Promise<Record<string, any> | null> {
   try {
-    const [{ data }, masteryRuns] = await Promise.all([
+    const [{ data, error }, masteryRuns] = await Promise.all([
       supabase
         .from('progress')
         .select('*')
         .eq('user_id', USER_ID),
       getMasteryRunsByQuestion(),
     ])
+
+    if (error) {
+      console.error('[db] getProgress:', error.message)
+      return null
+    }
 
     const result: Record<string, any> = {}
     for (const row of data || []) {
@@ -74,13 +79,149 @@ export async function getProgress() {
         review_count: row.review_count,
         next_review: row.next_review,
         last_reviewed: row.last_reviewed,
-        last_daily_done: row.last_daily_done ?? null,
+        last_daily_done: normalizeRepDate(row.last_daily_done),
+        daily_rep_count: row.daily_rep_count ?? 0,
+        daily_rep_date: normalizeRepDate(row.daily_rep_date),
       }
     }
     return result
-  } catch {
-    return {}
+  } catch (e) {
+    console.error('[db] getProgress:', e)
+    return null
   }
+}
+
+function progressUpsertBase(existing: Record<string, unknown> | null | undefined) {
+  return {
+    solved: !!(existing?.solved),
+    starred: !!(existing?.starred),
+    notes: String(existing?.notes ?? ''),
+    status: (existing?.status as string | null | undefined) ?? null,
+    review_count: Number(existing?.review_count ?? 0),
+    next_review: (existing?.next_review as string | null | undefined) ?? null,
+    last_reviewed: (existing?.last_reviewed as string | null | undefined) ?? null,
+    last_daily_done: (existing?.last_daily_done as string | null | undefined) ?? null,
+    daily_rep_count: Number(existing?.daily_rep_count ?? 0),
+    daily_rep_date: normalizeRepDate(existing?.daily_rep_date),
+  }
+}
+
+/** Increment today's daily rep for a question (persisted in progress row). */
+export async function bumpDailyRep(questionId: number): Promise<{ ok: boolean; count: number; error?: string | null }> {
+  const today = todayISOChicago()
+  const { data: existing, error: readErr } = await supabase
+    .from('progress')
+    .select('*')
+    .eq('user_id', USER_ID)
+    .eq('question_id', questionId)
+    .maybeSingle()
+
+  if (readErr && !isMissingColumnError(readErr.message)) {
+    return { ok: false, count: 0, error: readErr.message }
+  }
+
+  const base = progressUpsertBase(existing as Record<string, unknown> | null)
+  const prevCount = base.daily_rep_date === today ? (base.daily_rep_count ?? 0) : 0
+  const count = prevCount + 1
+
+  const { error } = await supabase.from('progress').upsert({
+    user_id: USER_ID,
+    question_id: questionId,
+    ...base,
+    daily_rep_count: count,
+    daily_rep_date: today,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id,question_id' })
+
+  if (error) {
+    if (!isMissingColumnError(error.message)) {
+      console.error('[db] bumpDailyRep:', error.message)
+    }
+    writeDailyRepsLocal(questionId, count, today)
+    notifyDailyRepsChanged()
+    return { ok: false, count: prevCount, error: error.message }
+  }
+
+  writeDailyRepsLocal(questionId, count, today)
+  notifyDailyRepsChanged()
+  try {
+    await syncStreakActivityFromGoals()
+  } catch (e) {
+    console.error('[db] syncStreakActivityFromGoals:', e)
+  }
+  return { ok: true, count }
+}
+
+/** Set today's daily rep count for a question (e.g. when target reps reached). */
+export async function setDailyRep(questionId: number, count: number): Promise<{ ok: boolean; error?: string | null }> {
+  const today = todayISOChicago()
+  const { data: existing, error: readErr } = await supabase
+    .from('progress')
+    .select('*')
+    .eq('user_id', USER_ID)
+    .eq('question_id', questionId)
+    .maybeSingle()
+
+  if (readErr && !isMissingColumnError(readErr.message)) {
+    return { ok: false, error: readErr.message }
+  }
+
+  const base = progressUpsertBase(existing as Record<string, unknown> | null)
+  const safeCount = Math.max(0, count)
+  const { error } = await supabase.from('progress').upsert({
+    user_id: USER_ID,
+    question_id: questionId,
+    ...base,
+    daily_rep_count: safeCount,
+    daily_rep_date: today,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id,question_id' })
+
+  if (error) {
+    if (!isMissingColumnError(error.message)) {
+      console.error('[db] setDailyRep:', error.message)
+    }
+    writeDailyRepsLocal(questionId, safeCount, today)
+    notifyDailyRepsChanged()
+    return { ok: false, error: error.message }
+  }
+
+  writeDailyRepsLocal(questionId, safeCount, today)
+  notifyDailyRepsChanged()
+  return { ok: true, error: null }
+}
+
+/** Merge localStorage rep counts into DB (runs each Daily load — idempotent). */
+export async function syncDailyRepsFromLocal(): Promise<void> {
+  if (typeof window === 'undefined') return
+  const today = todayISOChicago()
+  const local = readDailyRepsLocal(today)
+  const ids = Object.entries(local).filter(([, n]) => n > 0)
+  if (ids.length === 0) return
+
+  for (const [qid, count] of ids) {
+    const questionId = Number.parseInt(qid, 10)
+    if (!Number.isFinite(questionId)) continue
+    const { data: existing } = await supabase
+      .from('progress')
+      .select('daily_rep_count,daily_rep_date')
+      .eq('user_id', USER_ID)
+      .eq('question_id', questionId)
+      .maybeSingle()
+
+    const dbCount =
+      normalizeRepDate(existing?.daily_rep_date) === today
+        ? ((existing?.daily_rep_count as number | undefined) ?? 0)
+        : 0
+    if (count > dbCount) {
+      await setDailyRep(questionId, count)
+    }
+  }
+}
+
+/** @deprecated use syncDailyRepsFromLocal */
+export async function migrateDailyRepsFromLocal(): Promise<void> {
+  return syncDailyRepsFromLocal()
 }
 
 /** Increment count when user gets Accepted on a Submit (tracked per app question id). */
@@ -165,8 +306,16 @@ export async function updateProgress(questionId: number, data: any) {
 
   const lastDailyDone =
     data.last_daily_done !== undefined
-      ? data.last_daily_done
-      : (existing?.last_daily_done ?? null)
+      ? normalizeRepDate(data.last_daily_done)
+      : normalizeRepDate(existing?.last_daily_done)
+  const dailyRepCount =
+    data.daily_rep_count !== undefined
+      ? data.daily_rep_count
+      : (existing?.daily_rep_count ?? 0)
+  const dailyRepDate =
+    data.daily_rep_date !== undefined
+      ? normalizeRepDate(data.daily_rep_date)
+      : normalizeRepDate(existing?.daily_rep_date)
 
   const { error: upsertErr } = await supabase.from('progress').upsert({
     user_id: USER_ID,
@@ -179,6 +328,8 @@ export async function updateProgress(questionId: number, data: any) {
     next_review: nextReview,
     last_reviewed: lastReviewed,
     last_daily_done: lastDailyDone,
+    daily_rep_count: dailyRepCount,
+    daily_rep_date: dailyRepDate,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,question_id' })
   if (upsertErr) console.error('[db] updateProgress:', upsertErr.message)
@@ -338,17 +489,16 @@ export async function markDailyCompleteToday(questionId: number) {
 
   const alreadyToday = (existing?.last_daily_done as string | null) === today
 
+  const base = progressUpsertBase(existing as Record<string, unknown> | null)
+  const repCount = base.daily_rep_date === today ? (base.daily_rep_count ?? 0) : 0
+
   const { error: upsertErr } = await supabase.from('progress').upsert({
     user_id: USER_ID,
     question_id: questionId,
-    solved: existing?.solved ?? false,
-    starred: existing?.starred ?? false,
-    notes: existing?.notes ?? '',
-    status: existing?.status ?? null,
-    review_count: existing?.review_count ?? 0,
-    next_review: existing?.next_review ?? null,
-    last_reviewed: existing?.last_reviewed ?? null,
+    ...base,
     last_daily_done: today,
+    daily_rep_date: today,
+    daily_rep_count: repCount,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,question_id' })
   if (upsertErr) console.error('[db] markDailyCompleteToday:', upsertErr.message)
@@ -1178,7 +1328,7 @@ export async function syncStreakActivityFromGoals(modeOverride?: string): Promis
   // Lightweight due-review count — plain SELECT count, no recalibrate/spread
   // side effects. getDueReviews() is too heavy here and can mis-report after
   // spreading reviews mid-flight, causing the streak to silently not get marked.
-  const [plan, { count: rawDueCount }, progress, dailyDoneToday] = await Promise.all([
+  const [plan, { count: rawDueCount }, progressRaw, dailyDoneToday] = await Promise.all([
     getStudyPlan(),
     supabase
       .from('progress')
@@ -1190,15 +1340,14 @@ export async function syncStreakActivityFromGoals(modeOverride?: string): Promis
     getProgress(),
     getTodayDailyDoneCount(),
   ])
+  const progress = progressRaw ?? {}
   const dueCount = rawDueCount ?? 0
 
   // Priority: explicit override → localStorage → plan.mode from DB → 'strict'
   const mode = modeOverride ?? localMode ?? (plan as any)?.mode ?? 'strict'
 
-  let dailyReps: Record<string, number> | undefined
   let repsPerQ = 2
   if (typeof window !== 'undefined') {
-    dailyReps = readDailyRepsLocal(today)
     try {
       const raw = localStorage.getItem('lm_reps_per_q')
       const n = Number.parseInt(raw ?? '2', 10)
@@ -1209,7 +1358,7 @@ export async function syncStreakActivityFromGoals(modeOverride?: string): Promis
   const goalsMet = computeDailyGoalsMetToday(plan, progress, dueCount, {
     mode,
     dailyDoneTodayCount: dailyDoneToday,
-    dailyReps,
+    dailyReps: dailyRepsFromProgress(progress, today),
     repsPerQ,
   })
 

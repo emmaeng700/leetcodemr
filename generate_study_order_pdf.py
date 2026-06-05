@@ -68,6 +68,14 @@ from generate_patterns_pdf import (
     _img_filename,
     IMG_DIR,
     gen_brute_force_python,
+    get_question_desc_html,
+    is_html_description,
+    is_premium_question,
+    plain_desc_to_paragraphs,
+    premium_question_prefix,
+    premium_question_suffix,
+    premium_star_markup,
+    repair_doocs_cache,
     SITES,
     _QR_DATA,
 )
@@ -168,9 +176,9 @@ SITE_META = [
     ('leetcodeca', 'LC.ca'),
 ]
 
-TOC_CB_PT     = 7.0   # inner-page pt — matches toc/title font size
-TOC_CB_GAP    = 8.0   # inner-page pt — space between checkbox and #id text
-TOC_ARROW_PAD = 4.0   # inner-page pt — gap between title end and ↗ arrow
+TOC_CB_PT     = 7.0   # default; overridden for GRID_2X1 below
+TOC_CB_GAP    = 8.0
+TOC_ARROW_PAD = 4.0
 
 # ─── Styles ──────────────────────────────────────────────────────────────────
 # 4×4 mode: inner pages match cell size (no scaling), so use full readable sizes.
@@ -186,8 +194,23 @@ if GRID_4X4:
         'cover_title': ParagraphStyle('ct',  fontName='LG-Bold',    fontSize=8, textColor=BLACK, alignment=TA_CENTER, leading=10),
         'cover_sub':   ParagraphStyle('cs',  fontName='LG-Bold',    fontSize=8, textColor=BLACK, alignment=TA_CENTER, leading=10),
     }
-elif GRID_2X1 or CHAPTER2_PDF:
-    # pattern_run / the_digest: compact body text; titles slightly larger.
+elif GRID_2X1:
+    # pattern_run: one text size everywhere (Round header size), code unchanged.
+    _RUN_PT, _RUN_LD = 7, 9
+    S = {
+        'title':       ParagraphStyle('ttl', fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
+        'body':        ParagraphStyle('bd',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
+        'body_sm':     ParagraphStyle('bds', fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
+        'code':        ParagraphStyle('cd',  fontName='Menlo-Bold', fontSize=3.5, textColor=BLACK, leading=4.6),
+        'head2':       ParagraphStyle('h2',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
+        'toc':         ParagraphStyle('tc',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD),
+        'cover_title': ParagraphStyle('ct',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, alignment=TA_CENTER, leading=_RUN_LD),
+        'cover_sub':   ParagraphStyle('cs',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, alignment=TA_CENTER, leading=_RUN_LD),
+    }
+    TOC_CB_PT = float(_RUN_PT)
+    TOC_CB_GAP = _RUN_PT + 1
+    TOC_ARROW_PAD = max(4.0, round(_RUN_PT * 0.57, 1))
+elif CHAPTER2_PDF:
     S = {
         'title':       ParagraphStyle('ttl', fontName='LG-Bold',    fontSize=7, textColor=BLACK, leading=9,   spaceAfter=1),
         'body':        ParagraphStyle('bd',  fontName='LG-Bold',    fontSize=5.0, textColor=BLACK, leading=6.5, spaceAfter=1),
@@ -213,6 +236,103 @@ else:
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 def safe_xml(t: str) -> str:
     return t.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+def _inner_ps(name: str, font_key: str = 'body', *, fontName: str = 'LG-Bold', **kwargs) -> ParagraphStyle:
+    """ParagraphStyle using S[font_key] sizes — keeps pattern_run text uniform."""
+    ref = S[font_key]
+    opts = dict(
+        fontName=fontName,
+        fontSize=ref.fontSize,
+        leading=ref.leading,
+        textColor=BLACK,
+    )
+    opts.update(kwargs)
+    return ParagraphStyle(name, **opts)
+
+
+LINK_COLOR_PRINT = '#0000EE'
+
+
+def _slugify(name: str) -> str:
+    return re.sub(r'[^A-Za-z0-9]+', '_', name).strip('_').lower()
+
+
+def anchor_round(round_num: int) -> str:
+    return f'round_{round_num}'
+
+
+def anchor_pat(pat_name: str) -> str:
+    return f'pat_{_slugify(pat_name)}'
+
+
+def round_toc_label(round_num: int, priority: str, difficulty: str, n_q: int) -> str:
+    dot = {'Easy': 'E', 'Medium': 'M', 'Hard': 'H'}.get(difficulty, '')
+    return f'Round {round_num}  |  {priority}  |  {dot} {difficulty}  ({n_q})'
+
+
+def _toc_link_markup(href: str, label: str, *, bold: bool = True) -> str:
+    inner = f'<b>{label}</b>' if bold else label
+    return f'<link href="#{href}" color="{LINK_COLOR_PRINT}">{inner}</link>'
+
+
+def _toc_link_visual(label: str, *, bold: bool = True) -> str:
+    """Blue TOC line — actual link added in 2×1 post-process."""
+    inner = f'<b>{label}</b>' if bold else label
+    return f'<font color="{LINK_COLOR_PRINT}">{inner}</font>'
+
+
+class NamedDest(Flowable):
+    def __init__(self, name: str):
+        super().__init__()
+        self.name = name
+
+    def wrap(self, availWidth, availHeight):
+        return 0, 0
+
+    def draw(self):
+        canv = self.canv
+        x, y = canv.absolutePosition(0, 0)
+        canv.bookmarkHorizontal(self.name, x, y)
+
+
+class RoundPageMark(Flowable):
+    def __init__(self, round_num: int, registry: dict):
+        super().__init__()
+        self.round_num = round_num
+        self.registry = registry
+
+    def wrap(self, availWidth, availHeight):
+        return 0, 0
+
+    def draw(self):
+        if self.round_num not in self.registry:
+            self.registry[self.round_num] = self.canv.getPageNumber() - 1
+
+
+class PatPageMark(Flowable):
+    def __init__(self, round_num: int, pat_name: str, registry: dict):
+        super().__init__()
+        self.round_num = round_num
+        self.pat_name = pat_name
+        self.registry = registry
+
+    def wrap(self, availWidth, availHeight):
+        return 0, 0
+
+    def draw(self):
+        key = (self.round_num, self.pat_name)
+        if key not in self.registry:
+            self.registry[key] = self.canv.getPageNumber() - 1
+
+
+def _anchor_para(name: str) -> list:
+    return [
+        NamedDest(name),
+        Paragraph(
+            f'<a name="{name}"/>',
+            ParagraphStyle('anch', fontSize=1, leading=1, spaceBefore=0, spaceAfter=0),
+        ),
+    ]
 
 def indent_xml(line: str) -> str:
     stripped = line.lstrip(' ')
@@ -288,8 +408,8 @@ def desc_to_mini_flowables(desc_html: str) -> list:
                              textColor=BLACK, leading=S['body'].leading, leftIndent=8, spaceAfter=1)
     hdr_st  = ParagraphStyle('dhdr',  fontName='LG-Bold', fontSize=S['head2'].fontSize,
                              textColor=BLACK, leading=S['head2'].leading, spaceAfter=1, spaceBefore=3)
-    pre_st  = ParagraphStyle('dpre',  fontName='Menlo-Bold', fontSize=S['body'].fontSize,
-                             textColor=BLACK, leading=S['body'].leading)
+    pre_st  = ParagraphStyle('dpre',  fontName='Menlo-Bold', fontSize=S['code'].fontSize,
+                             textColor=BLACK, leading=S['code'].leading)
 
     flowables = []
     block_re  = re.compile(
@@ -353,14 +473,15 @@ def desc_to_mini_flowables(desc_html: str) -> list:
             continue
         if m.group(13) is not None:
             inner = m.group(13) or ''
-            img_src = re.search(r'(?:src|href)=["\x27](https://fastly\.jsdelivr[^"\x27>\s]+)["\x27]', inner, re.I)
+            # Paragraph can wrap inline <img> or Doocs lightbox <a href="...png">.
+            img_src = re.search(r'(?:src|href)=["\x27](https?://[^"\x27>\s]+)["\x27]', inner, re.I)
             if img_src:
                 url = img_src.group(1)
                 if 'shields.io' not in url and 'badge' not in url.lower():
                     img = mini_rl_image(url)
                     if img:
                         flowables += [Spacer(1, 3), img, Spacer(1, 3)]
-                continue
+                        continue
             text = _inline(inner, printable=True, bold=True).strip()
             if text and text != ' ':
                 try:
@@ -546,7 +667,7 @@ class SetRound(Flowable):
         _PAGE_STATE['round'] = self.label
         c = self.canv
         c.saveState()
-        c.setFont('LG-Bold', 5)
+        c.setFont('LG-Bold', S['body'].fontSize)
         c.setFillColor(BLACK)
         c.drawString(MG, MG - 3, self.label)
         c.restoreState()
@@ -556,7 +677,7 @@ class PageCounter:
     def on_page(self, canvas, doc):
         self.n += 1
         canvas.saveState()
-        canvas.setFont('LG-Bold', 5)
+        canvas.setFont('LG-Bold', S['body'].fontSize)
         canvas.setFillColor(BLACK)
         canvas.drawRightString(MP_W - MG, MG - 3, f'p.{self.n}')
         if _PAGE_STATE['round']:
@@ -577,7 +698,7 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
 
     pill = Table([[Paragraph(
         f'<font color="{fg.hexval()}"><b>{q.get("difficulty","?")[:3].upper()}</b></font>',
-        ParagraphStyle('pill', fontName='LG-Bold', fontSize=5, textColor=fg),
+        ParagraphStyle('pill', fontName='LG-Bold', fontSize=S['body'].fontSize, textColor=fg),
     )]], colWidths=[0.34 * inch])
     pill.setStyle(TableStyle([
         ('BACKGROUND',    (0,0), (-1,-1), bg),
@@ -588,7 +709,10 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
         ('RIGHTPADDING',  (0,0), (-1,-1), 2),
     ]))
     title_tbl = Table([[
-        Paragraph(f'<b>#{qid} {safe_xml(q["title"])}</b>', S['title']),
+        Paragraph(
+            f'<b>{premium_question_prefix(q)}#{qid} {safe_xml(q["title"])}{premium_question_suffix(q)}</b>',
+            S['title'],
+        ),
         pill,
     ]], colWidths=[USE_W - 0.38 * inch, 0.38 * inch])
     title_tbl.setStyle(TableStyle([
@@ -621,19 +745,25 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
 
     source = q.get('source', [])
     if source:
+        lists = '  |  '.join(safe_xml(s) for s in source)
+        if is_premium_question(q):
+            lists = f'{premium_star_markup()} Premium  |  {lists}'
         items.append(Paragraph(
-            f"Lists: {'  |  '.join(safe_xml(s) for s in source)}",
+            f"Lists: {lists}",
             ParagraphStyle('src', fontName='LG-Bold', fontSize=S['body_sm'].fontSize,
                            textColor=BLACK, leading=S['body_sm'].leading, spaceAfter=2)))
 
     # Complexity / explanation removed from header — it now lives in the
     # inline Quick Review summary that follows every question's solutions.
 
-    desc_html = doocs_cache.get(str(qid), {}).get('desc_html')
+    desc_html = get_question_desc_html(q, doocs_cache)
     if desc_html:
         items.append(Spacer(1, 2))
         items.append(Paragraph('<b>Problem</b>', S['head2']))
-        items += desc_to_mini_flowables(desc_html)
+        if is_html_description(desc_html):
+            items += desc_to_mini_flowables(desc_html)
+        else:
+            items += plain_desc_to_paragraphs(desc_html, S['body'])
         items.append(Spacer(1, 2))
 
     is_js_pattern = (pattern_name == 'JavaScript')
@@ -850,6 +980,8 @@ def build_round_summary(round_num: int, priority: str, difficulty: str,
 # ─── Inner PDF builder ────────────────────────────────────────────────────────
 def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
     counter = PageCounter()
+    round_page_registry: dict[int, int] = {}
+    pat_page_registry: dict[tuple[int, str], int] = {}
     total_qs = sum(len(qs) for _, _, _, pgs in rounds for _, qs in pgs)
 
     doc = SimpleDocTemplate(
@@ -862,8 +994,7 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
 
     # ── Cover ─────────────────────────────────────────────────────────────────
     story.append(Spacer(1, 28))
-    story.append(Paragraph('LeetMastery', ParagraphStyle(
-        'brand', fontName='LG-Bold', fontSize=8, textColor=BLACK, alignment=TA_CENTER)))
+    story.append(Paragraph('LeetMastery', _inner_ps('brand', 'cover_title', alignment=TA_CENTER)))
     story.append(Spacer(1, 4))
     story.append(Paragraph('Study-Order Edition', S['cover_title']))
 
@@ -884,38 +1015,40 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
         subtitle = 'Python Only  ·  Priority-Grouped  ·  Difficulty-First  ·  36-up Portrait  ·  6×6'
         detail   = f'{total_qs} questions  ·  9 rounds  ·  36-up portrait (6×6)'
 
-    story.append(Paragraph(subtitle, ParagraphStyle(
-        'sub2', fontName='LG-Bold', fontSize=8, textColor=BLACK, alignment=TA_CENTER, leading=11)))
+    story.append(Paragraph(subtitle, _inner_ps('sub2', 'cover_sub', alignment=TA_CENTER)))
     story.append(Spacer(1, 8))
     story.append(hr())
     story.append(Spacer(1, 5))
-    story.append(Paragraph(detail,
-        ParagraphStyle('ci', fontName='LG-Bold', fontSize=6, textColor=BLACK, alignment=TA_CENTER)))
+    story.append(Paragraph(detail, _inner_ps('ci', 'body', alignment=TA_CENTER)))
     story.append(Paragraph(
         'High Easy → High Med → High Hard → Mid Easy → Mid Med → Mid Hard → Low Easy → Low Med → Low Hard',
-        ParagraphStyle('ci2', fontName='LG-Bold', fontSize=5.5, textColor=BLACK, alignment=TA_CENTER, leading=8)))
+        _inner_ps('ci2', 'body', alignment=TA_CENTER)))
     story.append(PageBreak())
     if GRID_2X1:
         story.append(Spacer(1, 0.1))
         story.append(PageBreak())  # one blank mini-page between cover and Contents
 
     # ── Table of Contents ─────────────────────────────────────────────────────
-    story.append(Paragraph('Contents', ParagraphStyle(
-        'toch', fontName='LG-Bold', fontSize=9, textColor=BLACK, spaceAfter=4)))
+    story.append(Paragraph('<b>Contents</b>', _inner_ps('toch', 'title', spaceAfter=4)))
+    story.append(Paragraph(
+        f'<b>{premium_star_markup()} = LeetCode Premium (Premium 98 list)</b>',
+        _inner_ps('tochint', 'body', spaceAfter=3)))
     story.append(hr())
 
     for round_num, priority, difficulty, pattern_groups in rounds:
         all_qs_in_round = [(pat, q) for pat, qs in pattern_groups for q in qs]
         if not all_qs_in_round:
             continue
-        diff_dot_toc = {'Easy': 'E', 'Medium': 'M', 'Hard': 'H'}.get(difficulty, '')
+        n_q = len(all_qs_in_round)
         pri_c = PRIORITY_COLORS[priority]
+        ra = anchor_round(round_num)
+        rnd_label = round_toc_label(round_num, priority, difficulty, n_q)
+        if GRID_2X1:
+            rnd_xml = _toc_link_visual(rnd_label)
+        else:
+            rnd_xml = _toc_link_markup(ra, rnd_label)
         row = Table([[
-            Paragraph(
-                f'<b>Round {round_num}  {priority} · {diff_dot_toc} {difficulty}</b>'
-                f'  ({len(all_qs_in_round)})',
-                ParagraphStyle('toch2', fontName='LG-Bold', fontSize=7,
-                               textColor=BLACK, leading=9)),
+            Paragraph(rnd_xml, _inner_ps('toch2', 'title')),
         ]], colWidths=[USE_W])
         row.setStyle(TableStyle([
             ('BACKGROUND',    (0,0), (-1,-1), pri_c['pill_bg']),
@@ -925,20 +1058,30 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
             ('RIGHTPADDING',  (0,0), (-1,-1), 4),
         ]))
         story.append(row)
-        for pat, q in all_qs_in_round:
-            label = f'#{q["id"]} {safe_xml(q["title"])}'
+        pat_st = ParagraphStyle(
+            'tocpat', fontName='LG-Bold', fontSize=S['toc'].fontSize,
+            textColor=BLACK, leading=S['toc'].leading, spaceAfter=2,
+            leftIndent=12 if GRID_2X1 else 14,
+        )
+        q_left = TOC_CB_PT + TOC_CB_GAP + 4 if GRID_2X1 else 28
+        for pat, qs in pattern_groups:
+            pa = anchor_pat(pat['name'])
+            pat_label = f'{pat["name"]} ({len(qs)})'
             if GRID_2X1:
-                tqe_st = ParagraphStyle(
-                    'tqe', fontName='LG', fontSize=S['toc'].fontSize,
-                    textColor=BLACK, leading=S['toc'].leading, spaceAfter=4,
-                    alignment=TA_LEFT,
-                    leftIndent=TOC_CB_PT + TOC_CB_GAP + 4)  # checkbox + gap + pad
+                pat_xml = _toc_link_visual(safe_xml(pat_label))
             else:
+                pat_xml = _toc_link_markup(pa, safe_xml(pat_label))
+            story.append(Paragraph(pat_xml, pat_st))
+            for q in qs:
+                label = f'{premium_question_prefix(q)}#{q["id"]} {safe_xml(q["title"])}'
                 tqe_st = ParagraphStyle(
-                    'tqe', fontName='LG', fontSize=S['toc'].fontSize,
-                    textColor=BLACK, leading=8.5, spaceAfter=3)
-                label = f'   {label}'
-            story.append(Paragraph(label, tqe_st))
+                    'tqe', fontName='LG-Bold', fontSize=S['toc'].fontSize,
+                    textColor=BLACK, leading=S['toc'].leading,
+                    spaceAfter=4 if GRID_2X1 else 3,
+                    alignment=TA_LEFT,
+                    leftIndent=q_left,
+                )
+                story.append(Paragraph(f'<b>{label}</b>', tqe_st))
     story.append(PageBreak())
 
     # ── Rounds / Chapters ─────────────────────────────────────────────────────
@@ -954,10 +1097,17 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
         story.append(SetRound(round_label))
 
         # Chapter splash page
+        ra = anchor_round(round_num)
+        story.append(RoundPageMark(round_num, round_page_registry))
+        story += _anchor_para(ra)
         story.append(Spacer(1, USE_H * 0.12))
         banner = Table([[Paragraph(
             f'<b>Round {round_num}</b>',
-            ParagraphStyle('rnum', fontName='LG-Bold', fontSize=13, textColor=BLACK, alignment=TA_CENTER),
+            _inner_ps(
+                'rnum', 'title', alignment=TA_CENTER,
+                fontSize=S['title'].fontSize if GRID_2X1 else 13,
+                leading=S['title'].leading if GRID_2X1 else 16,
+            ),
         )]], colWidths=[USE_W])
         banner.setStyle(TableStyle([
             ('BACKGROUND',    (0,0), (-1,-1), pri_c['pill_bg']),
@@ -970,14 +1120,16 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
 
         story.append(Paragraph(
             f'<b>{priority} Priority  ·  {diff_dot} {difficulty}</b>',
-            ParagraphStyle('rlab', fontName='LG-Bold', fontSize=10,
-                           textColor=BLACK, alignment=TA_CENTER, leading=13)))
+            _inner_ps(
+                'rlab', 'title', alignment=TA_CENTER,
+                fontSize=S['title'].fontSize if GRID_2X1 else 10,
+                leading=S['title'].leading if GRID_2X1 else 13,
+            )))
         story.append(Spacer(1, 3))
         story.append(Paragraph(
             f'{len(all_qs_in_round)} question{"s" if len(all_qs_in_round) != 1 else ""}  ·  '
             f'{len(pattern_groups)} pattern{"s" if len(pattern_groups) != 1 else ""}',
-            ParagraphStyle('rct', fontName='LG-Bold', fontSize=7,
-                           textColor=BLACK, alignment=TA_CENTER)))
+            _inner_ps('rct', 'body', alignment=TA_CENTER)))
         story.append(Spacer(1, 4))
 
         # Mini question list on splash page
@@ -999,11 +1151,17 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
         # Questions: grouped by pattern within the round
         for pat, qs in pattern_groups:
             # Pattern sub-header mini-page
+            pa = anchor_pat(pat['name'])
+            story.append(PatPageMark(round_num, pat['name'], pat_page_registry))
+            story += _anchor_para(pa)
             story.append(Spacer(1, USE_H * 0.15))
             pat_banner = Table([[Paragraph(
                 f'<b>{safe_xml(pat["name"])}</b>',
-                ParagraphStyle('pbnr', fontName='LG-Bold', fontSize=10,
-                               textColor=BLACK, alignment=TA_CENTER),
+                _inner_ps(
+                    'pbnr', 'title', alignment=TA_CENTER,
+                    fontSize=S['title'].fontSize if GRID_2X1 else 10,
+                    leading=S['title'].leading if GRID_2X1 else 13,
+                ),
             )]], colWidths=[USE_W])
             pat_banner.setStyle(TableStyle([
                 ('BACKGROUND',    (0,0), (-1,-1), GRAY_100),
@@ -1015,8 +1173,7 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
             story.append(Spacer(1, 3))
             story.append(Paragraph(
                 f'Round {round_num}  ·  {priority} · {difficulty}  ·  {len(qs)} question{"s" if len(qs) != 1 else ""}',
-                ParagraphStyle('psub', fontName='LG-Bold', fontSize=6,
-                               textColor=BLACK, alignment=TA_CENTER)))
+                _inner_ps('psub', 'body', alignment=TA_CENTER)))
             story.append(PageBreak())
 
             for q in qs:
@@ -1029,7 +1186,7 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
 
     doc.build(story, onFirstPage=counter.on_page, onLaterPages=counter.on_page)
     print(f'Inner PDF: {counter.n} mini-pages → {INNER_PDF.name}')
-    return counter.n
+    return counter.n, round_page_registry, pat_page_registry
 
 # ─── 36-up portrait imposer (6×6 grid, matching the original 92-page format) ──
 def impose_36up_portrait(src_path: Path, dst_path: Path):
@@ -1316,12 +1473,16 @@ def _draw_toc_goto_arrow(page, line_dest: fitz.Rect, sc: float) -> fitz.Rect:
 
 def _add_links_2x1(output_path: Path, page_types: dict,
                    qid_first_page: dict, toc_link_rects: dict,
+                   toc_section_rects: dict,
+                   round_page_registry: dict,
+                   pat_page_registry: dict,
                    per_sheet: int = 2, cols: int = 2,
                    src_w: float = 204.0, src_h: float = 264.0,
                    L_W: float = 792.0, L_H: float = 612.0, GAP: float = 3.0):
     """
     Post-process 2×1 PDF:
-      • ↗ arrow after each TOC title → jumps to that question (title text not linked)
+      • Round / pattern TOC lines → jump to chapter or pattern page
+      • ↗ arrow after each TOC question → jumps to that question (title text not linked)
       • Draw visible checkbox squares on TOC entries
       • '← Contents' button on every non-TOC sheet
     """
@@ -1350,8 +1511,36 @@ def _add_links_2x1(output_path: Path, page_types: dict,
     # Which slot (column) does each question's inner page land in?
     qid_slot   = {qid: pg % per_sheet for qid, pg in qid_first_page.items()}
 
-    n_links = 0
-    n_boxes = 0
+    def _dest_slot(inner_pg: int) -> tuple[int, float]:
+        sheet = inner_pg // per_sheet
+        slot = inner_pg % per_sheet
+        return sheet, slot * CW
+
+    n_links = n_boxes = n_sec = 0
+
+    for inner_pg, sections in toc_section_rects.items():
+        slot   = inner_pg % per_sheet
+        out_sh = inner_pg // per_sheet
+        txfm   = cell_transform(slot)
+        out_pg = doc[out_sh]
+        for kind, key, line_src in sections:
+            if kind == 'round':
+                inner_dest = round_page_registry.get(key)
+            else:
+                inner_dest = pat_page_registry.get(key)
+            if inner_dest is None:
+                continue
+            dest_sheet, dest_x = _dest_slot(inner_dest)
+            line_dest = tx_rect(line_src, *txfm)
+            out_pg.insert_link({
+                'kind': fitz.LINK_GOTO,
+                'from': line_dest,
+                'page': dest_sheet,
+                'to':   fitz.Point(dest_x, 0),
+                'zoom': 0,
+            })
+            n_sec += 1
+
     for inner_pg, rects in toc_link_rects.items():
         slot   = inner_pg % per_sheet
         out_sh = inner_pg // per_sheet
@@ -1406,7 +1595,7 @@ def _add_links_2x1(output_path: Path, page_types: dict,
         pg = doc[sh]
         pg.draw_rect(btn, color=(0.22, 0.28, 0.90), fill=(0.08, 0.08, 0.45), width=1.0)
         pg.insert_text(fitz.Point(btn.x0 + 7, btn.y0 + 12),
-                       '← Contents', fontsize=9,
+                       '← Contents', fontsize=max(7, TOC_CB_PT + 1),
                        color=(1.0, 1.0, 1.0), fontname='helv')
         pg.insert_link({'kind': fitz.LINK_GOTO, 'from': btn,
                         'page': toc_sheet0, 'to': fitz.Point(0, 0), 'zoom': 0})
@@ -1415,8 +1604,8 @@ def _add_links_2x1(output_path: Path, page_types: dict,
     doc.save(str(tmp), garbage=4, deflate=True, incremental=False)
     doc.close()
     tmp.replace(output_path)
-    print(f'  Links: {n_links} (↗ arrow)  |  Checkboxes: {n_boxes}  '
-          f'|  ← Contents: {n_sheets - len(toc_sheets)} sheets')
+    print(f'  Links: {n_links} question (↗)  |  {n_sec} round/pattern  |  '
+          f'Checkboxes: {n_boxes}  |  ← Contents: {n_sheets - len(toc_sheets)} sheets')
 
 
 # ─── Chapter-2-only inner PDF builder ────────────────────────────────────────
@@ -1556,26 +1745,42 @@ def _find_toc_line_rect(page, qid: int):
     return entry['line'] if entry else None
 
 
+def _find_text_line_rect(page, needle: str):
+    """BBox of the first text line containing needle (case-insensitive)."""
+    nlow = needle.lower()
+    for block in page.get_text('dict').get('blocks', []):
+        if block.get('type') != 0:
+            continue
+        for line in block.get('lines', []):
+            text = ''.join(s['text'] for s in line['spans'])
+            if nlow in text.lower():
+                x0, y0, x1, y1 = line['bbox']
+                return fitz.Rect(x0, y0, x1, y1)
+    hits = page.search_for(needle)
+    return hits[0] if hits else None
+
+
 def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
     """
     Scan the inner PDF and return:
-      page_types       {inner_pg → 'toc'|'question'|'other'}
-      qid_first_page   {qid → inner_pg of first occurrence}
-      toc_link_rects   {inner_pg → {qid → fitz.Rect}}  (full-width row rect per entry)
+      page_types         {inner_pg → 'toc'|'question'|'chapter'|'other'}
+      qid_first_page     {qid → inner_pg of first occurrence}
+      toc_link_rects     {inner_pg → {qid → {line, title}}}
+      toc_section_rects  {inner_pg → [(kind, key, fitz.Rect)]}  kind: 'round'|'pat'
     """
-    import re
     doc     = fitz.open(str(inner_pdf_path))
     all_ids = {q['id'] for _, _, _, pgs in rounds for _, qs in pgs for q in qs}
-    pat     = re.compile(r'#(\d+)')
+    qid_re  = re.compile(r'#(\d+)')
 
-    page_types     = {}
-    qid_first_page = {}
-    toc_link_rects = {}
+    page_types         = {}
+    qid_first_page     = {}
+    toc_link_rects     = {}
+    toc_section_rects  = {}
 
     for pg in range(len(doc)):
         page   = doc[pg]
         text   = page.get_text()
-        found  = [int(m.group(1)) for m in pat.finditer(text) if int(m.group(1)) in all_ids]
+        found  = [int(m.group(1)) for m in qid_re.finditer(text) if int(m.group(1)) in all_ids]
         unique = list(dict.fromkeys(found))   # dedupe, preserve order
 
         if len(unique) >= 5:
@@ -1602,6 +1807,22 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
                     continue
                 rects[qid] = entry
             toc_link_rects[pg] = rects
+
+            sections = []
+            for round_num, priority, difficulty, pattern_groups in rounds:
+                n_q = sum(len(qs) for _, qs in pattern_groups)
+                if n_q == 0:
+                    continue
+                rnd_needle = f'Round {round_num}  |  {priority}'
+                rrect = _find_text_line_rect(page, rnd_needle)
+                if rrect is not None:
+                    sections.append(('round', round_num, rrect))
+                for pat_obj, qs in pattern_groups:
+                    prect = _find_text_line_rect(page, f'{pat_obj["name"]} ({len(qs)})')
+                    if prect is not None:
+                        sections.append(('pat', (round_num, pat_obj['name']), prect))
+            if sections:
+                toc_section_rects[pg] = sections
         elif unique:
             page_types[pg] = 'question'
             for qid in unique:
@@ -1611,7 +1832,7 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
             page_types[pg] = 'other'
 
     doc.close()
-    return page_types, qid_first_page, toc_link_rects
+    return page_types, qid_first_page, toc_link_rects, toc_section_rects
 
 
 def _add_links_2x2(output_path: Path, page_types: dict,
@@ -1798,6 +2019,10 @@ if __name__ == '__main__':
     questions = json.loads(QUESTIONS.read_text())
     sites     = json.loads(SITES_CACHE.read_text()) if SITES_CACHE.exists() else {}
     doocs     = json.loads(DOOCS_CACHE.read_text()) if DOOCS_CACHE.exists() else {}
+    n_repaired = repair_doocs_cache(doocs)
+    if n_repaired:
+        DOOCS_CACHE.write_text(json.dumps(doocs, ensure_ascii=False, indent=2))
+        print(f'  Repaired {n_repaired} poisoned Doocs description(s)')
     print(f'  {len(questions)} questions · sites: {len(sites)} · doocs: {len(doocs)}')
 
     print('Building study-order rounds…')
@@ -1818,18 +2043,25 @@ if __name__ == '__main__':
         sys.exit(0)
 
     print('\nBuilding inner mini-page PDF…')
-    n_pages = build_inner_pdf(rounds, sites, doocs)
+    n_pages, round_page_registry, pat_page_registry = build_inner_pdf(rounds, sites, doocs)
 
     if GRID_2X1:
         print('Analyzing inner PDF for link structure…')
-        page_types, qid_first_page, toc_link_rects = _analyze_inner_for_links(INNER_PDF, rounds)
+        page_types, qid_first_page, toc_link_rects, toc_section_rects = (
+            _analyze_inner_for_links(INNER_PDF, rounds)
+        )
         print('Imposing 2×1 landscape (2-up)…')
         impose_2x1_landscape(INNER_PDF, OUTPUT_PDF)
         print('Adding precise hyperlinks…')
-        _add_links_2x1(OUTPUT_PDF, page_types, qid_first_page, toc_link_rects)
+        _add_links_2x1(
+            OUTPUT_PDF, page_types, qid_first_page, toc_link_rects, toc_section_rects,
+            round_page_registry, pat_page_registry,
+        )
     elif GRID_2X2:
         print('Analyzing inner PDF for link structure…')
-        page_types, qid_first_page, toc_link_rects = _analyze_inner_for_links(INNER_PDF, rounds)
+        page_types, qid_first_page, toc_link_rects, _toc_sec = (
+            _analyze_inner_for_links(INNER_PDF, rounds)
+        )
         print('Imposing 2×2 landscape (4-up)…')
         impose_2x2_landscape(INNER_PDF, OUTPUT_PDF)
         print('Adding hyperlinks…')

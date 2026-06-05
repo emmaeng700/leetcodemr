@@ -55,6 +55,12 @@ pdfmetrics.registerFont(TTFont("LG-Bold",      _LG_TTC, subfontIndex=1))   # bod
 pdfmetrics.registerFont(TTFont("HN-Italic",    _HN_TTC, subfontIndex=2))   # italic (credits only)
 pdfmetrics.registerFont(TTFont("Menlo",        _MN_TTC, subfontIndex=0))   # code regular
 pdfmetrics.registerFont(TTFont("Menlo-Bold",   _MN_TTC, subfontIndex=1))   # code bold
+_SYM_TTF = "/System/Library/Fonts/Apple Symbols.ttf"
+try:
+    pdfmetrics.registerFont(TTFont("Sym", _SYM_TTF))   # ★ and other symbols LG lacks
+    _HAS_SYM_FONT = True
+except Exception:
+    _HAS_SYM_FONT = False
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 SCRIPT_DIR   = Path(__file__).parent
@@ -1909,26 +1915,49 @@ def _clean_code(raw):
 
 # ── Image downloading ──────────────────────────────────────────────────────────
 def _img_filename(url):
-    name = re.sub(r"[^a-zA-Z0-9._-]","_", url.split("?")[0].split("/")[-1])
-    return name[:80] or "img.jpg"
+    """Unique per-URL filename — generic names like ex1.jpg collide across questions."""
+    import hashlib
+    raw = url.split("?")[0].split("/")[-1]
+    name = re.sub(r"[^a-zA-Z0-9._-]", "_", raw)[:60] or "img"
+    ext = Path(name).suffix if Path(name).suffix else ".jpg"
+    stem = Path(name).stem or "img"
+    digest = hashlib.md5(url.encode()).hexdigest()[:8]
+    return f"{stem}_{digest}{ext}"
+
+def _image_fallback_urls(url: str) -> list[str]:
+    """Doocs/jsDelivr often 403s; LeetCode assets host the same diagram files."""
+    out = [url]
+    if "jsdelivr.net" in url or "githubusercontent.com" in url:
+        name = url.split("/")[-1].split("?")[0]
+        if name:
+            out.append(f"https://assets.leetcode.com/uploads/2023/04/08/{name}")
+            # Some uploads use nested paths under /uploads/
+            m = re.search(r"/(\d{4})/(\d{2})/(\d{2})/([^/]+)$", url)
+            if m:
+                out.append(f"https://assets.leetcode.com/uploads/{m.group(1)}/{m.group(2)}/{m.group(3)}/{m.group(4)}")
+    return out
+
 
 def download_image(url):
     fpath = IMG_DIR / _img_filename(url)
     if fpath.exists():
         try: return PILImage.open(fpath)
         except Exception: pass
-    try:
-        req = Request(url, headers={"User-Agent": UA["User-Agent"]})
-        with urlopen(req, timeout=15) as r:
-            data = r.read()
-        img = PILImage.open(io.BytesIO(data))
-        # Convert palette images to RGB for saving as JPEG
-        if img.mode in ("P","RGBA","LA"):
-            img = img.convert("RGB")
-        img.save(fpath)
-        return img
-    except Exception:
-        return None
+    for try_url in _image_fallback_urls(url):
+        try:
+            req = Request(try_url, headers={"User-Agent": UA["User-Agent"]})
+            with urlopen(req, timeout=15) as r:
+                data = r.read()
+            if len(data) < 500:
+                continue
+            img = PILImage.open(io.BytesIO(data))
+            if img.mode in ("P", "RGBA", "LA"):
+                img = img.convert("RGB")
+            img.save(fpath)
+            return img
+        except Exception:
+            continue
+    return None
 
 def rl_image(url, max_w=MAX_W - 0.5*inch):
     """Download and return a ReportLab Image flowable, scaled to fit."""
@@ -1942,6 +1971,169 @@ def rl_image(url, max_w=MAX_W - 0.5*inch):
     try: return RLImage(str(fpath), width=dw, height=dh)
     except Exception: return None
 
+# ── Doocs description extraction (never ship sidebar/nav HTML) ────────────────
+_DESC_COMMENT_RE = re.compile(
+    r"<!--\s*description:start\s*-->([\s\S]*?)<!--\s*description:end\s*-->",
+    re.I,
+)
+_DESC_TEXT_RE = re.compile(
+    r"description:start\s*([\s\S]*?)\s*description:end",
+    re.I,
+)
+_SIDEBAR_MARKERS = ("md-sidebar", "md-nav__link", "md-nav--primary")
+
+
+def extract_doocs_description(raw_html: str | None) -> str:
+    """Return only the problem-statement HTML block — not the Doocs sidebar."""
+    if not raw_html:
+        return ""
+    raw = raw_html.strip()
+    for pat in (_DESC_COMMENT_RE, _DESC_TEXT_RE):
+        m = pat.search(raw)
+        if m:
+            chunk = m.group(1).strip()
+            if len(chunk) > 40:
+                return chunk
+    if len(raw) < 15000 and not any(s in raw for s in _SIDEBAR_MARKERS):
+        return raw
+    return ""
+
+
+def desc_matches_question(q: dict, html: str) -> bool:
+    if not html:
+        return False
+    slug = q.get("slug", "")
+    qid = q["id"]
+    if slug and re.search(rf"/problems/{re.escape(slug)}(?:[\"'/?#]|$)", html, re.I):
+        return True
+    if re.search(rf">\s*{qid}\.\s", html) or re.search(rf'id=["\']{qid}-', html, re.I):
+        return True
+    if re.search(rf"/en/lc/{qid}/", html, re.I):
+        return True
+    # Extracted Doocs slices often omit the h1 — match significant title words in body text.
+    plain = re.sub(r"<[^>]+>", " ", html).lower()
+    title_words = [w for w in re.findall(r"[a-z0-9]+", q.get("title", "").lower()) if len(w) > 3]
+    if len(title_words) >= 2:
+        hits = sum(1 for w in title_words[:5] if w in plain)
+        if hits >= min(2, len(title_words)):
+            return True
+    return False
+
+
+PREMIUM_STAR = "★"
+PREMIUM_STAR_PLAIN = "*"   # ASCII fallback for PDF bookmarks / plain text
+
+
+def is_premium_question(q: dict) -> bool:
+    return any("premium" in str(s).lower() for s in q.get("source", []))
+
+
+def premium_star_markup(*, bold: bool = False) -> str:
+    """ReportLab Paragraph markup — Lucida Grande cannot render ★."""
+    if _HAS_SYM_FONT:
+        inner = f'<font name="Sym">{PREMIUM_STAR}</font>'
+        return f"<b>{inner}</b>" if bold else inner
+    ch = PREMIUM_STAR_PLAIN
+    return f"<b>{ch}</b>" if bold else ch
+
+
+def premium_question_prefix(q: dict) -> str:
+    return f"{premium_star_markup()} " if is_premium_question(q) else ""
+
+
+def premium_question_suffix(q: dict) -> str:
+    return f" {premium_star_markup()}" if is_premium_question(q) else ""
+
+
+_HTML_TAG_RE = re.compile(
+    r"<\s*/?\s*(?:p|pre|ul|ol|li|h[1-6]|div|img|code|strong|em|a)\b",
+    re.I,
+)
+
+
+def is_html_description(desc: str) -> bool:
+    """True only for Doocs HTML — plain text with '<=' must not use the HTML parser."""
+    if not desc:
+        return False
+    return bool(_HTML_TAG_RE.search(desc))
+
+
+_PLAIN_STRUCT_RE = re.compile(
+    r"^(Example\s+\d+|Input:|Output:|Explanation:|Constraints:|[•\*\-]\s|\d+\.\s)",
+    re.I,
+)
+
+
+def plain_desc_to_paragraphs(desc: str, style) -> list:
+    """Render plain-text fallback — merge scraped single-word lines into real paragraphs."""
+    from reportlab.platypus import Paragraph
+    flowables = []
+    for block in re.split(r"\n{2,}", desc.strip()):
+        lines = [ln.strip() for ln in block.split("\n") if ln.strip()]
+        if not lines:
+            continue
+        buf: list[str] = []
+        for line in lines:
+            if _PLAIN_STRUCT_RE.match(line):
+                if buf:
+                    flowables.append(Paragraph(safe_xml(" ".join(buf)), style))
+                    buf = []
+                flowables.append(Paragraph(safe_xml(line), style))
+            else:
+                buf.append(line)
+        if buf:
+            flowables.append(Paragraph(safe_xml(" ".join(buf)), style))
+    return flowables
+
+
+def format_question_label(q: dict, *, safe_title: bool = False, plain: bool = False) -> str:
+    """TOC / bookmark label, e.g. '★ #159 Two Sum…' for Premium 98 questions."""
+    title = safe_xml(q["title"])
+    if plain:
+        star = f"{PREMIUM_STAR_PLAIN} " if is_premium_question(q) else ""
+        return f"{star}#{q['id']} {title}"
+    return f"{premium_question_prefix(q)}#{q['id']} {title}"
+
+
+def repair_doocs_cache(cache: dict) -> int:
+    """Normalize cached desc_html to extracted problem statements only."""
+    fixed = 0
+    for qid, entry in list(cache.items()):
+        raw = entry.get("desc_html")
+        if not raw:
+            continue
+        clean = extract_doocs_description(raw)
+        if clean and clean != raw:
+            entry["desc_html"] = clean
+            fixed += 1
+        elif not clean and any(s in raw for s in _SIDEBAR_MARKERS):
+            entry["desc_html"] = ""
+            fixed += 1
+    return fixed
+
+
+def get_question_desc_html(q: dict, doocs_cache: dict, lc_cache: dict | None = None) -> str:
+    """Best description for PDFs: Doocs (by question id) → LC cache → questions_full.json."""
+    qid = str(q["id"])
+    slug = q.get("slug", "")
+    lc_cache = lc_cache or {}
+
+    # Doocs cache is keyed by LeetCode id — authoritative when present and clean.
+    doocs_raw = doocs_cache.get(qid, {}).get("desc_html")
+    if doocs_raw:
+        html = extract_doocs_description(doocs_raw) or doocs_raw
+        if html and len(html.strip()) > 40 and not any(s in doocs_raw for s in _SIDEBAR_MARKERS):
+            return html
+
+    lc_raw = lc_cache.get(slug, {}).get("desc_html")
+    if lc_raw:
+        html = extract_doocs_description(lc_raw) or lc_raw
+        if html and desc_matches_question(q, html):
+            return html
+
+    return (q.get("description") or "").strip()
+
+
 # ── Doocs scraper — description + all-language solutions ──────────────────────
 def scrape_doocs_full(qid):
     """
@@ -1952,11 +2144,8 @@ def scrape_doocs_full(qid):
     if not html:
         return {"desc_html": None, "blocks": []}
 
-    # ── Description between markers ──────────────────────────────────────────
-    desc_html = None
-    dm = re.search(r"<!-- description:start -->([\s\S]*?)<!-- description:end -->", html, re.I)
-    if dm:
-        desc_html = dm.group(1).strip()
+    # ── Description between markers (store extracted slice only) ─────────────
+    desc_html = extract_doocs_description(html) or None
 
     # ── All language code blocks (highlight table) ────────────────────────────
     blocks, seen = [], set()
@@ -2386,15 +2575,15 @@ def desc_to_flowables(desc_html, styles, printable=False, bold=False):
         # <p>
         if m.group(13) is not None:
             inner = m.group(13) or ""
-            # Image inside <p> (glightbox anchor or bare img)
-            img_src = re.search(r'(?:src|href)=["\x27](https://fastly\.jsdelivr[^"\x27>\s]+)["\x27]', inner, re.I)
+            # Image inside <p> (glightbox anchor or bare img) — any CDN, not only jsDelivr.
+            img_src = re.search(r'(?:src|href)=["\x27](https?://[^"\x27>\s]+)["\x27]', inner, re.I)
             if img_src:
                 url = img_src.group(1)
                 if "shields.io" not in url and "badge" not in url.lower():
                     img_fl = rl_image(url)
                     if img_fl:
                         flowables += [Spacer(1,4), img_fl, Spacer(1,4)]
-                continue
+                        continue
             text = _inline(inner, printable, bold).strip()
             if text and text != " ":
                 try:

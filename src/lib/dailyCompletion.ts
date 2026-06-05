@@ -1,18 +1,69 @@
 /**
  * Daily block completion - independent of Learn progress.solved for today.
  * Past plan days still credit prior solved so you don't redo Day 1-7.
- * Today / catch-up = Daily reps (localStorage) OR last_daily_done = today (DB).
+ * Today / catch-up = Daily reps on progress (DB) OR last_daily_done = today (DB).
  */
 
 import { diffDaysSincePlanStart, todayISOChicago, type StudyPlanForStreak } from './studyPlanDay'
 
 export const DAILY_REPS_PREFIX = 'lm_daily_reps_'
+export const DAILY_REPS_CHANGED = 'lm-daily-reps-changed'
+
+export function notifyDailyRepsChanged() {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event(DAILY_REPS_CHANGED))
+}
+
+/** Supabase DATE / timestamps → YYYY-MM-DD for reliable === today checks. */
+export function normalizeRepDate(d: unknown): string | null {
+  if (d == null || d === '') return null
+  const m = String(d).match(/^(\d{4}-\d{2}-\d{2})/)
+  return m ? m[1] : null
+}
 
 export type DailyProgressSlice = {
   last_daily_done?: string | null
+  daily_rep_count?: number
+  daily_rep_date?: string | null
   solved?: boolean
 }
 
+/** Today's rep count for one question — DB progress row is source of truth. */
+export function getDailyRepCount(
+  id: number,
+  progress: Record<string, DailyProgressSlice | undefined>,
+  today = todayISOChicago(),
+  dailyReps?: Record<string, number>,
+): number {
+  const row = progress[String(id)]
+  let dbCount = 0
+  if (normalizeRepDate(row?.daily_rep_date) === today && (row.daily_rep_count ?? 0) > 0) {
+    dbCount = row.daily_rep_count!
+  }
+  const fromMap = dailyReps?.[String(id)]
+  if (fromMap !== undefined && fromMap > dbCount) return fromMap
+  const local = readDailyRepsLocal(today)[String(id)] ?? 0
+  return Math.max(dbCount, local)
+}
+
+/** Map of question id → rep count for today, derived from progress rows. */
+export function dailyRepsFromProgress(
+  progress: Record<string, DailyProgressSlice | undefined>,
+  today = todayISOChicago(),
+): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const [id, row] of Object.entries(progress)) {
+    if (normalizeRepDate(row?.daily_rep_date) === today && (row.daily_rep_count ?? 0) > 0) {
+      out[id] = row.daily_rep_count!
+    }
+  }
+  for (const [id, count] of Object.entries(readDailyRepsLocal(today))) {
+    if (count > (out[id] ?? 0)) out[id] = count
+  }
+  return out
+}
+
+/** Legacy localStorage read — backup when DB sync lags (same device / offline). */
 export function readDailyRepsLocal(today = todayISOChicago()): Record<string, number> {
   if (typeof window === 'undefined') return {}
   try {
@@ -22,20 +73,11 @@ export function readDailyRepsLocal(today = todayISOChicago()): Record<string, nu
   }
 }
 
-export function bumpDailyRepLocal(questionId: number, today = todayISOChicago()): number {
-  if (typeof window === 'undefined') return 0
-  const reps = readDailyRepsLocal(today)
-  const next = (reps[String(questionId)] ?? 0) + 1
-  reps[String(questionId)] = next
-  localStorage.setItem(`${DAILY_REPS_PREFIX}${today}`, JSON.stringify(reps))
-  return next
-}
-
-export function setDailyRepsLocal(questionId: number, count: number, today = todayISOChicago()): void {
+export function writeDailyRepsLocal(questionId: number, count: number, today = todayISOChicago()) {
   if (typeof window === 'undefined') return
-  const reps = readDailyRepsLocal(today)
-  reps[String(questionId)] = count
-  localStorage.setItem(`${DAILY_REPS_PREFIX}${today}`, JSON.stringify(reps))
+  const map = readDailyRepsLocal(today)
+  map[String(questionId)] = count
+  localStorage.setItem(`${DAILY_REPS_PREFIX}${today}`, JSON.stringify(map))
 }
 
 export function isQuestionDoneForDailyToday(
@@ -45,8 +87,8 @@ export function isQuestionDoneForDailyToday(
   dailyReps?: Record<string, number>,
   repsPerQ = 2,
 ): boolean {
-  if ((dailyReps?.[String(id)] ?? 0) >= repsPerQ) return true
-  return progress[String(id)]?.last_daily_done === today
+  if (getDailyRepCount(id, progress, today, dailyReps) >= repsPerQ) return true
+  return normalizeRepDate(progress[String(id)]?.last_daily_done) === today
 }
 
 /** Whether a strict-plan day slot is cleared (past days vs today/catch-up). */
