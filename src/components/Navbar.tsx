@@ -138,14 +138,6 @@ export default function Navbar() {
                 <><RefreshCw size={11} /><span className="hidden sm:inline">Get Latest</span></>
               )}
             </button>
-            {/* Desktop logout */}
-            <button
-              onClick={handleLogout}
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--text-subtle)] hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all duration-150"
-            >
-              <LogOut size={14} />
-              <span className="font-medium">Logout</span>
-            </button>
             {/* Mobile hamburger */}
             <button
               onClick={() => setOpen(o => !o)}
@@ -241,17 +233,6 @@ export default function Navbar() {
               </React.Fragment>
             ))}
 
-            {/* Logout */}
-            <div className="h-px my-2 rounded-full" style={{ background: 'var(--border)' }} />
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-500/10 w-full transition-colors"
-            >
-              <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
-                <LogOut size={14} className="text-red-500" />
-              </div>
-              Logout
-            </button>
           </div>
         </>
       )}
