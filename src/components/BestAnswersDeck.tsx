@@ -1,9 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Check, Copy, ExternalLink, LayoutGrid, Loader2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, Copy, ExternalLink, LayoutGrid, Loader2, Star } from 'lucide-react'
 
-import { BEST_ANSWER_SITES } from '@/components/BestAnswersPanel'
+import {
+  BEST_ANSWER_SITES,
+  buildBestAnswerLangGroups,
+  labelForLang,
+  type BestAnswerDeckCard,
+} from '@/lib/bestAnswersMerge'
+import { useLeetCodeAcceptedBlocks } from '@/lib/useLeetCodeAcceptedBlocks'
 
 type SiteKey = (typeof BEST_ANSWER_SITES)[number]['key']
 
@@ -13,17 +19,6 @@ type SiteState = {
   blocks: CodeBlock[]
   url: string
   error?: string
-}
-
-// ─── Language helpers ─────────────────────────────────────────────────────────
-
-const DISPLAY_LANG_ORDER = ['python', 'cpp', 'javascript'] as const
-
-function labelForLang(lang: string) {
-  if (lang === 'cpp')        return 'C++'
-  if (lang === 'javascript') return 'JavaScript'
-  if (lang === 'python')     return 'Python'
-  return lang.charAt(0).toUpperCase() + lang.slice(1)
 }
 
 const LANG_TAB: Record<string, { active: string; inactive: string }> = {
@@ -39,8 +34,6 @@ function langTabCls(lang: string, isActive: boolean) {
     : 'text-indigo-400 border-indigo-700/50 bg-indigo-900/20 hover:border-indigo-500'
   return isActive ? c.active : c.inactive
 }
-
-// ─── Syntax-highlighted code block (mirrors BestAnswersPanel) ─────────────────
 
 function HighlightedCode({ code, lang }: { code: string; lang: string }) {
   const ref  = useRef<HTMLElement>(null)
@@ -88,8 +81,6 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
   )
 }
 
-// ─── Data types ───────────────────────────────────────────────────────────────
-
 const emptyStates = (): Record<SiteKey, SiteState> => ({
   walkccc:    { status: 'idle', blocks: [], url: '' },
   doocs:      { status: 'idle', blocks: [], url: '' },
@@ -104,23 +95,12 @@ export type BestAnswersDeckProps = {
   className?: string
 }
 
-type DeckCard = {
-  siteKey: SiteKey
-  siteLabel: string
-  siteColor: string
-  url: string
-  code: string
-  lang: string
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export default function BestAnswersDeck({ questionId, slug, active, className = '' }: BestAnswersDeckProps) {
   const [states,    setStates]    = useState<Record<SiteKey, SiteState>>(emptyStates)
   const [activeLang, setActiveLang] = useState<string | null>(null)
   const [langIdx,   setLangIdx]   = useState(0)
+  const { blocks: lcBlocks, loading: lcLoading } = useLeetCodeAcceptedBlocks(slug, active)
 
-  // Inject hljs theme stylesheet once (shared with BestAnswersPanel)
   useEffect(() => {
     if (typeof document === 'undefined') return
     if (!document.getElementById('hljs-theme-best-answers')) {
@@ -163,45 +143,13 @@ export default function BestAnswersDeck({ questionId, slug, active, className = 
     for (const s of BEST_ANSWER_SITES) fetchSite(s.key, questionId, slug)
   }, [active, slug, questionId, fetchSite])
 
-  // All cards, flat
-  const allCards = useMemo((): DeckCard[] => {
-    const cards: DeckCard[] = []
-    for (const site of BEST_ANSWER_SITES) {
-      const s = states[site.key]
-      if (!s?.blocks?.length) continue
-      for (const b of s.blocks) {
-        cards.push({
-          siteKey:   site.key,
-          siteLabel: site.label,
-          siteColor: site.color,
-          url:       s.url,
-          code:      b.code,
-          lang:      b.lang,
-        })
-      }
-    }
-    return cards
-  }, [states])
-
-  // Group by language, sorted by DISPLAY_LANG_ORDER
-  const langGroups = useMemo(() => {
-    const map = new Map<string, DeckCard[]>()
-    for (const card of allCards) {
-      const existing = map.get(card.lang) ?? []
-      existing.push(card)
-      map.set(card.lang, existing)
-    }
-    const sortedLangs = [...map.keys()].sort((a, b) => {
-      const ai = DISPLAY_LANG_ORDER.indexOf(a as typeof DISPLAY_LANG_ORDER[number])
-      const bi = DISPLAY_LANG_ORDER.indexOf(b as typeof DISPLAY_LANG_ORDER[number])
-      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
-    })
-    return sortedLangs.map(lang => ({ lang, cards: map.get(lang)! }))
-  }, [allCards])
+  const langGroups = useMemo(
+    () => buildBestAnswerLangGroups(states, lcBlocks, slug),
+    [states, lcBlocks, slug],
+  )
 
   const langs = langGroups.map(g => g.lang)
 
-  // Auto-select first language when groups populate
   useEffect(() => {
     if (langs.length > 0 && (activeLang === null || !langs.includes(activeLang))) {
       setActiveLang(langs[0])
@@ -209,17 +157,15 @@ export default function BestAnswersDeck({ questionId, slug, active, className = 
     }
   }, [langs, activeLang])
 
-  // Reset card index on language or question change
   useEffect(() => { setLangIdx(0) }, [activeLang, questionId, slug])
 
   const currentGroup = langGroups.find(g => g.lang === activeLang)
-  const currentCards = currentGroup?.cards ?? []
-  const card         = currentCards[langIdx] ?? null
-  const anyLoading   = Object.values(states).some(s => s.status === 'loading')
+  const currentCards: BestAnswerDeckCard[] = currentGroup?.cards ?? []
+  const card = currentCards[langIdx] ?? null
+  const anyLoading = Object.values(states).some(s => s.status === 'loading') || lcLoading
 
   return (
     <div className={className}>
-      {/* Header */}
       <div className="flex items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-gray-300">Best answers</span>
@@ -229,7 +175,6 @@ export default function BestAnswersDeck({ questionId, slug, active, className = 
           {anyLoading && <Loader2 size={12} className="animate-spin text-gray-600" />}
         </div>
 
-        {/* Source link */}
         {card?.url && (
           <a
             href={card.url}
@@ -237,40 +182,57 @@ export default function BestAnswersDeck({ questionId, slug, active, className = 
             rel="noopener noreferrer"
             className="flex items-center gap-1 text-[10px] text-indigo-400 hover:underline"
           >
-            <ExternalLink size={11} /> {card.siteLabel}
+            <ExternalLink size={11} />
+            {card.isLeetCodeAccepted ? 'LeetCode submissions' : card.siteLabel}
           </a>
         )}
       </div>
 
-      {/* Language tabs */}
       {langs.length > 0 && (
         <div className="flex gap-1.5 mb-2 flex-wrap">
-          {langGroups.map(({ lang, cards }) => (
-            <button
-              key={lang}
-              type="button"
-              onClick={() => { setActiveLang(lang); setLangIdx(0) }}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-bold border transition-colors ${langTabCls(lang, activeLang === lang)}`}
-            >
-              {labelForLang(lang)}
-              <span className="ml-1 font-normal opacity-60">·{cards.length}</span>
-            </button>
-          ))}
+          {langGroups.map(({ lang, cards }) => {
+            const hasMine = cards.some(c => c.isLeetCodeAccepted)
+            return (
+              <button
+                key={lang}
+                type="button"
+                onClick={() => { setActiveLang(lang); setLangIdx(0) }}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-bold border transition-colors flex items-center gap-1 ${langTabCls(lang, activeLang === lang)}`}
+              >
+                {hasMine && <Star size={10} className={activeLang === lang ? 'fill-current' : 'fill-amber-400 text-amber-400'} />}
+                {labelForLang(lang)}
+                <span className="ml-0.5 font-normal opacity-60">·{cards.length}</span>
+              </button>
+            )
+          })}
         </div>
       )}
 
-      {/* Card */}
       {!card ? (
         <div className="rounded-xl border border-gray-700/50 bg-gray-900/30 p-4 text-xs text-gray-500 flex items-center gap-2">
           {anyLoading
-            ? <><Loader2 size={14} className="animate-spin text-gray-600" /><span>Fetching best answers…</span></>
+            ? <><Loader2 size={14} className="animate-spin text-gray-600" /><span>{lcLoading ? 'Loading your submissions…' : 'Fetching best answers…'}</span></>
             : <><LayoutGrid size={14} className="text-gray-600" /><span>No best answers found yet.</span></>}
         </div>
       ) : (
-        <div className="rounded-xl border border-gray-700/40 bg-gray-900/20 overflow-hidden">
-          {/* Card header: source name + prev/next */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700/40 bg-gray-900/30">
-            <span className={`text-[11px] font-bold ${card.siteColor}`}>{card.siteLabel}</span>
+        <div className={`rounded-xl border overflow-hidden ${
+          card.isLeetCodeAccepted
+            ? 'border-amber-500/40 bg-amber-500/5'
+            : 'border-gray-700/40 bg-gray-900/20'
+        }`}>
+          <div className={`flex items-center justify-between px-3 py-2 border-b ${
+            card.isLeetCodeAccepted
+              ? 'border-amber-500/20 bg-amber-600/10'
+              : 'border-gray-700/40 bg-gray-900/30'
+          }`}>
+            {card.isLeetCodeAccepted ? (
+              <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1.5">
+                <Star size={11} className="fill-amber-400" />
+                Your LeetCode · most recent AC
+              </span>
+            ) : (
+              <span className={`text-[11px] font-bold ${card.siteColor}`}>{card.siteLabel}</span>
+            )}
 
             {currentCards.length > 1 && (
               <div className="flex items-center gap-1">
@@ -294,7 +256,6 @@ export default function BestAnswersDeck({ questionId, slug, active, className = 
             )}
           </div>
 
-          {/* Syntax-highlighted code */}
           <div className="p-2">
             <HighlightedCode code={card.code} lang={card.lang} />
           </div>
@@ -303,3 +264,5 @@ export default function BestAnswersDeck({ questionId, slug, active, className = 
     </div>
   )
 }
+
+export { BEST_ANSWER_SITES }

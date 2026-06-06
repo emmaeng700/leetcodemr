@@ -3,15 +3,18 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   ExternalLink, Loader2, AlertCircle, Copy, Check,
-  LayoutGrid, Layers, ChevronLeft, ChevronRight,
+  LayoutGrid, Layers, ChevronLeft, ChevronRight, Star,
 } from 'lucide-react'
+import {
+  BEST_ANSWER_SITES,
+  buildBestAnswerDeck,
+  compareDisplayLang,
+  labelForLang,
+  type BestAnswerDeckCard,
+} from '@/lib/bestAnswersMerge'
+import { useLeetCodeAcceptedBlocks } from '@/lib/useLeetCodeAcceptedBlocks'
 
-export const BEST_ANSWER_SITES = [
-  { key: 'walkccc',    label: 'WalkCC',      color: 'text-blue-400',    border: 'border-blue-500/30',    bg: 'bg-blue-500/5'    },
-  { key: 'doocs',      label: 'LeetDoocs',   color: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/5' },
-  { key: 'simplyleet', label: 'SimplyLeet',  color: 'text-purple-400',  border: 'border-purple-500/30',  bg: 'bg-purple-500/5'  },
-  { key: 'leetcodeca', label: 'LeetCode.ca', color: 'text-orange-400',  border: 'border-orange-500/30',  bg: 'bg-orange-500/5'  },
-] as const
+export { BEST_ANSWER_SITES }
 
 type SiteKey = (typeof BEST_ANSWER_SITES)[number]['key']
 
@@ -23,21 +26,20 @@ interface SiteState {
   error?: string
 }
 
-const DISPLAY_LANG_ORDER = ['python', 'cpp', 'javascript'] as const
-
-function compareDisplayLang(a: string, b: string) {
-  const ai = DISPLAY_LANG_ORDER.indexOf(a as (typeof DISPLAY_LANG_ORDER)[number])
-  const bi = DISPLAY_LANG_ORDER.indexOf(b as (typeof DISPLAY_LANG_ORDER)[number])
-  const av = ai === -1 ? Number.MAX_SAFE_INTEGER : ai
-  const bv = bi === -1 ? Number.MAX_SAFE_INTEGER : bi
-  if (av !== bv) return av - bv
-  return a.localeCompare(b)
-}
-
-function labelForLang(lang: string) {
-  if (lang === 'cpp') return 'C++'
-  if (lang === 'javascript') return 'JavaScript'
-  return lang
+function sortBlocksByLang<T extends { lang: string }>(
+  blocks: T[],
+  normalizedPreferredLangs: string[],
+): T[] {
+  return [...blocks].sort((a, b) => {
+    const ai = normalizedPreferredLangs.indexOf(a.lang)
+    const bi = normalizedPreferredLangs.indexOf(b.lang)
+    if (ai !== -1 || bi !== -1) {
+      const av = ai === -1 ? Number.MAX_SAFE_INTEGER : ai
+      const bv = bi === -1 ? Number.MAX_SAFE_INTEGER : bi
+      if (av !== bv) return av - bv
+    }
+    return compareDisplayLang(a.lang, b.lang)
+  })
 }
 
 const emptyStates = (): Record<SiteKey, SiteState> => ({
@@ -113,6 +115,7 @@ export default function BestAnswersPanel({
   const [states, setStates]     = useState<Record<SiteKey, SiteState>>(emptyStates)
   const [viewMode, setViewMode] = useState<'grid' | 'flashcard'>('flashcard')
   const [cardIdx, setCardIdx]   = useState(0)
+  const { blocks: lcBlocks, loading: lcLoading } = useLeetCodeAcceptedBlocks(slug, active)
 
   /* inject highlight.js stylesheet once */
   useEffect(() => {
@@ -155,14 +158,7 @@ export default function BestAnswersPanel({
     for (const s of BEST_ANSWER_SITES) fetchSite(s.key, questionId, slug)
   }, [active, slug, questionId, fetchSite])
 
-  type DeckCard = {
-    siteKey: SiteKey
-    siteLabel: string
-    siteColor: string
-    url: string
-    code: string
-    lang: string
-  }
+  type DeckCard = BestAnswerDeckCard
 
   const normalizedPreferredLangs = useMemo(
     () => (preferredLangs ?? []).map(lang => lang.toLowerCase().trim()),
@@ -170,33 +166,8 @@ export default function BestAnswersPanel({
   )
 
   const deck = useMemo((): DeckCard[] => {
-    const cards: DeckCard[] = []
-    for (const site of BEST_ANSWER_SITES) {
-      const s = states[site.key]
-      if (!s || !s.blocks?.length) continue
-      for (const b of s.blocks) {
-        cards.push({
-          siteKey: site.key,
-          siteLabel: site.label,
-          siteColor: site.color,
-          url: s.url,
-          code: b.code,
-          lang: b.lang,
-        })
-      }
-    }
-    cards.sort((a, b) => {
-      const ai = normalizedPreferredLangs.indexOf(a.lang)
-      const bi = normalizedPreferredLangs.indexOf(b.lang)
-      if (ai !== -1 || bi !== -1) {
-        const av = ai === -1 ? Number.MAX_SAFE_INTEGER : ai
-        const bv = bi === -1 ? Number.MAX_SAFE_INTEGER : bi
-        if (av !== bv) return av - bv
-      }
-      return compareDisplayLang(a.lang, b.lang)
-    })
-    return cards
-  }, [states, normalizedPreferredLangs])
+    return buildBestAnswerDeck(states, lcBlocks, slug, normalizedPreferredLangs)
+  }, [states, lcBlocks, slug, normalizedPreferredLangs])
 
   useEffect(() => {
     // Reset deck navigation when question changes / answers refetch.
@@ -216,6 +187,27 @@ export default function BestAnswersPanel({
 
   return (
     <div className={`relative z-20 pointer-events-auto ${className}`}>
+
+      {/* ── Your LeetCode (most recent AC per language) ─────────────────── */}
+      {lcBlocks.length > 0 && (
+        <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-amber-500/20 bg-amber-600/10">
+            <Star size={12} className="text-amber-400 fill-amber-400 shrink-0" />
+            <span className="text-xs font-bold text-amber-300">Your LeetCode — most recent accepted</span>
+            {lcLoading && <Loader2 size={12} className="animate-spin text-amber-500/70 ml-auto" />}
+          </div>
+          <div className="p-2 space-y-3">
+            {lcBlocks.map(b => (
+              <div key={b.lang}>
+                <p className="text-[10px] font-semibold text-amber-400/90 mb-1.5 uppercase tracking-wide">
+                  ★ {labelForLang(b.lang)}
+                </p>
+                <HighlightedCode code={b.code} lang={b.lang} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── View mode toggle ──────────────────────────────────────────────── */}
       <div className="relative z-20 flex items-center gap-2 mb-4 pointer-events-auto">
@@ -285,16 +277,7 @@ export default function BestAnswersPanel({
                       {s.url && <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-400 hover:underline">Open on site →</a>}
                     </div>
                   )}
-                  {s.status === 'done' && [...s.blocks].sort((a, b) => {
-                    const ai = normalizedPreferredLangs.indexOf(a.lang)
-                    const bi = normalizedPreferredLangs.indexOf(b.lang)
-                    if (ai !== -1 || bi !== -1) {
-                      const av = ai === -1 ? Number.MAX_SAFE_INTEGER : ai
-                      const bv = bi === -1 ? Number.MAX_SAFE_INTEGER : bi
-                      if (av !== bv) return av - bv
-                    }
-                    return compareDisplayLang(a.lang, b.lang)
-                  }).map((b, i) => (
+                  {s.status === 'done' && sortBlocksByLang(s.blocks, normalizedPreferredLangs).map((b, i) => (
                     <div key={i} className="mb-3 last:mb-0">
                       <HighlightedCode code={b.code} lang={b.lang} />
                     </div>
@@ -369,16 +352,28 @@ export default function BestAnswersPanel({
             return (
               <div className="relative z-10 rounded-2xl border-2 border-indigo-500/30 bg-gradient-to-br from-[#0f1729] to-gray-900 overflow-hidden pointer-events-auto">
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-indigo-500/20 bg-indigo-600/10">
-                  <div className="text-[11px] text-gray-500">
-                    <span className="font-semibold text-gray-300">★ Best Answer</span>
-                    {card ? (
+                  <div className="text-[11px] text-gray-500 flex items-center gap-1.5 flex-wrap">
+                    {card?.isLeetCodeAccepted ? (
                       <>
-                        <span className="mx-2 text-gray-600">·</span>
-                        <span className={`font-bold ${card.siteColor}`}>{card.siteLabel}</span>
-                        <span className="mx-2 text-gray-600">·</span>
+                        <Star size={11} className="text-amber-400 fill-amber-400 shrink-0" />
+                        <span className="font-semibold text-amber-300">Your LeetCode</span>
+                        <span className="text-gray-600">·</span>
                         <span className="font-semibold text-gray-300">{labelForLang(card.lang)}</span>
+                        <span className="text-amber-500/80 text-[10px]">most recent AC</span>
                       </>
-                    ) : null}
+                    ) : (
+                      <>
+                        <span className="font-semibold text-gray-300">Best Answer</span>
+                        {card ? (
+                          <>
+                            <span className="mx-1 text-gray-600">·</span>
+                            <span className={`font-bold ${card.siteColor}`}>{card.siteLabel}</span>
+                            <span className="mx-1 text-gray-600">·</span>
+                            <span className="font-semibold text-gray-300">{labelForLang(card.lang)}</span>
+                          </>
+                        ) : null}
+                      </>
+                    )}
                   </div>
                   {card?.url ? (
                     <a
@@ -405,7 +400,7 @@ export default function BestAnswersPanel({
                   ) : (
                     <div className="flex items-center justify-center gap-2 text-xs text-gray-500 py-10">
                       <Loader2 size={16} className="animate-spin text-gray-600" />
-                      <span>Fetching best answers…</span>
+                      <span>{lcLoading ? 'Loading your LeetCode submissions…' : 'Fetching best answers…'}</span>
                     </div>
                   )}
                 </div>
