@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { getProgress, updateProgress, incrementAcSubmitCount } from '@/lib/db'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
-import { normalizeLcCookieValue, getCookieFromHeader } from '@/lib/leetcodeHttp'
+import { normalizeLcCookieValue, getCookieFromHeader, hasCfClearance } from '@/lib/leetcodeHttp'
 import { lcFetch, getLocalConnectorStatus } from '@/lib/leetcodeLocalConnector'
 import { extBridgeHealthy, hasLeetMasteryBridge } from '@/lib/leetcodeExtensionBridge'
 import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
@@ -259,6 +259,7 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
   const [cleaned, setCleaned] = useState(false)
 
   const isCookieJar = /LEETCODE_SESSION\s*=/.test(s) && s.includes(';')
+  const cfClearance = isCookieJar && hasCfClearance(s)
   const canSave = s.trim().length > 10
 
   /**
@@ -299,8 +300,11 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
         <br />
         <span className="text-gray-500">(Includes cf_clearance needed for Run/Submit. Or paste just your LEETCODE_SESSION value.)</span>
       </p>
-      {isCookieJar && (
+      {cfClearance && (
         <p className="text-[10px] text-green-400 font-semibold">✓ Full cookie header detected — cf_clearance included</p>
+      )}
+      {isCookieJar && !cfClearance && (
+        <p className="text-[10px] text-amber-400 font-semibold">Cookie header saved, but cf_clearance is missing — Run/Submit may return HTTP 403 on the deployed app. Re-copy Cookie from leetcode.com or use the extension / lc:connector.</p>
       )}
 
       <div className="flex gap-1.5">

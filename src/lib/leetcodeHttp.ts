@@ -25,7 +25,6 @@ export function normalizeLcCookieValue(raw: unknown): string {
   return s
 }
 
-/** Extract a cookie value from a Cookie header string. */
 export function getCookieFromHeader(cookieHeaderRaw: string, name: string): string {
   const cookieHeader = String(cookieHeaderRaw ?? '').trim()
   if (!cookieHeader) return ''
@@ -37,6 +36,11 @@ export function getCookieFromHeader(cookieHeaderRaw: string, name: string): stri
     if (k.trim() === name) return rest.join('=').trim()
   }
   return ''
+}
+
+/** True when a pasted cookie jar includes Cloudflare clearance (needed for Vercel Run/Submit). */
+export function hasCfClearance(cookieHeaderRaw: string): boolean {
+  return !!getCookieFromHeader(cookieHeaderRaw, 'cf_clearance')
 }
 
 /**
