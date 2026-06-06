@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Check, Copy, ExternalLink, LayoutGrid, Loader2, Star } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, Copy, ExternalLink, LayoutGrid, Loader2, Star, ChevronDown } from 'lucide-react'
 
 import {
   BEST_ANSWER_SITES,
@@ -9,6 +9,7 @@ import {
   labelForLang,
   type BestAnswerDeckCard,
 } from '@/lib/bestAnswersMerge'
+import CollapsibleLcAcceptedBlocks from '@/components/CollapsibleLcAcceptedBlocks'
 import { useLeetCodeAcceptedBlocks } from '@/lib/useLeetCodeAcceptedBlocks'
 
 type SiteKey = (typeof BEST_ANSWER_SITES)[number]['key']
@@ -99,6 +100,7 @@ export default function BestAnswersDeck({ questionId, slug, active, className = 
   const [states,    setStates]    = useState<Record<SiteKey, SiteState>>(emptyStates)
   const [activeLang, setActiveLang] = useState<string | null>(null)
   const [langIdx,   setLangIdx]   = useState(0)
+  const [lcCodeOpen, setLcCodeOpen] = useState(false)
   const { blocks: lcBlocks, loading: lcLoading } = useLeetCodeAcceptedBlocks(slug, active)
 
   useEffect(() => {
@@ -140,6 +142,7 @@ export default function BestAnswersDeck({ questionId, slug, active, className = 
     setStates(emptyStates())
     setActiveLang(null)
     setLangIdx(0)
+    setLcCodeOpen(false)
     for (const s of BEST_ANSWER_SITES) fetchSite(s.key, questionId, slug)
   }, [active, slug, questionId, fetchSite])
 
@@ -157,7 +160,14 @@ export default function BestAnswersDeck({ questionId, slug, active, className = 
     }
   }, [langs, activeLang])
 
-  useEffect(() => { setLangIdx(0) }, [activeLang, questionId, slug])
+  useEffect(() => {
+    setLangIdx(0)
+    setLcCodeOpen(false)
+  }, [activeLang, questionId, slug])
+
+  useEffect(() => {
+    setLcCodeOpen(false)
+  }, [langIdx])
 
   const currentGroup = langGroups.find(g => g.lang === activeLang)
   const currentCards: BestAnswerDeckCard[] = currentGroup?.cards ?? []
@@ -166,6 +176,16 @@ export default function BestAnswersDeck({ questionId, slug, active, className = 
 
   return (
     <div className={className}>
+      {lcBlocks.length > 0 && (
+        <CollapsibleLcAcceptedBlocks
+          blocks={lcBlocks}
+          loading={lcLoading}
+          resetKey={`${questionId}-${slug}`}
+          className="mb-3"
+          renderCode={(code, lang) => <HighlightedCode code={code} lang={lang} />}
+        />
+      )}
+
       <div className="flex items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-gray-300">Best answers</span>
@@ -226,10 +246,24 @@ export default function BestAnswersDeck({ questionId, slug, active, className = 
               : 'border-gray-700/40 bg-gray-900/30'
           }`}>
             {card.isLeetCodeAccepted ? (
-              <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1.5">
-                <Star size={11} className="fill-amber-400" />
-                Your LeetCode · most recent AC
-              </span>
+              <button
+                type="button"
+                onClick={() => setLcCodeOpen(v => !v)}
+                style={{ touchAction: 'manipulation' }}
+                className="flex items-center gap-1.5 text-left min-w-0 flex-1"
+                aria-expanded={lcCodeOpen}
+              >
+                {lcCodeOpen
+                  ? <ChevronDown size={11} className="text-amber-400 shrink-0" />
+                  : <ChevronRight size={11} className="text-amber-400 shrink-0" />}
+                <Star size={11} className="fill-amber-400 text-amber-400 shrink-0" />
+                <span className="text-[11px] font-bold text-amber-400">
+                  Your LeetCode · {labelForLang(card.lang)}
+                </span>
+                <span className="text-[10px] font-medium text-amber-500/80">
+                  {lcCodeOpen ? 'Hide' : 'Show'}
+                </span>
+              </button>
             ) : (
               <span className={`text-[11px] font-bold ${card.siteColor}`}>{card.siteLabel}</span>
             )}
@@ -257,7 +291,13 @@ export default function BestAnswersDeck({ questionId, slug, active, className = 
           </div>
 
           <div className="p-2">
-            <HighlightedCode code={card.code} lang={card.lang} />
+            {card.isLeetCodeAccepted && !lcCodeOpen ? (
+              <p className="text-xs text-amber-500/80 text-center py-6">
+                Tap Show to reveal your accepted solution.
+              </p>
+            ) : (
+              <HighlightedCode code={card.code} lang={card.lang} />
+            )}
           </div>
         </div>
       )}
