@@ -1328,15 +1328,19 @@ function LearnInner() {
               appQuestionId={q.id}
               slug={q.slug}
               preferredLangs={q.tags?.includes('JavaScript') ? ['javascript', 'python3', 'cpp'] : undefined}
-              onAccepted={async () => {
+              onAccepted={() => {
                 toast.success('Accepted! Moving to next question.', { duration: 2000 })
-                if (due && !reviewDone) await handleCompleteReview()
+                // Fire confetti and advance immediately — don't block the UI on the
+                // review-completion network round trip (it was adding a noticeable
+                // lag before the celebration / next-question transition).
                 if (q && cycleRange) {
                   const isNew = recordCycleAccepted(q.id)   // returns true if first time this lap
                   if (isNew) fireConfetti(false)             // small burst for each new solve
                   checkCycleLapComplete()                    // big burst + lap++ if all done
                 }
                 goNext()
+                // Persist the review completion in the background — UI has already moved on.
+                if (due && !reviewDone) { handleCompleteReview().catch(() => {}) }
               }}
             />
           </div>
