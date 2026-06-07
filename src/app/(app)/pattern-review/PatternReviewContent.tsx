@@ -52,6 +52,7 @@ export default function PatternReviewContent() {
   const [mobileDrawer, setMobileDrawer] = useState(false)
   const sectionRefs   = useRef<Record<string, HTMLElement | null>>({})
   const scrollRef     = useRef<HTMLDivElement>(null)
+  const scrollingToRef = useRef<string | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -86,24 +87,32 @@ export default function PatternReviewContent() {
 
   const scrollTo = (key: string) => {
     setActiveRound(key)
+    setMobileDrawer(false)
     const el = sectionRefs.current[key]
     const container = scrollRef.current
     if (!el || !container) return
-    let offset = 0
-    let cur: HTMLElement | null = el
-    while (cur && cur !== container) {
-      offset += cur.offsetTop
-      cur = cur.offsetParent as HTMLElement | null
-    }
-    container.scrollTo({ top: offset, behavior: 'smooth' })
-    setMobileDrawer(false)
+
+    scrollingToRef.current = key
+    const top =
+      el.getBoundingClientRect().top -
+      container.getBoundingClientRect().top +
+      container.scrollTop
+    container.scrollTo({ top: Math.max(0, top - 8), behavior: 'smooth' })
+    window.setTimeout(() => {
+      scrollingToRef.current = null
+    }, 700)
   }
 
   // Track active round on scroll
   useEffect(() => {
+    if (loading) return
     const container = scrollRef.current
     if (!container) return
     const onScroll = () => {
+      if (scrollingToRef.current) {
+        setActiveRound(scrollingToRef.current)
+        return
+      }
       const top = container.getBoundingClientRect().top
       for (const r of [...ROUNDS].reverse()) {
         const el = sectionRefs.current[r.key]
@@ -115,7 +124,7 @@ export default function PatternReviewContent() {
     }
     container.addEventListener('scroll', onScroll, { passive: true })
     return () => container.removeEventListener('scroll', onScroll)
-  }, [rounds])
+  }, [loading, rounds])
 
   useEffect(() => {
     if (mobileDrawer) document.body.style.overflow = 'hidden'
@@ -154,7 +163,7 @@ export default function PatternReviewContent() {
   )
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex flex-1 min-h-0 h-full overflow-hidden">
 
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col w-44 shrink-0 border-r border-[var(--border)] bg-[var(--bg-card)] overflow-y-auto">

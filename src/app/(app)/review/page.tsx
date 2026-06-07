@@ -31,7 +31,7 @@ function ReviewsInner() {
   const current = TABS.find(t => t.key === active) ?? TABS[0]
 
   return (
-    <div className="flex flex-col min-h-[calc(100dvh-56px)]">
+    <div className="flex flex-col h-[calc(100dvh-56px)]">
       <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
@@ -48,7 +48,11 @@ function ReviewsInner() {
           </button>
         ))}
       </div>
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div
+        className={`flex-1 min-h-0 ${
+          active === 'pattern-review' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'
+        }`}
+      >
         <current.Page />
       </div>
     </div>
