@@ -13,7 +13,6 @@ import {
   type BestAnswerDeckCard,
 } from '@/lib/bestAnswersMerge'
 import { useLeetCodeAcceptedBlocks } from '@/lib/useLeetCodeAcceptedBlocks'
-import CollapsibleLcAcceptedBlocks from '@/components/CollapsibleLcAcceptedBlocks'
 
 export { BEST_ANSWER_SITES }
 
@@ -116,7 +115,7 @@ export default function BestAnswersPanel({
   const [states, setStates]     = useState<Record<SiteKey, SiteState>>(emptyStates)
   const [viewMode, setViewMode] = useState<'grid' | 'flashcard'>('flashcard')
   const [cardIdx, setCardIdx]   = useState(0)
-  const [lcCardOpen, setLcCardOpen] = useState(true)
+  const [lcCardOpen, setLcCardOpen] = useState(false)
   const { blocks: lcBlocks, loading: lcLoading } = useLeetCodeAcceptedBlocks(slug, active)
 
   /* inject highlight.js stylesheet once */
@@ -174,11 +173,11 @@ export default function BestAnswersPanel({
   useEffect(() => {
     // Reset deck navigation when question changes / answers refetch.
     setCardIdx(0)
-    setLcCardOpen(true)
+    setLcCardOpen(false)
   }, [questionId, slug])
 
   useEffect(() => {
-    setLcCardOpen(true)
+    setLcCardOpen(false)
   }, [cardIdx])
 
   useEffect(() => {
@@ -194,16 +193,6 @@ export default function BestAnswersPanel({
 
   return (
     <div className={`relative z-20 pointer-events-auto ${className}`}>
-
-      {/* ── Your LeetCode (most recent AC per language) ─────────────────── */}
-      {lcBlocks.length > 0 && (
-        <CollapsibleLcAcceptedBlocks
-          blocks={lcBlocks}
-          loading={lcLoading}
-          resetKey={`${questionId}-${slug}`}
-          renderCode={(code, lang) => <HighlightedCode code={code} lang={lang} />}
-        />
-      )}
 
       {/* ── View mode toggle ──────────────────────────────────────────────── */}
       <div className="relative z-20 flex items-center gap-2 mb-4 pointer-events-auto">
