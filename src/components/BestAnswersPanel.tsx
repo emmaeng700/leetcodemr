@@ -116,7 +116,7 @@ export default function BestAnswersPanel({
   const [states, setStates]     = useState<Record<SiteKey, SiteState>>(emptyStates)
   const [viewMode, setViewMode] = useState<'grid' | 'flashcard'>('flashcard')
   const [cardIdx, setCardIdx]   = useState(0)
-  const [lcCardOpen, setLcCardOpen] = useState(false)
+  const [lcCardOpen, setLcCardOpen] = useState(true)
   const { blocks: lcBlocks, loading: lcLoading } = useLeetCodeAcceptedBlocks(slug, active)
 
   /* inject highlight.js stylesheet once */
@@ -174,11 +174,11 @@ export default function BestAnswersPanel({
   useEffect(() => {
     // Reset deck navigation when question changes / answers refetch.
     setCardIdx(0)
-    setLcCardOpen(false)
+    setLcCardOpen(true)
   }, [questionId, slug])
 
   useEffect(() => {
-    setLcCardOpen(false)
+    setLcCardOpen(true)
   }, [cardIdx])
 
   useEffect(() => {
