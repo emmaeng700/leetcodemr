@@ -1,17 +1,19 @@
 'use client'
 import { useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Rocket, Zap, Library } from 'lucide-react'
+import { Rocket, Zap, Library, Brain } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
-const NeetCodePage = dynamic(() => import('../neetcode/page'),     { ssr: false })
-const LeetCodePage = dynamic(() => import('../leetcode-api/page'), { ssr: false })
-const AnswersPage  = dynamic(() => import('../answers/page'),      { ssr: false })
+const NeetCodePage   = dynamic(() => import('../neetcode/page'),     { ssr: false })
+const AlgoMasterPage = dynamic(() => import('../algomaster/page'),   { ssr: false })
+const LeetCodePage   = dynamic(() => import('../leetcode-api/page'), { ssr: false })
+const AnswersPage    = dynamic(() => import('../answers/page'),      { ssr: false })
 
 const TABS = [
-  { key: 'neetcode',    label: 'NeetCode 150', icon: Rocket,  Page: NeetCodePage },
-  { key: 'leetcode',    label: 'LeetCode',     icon: Zap,     Page: LeetCodePage },
-  { key: 'answers',     label: 'Answers',      icon: Library, Page: AnswersPage  },
+  { key: 'neetcode',    label: 'NeetCode 150',  icon: Rocket,  Page: NeetCodePage   },
+  { key: 'algomaster',  label: 'AlgoMaster 600', icon: Brain,   Page: AlgoMasterPage },
+  { key: 'leetcode',    label: 'LeetCode',      icon: Zap,     Page: LeetCodePage   },
+  { key: 'answers',     label: 'Answers',       icon: Library, Page: AnswersPage    },
 ]
 
 function SitesInner() {
