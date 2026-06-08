@@ -293,16 +293,16 @@ function RevisionCard({
   return (
     <div ref={rootRef} className={`rounded-xl border bg-[var(--bg-card)] flex flex-col overflow-hidden ${
       sol ? 'border-amber-400/30' : 'border-[var(--border)]'
-    } ${fixedWidth ? 'w-[88vw] sm:w-[440px] shrink-0 snap-start' : ''}`}>
+    } ${fixedWidth ? 'w-[92vw] sm:w-[440px] shrink-0 snap-start' : ''}`}>
 
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border)] shrink-0">
-        <span className="text-xs font-mono text-[var(--text-subtle)] shrink-0 w-9">#{q.id}</span>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-[var(--border)] shrink-0">
+        <span className="text-xs font-mono text-[var(--text-subtle)] shrink-0 w-7 sm:w-9">#{q.id}</span>
         <Link href={`/practice/${q.id}`}
-          className="font-semibold text-sm text-[var(--text)] hover:text-amber-400 transition-colors truncate flex-1 min-w-0">
+          className="font-semibold text-sm text-[var(--text)] hover:text-amber-400 transition-colors truncate flex-1 min-w-[80px]">
           {q.title}
         </Link>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 ml-auto">
           <span className="hidden md:inline text-[10px] font-semibold text-[var(--text-subtle)] uppercase tracking-wider truncate max-w-[120px]">{pattern}</span>
           <DiffBadge d={q.difficulty} />
           {sol && (
@@ -320,7 +320,7 @@ function RevisionCard({
       </div>
 
       {/* Body — description + code, both always visible */}
-      <div className={`flex-1 min-h-0 overflow-y-auto p-4 space-y-4 ${fixedWidth ? 'max-h-[70vh]' : ''}`}>
+      <div className={`flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-4 ${fixedWidth ? 'max-h-[75vh] sm:max-h-[70vh]' : ''}`}>
 
         {/* ── Description (with images) ── */}
         <div>
@@ -361,7 +361,7 @@ function RevisionCard({
                   {desc.tags.map(t => <span key={t} className="text-[10px] bg-[var(--bg-muted)] text-[var(--text-subtle)] px-1.5 py-0.5 rounded-full">{t}</span>)}
                 </div>
               )}
-              <div className="lc-description text-xs text-[var(--text)] max-h-72 overflow-y-auto pr-1"
+              <div className="lc-description text-[13px] leading-relaxed text-[var(--text)]"
                 dangerouslySetInnerHTML={{ __html: stripScripts(desc.content) }} />
             </>
           )}
