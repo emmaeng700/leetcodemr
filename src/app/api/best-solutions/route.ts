@@ -72,3 +72,25 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true })
 }
+
+/** DELETE /api/best-solutions — unpin (remove) a saved best solution */
+export async function DELETE(req: Request) {
+  const body = await req.json().catch(() => ({}))
+  const { question_id } = body as { question_id?: number }
+
+  if (!question_id) {
+    return NextResponse.json({ error: 'question_id is required' }, { status: 400 })
+  }
+
+  const { error } = await supabase
+    .from('best_solutions')
+    .delete()
+    .eq('user_id', USER_ID)
+    .eq('question_id', question_id)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ ok: true })
+}

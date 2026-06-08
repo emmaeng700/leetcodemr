@@ -164,17 +164,19 @@ type DescState =
 
 /* ── Revision card — description + recent Python solution, always expanded ── */
 function RevisionCard({
-  q, sol, pattern, onSaved, fixedWidth,
+  q, sol, pattern, onSaved, onUnpinned, fixedWidth,
 }: {
   q: Question
   sol: BestSolution | undefined
   pattern: string
   onSaved: (qid: number, lang: string, code: string) => void
+  onUnpinned: (qid: number) => void
   fixedWidth?: boolean
 }) {
   const [desc, setDesc] = useState<DescState>({ status: 'idle' })
   const [lc,   setLc]   = useState<LcState>({ status: 'idle' })
   const [saving, setSaving] = useState(false)
+  const [unpinning, setUnpinning] = useState(false)
   const loadedRef = useRef(false)
   const rootRef   = useRef<HTMLDivElement>(null)
 
@@ -262,6 +264,29 @@ function RevisionCard({
     finally { setSaving(false) }
   }
 
+  const unpinSolution = async () => {
+    if (!sol || unpinning) return
+    setUnpinning(true)
+    try {
+      const res = await fetch('/api/best-solutions', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question_id: q.id }),
+      })
+      if (res.ok) {
+        onUnpinned(q.id)
+        loadedRef.current = false
+        setLc({ status: 'idle' })
+        toast.success('Unpinned — showing your recent LeetCode submission')
+      } else toast.error('Could not unpin — try again')
+    } catch { toast.error('Network error') }
+    finally { setUnpinning(false) }
+  }
+
+  // Re-fetch the live Python solution once a pin is removed (codeSource flips to 'live').
+  useEffect(() => {
+    if (!sol && loadedRef.current && lc.status === 'idle') loadLatestPython()
+  }, [sol, lc.status, loadLatestPython])
+
   // Resolve which code block to show: pinned Python, or live-fetched latest AC.
   const codeSource: 'pinned' | 'live' = pinnedIsPython ? 'pinned' : 'live'
 
@@ -280,7 +305,13 @@ function RevisionCard({
         <div className="flex items-center gap-2 shrink-0">
           <span className="hidden md:inline text-[10px] font-semibold text-[var(--text-subtle)] uppercase tracking-wider truncate max-w-[120px]">{pattern}</span>
           <DiffBadge d={q.difficulty} />
-          {sol && <Bookmark size={12} className="text-amber-400 shrink-0" />}
+          {sol && (
+            <button onClick={unpinSolution} disabled={unpinning} title="Unpin — fall back to your recent LeetCode submission"
+              className="flex items-center gap-1 text-[10px] font-semibold text-amber-400 hover:text-amber-300 shrink-0 transition-colors disabled:opacity-50">
+              {unpinning ? <Loader2 size={11} className="animate-spin" /> : <Bookmark size={11} className="fill-amber-400" />}
+              <span className="hidden lg:inline">{unpinning ? 'Unpinning…' : 'Unpin'}</span>
+            </button>
+          )}
           <a href={leetCodeUrl(q.slug)} target="_blank" rel="noopener noreferrer"
             className="text-[var(--text-subtle)] hover:text-orange-400 transition-colors shrink-0" title="Open on LeetCode">
             <ExternalLink size={12} />
@@ -445,6 +476,10 @@ export default function BestSolutionsPage() {
       if (exists) return prev.map(s => s.question_id === qid ? { ...s, language: lang, code, updated_at: now } : s)
       return [...prev, { question_id: qid, language: lang, code, updated_at: now }]
     })
+  }, [])
+
+  const handleUnpinned = useCallback((qid: number) => {
+    setSolutions(prev => prev.filter(s => s.question_id !== qid))
   }, [])
 
   const savedCount = useMemo(() => questions.filter(q => solByQid.has(q.id)).length, [questions, solByQid])
@@ -665,7 +700,7 @@ export default function BestSolutionsPage() {
           <div className="-mx-4 px-4">
             <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 scroll-smooth">
               {flatFiltered.map(({ q, pattern }) => (
-                <RevisionCard key={q.id} q={q} sol={solByQid.get(q.id)} pattern={pattern} onSaved={handleSaved} fixedWidth />
+                <RevisionCard key={q.id} q={q} sol={solByQid.get(q.id)} pattern={pattern} onSaved={handleSaved} onUnpinned={handleUnpinned} fixedWidth />
               ))}
             </div>
             <p className="text-center text-[10px] text-gray-600 mt-1">← scroll horizontally · {flatFiltered.length} questions in topic order →</p>
@@ -692,7 +727,7 @@ export default function BestSolutionsPage() {
 
                   <div className="space-y-4">
                     {qs.map(q => (
-                      <RevisionCard key={q.id} q={q} sol={solByQid.get(q.id)} pattern={pattern} onSaved={handleSaved} />
+                      <RevisionCard key={q.id} q={q} sol={solByQid.get(q.id)} pattern={pattern} onSaved={handleSaved} onUnpinned={handleUnpinned} />
                     ))}
                   </div>
                 </div>
