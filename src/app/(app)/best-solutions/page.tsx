@@ -145,7 +145,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
           {copied ? 'Copied!' : 'Copy'}
         </button>
       </div>
-      <div className="bg-[#282c34] overflow-x-auto max-h-72 overflow-y-auto">
+      <div className="bg-[#282c34] overflow-x-auto">
         <pre className="p-4 m-0 text-[11.5px] leading-relaxed">
           <code ref={codeRef} className={`language-${hlLang}`}>{code}</code>
         </pre>
