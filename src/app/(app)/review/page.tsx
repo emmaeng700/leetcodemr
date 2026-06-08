@@ -12,10 +12,10 @@ const BestSolutionsPage  = dynamic(() => import('../best-solutions/page'),      
 
 const TABS = [
   { key: 'reviews',        label: 'Reviews',        icon: Brain,      Page: ReviewContent     },
+  { key: 'my-best',        label: 'My Best',        icon: Bookmark,   Page: BestSolutionsPage },
   { key: 'quick-review',   label: 'Quick Review',   icon: Clock,      Page: QuickReviewPage   },
   { key: 'pattern-review', label: 'Pattern Review', icon: GitBranch,  Page: PatternReviewPage },
   { key: 'sr-queue',       label: 'SR Queue',       icon: RefreshCw,  Page: SRQueuePage       },
-  { key: 'my-best',        label: 'My Best',        icon: Bookmark,   Page: BestSolutionsPage },
 ]
 
 function ReviewsInner() {
