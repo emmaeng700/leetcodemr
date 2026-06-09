@@ -433,12 +433,16 @@ function LearnInner() {
     try { localStorage.setItem('lm_learn_idx', String(gatedIdx)) } catch {}
   }, [gatedIdx])
 
-  // Persist position within active cycle (used when re-opening from Cycles page)
+  // Persist position within active cycle (used when re-opening from Cycles page).
+  // Guard: only persist when gatedIdx matches the INTENDED position (cycleIdxRef.current).
+  // This prevents a race where React re-renders (state changed) before router.push completes,
+  // firing this effect with the OLD gatedIdx and writing a stale cycleIdx to Supabase.
+  // Every code path that calls router.push in cycle mode must update cycleIdxRef.current first.
   useEffect(() => {
     const rng = cycleRangeForSave.current
     if (!rng) return
     if (gatedIdx < rng.start || gatedIdx > rng.end) return
-    cycleIdxRef.current = gatedIdx
+    if (gatedIdx !== cycleIdxRef.current) return   // navigation not yet landed — skip
     persistCycleState({
       cycleRange: rng,
       cycleReps: cycleRepsRef.current,
@@ -641,6 +645,7 @@ function LearnInner() {
       const nextId     = orderedIds[nextPos]
       const nextIdx    = filteredRef.current.findIndex(q => q.id === nextId)
       if (nextIdx >= 0) {
+        cycleIdxRef.current = nextIdx   // set eagerly so position-persist guard passes
         setCyclePos(nextPos)
         router.push(`/learn/${nextIdx}${qs ? `?${qs}` : ''}`, { scroll: false })
         return
@@ -651,6 +656,7 @@ function LearnInner() {
     const start = rng?.start ?? 0
     const end   = rng?.end   ?? Math.max(n - 1, 0)
     const next  = idx >= end ? start : idx + 1
+    cycleIdxRef.current = next   // set eagerly so position-persist guard passes
     if (rng) setCyclePos(next === start ? 0 : cyclePosRef.current + 1)
     router.push(`/learn/${next}${qs ? `?${qs}` : ''}`, { scroll: false })
   }, [router, setCyclePos])
@@ -670,6 +676,7 @@ function LearnInner() {
       const prevId     = orderedIds[prevPos]
       const prevIdx    = filteredRef.current.findIndex(q => q.id === prevId)
       if (prevIdx >= 0) {
+        cycleIdxRef.current = prevIdx   // set eagerly so position-persist guard passes
         setCyclePos(prevPos)
         router.push(`/learn/${prevIdx}${qs ? `?${qs}` : ''}`, { scroll: false })
         return
@@ -680,10 +687,12 @@ function LearnInner() {
     const start = rng?.start ?? 0
     const end   = rng?.end   ?? Math.max(n - 1, 0)
     const prev  = idx <= start ? end : idx - 1
+    cycleIdxRef.current = prev   // set eagerly so position-persist guard passes
     router.push(`/learn/${prev}${qs ? `?${qs}` : ''}`, { scroll: false })
   }, [router, setCyclePos])
 
   const goTo = (i: number) => {
+    cycleIdxRef.current = i   // set eagerly so position-persist guard passes
     router.push(`/learn/${i}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
     setShowList(false)
   }
@@ -709,14 +718,13 @@ function LearnInner() {
   const applyCycleRange = (start: number, end: number) => {
     const s = Math.max(0, Math.min(start, filtered.length - 1))
     const e = Math.max(s, Math.min(end, filtered.length - 1))
-    setCycleRange({ start: s, end: e })
+    // Clear any stale order so setCycleRange always recomputes it fresh (lap 0, normal order).
+    cycleOrderedIdsRef.current = []
+    setCycleRange({ start: s, end: e })  // resets cyclePos → 0 and cycleIdx → s internally
     setShowCyclePanel(false)
-    // Always go to the first question of the cycle when creating/resetting it.
-    const firstId  = cycleOrderedIdsRef.current[0]
-    const firstIdx = firstId != null ? filteredRef.current.findIndex(q => q.id === firstId) : s
-    const target   = firstIdx >= 0 ? firstIdx : s
-    cycleIdxRef.current = target
-    router.push(`/learn/${target}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
+    // Set eagerly so position-persist guard passes when gatedIdx lands at s.
+    cycleIdxRef.current = s
+    router.push(`/learn/${s}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
   }
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1437,6 +1445,7 @@ function LearnInner() {
                     // not goNext() which would advance past it into position 1.
                     setTimeout(() => {
                       const qs = learnQsRef.current
+                      cycleIdxRef.current = lapStartIdx  // set eagerly so position-persist guard passes
                       setCyclePos(0)
                       router.push(`/learn/${lapStartIdx}${qs ? `?${qs}` : ''}`, { scroll: false })
                     }, 700)
