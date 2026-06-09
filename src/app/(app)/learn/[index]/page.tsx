@@ -177,14 +177,21 @@ function LearnInner() {
     let cancelled = false
     getCycleState().then(state => {
       if (cancelled || !state?.cycleRange) return
-      const rng        = state.cycleRange
-      const reps       = state.cycleReps  ?? 0
-      const pos        = state.cyclePos   ?? 0
-      const accepted   = Array.isArray(state.cycleAccepted)   ? state.cycleAccepted   : []
-      const orderedIds = Array.isArray(state.cycleOrderedIds) ? state.cycleOrderedIds : []
+      const rng      = state.cycleRange
+      const reps     = state.cycleReps ?? 0
+      const pos      = state.cyclePos  ?? 0
+      const accepted = Array.isArray(state.cycleAccepted) ? state.cycleAccepted : []
 
-      // Derive cycleIdx from the ordered list — never trust the stored value directly;
-      // it can be stale from a previous race condition.
+      // Rebuild orderedIds if missing or stale — reps=0 is always normal order (deterministic).
+      // For reps>0 (shuffle), use stored order if available; otherwise rebuild a fresh shuffle.
+      let orderedIds = Array.isArray(state.cycleOrderedIds) ? state.cycleOrderedIds : []
+      const expectedLen = rng.end - rng.start + 1
+      if (orderedIds.length !== expectedLen && filteredRef.current.length > 0) {
+        const baseIds = filteredRef.current.slice(rng.start, rng.end + 1).map(q => q.id)
+        orderedIds = buildCycleOrder(baseIds, reps)
+      }
+
+      // Derive cycleIdx directly from orderedIds[pos] — never trust the stored cycleIdx.
       let cycleIdx = rng.start
       if (orderedIds.length > 0 && pos < orderedIds.length) {
         const targetId  = orderedIds[pos]
@@ -691,11 +698,16 @@ function LearnInner() {
       }
     }
 
-    // Fallback
+    // Fallback (no ordered list)
     const start = rng?.start ?? 0
     const end   = rng?.end   ?? Math.max(n - 1, 0)
     const prev  = idx <= start ? end : idx - 1
-    cycleIdxRef.current = prev   // set eagerly so position-persist guard passes
+    cycleIdxRef.current = prev
+    if (rng) {
+      // Mirror goNext fallback: decrement pos (or wrap to last)
+      const prevPos = prev === end ? (end - start) : Math.max(0, cyclePosRef.current - 1)
+      setCyclePos(prevPos)
+    }
     router.push(`/learn/${prev}${qs ? `?${qs}` : ''}`, { scroll: false })
   }, [router, setCyclePos])
 
