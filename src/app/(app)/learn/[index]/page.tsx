@@ -95,16 +95,15 @@ function LearnInner() {
 
   // ── Determines traversal order for a given lap rep count ─────────────────
   // reps 0,2,4 → normal studyOrder  |  reps 1,3,5 → reversed  |  reps 6+ → shuffled
+  // Lap 0 → normal study order. Every lap after that → fresh random shuffle.
   const buildCycleOrder = (baseIds: number[], reps: number): number[] => {
-    if (reps >= 6) {
-      const arr = [...baseIds]
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]]
-      }
-      return arr
+    if (reps === 0) return [...baseIds]
+    const arr = [...baseIds]
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]]
     }
-    return reps % 2 === 1 ? [...baseIds].reverse() : [...baseIds]
+    return arr
   }
 
   const syncCycleToSession = (state: {
@@ -178,22 +177,29 @@ function LearnInner() {
     let cancelled = false
     getCycleState().then(state => {
       if (cancelled || !state?.cycleRange) return
-      const rng       = state.cycleRange
-      const reps      = state.cycleReps ?? 0
-      const pos       = state.cyclePos  ?? 0
-      const accepted  = Array.isArray(state.cycleAccepted) ? state.cycleAccepted : []
-      // For a fresh cycle (pos=0, reps=0, nothing accepted) always derive cycleIdx from
-      // the range start — avoids a stale cycleIdx corrupting which question is shown.
-      const isFresh   = reps === 0 && pos === 0 && accepted.length === 0
-      const cycleIdx  = isFresh ? rng.start : (state.cycleIdx ?? rng.start)
-      applyCycleState({
-        cycleRange: rng,
-        cycleReps: reps,
-        cyclePos: pos,
-        cycleIdx,
-        cycleAccepted: accepted,
-        cycleOrderedIds: Array.isArray(state.cycleOrderedIds) ? state.cycleOrderedIds : [],
-      })
+      const rng        = state.cycleRange
+      const reps       = state.cycleReps  ?? 0
+      const pos        = state.cyclePos   ?? 0
+      const accepted   = Array.isArray(state.cycleAccepted)   ? state.cycleAccepted   : []
+      const orderedIds = Array.isArray(state.cycleOrderedIds) ? state.cycleOrderedIds : []
+
+      // Derive cycleIdx from the ordered list — never trust the stored value directly;
+      // it can be stale from a previous race condition.
+      let cycleIdx = rng.start
+      if (orderedIds.length > 0 && pos < orderedIds.length) {
+        const targetId  = orderedIds[pos]
+        const targetIdx = filteredRef.current.findIndex(q => q.id === targetId)
+        cycleIdx = targetIdx >= 0 ? targetIdx : rng.start
+      }
+
+      applyCycleState({ cycleRange: rng, cycleReps: reps, cyclePos: pos, cycleIdx, cycleAccepted: accepted, cycleOrderedIds: orderedIds })
+
+      // If we landed at a different question than the cycle expects, auto-correct.
+      // Use replace so it doesn't add a spurious history entry.
+      if (cycleIdx !== gatedIdxRef.current) {
+        const qs = learnQsRef.current
+        router.replace(`/learn/${cycleIdx}${qs ? `?${qs}` : ''}`, { scroll: false })
+      }
     }).catch(() => {})
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -620,16 +626,10 @@ function LearnInner() {
       icon: isFinal ? '🏆' : undefined,
     })
 
-    // Show order-change toast after a brief pause so it doesn't overlap
+    // Show shuffle toast after a brief pause so it doesn't overlap the lap toast
     if (!isFinal) {
       setTimeout(() => {
-        if (newReps >= 6) {
-          toast('🎲 Random shuffle activated — no patterns to lean on now. True mastery test!', { duration: 5000 })
-        } else if (newReps % 2 === 1) {
-          toast('🔄 Questions reversed for this lap — Hard questions first. Find your weak spots!', { duration: 5000 })
-        } else {
-          toast('↩️ Back to normal order — Easy → Hard. How much faster are you now?', { duration: 4000 })
-        }
+        toast('🎲 Questions shuffled — new order, fresh challenge!', { duration: 4000 })
       }, 2500)
     }
 
