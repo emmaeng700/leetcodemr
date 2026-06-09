@@ -536,17 +536,28 @@ function LearnInner() {
       // Rebuild orderedIds if missing or wrong length (filteredRef is guaranteed non-empty here).
       let orderedIds = Array.isArray(state.cycleOrderedIds) ? state.cycleOrderedIds : []
       const expectedLen = rng.end - rng.start + 1
-      if (orderedIds.length !== expectedLen) {
+      const hadStoredOrder = orderedIds.length === expectedLen
+      if (!hadStoredOrder) {
         const baseIds = filteredRef.current.slice(rng.start, rng.end + 1).map(q => q.id)
         orderedIds = buildCycleOrder(baseIds, reps)
       }
 
-      // Derive cycleIdx from orderedIds[pos] — never trust the stored cycleIdx directly.
+      // Derive cycleIdx from orderedIds[pos] only when we had the ORIGINAL stored order.
+      // If orderedIds was just rebuilt (fresh shuffle), it's a different random sequence —
+      // using orderedIds[pos] from it would point to a wrong question and trigger a
+      // router.replace loop (component remounts → guard resets → new shuffle → new replace…).
+      // Instead, trust the stored cycleIdx directly when the order had to be rebuilt.
       let cycleIdx = rng.start
-      if (orderedIds.length > 0 && pos < orderedIds.length) {
+      if (hadStoredOrder && orderedIds.length > 0 && pos < orderedIds.length) {
         const targetId  = orderedIds[pos]
         const targetIdx = filteredRef.current.findIndex(q => q.id === targetId)
         cycleIdx = targetIdx >= 0 ? targetIdx : rng.start
+      } else {
+        // No stored order — use the saved cycleIdx (set by handleActivate / goNext / etc.)
+        const stored = state.cycleIdx
+        cycleIdx = typeof stored === 'number'
+          ? Math.max(rng.start, Math.min(stored, rng.end))
+          : rng.start
       }
 
       applyCycleState({ cycleRange: rng, cycleReps: reps, cyclePos: pos, cycleIdx, cycleAccepted: accepted, cycleOrderedIds: orderedIds })
