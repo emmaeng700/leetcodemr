@@ -711,11 +711,12 @@ function LearnInner() {
     const e = Math.max(s, Math.min(end, filtered.length - 1))
     setCycleRange({ start: s, end: e })
     setShowCyclePanel(false)
-    const target = gatedIdx < s || gatedIdx > e ? s : gatedIdx
+    // Always go to the first question of the cycle when creating/resetting it.
+    const firstId  = cycleOrderedIdsRef.current[0]
+    const firstIdx = firstId != null ? filteredRef.current.findIndex(q => q.id === firstId) : s
+    const target   = firstIdx >= 0 ? firstIdx : s
     cycleIdxRef.current = target
-    if (gatedIdx !== target) {
-      router.push(`/learn/${target}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
-    }
+    router.push(`/learn/${target}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
   }
   // ─────────────────────────────────────────────────────────────────────────────
 
