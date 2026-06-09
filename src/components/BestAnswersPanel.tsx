@@ -173,12 +173,7 @@ export default function BestAnswersPanel({
   useEffect(() => {
     // Reset deck navigation when question changes / answers refetch.
     setCardIdx(0)
-    setLcCardOpen(false)
   }, [questionId, slug])
-
-  useEffect(() => {
-    setLcCardOpen(false)
-  }, [cardIdx])
 
   useEffect(() => {
     // Clamp idx if the deck shrinks.
@@ -339,22 +334,12 @@ export default function BestAnswersPanel({
               <div className="relative z-10 rounded-2xl border-2 border-indigo-500/30 bg-gradient-to-br from-[#0f1729] to-gray-900 overflow-hidden pointer-events-auto">
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-indigo-500/20 bg-indigo-600/10">
                   {card?.isLeetCodeAccepted ? (
-                    <button
-                      type="button"
-                      onClick={() => setLcCardOpen(v => !v)}
-                      style={{ touchAction: 'manipulation' }}
-                      className="flex items-center gap-1.5 flex-wrap text-left min-w-0 flex-1"
-                      aria-expanded={lcCardOpen}
-                    >
-                      {lcCardOpen
-                        ? <ChevronDown size={12} className="text-amber-400 shrink-0" />
-                        : <ChevronRight size={12} className="text-amber-400 shrink-0" />}
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
                       <Star size={11} className="text-amber-400 fill-amber-400 shrink-0" />
                       <span className="text-[11px] font-semibold text-amber-300">Your LeetCode</span>
                       <span className="text-gray-600">·</span>
                       <span className="text-[11px] font-semibold text-gray-300">{labelForLang(card.lang)}</span>
-                      <span className="text-amber-500/80 text-[10px]">{lcCardOpen ? 'Hide' : 'Show'}</span>
-                    </button>
+                    </div>
                   ) : (
                     <div className="text-[11px] text-gray-500 flex items-center gap-1.5 flex-wrap">
                       <span className="font-semibold text-gray-300">Best Answer</span>
@@ -393,10 +378,6 @@ export default function BestAnswersPanel({
                       <Loader2 size={16} className="animate-spin text-gray-600" />
                       <span>{lcLoading ? 'Loading your LeetCode submissions…' : 'Fetching best answers…'}</span>
                     </div>
-                  ) : card.isLeetCodeAccepted && !lcCardOpen ? (
-                    <p className="text-xs text-amber-500/80 text-center py-8">
-                      Tap the header to reveal your accepted solution.
-                    </p>
                   ) : (
                     <HighlightedCode code={card.code} lang={card.lang} />
                   )}
