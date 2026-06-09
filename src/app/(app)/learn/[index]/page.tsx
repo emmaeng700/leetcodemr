@@ -566,8 +566,8 @@ function LearnInner() {
   ]
 
   // ── Lap completion check — runs after EVERY accepted solution, not just on wrap ──
-  // Returns true if the lap just completed (all questions in cycle were solved).
-  const checkCycleLapComplete = useCallback(() => {
+  // Returns the startIdx of the new lap when complete, or false when not yet done.
+  const checkCycleLapComplete = useCallback((): number | false => {
     const rng = cycleRangeRef.current
     if (!rng) return false
 
@@ -621,7 +621,9 @@ function LearnInner() {
       }, 2500)
     }
 
-    return true
+    // Return the first index of the new lap so the caller can navigate there
+    // directly — goNext() would otherwise advance past it.
+    return startIdx
   }, [fireConfetti, setCycleReps])
 
   const goNext = useCallback(() => {
@@ -1428,9 +1430,18 @@ function LearnInner() {
                 if (q && cycleRangeRef.current) {
                   const isNew = recordCycleAccepted(q.id)   // returns true if first time this lap
                   if (isNew) fireConfetti(false)             // small burst for each new solve
-                  checkCycleLapComplete()                    // big burst + lap++ if all done
-                  // Wait for confetti to be visible before navigating away
-                  setTimeout(() => goNext(), 700)
+                  const lapStartIdx = checkCycleLapComplete() // returns new startIdx or false
+                  if (lapStartIdx !== false) {
+                    // Lap complete — go directly to the FIRST question of the new order,
+                    // not goNext() which would advance past it into position 1.
+                    setTimeout(() => {
+                      const qs = learnQsRef.current
+                      setCyclePos(0)
+                      router.push(`/learn/${lapStartIdx}${qs ? `?${qs}` : ''}`, { scroll: false })
+                    }, 700)
+                  } else {
+                    setTimeout(() => goNext(), 700)
+                  }
                 } else {
                   goNext()
                 }
