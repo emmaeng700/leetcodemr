@@ -172,46 +172,6 @@ function LearnInner() {
     saveCycleState(withOrder).catch(() => {})
   }
 
-  // Restore full cycle progress on mount (survives tab close / navigation away)
-  useEffect(() => {
-    let cancelled = false
-    getCycleState().then(state => {
-      if (cancelled || !state?.cycleRange) return
-      const rng      = state.cycleRange
-      const reps     = state.cycleReps ?? 0
-      const pos      = state.cyclePos  ?? 0
-      const accepted = Array.isArray(state.cycleAccepted) ? state.cycleAccepted : []
-
-      // Rebuild orderedIds if missing or stale — reps=0 is always normal order (deterministic).
-      // For reps>0 (shuffle), use stored order if available; otherwise rebuild a fresh shuffle.
-      let orderedIds = Array.isArray(state.cycleOrderedIds) ? state.cycleOrderedIds : []
-      const expectedLen = rng.end - rng.start + 1
-      if (orderedIds.length !== expectedLen && filteredRef.current.length > 0) {
-        const baseIds = filteredRef.current.slice(rng.start, rng.end + 1).map(q => q.id)
-        orderedIds = buildCycleOrder(baseIds, reps)
-      }
-
-      // Derive cycleIdx directly from orderedIds[pos] — never trust the stored cycleIdx.
-      let cycleIdx = rng.start
-      if (orderedIds.length > 0 && pos < orderedIds.length) {
-        const targetId  = orderedIds[pos]
-        const targetIdx = filteredRef.current.findIndex(q => q.id === targetId)
-        cycleIdx = targetIdx >= 0 ? targetIdx : rng.start
-      }
-
-      applyCycleState({ cycleRange: rng, cycleReps: reps, cyclePos: pos, cycleIdx, cycleAccepted: accepted, cycleOrderedIds: orderedIds })
-
-      // If we landed at a different question than the cycle expects, auto-correct.
-      // Use replace so it doesn't add a spurious history entry.
-      if (cycleIdx !== gatedIdxRef.current) {
-        const qs = learnQsRef.current
-        router.replace(`/learn/${cycleIdx}${qs ? `?${qs}` : ''}`, { scroll: false })
-      }
-    }).catch(() => {})
-    return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   useEffect(() => { cycleRangeForSave.current = cycleRange }, [cycleRange])
   useEffect(() => { cycleRepsRef.current = cycleReps }, [cycleReps])
   useEffect(() => { cyclePosRef.current = cyclePos }, [cyclePos])
@@ -554,6 +514,55 @@ function LearnInner() {
   useEffect(() => { filteredLenRef.current = filtered.length }, [filtered.length])
   useEffect(() => { filteredRef.current    = filtered },        [filtered])
   useEffect(() => { learnQsRef.current     = learnQs },         [learnQs])
+
+  // Restore full cycle progress on mount (survives tab close / navigation away).
+  // Must live AFTER filtered is declared, and fires only once filtered is non-empty so
+  // filteredRef is populated before we try to rebuild orderedIds.
+  // Without this guard, getCycleState() resolves before /questions_full.json loads,
+  // orderedIds can't be rebuilt, cycleIdx defaults to rng.start while cyclePos stays
+  // at the stored value → counter shows 3/3 but question 1 is displayed, and Next
+  // overflows to 4/3.
+  const cycleRestoredRef = useRef(false)
+  useEffect(() => {
+    if (filtered.length === 0) return       // wait for questions to load
+    if (cycleRestoredRef.current) return    // only run once regardless of filter changes
+    cycleRestoredRef.current = true
+
+    let cancelled = false
+    getCycleState().then(state => {
+      if (cancelled || !state?.cycleRange) return
+      const rng      = state.cycleRange
+      const reps     = state.cycleReps ?? 0
+      const pos      = state.cyclePos  ?? 0
+      const accepted = Array.isArray(state.cycleAccepted) ? state.cycleAccepted : []
+
+      // Rebuild orderedIds if missing or wrong length (filteredRef is guaranteed non-empty here).
+      let orderedIds = Array.isArray(state.cycleOrderedIds) ? state.cycleOrderedIds : []
+      const expectedLen = rng.end - rng.start + 1
+      if (orderedIds.length !== expectedLen) {
+        const baseIds = filteredRef.current.slice(rng.start, rng.end + 1).map(q => q.id)
+        orderedIds = buildCycleOrder(baseIds, reps)
+      }
+
+      // Derive cycleIdx from orderedIds[pos] — never trust the stored cycleIdx directly.
+      let cycleIdx = rng.start
+      if (orderedIds.length > 0 && pos < orderedIds.length) {
+        const targetId  = orderedIds[pos]
+        const targetIdx = filteredRef.current.findIndex(q => q.id === targetId)
+        cycleIdx = targetIdx >= 0 ? targetIdx : rng.start
+      }
+
+      applyCycleState({ cycleRange: rng, cycleReps: reps, cyclePos: pos, cycleIdx, cycleAccepted: accepted, cycleOrderedIds: orderedIds })
+
+      // Auto-correct URL if we landed on the wrong question.
+      if (cycleIdx !== gatedIdxRef.current) {
+        const qs = learnQsRef.current
+        router.replace(`/learn/${cycleIdx}${qs ? `?${qs}` : ''}`, { scroll: false })
+      }
+    }).catch(() => {})
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered.length])
 
   const resumeCycle = useCallback(() => {
     const rng = cycleRangeRef.current
