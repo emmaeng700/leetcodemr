@@ -1337,8 +1337,11 @@ function LearnInner() {
                   const isNew = recordCycleAccepted(q.id)   // returns true if first time this lap
                   if (isNew) fireConfetti(false)             // small burst for each new solve
                   checkCycleLapComplete()                    // big burst + lap++ if all done
+                  // Wait for confetti to be visible before navigating away
+                  setTimeout(() => goNext(), 700)
+                } else {
+                  goNext()
                 }
-                goNext()
                 // Persist the review completion in the background — UI has already moved on.
                 if (due && !reviewDone) { handleCompleteReview().catch(() => {}) }
               }}
