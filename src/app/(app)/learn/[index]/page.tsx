@@ -1333,7 +1333,8 @@ function LearnInner() {
                 // Fire confetti and advance immediately — don't block the UI on the
                 // review-completion network round trip (it was adding a noticeable
                 // lag before the celebration / next-question transition).
-                if (q && cycleRange) {
+                // Use ref (not state) to avoid stale closure — same reason goNext uses cycleRangeRef
+                if (q && cycleRangeRef.current) {
                   const isNew = recordCycleAccepted(q.id)   // returns true if first time this lap
                   if (isNew) fireConfetti(false)             // small burst for each new solve
                   checkCycleLapComplete()                    // big burst + lap++ if all done
