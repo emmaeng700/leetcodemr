@@ -1,11 +1,10 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, Sparkles } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Sparkles } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { formatTime, stripScripts, leetCodeUrl } from '@/lib/utils'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
-import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import { createClient } from '@supabase/supabase-js'
 import { ALGOMASTER_600 } from '@/lib/algomaster600'
 
@@ -36,14 +35,13 @@ export default function AlgoMasterQuestionPage() {
   const [contentFailed, setContentFailed] = useState(false)
   const [isPremium, setIsPremium] = useState(false)
   const [solved, setSolved] = useState(false)
-  const [activeTab, setActiveTab] = useState<'description' | 'best' | 'accepted' | 'editor'>('description')
+  const [activeTab, setActiveTab] = useState<'description' | 'best' | 'editor'>('description')
   const leftPanelTab = activeTab === 'editor' ? 'description' : activeTab
   const [timer, setTimer] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startRef = useRef(Date.now())
 
-  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } =
-    useAcceptedSolutions(slug, activeTab === 'accepted')
+
 
   // Load solved status
   useEffect(() => {
@@ -185,10 +183,6 @@ export default function AlgoMasterQuestionPage() {
           className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
           <Sparkles size={12} /> Best answers
         </button>
-        <button onClick={() => setActiveTab('accepted')}
-          className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-          <Trophy size={12} /> My Solutions
-        </button>
       </div>
 
       {/* Content area */}
@@ -252,18 +246,6 @@ export default function AlgoMasterQuestionPage() {
               />
             )}
 
-            {leftPanelTab === 'accepted' && (
-              <AcceptedSolutions
-                submissions={submissions}
-                loading={subsLoading}
-                selectedSub={selectedSub}
-                subCodeLoading={subCodeLoading}
-                copied={copiedSub}
-                onSelect={loadSubCode}
-                onCopy={copyCode}
-                onBack={clearSub}
-              />
-            )}
           </div>
         </div>
 

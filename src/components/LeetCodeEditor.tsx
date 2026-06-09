@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import {
   Play, Send, Loader2, CheckCircle, XCircle, Clock, Cpu,
-  AlertCircle, Key, ChevronDown, ChevronUp, Star, Trophy,
+  AlertCircle, Key, ChevronDown, ChevronUp, Star,
   Eye, EyeOff, RotateCcw, Bookmark, BookmarkCheck,
 } from 'lucide-react'
 import { getProgress, updateProgress, incrementAcSubmitCount } from '@/lib/db'
@@ -12,7 +12,6 @@ import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { normalizeLcCookieValue, getCookieFromHeader, hasCfClearance } from '@/lib/leetcodeHttp'
 import { lcFetch, getLocalConnectorStatus } from '@/lib/leetcodeLocalConnector'
 import { extBridgeHealthy, hasLeetMasteryBridge } from '@/lib/leetcodeExtensionBridge'
-import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import toast from 'react-hot-toast'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
@@ -373,8 +372,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
   /* Bottom panel */
   const [bottomTab,        setBottomTab]        = useState<'testcase' | 'result'>('testcase')
-  const [showSolutionsModal, setShowSolutionsModal] = useState(false)
-  const acSols = useAcceptedSolutions(lcSlug, showSolutionsModal)
   const [cases,      setCases]      = useState<TestCase[]>([])
   const [activeCase, setActiveCase] = useState(0)
   const [testInput,  setTestInput]  = useState('')
@@ -440,24 +437,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       body: JSON.stringify(body),
     }).then(r => r.json())
   }, [])
-
-  /* ── My Solutions modal UX: ESC close + lock background scroll ── */
-  useEffect(() => {
-    if (!showSolutionsModal) return
-
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowSolutionsModal(false)
-    }
-    window.addEventListener('keydown', onKeyDown)
-
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      document.body.style.overflow = prevOverflow
-    }
-  }, [showSolutionsModal])
 
   /* ── Load session — localStorage first, Supabase fallback ── */
   useEffect(() => {
@@ -861,7 +840,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       const target = e.target as HTMLElement | null
       const insideCodeMirror = !!target?.closest?.('.cm-editor')
       const focusedInEditor = !!view?.hasFocus || insideCodeMirror
-      if (!focusedInEditor || showSolutionsModal) return
+      if (!focusedInEditor) return
 
       const modifier = e.metaKey || e.ctrlKey
       if (!modifier || e.altKey) return
@@ -893,7 +872,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     // preventDefault() stops the Enter newline from being inserted first.
     window.addEventListener('keydown', onKeyDown, { capture: true })
     return () => window.removeEventListener('keydown', onKeyDown, { capture: true })
-  }, [runSubmit, runTest, running, sessionOK, showSolutionsModal])
+  }, [runSubmit, runTest, running, sessionOK])
 
   const isAC = result?.status_code === 10
 
@@ -1297,28 +1276,18 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       <div className="h-28 sm:h-52 border-t border-gray-700/50 flex flex-col bg-[#16213e] shrink-0">
         {/* Tabs */}
         <div className="flex items-center border-b border-gray-700/50 shrink-0 overflow-x-auto scrollbar-none">
-          {(['testcase', 'result', 'solutions'] as const).map(tab => {
-            const isActive =
-              (tab === 'solutions' && showSolutionsModal) ||
-              (tab !== 'solutions' && bottomTab === tab)
+          {(['testcase', 'result'] as const).map(tab => {
+            const isActive = bottomTab === tab
             const baseCls = isActive
-              ? (tab === 'solutions'
-                  ? 'text-emerald-400 border-b-2 border-emerald-400'
-                  : 'text-indigo-400 border-b-2 border-indigo-400')
+              ? 'text-indigo-400 border-b-2 border-indigo-400'
               : 'text-gray-500 hover:text-gray-300'
             return (
               <button
                 key={tab}
-                onClick={() => {
-                  if (tab === 'solutions') {
-                    setShowSolutionsModal(true)
-                  } else {
-                    setBottomTab(tab)
-                  }
-                }}
+                onClick={() => setBottomTab(tab)}
                 className={`px-3 sm:px-4 py-2 text-xs font-semibold whitespace-nowrap shrink-0 transition ${baseCls}`}
               >
-                {tab === 'testcase' ? 'Testcase' : tab === 'result' ? 'Test Result' : '🏆 My Solutions'}
+                {tab === 'testcase' ? 'Testcase' : 'Test Result'}
               </button>
             )
           })}
@@ -1464,47 +1433,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         </div>
       </div>
 
-      {/* ── My Solutions modal — absolute so it's scoped to the editor pane, not the full viewport ── */}
-      {showSolutionsModal && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center px-3 sm:px-4">
-          {/* Backdrop */}
-          <button
-            type="button"
-            aria-label="Close My Solutions"
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setShowSolutionsModal(false)}
-          />
-          {/* Dialog */}
-          <div className="relative z-10 w-full max-w-3xl max-h-[80vh] rounded-2xl border border-emerald-500/40 bg-[#0b1020] shadow-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/80 shrink-0">
-              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-200">
-                <Trophy size={14} className="text-emerald-400" />
-                Last 3 Accepted — My Solutions
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowSolutionsModal(false)}
-                className="text-xs text-gray-400 hover:text-gray-100"
-              >
-                ✕ Close
-              </button>
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
-              <AcceptedSolutions
-                surface="dark"
-                submissions={acSols.submissions}
-                loading={acSols.subsLoading}
-                selectedSub={acSols.selectedSub}
-                subCodeLoading={acSols.subCodeLoading}
-                copied={acSols.copiedSub}
-                onSelect={acSols.loadSubCode}
-                onCopy={acSols.copyCode}
-                onBack={acSols.clearSub}
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

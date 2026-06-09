@@ -22,7 +22,6 @@ import { getCookieFromHeader, normalizeLcCookieValue } from '@/lib/leetcodeHttp'
 hljs.registerLanguage('python', pythonLang)
 hljs.registerLanguage('cpp', cppLang)
 
-import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import CompanyBrowser from '@/components/CompanyBrowser'
@@ -246,7 +245,7 @@ export default function LeetCodePage() {
   }, [])
 
   /* Left panel tab */
-  const [leftTab, setLeftTab]       = useState<'description' | 'editorial' | 'best' | 'accepted' | 'profile'>('description')
+  const [leftTab, setLeftTab]       = useState<'description' | 'editorial' | 'best' | 'profile'>('description')
 
   /* Editorial */
   const [editorial,     setEditorial]     = useState<string | null>(null)
@@ -426,7 +425,6 @@ export default function LeetCodePage() {
     })()
   }, [leftTab, question, session, csrfToken])
 
-  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(question?.titleSlug, leftTab === 'accepted')
   const bestAnswersId = question ? Number.parseInt(question.questionFrontendId || '0', 10) : 0
   const acStats = profile?.submitStatsGlobal.acSubmissionNum ?? []
 
@@ -679,10 +677,10 @@ export default function LeetCodePage() {
           <div className={`${mobilePanel === 'desc' ? 'flex' : 'hidden'} sm:flex w-full sm:w-[42%] flex-col border-r border-gray-700/50 overflow-visible sm:overflow-hidden`}>
             {/* Left tabs */}
             <div className="flex overflow-x-auto border-b border-gray-700/50 shrink-0 bg-[#16213e] scrollbar-none">
-              {(['description', 'editorial', 'best', 'accepted', 'profile'] as const).map(tab => (
+              {(['description', 'editorial', 'best', 'profile'] as const).map(tab => (
                 <button key={tab} onClick={() => setLeftTab(tab)}
-                  className={`px-3 sm:px-4 py-2.5 text-xs font-semibold capitalize transition shrink-0 ${leftTab === tab ? (tab === 'accepted' ? 'text-green-400 border-b-2 border-green-400' : tab === 'best' ? 'text-amber-400 border-b-2 border-amber-400' : 'text-indigo-400 border-b-2 border-indigo-400') : 'text-gray-500 hover:text-gray-300'}`}>
-                  {tab === 'profile' ? 'Profile' : tab === 'editorial' ? 'Editorial' : tab === 'best' ? 'Best answers' : tab === 'accepted' ? '🏆 Solutions' : 'Description'}
+                  className={`px-3 sm:px-4 py-2.5 text-xs font-semibold capitalize transition shrink-0 ${leftTab === tab ? (tab === 'best' ? 'text-amber-400 border-b-2 border-amber-400' : 'text-indigo-400 border-b-2 border-indigo-400') : 'text-gray-500 hover:text-gray-300'}`}>
+                  {tab === 'profile' ? 'Profile' : tab === 'editorial' ? 'Editorial' : tab === 'best' ? 'Best answers' : 'Description'}
                 </button>
               ))}
             </div>
@@ -858,17 +856,6 @@ export default function LeetCodePage() {
                   slug={question.titleSlug}
                   active={leftTab === 'best'}
                   theme="default"
-                />
-              </div>
-            )}
-
-            {leftTab === 'accepted' && (
-              <div className="flex-1 overflow-y-auto p-4 h-full min-h-0 bg-[#16213e] text-gray-100">
-                <AcceptedSolutions
-                  surface="dark"
-                  submissions={submissions} loading={subsLoading}
-                  selectedSub={selectedSub} subCodeLoading={subCodeLoading}
-                  copied={copiedSub} onSelect={loadSubCode} onCopy={copyCode} onBack={clearSub}
                 />
               </div>
             )}

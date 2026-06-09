@@ -19,7 +19,6 @@ import { isDue, formatLocalDate, nextIntervalDays, stripScripts, leetCodeUrl, re
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
-import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
@@ -77,7 +76,7 @@ function LearnInner() {
   const [runs, setRuns]             = useState<Record<string, number>>({})
   const [showList, setShowList]     = useState(false)
   const [reviewDone, setReviewDone] = useState(false)
-  const [activeTab, setActiveTab]   = useState<'description' | 'best' | 'accepted' | 'editor'>('description')
+  const [activeTab, setActiveTab]   = useState<'description' | 'best' | 'editor'>('description')
   // IMPORTANT: don't read localStorage during render (causes hydration mismatch).
   const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(null)
 
@@ -400,8 +399,6 @@ function LearnInner() {
   const reviewCount = p.review_count || 0
   const nextReview  = p.next_review  || null
   const due = isDue(nextReview) && solved
-  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(lcTitleSlug, activeTab === 'accepted')
-
   useEffect(() => {
     if (filtered.length === 0) return
     if (routeIndex !== safeIdx) {
@@ -441,7 +438,7 @@ function LearnInner() {
 
   // In challenge mode, kick off any answer-revealing tab back to description
   useEffect(() => {
-    if (studyMode === 'hide' && (activeTab === 'best' || activeTab === 'accepted')) {
+    if (studyMode === 'hide' && activeTab === 'best') {
       setActiveTab('description')
     }
   }, [studyMode, activeTab])
@@ -1305,12 +1302,6 @@ function LearnInner() {
               <Sparkles size={12} /> Best answers
             </button>
           )}
-          {studyMode !== 'hide' && (
-            <button onClick={() => setActiveTab('accepted')}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-              🏆 My Solutions
-            </button>
-          )}
           <button onClick={() => setStudyMode(prev => prev === 'hide' ? 'show' : 'hide')}
             className={`ml-auto flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors shrink-0 ${studyMode === 'hide' ? 'text-orange-500 hover:text-orange-600' : 'text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
             🧠 {studyMode === 'hide' ? 'Challenge Mode' : 'Review Mode'}
@@ -1438,15 +1429,6 @@ function LearnInner() {
                     slug={lcTitleSlug ?? q.slug}
                     active={leftPanelTab === 'best'}
                     preferredLangs={q.tags?.includes('JavaScript') ? ['javascript', 'python', 'cpp'] : ['python', 'cpp', 'javascript']}
-                  />
-                </div>
-              )}
-              {leftPanelTab === 'accepted' && (
-                <div className="p-4 h-full">
-                  <AcceptedSolutions
-                    submissions={submissions} loading={subsLoading}
-                    selectedSub={selectedSub} subCodeLoading={subCodeLoading}
-                    copied={copiedSub} onSelect={loadSubCode} onCopy={copyCode} onBack={clearSub}
                   />
                 </div>
               )}

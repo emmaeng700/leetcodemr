@@ -12,8 +12,6 @@ import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { addMasteryRunEvent, getMasteryRunsByQuestion, getStudyPlan, getProgress, updateProgress } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
-import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
-
 const REPS_PER_Q_KEY = 'lm_reps_per_q'
 
 function readSavedRepsTarget() {
@@ -60,7 +58,7 @@ export default function SpeedsterQuestionPage() {
   const [queueActive, setQueueActive] = useState(false)
   const [showList, setShowList] = useState(false)
   const [starred, setStarred] = useState(false)
-  const [activeTab, setActiveTab] = useState<'description' | 'best' | 'accepted' | 'editor'>('description')
+  const [activeTab, setActiveTab] = useState<'description' | 'best' | 'editor'>('description')
   const [modeRuns, setModeRuns] = useState<Record<string, number>>({})
   const [repsTarget, setRepsTarget] = useState(2)
 
@@ -71,8 +69,6 @@ export default function SpeedsterQuestionPage() {
   const leftPanelTab = activeTab === 'editor' ? 'description' : activeTab
 
   const lcTitleSlug = question ? resolveLeetCodeSlug(question.id, question.slug) : undefined
-
-  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(lcTitleSlug, activeTab === 'accepted')
 
   const listWrapRef = useRef<HTMLDivElement>(null)
   useClickOutside(listWrapRef, () => setShowList(false), showList)
@@ -321,12 +317,6 @@ export default function SpeedsterQuestionPage() {
             <Sparkles size={12} /> Best answers
           </button>
         )}
-        {question && (
-          <button onClick={() => setActiveTab('accepted')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-            <Trophy size={12} /> My Solutions
-          </button>
-        )}
       </div>
 
       {/* Content */}
@@ -380,13 +370,6 @@ export default function SpeedsterQuestionPage() {
                 slug={lcTitleSlug ?? question.slug}
                 active={leftPanelTab === 'best'}
                 preferredLangs={question.tags?.includes('JavaScript') ? ['javascript', 'python', 'cpp'] : ['python', 'cpp', 'javascript']}
-              />
-            )}
-            {leftPanelTab === 'accepted' && (
-              <AcceptedSolutions
-                submissions={submissions} loading={subsLoading} selectedSub={selectedSub}
-                subCodeLoading={subCodeLoading} copied={copiedSub}
-                onSelect={loadSubCode} onCopy={copyCode} onBack={clearSub}
               />
             )}
           </div>

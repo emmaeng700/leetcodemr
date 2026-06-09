@@ -14,7 +14,6 @@ import { checkAndRecordBreather } from '@/lib/breatherUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
-import AcceptedSolutions, { useAcceptedSolutions } from '@/components/AcceptedSolutions'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
@@ -83,13 +82,12 @@ export default function PracticePage() {
   const [nextReview, setNextReview] = useState<string | null>(null)
   const [reviewDone, setReviewDone] = useState(false)
   const [queuedNextId, setQueuedNextId] = useState<number | null>(null)
-  const [activeTab, setActiveTab] = useState<'description' | 'best' | 'accepted' | 'editor'>('description')
+  const [activeTab, setActiveTab] = useState<'description' | 'best' | 'editor'>('description')
   const [modeRuns, setModeRuns] = useState<Record<string, number>>({})
   const [dailyRepTarget, setDailyRepTarget] = useState(2)
 
   const lcTitleSlug = question ? resolveLeetCodeSlug(question.id, question.slug) : undefined
 
-  const { submissions, subsLoading, selectedSub, subCodeLoading, copiedSub, loadSubCode, copyCode, clearSub } = useAcceptedSolutions(lcTitleSlug, activeTab === 'accepted')
   const [timer, setTimer] = useState(0)
   const listWrapRef = useRef<HTMLDivElement>(null)
   useClickOutside(listWrapRef, () => setShowList(false), showList)
@@ -676,12 +674,6 @@ export default function PracticePage() {
             <Sparkles size={12} /> Best answers
           </button>
         )}
-        {question && (
-          <button onClick={() => setActiveTab('accepted')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'accepted' ? 'border-green-500 text-green-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-            <Trophy size={12} /> My Solutions
-          </button>
-        )}
       </div>
 
       {/* Content area */}
@@ -751,18 +743,6 @@ export default function PracticePage() {
               />
             )}
 
-            {leftPanelTab === 'accepted' && (
-              <AcceptedSolutions
-                submissions={submissions}
-                loading={subsLoading}
-                selectedSub={selectedSub}
-                subCodeLoading={subCodeLoading}
-                copied={copiedSub}
-                onSelect={loadSubCode}
-                onCopy={copyCode}
-                onBack={clearSub}
-              />
-            )}
           </div>
         </div>
 
