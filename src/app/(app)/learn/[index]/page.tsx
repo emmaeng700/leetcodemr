@@ -178,12 +178,20 @@ function LearnInner() {
     let cancelled = false
     getCycleState().then(state => {
       if (cancelled || !state?.cycleRange) return
+      const rng       = state.cycleRange
+      const reps      = state.cycleReps ?? 0
+      const pos       = state.cyclePos  ?? 0
+      const accepted  = Array.isArray(state.cycleAccepted) ? state.cycleAccepted : []
+      // For a fresh cycle (pos=0, reps=0, nothing accepted) always derive cycleIdx from
+      // the range start — avoids a stale cycleIdx corrupting which question is shown.
+      const isFresh   = reps === 0 && pos === 0 && accepted.length === 0
+      const cycleIdx  = isFresh ? rng.start : (state.cycleIdx ?? rng.start)
       applyCycleState({
-        cycleRange: state.cycleRange,
-        cycleReps: state.cycleReps ?? 0,
-        cyclePos: state.cyclePos ?? 0,
-        cycleIdx: state.cycleIdx ?? state.cycleRange.start,
-        cycleAccepted: Array.isArray(state.cycleAccepted) ? state.cycleAccepted : [],
+        cycleRange: rng,
+        cycleReps: reps,
+        cyclePos: pos,
+        cycleIdx,
+        cycleAccepted: accepted,
         cycleOrderedIds: Array.isArray(state.cycleOrderedIds) ? state.cycleOrderedIds : [],
       })
     }).catch(() => {})

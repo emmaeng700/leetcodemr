@@ -146,7 +146,12 @@ export default function CyclesPage() {
       const stored = parseInt(localStorage.getItem('lm_learn_idx') ?? '', 10)
       if (Number.isFinite(stored)) fallbackIdx = stored
     } catch {}
-    const idx = clampCycleIdx(cycleIdx ?? fallbackIdx, cycle.range)
+    // For a fresh cycle (pos=0, reps=0, nothing accepted) always start at the
+    // range start — avoids a stale cycleIdx (from a previous race condition) corrupting entry.
+    const isFresh = cycleReps === 0 && cyclePos === 0 && cycleAccepted.length === 0
+    const idx = isFresh
+      ? cycle.range.start
+      : clampCycleIdx(cycleIdx ?? fallbackIdx, cycle.range)
 
     const state = {
       cycleRange: cycle.range,

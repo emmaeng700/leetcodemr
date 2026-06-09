@@ -32,7 +32,14 @@ function LearnHub() {
       try {
         const state = await getCycleState()
         if (!cancelled && state?.cycleRange) {
-          idx = clampCycleIdx(state.cycleIdx ?? fallback, state.cycleRange)
+          // For a fresh cycle (pos=0, reps=0, nothing accepted) always start at
+          // the range start — avoids a stale cycleIdx corrupting the entry point.
+          const isFresh = (state.cycleReps ?? 0) === 0
+            && (state.cyclePos ?? 0) === 0
+            && (state.cycleAccepted?.length ?? 0) === 0
+          idx = isFresh
+            ? state.cycleRange.start
+            : clampCycleIdx(state.cycleIdx ?? fallback, state.cycleRange)
         }
       } catch {}
       if (!cancelled) router.replace(`/learn/${Math.max(0, idx)}`)
