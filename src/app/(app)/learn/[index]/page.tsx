@@ -989,7 +989,10 @@ function LearnInner() {
                 : `${gatedIdx + 1}/${filtered.length}`}
             </span>
             <span className="hidden sm:inline text-gray-400">·</span>
-            <span className="hidden sm:inline text-green-600">{displaySolvedCount} solved</span>
+            {cycleRange
+              ? <span className="hidden sm:inline text-indigo-600">{cycleAcceptedCount} accepted</span>
+              : <span className="hidden sm:inline text-green-600">{displaySolvedCount} solved</span>
+            }
           </button>
 
           {/* Question list: mobile = fixed, centered on viewport; sm+ = under button */}
