@@ -764,6 +764,10 @@ function LearnInner() {
   }
 
   const solvedCount  = filtered.filter(fq => progress[String(fq.id)]?.solved).length
+  // When a cycle is active, only count solved questions within the cycle range
+  const displaySolvedCount = cycleRange
+    ? filtered.slice(cycleRange.start, cycleRange.end + 1).filter(fq => progress[String(fq.id)]?.solved).length
+    : solvedCount
 
   // Pattern context for current question — uses exclusive map (no repetition)
   const currentPatternName = q ? (exclusiveMap[q.id] ?? null) : null
@@ -948,7 +952,7 @@ function LearnInner() {
                 : `${gatedIdx + 1}/${filtered.length}`}
             </span>
             <span className="hidden sm:inline text-gray-400">·</span>
-            <span className="hidden sm:inline text-green-600">{solvedCount} solved</span>
+            <span className="hidden sm:inline text-green-600">{displaySolvedCount} solved</span>
           </button>
 
           {/* Question list: mobile = fixed, centered on viewport; sm+ = under button */}
