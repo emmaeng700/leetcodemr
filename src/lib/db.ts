@@ -1470,11 +1470,12 @@ export async function setSavedCycles(cycles: SavedCycle[]): Promise<void> {
 // ─── Learn Cycle State (persisted per user so it survives tab close / device switch) ──
 
 export interface CycleState {
-  cycleRange:    { start: number; end: number } | null
-  cycleReps:     number
-  cyclePos:      number
-  cycleIdx?:     number      // last visited index within cycleRange (study order)
-  cycleAccepted: number[]   // question IDs accepted in current lap
+  cycleRange:      { start: number; end: number } | null
+  cycleReps:       number
+  cyclePos:        number
+  cycleIdx?:       number      // last visited index within filtered list
+  cycleAccepted:   number[]    // question IDs accepted in current lap
+  cycleOrderedIds?: number[]   // question IDs in the current lap's traversal order
 }
 
 export function clampCycleIdx(

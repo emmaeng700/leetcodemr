@@ -87,10 +87,25 @@ function LearnInner() {
   const [cyclePos, setCyclePosRaw] = useState(0)
   const cycleAcceptedRef = useRef<Set<number>>(new Set())
   const [cycleAcceptedCount, setCycleAcceptedCount] = useState(0)
-  const cycleRangeForSave = useRef<{ start: number; end: number } | null>(null)
-  const cycleRepsRef = useRef(cycleReps)
-  const cyclePosRef = useRef(cyclePos)
-  const cycleIdxRef = useRef(0)
+  const cycleRangeForSave   = useRef<{ start: number; end: number } | null>(null)
+  const cycleRepsRef        = useRef(cycleReps)
+  const cyclePosRef         = useRef(cyclePos)
+  const cycleIdxRef         = useRef(0)
+  const cycleOrderedIdsRef  = useRef<number[]>([])
+
+  // ── Determines traversal order for a given lap rep count ─────────────────
+  // reps 0,2,4 → normal studyOrder  |  reps 1,3,5 → reversed  |  reps 6+ → shuffled
+  const buildCycleOrder = (baseIds: number[], reps: number): number[] => {
+    if (reps >= 6) {
+      const arr = [...baseIds]
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]]
+      }
+      return arr
+    }
+    return reps % 2 === 1 ? [...baseIds].reverse() : [...baseIds]
+  }
 
   const syncCycleToSession = (state: {
     cycleRange: { start: number; end: number } | null
@@ -98,6 +113,7 @@ function LearnInner() {
     cyclePos: number
     cycleIdx?: number
     cycleAccepted: number[]
+    cycleOrderedIds?: number[]
   }) => {
     try {
       if (state.cycleRange) {
@@ -108,6 +124,9 @@ function LearnInner() {
           sessionStorage.setItem('lm_learn_cycle_idx', String(state.cycleIdx))
         }
         sessionStorage.setItem('lm_learn_cycle_accepted', JSON.stringify(state.cycleAccepted))
+        if (state.cycleOrderedIds) {
+          sessionStorage.setItem('lm_learn_cycle_order', JSON.stringify(state.cycleOrderedIds))
+        }
       } else {
         sessionStorage.removeItem('lm_learn_cycle')
         sessionStorage.removeItem('lm_learn_cycle_reps')
@@ -124,12 +143,16 @@ function LearnInner() {
     cyclePos: number
     cycleIdx?: number
     cycleAccepted: number[]
+    cycleOrderedIds?: number[]
   }) => {
     setCycleRangeRaw(state.cycleRange)
     setCycleRepsRaw(state.cycleReps)
     setCyclePosRaw(state.cyclePos)
     if (state.cycleRange && typeof state.cycleIdx === 'number') {
       cycleIdxRef.current = state.cycleIdx
+    }
+    if (Array.isArray(state.cycleOrderedIds) && state.cycleOrderedIds.length > 0) {
+      cycleOrderedIdsRef.current = state.cycleOrderedIds
     }
     cycleAcceptedRef.current = new Set(state.cycleAccepted)
     setCycleAcceptedCount(state.cycleAccepted.length)
@@ -143,14 +166,11 @@ function LearnInner() {
     cyclePos: number
     cycleIdx?: number
     cycleAccepted: number[]
+    cycleOrderedIds?: number[]
   } | null) => {
-    syncCycleToSession(state ?? {
-      cycleRange: null,
-      cycleReps: 0,
-      cyclePos: 0,
-      cycleAccepted: [],
-    })
-    saveCycleState(state).catch(() => {})
+    const withOrder = state ? { ...state, cycleOrderedIds: state.cycleOrderedIds ?? cycleOrderedIdsRef.current } : null
+    syncCycleToSession(withOrder ?? { cycleRange: null, cycleReps: 0, cyclePos: 0, cycleAccepted: [] })
+    saveCycleState(withOrder).catch(() => {})
   }
 
   // Restore full cycle progress on mount (survives tab close / navigation away)
@@ -164,6 +184,7 @@ function LearnInner() {
         cyclePos: state.cyclePos ?? 0,
         cycleIdx: state.cycleIdx ?? state.cycleRange.start,
         cycleAccepted: Array.isArray(state.cycleAccepted) ? state.cycleAccepted : [],
+        cycleOrderedIds: Array.isArray(state.cycleOrderedIds) ? state.cycleOrderedIds : [],
       })
     }).catch(() => {})
     return () => { cancelled = true }
@@ -187,8 +208,11 @@ function LearnInner() {
 
     const startIdx = range.start
     cycleIdxRef.current = startIdx
-    applyCycleState({ cycleRange: range, cycleReps: 0, cyclePos: 0, cycleIdx: startIdx, cycleAccepted: [] })
-    persistCycleState({ cycleRange: range, cycleReps: 0, cyclePos: 0, cycleIdx: startIdx, cycleAccepted: [] })
+    // reps=0 → normal order (studyOrder as in filtered)
+    const baseIds = filteredRef.current.slice(range.start, range.end + 1).map(q => q.id)
+    cycleOrderedIdsRef.current = baseIds
+    applyCycleState({ cycleRange: range, cycleReps: 0, cyclePos: 0, cycleIdx: startIdx, cycleAccepted: [], cycleOrderedIds: baseIds })
+    persistCycleState({ cycleRange: range, cycleReps: 0, cyclePos: 0, cycleIdx: startIdx, cycleAccepted: [], cycleOrderedIds: baseIds })
   }
 
   const setCycleReps = (n: number) => {
@@ -556,13 +580,25 @@ function LearnInner() {
     resetCycleAccepted()
     const newReps = Math.min(cycleRepsRef.current + 1, CYCLE_REP_TARGET)
     setCycleReps(newReps)
-    cycleIdxRef.current = rng.start
+
+    // Build the new traversal order for this lap
+    const baseIds = filteredRef.current.slice(rng.start, rng.end + 1).map(q => q.id)
+    const newOrderedIds = buildCycleOrder(baseIds, newReps)
+    cycleOrderedIdsRef.current = newOrderedIds
+
+    // Navigate to the first question in the new order
+    const firstId  = newOrderedIds[0]
+    const firstIdx = filteredRef.current.findIndex(q => q.id === firstId)
+    const startIdx = firstIdx >= 0 ? firstIdx : rng.start
+    cycleIdxRef.current = startIdx
+
     saveCycleState({
       cycleRange: rng,
       cycleReps: newReps,
       cyclePos: 0,
-      cycleIdx: rng.start,
+      cycleIdx: startIdx,
       cycleAccepted: [],
+      cycleOrderedIds: newOrderedIds,
     }).catch(() => {})
 
     const isFinal = newReps >= CYCLE_REP_TARGET
@@ -571,19 +607,48 @@ function LearnInner() {
       duration: isFinal ? 6000 : 3500,
       icon: isFinal ? '🏆' : undefined,
     })
+
+    // Show order-change toast after a brief pause so it doesn't overlap
+    if (!isFinal) {
+      setTimeout(() => {
+        if (newReps >= 6) {
+          toast('🎲 Random shuffle activated — no patterns to lean on now. True mastery test!', { duration: 5000 })
+        } else if (newReps % 2 === 1) {
+          toast('🔄 Questions reversed for this lap — Hard questions first. Find your weak spots!', { duration: 5000 })
+        } else {
+          toast('↩️ Back to normal order — Easy → Hard. How much faster are you now?', { duration: 4000 })
+        }
+      }, 2500)
+    }
+
     return true
   }, [fireConfetti, setCycleReps])
 
   const goNext = useCallback(() => {
     const n   = filteredLenRef.current
     if (n === 0) return
-    const idx   = gatedIdxRef.current
-    const rng   = cycleRangeRef.current
+    const idx        = gatedIdxRef.current
+    const rng        = cycleRangeRef.current
+    const orderedIds = cycleOrderedIdsRef.current
+    const qs         = learnQsRef.current
+
+    if (rng && orderedIds.length > 0) {
+      const currentId  = filteredRef.current[idx]?.id
+      const posInOrder = orderedIds.indexOf(currentId)
+      const nextPos    = posInOrder >= orderedIds.length - 1 ? 0 : posInOrder + 1
+      const nextId     = orderedIds[nextPos]
+      const nextIdx    = filteredRef.current.findIndex(q => q.id === nextId)
+      if (nextIdx >= 0) {
+        setCyclePos(nextPos)
+        router.push(`/learn/${nextIdx}${qs ? `?${qs}` : ''}`, { scroll: false })
+        return
+      }
+    }
+
+    // Fallback (no cycle order set, or ID not found)
     const start = rng?.start ?? 0
     const end   = rng?.end   ?? Math.max(n - 1, 0)
     const next  = idx >= end ? start : idx + 1
-    const qs    = learnQsRef.current
-    // Update cycle position counter
     if (rng) setCyclePos(next === start ? 0 : cyclePosRef.current + 1)
     router.push(`/learn/${next}${qs ? `?${qs}` : ''}`, { scroll: false })
   }, [router, setCyclePos])
@@ -591,14 +656,30 @@ function LearnInner() {
   const goPrev = useCallback(() => {
     const n   = filteredLenRef.current
     if (n === 0) return
-    const idx  = gatedIdxRef.current
-    const rng  = cycleRangeRef.current
+    const idx        = gatedIdxRef.current
+    const rng        = cycleRangeRef.current
+    const orderedIds = cycleOrderedIdsRef.current
+    const qs         = learnQsRef.current
+
+    if (rng && orderedIds.length > 0) {
+      const currentId  = filteredRef.current[idx]?.id
+      const posInOrder = orderedIds.indexOf(currentId)
+      const prevPos    = posInOrder <= 0 ? orderedIds.length - 1 : posInOrder - 1
+      const prevId     = orderedIds[prevPos]
+      const prevIdx    = filteredRef.current.findIndex(q => q.id === prevId)
+      if (prevIdx >= 0) {
+        setCyclePos(prevPos)
+        router.push(`/learn/${prevIdx}${qs ? `?${qs}` : ''}`, { scroll: false })
+        return
+      }
+    }
+
+    // Fallback
     const start = rng?.start ?? 0
     const end   = rng?.end   ?? Math.max(n - 1, 0)
     const prev  = idx <= start ? end : idx - 1
-    const qs    = learnQsRef.current
     router.push(`/learn/${prev}${qs ? `?${qs}` : ''}`, { scroll: false })
-  }, [router])
+  }, [router, setCyclePos])
 
   const goTo = (i: number) => {
     router.push(`/learn/${i}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
@@ -861,7 +942,11 @@ function LearnInner() {
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-indigo-300 transition-colors"
           >
             <List size={12} />
-            <span className="font-mono">{gatedIdx + 1}/{filtered.length}</span>
+            <span className="font-mono">
+              {cycleRange
+                ? `${cyclePos + 1}/${cycleRange.end - cycleRange.start + 1}`
+                : `${gatedIdx + 1}/${filtered.length}`}
+            </span>
             <span className="hidden sm:inline text-gray-400">·</span>
             <span className="hidden sm:inline text-green-600">{solvedCount} solved</span>
           </button>
@@ -887,7 +972,9 @@ function LearnInner() {
         {/* Progress bar */}
         <div className="flex-1 bg-gray-100 rounded-full h-1.5 min-w-[60px]">
           <div className="bg-indigo-500 h-1.5 rounded-full transition-all"
-            style={{ width: filtered.length ? `${((gatedIdx + 1) / filtered.length) * 100}%` : '0%' }} />
+            style={{ width: cycleRange
+              ? `${((cyclePos + 1) / (cycleRange.end - cycleRange.start + 1)) * 100}%`
+              : filtered.length ? `${((gatedIdx + 1) / filtered.length) * 100}%` : '0%' }} />
         </div>
 
         {/* Filters toggle */}
