@@ -59,12 +59,22 @@ export async function extBridgeRequest(kind: BridgeKind, body?: any): Promise<Br
   })
 }
 
+let _bridgeOk: boolean | null = null
+let _bridgeAt = 0
+const BRIDGE_TTL = 30_000
+
 export async function extBridgeHealthy(): Promise<boolean> {
   if (!hasLeetMasteryBridge()) return false
+  const now = Date.now()
+  // Use cached result so a warm-up ping (e.g. from the session effect) benefits
+  // subsequent lcFetch calls without re-pinging the service worker every time.
+  if (_bridgeOk === true && now - _bridgeAt < BRIDGE_TTL) return true
   try {
     const r = await extBridgeRequest('ping')
+    if (r.ok) { _bridgeOk = true; _bridgeAt = now }
     return !!r.ok
   } catch {
+    // Don't cache failures — let the next call retry.
     return false
   }
 }
