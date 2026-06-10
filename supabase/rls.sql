@@ -107,3 +107,9 @@ ALTER TABLE ac_submit_counts ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "owner only" ON ac_submit_counts;
 CREATE POLICY "owner only" ON ac_submit_counts
   FOR ALL USING (user_id = 'emmanuel') WITH CHECK (user_id = 'emmanuel');
+
+-- ── wrong_submit_counts ───────────────────────────────────────────────────────
+ALTER TABLE wrong_submit_counts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "owner only" ON wrong_submit_counts;
+CREATE POLICY "owner only" ON wrong_submit_counts
+  FOR ALL USING (user_id = 'emmanuel') WITH CHECK (user_id = 'emmanuel');

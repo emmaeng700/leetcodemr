@@ -9,9 +9,7 @@ import {
 } from 'lucide-react'
 import { getProgress, updateProgress, incrementAcSubmitCount, incrementWrongSubmitCount } from '@/lib/db'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
-import { normalizeLcCookieValue, getCookieFromHeader, hasCfClearance } from '@/lib/leetcodeHttp'
-import { lcFetch, getLocalConnectorStatus } from '@/lib/leetcodeLocalConnector'
-import { extBridgeHealthy } from '@/lib/leetcodeExtensionBridge'
+import { normalizeLcCookieValue, getCookieFromHeader } from '@/lib/leetcodeHttp'
 import toast from 'react-hot-toast'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
@@ -257,8 +255,6 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
   const [showS, setShowS] = useState(false)
   const [cleaned, setCleaned] = useState(false)
 
-  const isCookieJar = /LEETCODE_SESSION\s*=/.test(s) && s.includes(';')
-  const cfClearance = isCookieJar && hasCfClearance(s)
   const canSave = s.trim().length > 10
 
   /**
@@ -295,16 +291,9 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
         <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xs">✕</button>
       </div>
       <p className="text-[11px] text-gray-400 leading-relaxed">
-        <strong className="text-orange-300">Best:</strong> leetcode.com → F12 → Network tab → click any request → Request Headers → copy the full <code className="bg-gray-800 px-1 rounded text-orange-300">Cookie</code> header value → paste below.
-        <br />
-        <span className="text-gray-500">(Includes cf_clearance needed for Run/Submit. Or paste just your LEETCODE_SESSION value.)</span>
+        <strong className="text-orange-300">For Run/Submit:</strong> leetcode.com → F12 → Network tab → click any request → Headers → copy the full <code className="bg-gray-800 px-1 rounded text-orange-300">Cookie</code> header value (includes <code className="bg-gray-800 px-1 rounded text-orange-300">cf_clearance</code> needed to bypass Cloudflare).
+        <br className="hidden sm:block" /><span className="text-gray-500"> Or paste just your LEETCODE_SESSION for question loading only.</span>
       </p>
-      {cfClearance && (
-        <p className="text-[10px] text-green-400 font-semibold">✓ Full cookie header detected — cf_clearance included</p>
-      )}
-      {isCookieJar && !cfClearance && (
-        <p className="text-[10px] text-amber-400 font-semibold">Cookie header saved, but cf_clearance is missing — Run/Submit may return HTTP 403 on the deployed app. Re-copy Cookie from leetcode.com or use the extension / lc:connector.</p>
-      )}
 
       <div className="flex gap-1.5">
         <div className="relative flex-1">
@@ -385,8 +374,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [showSessionHint, setShowSessionHint] = useState(false)
   const [editorExpanded,  setEditorExpanded]  = useState(false)
   const [savingBest, setSavingBest] = useState<'idle' | 'saving' | 'saved'>('idle')
-  const [localConnector, setLocalConnector] = useState<{ ok: boolean; authed: boolean } | null>(null)
-  const [extBridgeOn, setExtBridgeOn] = useState(false)
   const availableLangs = useMemo<SupportedLang[]>(() => {
     const hinted = new Set((preferredLangs ?? []).filter((slug): slug is SupportedLang => SUPPORTED_LANGS.includes(slug)))
     const langs = (lcQ?.codeSnippets ?? [])
@@ -422,15 +409,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   }, [code, lang, appQuestionId, savingBest])
 
   const fetchQuestionPayload = useCallback(async (body: object) => {
-    const viaLcFetch = await lcFetch('/api/leetcode', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }).then(r => r.json()).catch(() => null)
-
-    const questionViaLcFetch = viaLcFetch?.data?.question
-    if (!viaLcFetch?.errors && questionViaLcFetch) return viaLcFetch
-
     return fetch('/api/leetcode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -440,24 +418,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
   /* ── Load session — localStorage first, Supabase fallback ── */
   useEffect(() => {
-    // Detect local connector availability (best-effort).
-    getLocalConnectorStatus().then(setLocalConnector).catch(() => setLocalConnector({ ok: false, authed: false }))
-    // Detect extension bridge availability (best-effort).
-    // MV3 service worker may be asleep; ping can take a moment to wake it.
-    let cancelled = false
-    ;(async () => {
-      for (let i = 0; i < 3; i++) {
-        try {
-          const ok = await extBridgeHealthy()
-          if (cancelled) return
-          if (ok) { setExtBridgeOn(true); return }
-        } catch {
-          /* ignore */
-        }
-        await new Promise(r => setTimeout(r, 500 * (i + 1)))
-      }
-      if (!cancelled) setExtBridgeOn(false)
-    })()
 
     const ls = normalizeLcCookieValue(localStorage.getItem('lc_session') ?? '')
     const lc = normalizeLcCookieValue(localStorage.getItem('lc_csrf') ?? '')
@@ -492,10 +452,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       if (s && c) { setSession(s); setCsrf(c) }
     }
     window.addEventListener('focus', onFocus)
-    return () => {
-      window.removeEventListener('focus', onFocus)
-      cancelled = true
-    }
+    return () => window.removeEventListener('focus', onFocus)
   }, [])
 
   /* ── Load CodeMirror extensions ── */
@@ -702,7 +659,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       let res!: Response
       let data: (LCResult & { error?: string }) | undefined
       for (let att = 0; att < 3; att++) {
-        res = await lcFetch('/api/leetcode/check', {
+        res = await fetch('/api/leetcode/check', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ checkId, titleSlug: lcSlug, session, csrfToken: csrf }),
         })
@@ -776,7 +733,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     if (syntaxErr) { setResultErr(syntaxErr); setBottomTab('result'); return }
     setRunning(true); setRunMode('test'); setResult(null); setResultErr(''); setSolvedStatus(null); setPollMsg('Sending…'); setBottomTab('result')
     try {
-      const res = await lcFetch('/api/leetcode/test', {
+      const res = await fetch('/api/leetcode/test', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ titleSlug: lcSlug, questionId: lcQ.questionId, lang: LANG_LC[lang], code, testInput: cases[activeCase]?.raw || testInput, session, csrfToken: csrf }),
       })
@@ -818,7 +775,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     if (syntaxErr) { setResultErr(syntaxErr); setBottomTab('result'); return }
     setRunning(true); setRunMode('submit'); setResult(null); setResultErr(''); setSolvedStatus(null); setPollMsg('Submitting…'); setBottomTab('result')
     try {
-      const res = await lcFetch('/api/leetcode/submit', {
+      const res = await fetch('/api/leetcode/submit', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ titleSlug: lcSlug, questionId: lcQ.questionId, lang: LANG_LC[lang], code, session, csrfToken: csrf }),
       })

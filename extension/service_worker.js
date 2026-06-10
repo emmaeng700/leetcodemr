@@ -5,9 +5,17 @@ const LC = 'https://leetcode.com'
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 
-async function getCookie(name) {
+// Read all cookies for leetcode.com from the user's main Chrome profile.
+// credentials:'include' in fetch() from an extension service worker uses the extension's
+// own isolated cookie store (empty for third-party sites), so we read cookies explicitly
+// and set the Cookie header ourselves.
+async function getLCCookies() {
   return new Promise((resolve) => {
-    chrome.cookies.get({ url: LC, name }, (cookie) => resolve(cookie?.value || ''))
+    chrome.cookies.getAll({ url: LC }, (cookies) => {
+      const str = (cookies || []).map((c) => `${c.name}=${c.value}`).join('; ')
+      const csrf = (cookies || []).find((c) => c.name === 'csrftoken')?.value || ''
+      resolve({ cookieStr: str, csrf })
+    })
   })
 }
 
@@ -21,18 +29,21 @@ function isHtml(text) {
 }
 
 async function lcFetch(url, init) {
-  const res = await fetch(url, { ...init, credentials: 'include' })
+  const res = await fetch(url, { ...init, credentials: 'omit' })
   const text = await res.text()
   return { status: res.status, ok: res.ok, text }
 }
 
 async function handleGraphql(body) {
-  const csrf = await getCookie('csrftoken')
+  const { cookieStr, csrf } = await getLCCookies()
+  // Strip app-only fields before forwarding to LeetCode's GraphQL endpoint.
+  const { session: _s, csrfToken: _c, ...graphqlBody } = body ?? {}
   const { status, ok, text } = await lcFetch(`${LC}/graphql`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-CSRFToken': csrf,
+      Cookie: cookieStr,
       Referer: `${LC}/problems/`,
       Origin: LC,
       Accept: 'application/json',
@@ -40,7 +51,7 @@ async function handleGraphql(body) {
       'x-requested-with': 'XMLHttpRequest',
       'User-Agent': UA,
     },
-    body: JSON.stringify(body ?? {}),
+    body: JSON.stringify(graphqlBody),
   })
   if (isHtml(text)) {
     return jsonResponse(false, { error: `LeetCode returned HTML (HTTP ${status}).`, httpStatus: status })
@@ -49,7 +60,7 @@ async function handleGraphql(body) {
 }
 
 async function handleSubmit(body) {
-  const csrf = await getCookie('csrftoken')
+  const { cookieStr, csrf } = await getLCCookies()
   const slug = encodeURIComponent(String(body?.titleSlug || ''))
   const url = `${LC}/problems/${slug}/submit/`
   const payload = {
@@ -64,6 +75,7 @@ async function handleSubmit(body) {
     headers: {
       'Content-Type': 'application/json',
       'X-CSRFToken': csrf,
+      Cookie: cookieStr,
       Referer: `${LC}/problems/${slug}/description/`,
       Origin: LC,
       Accept: 'application/json, text/plain, */*',
@@ -80,7 +92,7 @@ async function handleSubmit(body) {
 }
 
 async function handleTest(body) {
-  const csrf = await getCookie('csrftoken')
+  const { cookieStr, csrf } = await getLCCookies()
   const slug = encodeURIComponent(String(body?.titleSlug || ''))
   const url = `${LC}/problems/${slug}/interpret_solution/`
   const payload = {
@@ -95,6 +107,7 @@ async function handleTest(body) {
     headers: {
       'Content-Type': 'application/json',
       'X-CSRFToken': csrf,
+      Cookie: cookieStr,
       Referer: `${LC}/problems/${slug}/description/`,
       Origin: LC,
       Accept: 'application/json, text/plain, */*',
@@ -111,12 +124,14 @@ async function handleTest(body) {
 }
 
 async function handleCheck(body) {
+  const { cookieStr } = await getLCCookies()
   const slug = encodeURIComponent(String(body?.titleSlug || ''))
   const checkId = String(body?.checkId || '')
   const url = `${LC}/submissions/detail/${checkId}/check/`
   const { status, ok, text } = await lcFetch(url, {
     method: 'GET',
     headers: {
+      Cookie: cookieStr,
       Referer: `${LC}/problems/${slug}/description/`,
       Accept: 'application/json',
       'Accept-Language': 'en-US,en;q=0.9',
@@ -153,4 +168,3 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => handleMessa
 
 // Messages from externally_connectable pages (localhost, vercel.app) — no relay needed
 chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => handleMessage(msg, sendResponse))
-
