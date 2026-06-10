@@ -1,4 +1,4 @@
-import { extBridgeHealthy, extBridgeRequest } from './leetcodeExtensionBridge'
+import { extBridgeHealthy, extBridgeRequest, invalidateBridgeCache } from './leetcodeExtensionBridge'
 
 type LcLocalHealth = { ok: boolean; authed?: boolean }
 
@@ -56,17 +56,23 @@ export async function lcFetch(path: string, init: RequestInit): Promise<Response
                 : null
 
       if (kind) {
-        const resp = await extBridgeRequest(kind as any, body)
-        if (!resp.ok) {
+        try {
+          const resp = await extBridgeRequest(kind as any, body)
+          if (resp.ok) {
+            return new Response(resp.bodyText ?? '', {
+              status: resp.httpStatus ?? 200,
+              headers: { 'Content-Type': 'application/json' },
+            })
+          }
+          // Non-ok but valid response — surface the error directly.
           return new Response(JSON.stringify({ error: resp.error ?? 'Extension bridge failed.', httpStatus: resp.httpStatus }), {
             status: 502,
             headers: { 'Content-Type': 'application/json' },
           })
+        } catch {
+          // Timeout or messaging failure — invalidate cache and fall through.
+          invalidateBridgeCache()
         }
-        return new Response(resp.bodyText ?? '', {
-          status: resp.httpStatus ?? 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
       }
     }
   }

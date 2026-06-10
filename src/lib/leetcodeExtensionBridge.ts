@@ -30,7 +30,7 @@ export function hasLeetMasteryBridge(): boolean {
   )
 }
 
-export async function extBridgeRequest(kind: BridgeKind, body?: any): Promise<BridgeResponse> {
+export async function extBridgeRequest(kind: BridgeKind, body?: any, timeoutMs = 15_000): Promise<BridgeResponse> {
   if (typeof window === 'undefined') {
     throw new Error('Bridge only available in browser.')
   }
@@ -42,7 +42,7 @@ export async function extBridgeRequest(kind: BridgeKind, body?: any): Promise<Br
     const timeout = window.setTimeout(() => {
       window.removeEventListener('message', onMsg)
       reject(new Error('Extension bridge timeout.'))
-    }, 5000)
+    }, timeoutMs)
 
     function onMsg(e: MessageEvent) {
       const data = e.data as BridgeResponse
@@ -63,6 +63,8 @@ let _bridgeOk: boolean | null = null
 let _bridgeAt = 0
 const BRIDGE_TTL = 30_000
 
+export function invalidateBridgeCache() { _bridgeOk = null }
+
 export async function extBridgeHealthy(): Promise<boolean> {
   if (!hasLeetMasteryBridge()) return false
   const now = Date.now()
@@ -70,7 +72,7 @@ export async function extBridgeHealthy(): Promise<boolean> {
   // subsequent lcFetch calls without re-pinging the service worker every time.
   if (_bridgeOk === true && now - _bridgeAt < BRIDGE_TTL) return true
   try {
-    const r = await extBridgeRequest('ping')
+    const r = await extBridgeRequest('ping', undefined, 3_000)
     if (r.ok) { _bridgeOk = true; _bridgeAt = now }
     return !!r.ok
   } catch {
