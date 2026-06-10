@@ -23,7 +23,11 @@ function uuid() {
 }
 
 export function hasLeetMasteryBridge(): boolean {
-  return typeof window !== 'undefined' && (window as any).__LEETMASTERY_LC_BRIDGE__ === true
+  return (
+    typeof window !== 'undefined' &&
+    typeof document !== 'undefined' &&
+    document.documentElement?.getAttribute('data-lm-bridge') === 'true'
+  )
 }
 
 export async function extBridgeRequest(kind: BridgeKind, body?: any): Promise<BridgeResponse> {
