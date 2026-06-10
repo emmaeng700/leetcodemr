@@ -271,6 +271,52 @@ export async function getAcSubmitCounts(): Promise<Record<string, number>> {
   return out
 }
 
+/** Increment count when user gets a non-Accepted result on a Submit. */
+export async function incrementWrongSubmitCount(questionId: number) {
+  const { data: existing, error: readErr } = await supabase
+    .from('wrong_submit_counts')
+    .select('count')
+    .eq('user_id', USER_ID)
+    .eq('question_id', questionId)
+    .maybeSingle()
+  if (readErr) {
+    if (isMissingTableError(readErr.message)) return
+    console.error('[db] incrementWrongSubmitCount:', readErr.message)
+    return
+  }
+  const next = (existing?.count ?? 0) + 1
+  const { error } = await supabase.from('wrong_submit_counts').upsert(
+    {
+      user_id: USER_ID,
+      question_id: questionId,
+      count: next,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,question_id' },
+  )
+  if (error) {
+    if (isMissingTableError(error.message)) return
+    console.error('[db] incrementWrongSubmitCount:', error.message)
+  }
+}
+
+export async function getWrongSubmitCounts(): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from('wrong_submit_counts')
+    .select('question_id, count')
+    .eq('user_id', USER_ID)
+  if (error) {
+    if (isMissingTableError(error.message)) return {}
+    console.error('[db] getWrongSubmitCounts:', error.message)
+    return {}
+  }
+  const out: Record<string, number> = {}
+  for (const row of data || []) {
+    out[String((row as { question_id: number }).question_id)] = (row as { count: number }).count
+  }
+  return out
+}
+
 export async function updateProgress(questionId: number, data: any) {
   const { data: existing } = await supabase
     .from('progress')

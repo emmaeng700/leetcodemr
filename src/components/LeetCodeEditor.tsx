@@ -7,7 +7,7 @@ import {
   AlertCircle, Key, ChevronDown, ChevronUp, Star,
   Eye, EyeOff, RotateCcw, Bookmark, BookmarkCheck,
 } from 'lucide-react'
-import { getProgress, updateProgress, incrementAcSubmitCount } from '@/lib/db'
+import { getProgress, updateProgress, incrementAcSubmitCount, incrementWrongSubmitCount } from '@/lib/db'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { normalizeLcCookieValue, getCookieFromHeader, hasCfClearance } from '@/lib/leetcodeHttp'
 import { lcFetch, getLocalConnectorStatus } from '@/lib/leetcodeLocalConnector'
@@ -754,6 +754,11 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
             }
           }
           onAcceptedRef.current?.()
+        }
+
+        /* Track wrong submissions for weighted cycle shuffle */
+        if (mode === 'submit' && data.status_code !== 10 && syncToApp) {
+          void incrementWrongSubmitCount(appQuestionId)
         }
         return
       }

@@ -8,7 +8,7 @@ import {
   BookOpen, List, ExternalLink, Loader2,
   Sparkles, RefreshCw, X, Play,
 } from 'lucide-react'
-import { getProgress, updateProgress, completeReview, failReview, getCycleState, saveCycleState, clampCycleIdx } from '@/lib/db'
+import { getProgress, updateProgress, completeReview, failReview, getCycleState, saveCycleState, clampCycleIdx, getWrongSubmitCounts } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap, getPatternForQuestion } from '@/lib/patternUtils'
@@ -73,6 +73,7 @@ function LearnInner() {
   const [questions, setQuestions]   = useState<Question[]>([])
   const [planOrder, setPlanOrder]   = useState<number[]>([])
   const [progress, setProgress]     = useState<Record<string, any>>({})
+  const [wrongCounts, setWrongCounts] = useState<Record<string, number>>({})
   const [runs, setRuns]             = useState<Record<string, number>>({})
   const [showList, setShowList]     = useState(false)
   const [reviewDone, setReviewDone] = useState(false)
@@ -92,15 +93,26 @@ function LearnInner() {
   const cycleIdxRef         = useRef(0)
   const cycleOrderedIdsRef  = useRef<number[]>([])
 
-  // ── Determines traversal order for a given lap rep count ─────────────────
-  // reps 0,2,4 → normal studyOrder  |  reps 1,3,5 → reversed  |  reps 6+ → shuffled
-  // Lap 0 → normal study order. Every lap after that → fresh random shuffle.
-  const buildCycleOrder = (baseIds: number[], reps: number): number[] => {
+  // ── Determines traversal order for a given lap rep count ──────────────────
+  // Lap 0 → normal study order. Every subsequent lap → weighted shuffle:
+  // questions with more wrong submissions appear earlier (weight = 1 + wrongCount).
+  const buildCycleOrder = (baseIds: number[], reps: number, wrongCounts: Record<string, number> = {}): number[] => {
     if (reps === 0) return [...baseIds]
     const arr = [...baseIds]
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]]
+    // Weight: 1 (never wrong) up to 1+N (wrong N times). Forward weighted Fisher-Yates
+    // fills position 0 first, so high-weight items land near the front.
+    const weights = arr.map(id => 1 + (wrongCounts[String(id)] ?? 0))
+    for (let i = 0; i < arr.length - 1; i++) {
+      let total = 0
+      for (let k = i; k < arr.length; k++) total += weights[k]
+      let r = Math.random() * total
+      let j = i
+      for (; j < arr.length - 1; j++) {
+        r -= weights[j]
+        if (r <= 0) break
+      }
+      ;[arr[i], arr[j]] = [arr[j], arr[i]]
+      ;[weights[i], weights[j]] = [weights[j], weights[i]]
     }
     return arr
   }
@@ -348,9 +360,11 @@ function LearnInner() {
     Promise.all([
       fetch('/questions_full.json').then(r => r.json()),
       getProgress(),
-    ]).then(([qs, prog]) => {
+      getWrongSubmitCounts(),
+    ]).then(([qs, prog, wc]) => {
       setQuestions(qs)
       setProgress(prog ?? {})
+      setWrongCounts(wc)
       setPlanOrder(defaultStudyQuestionOrder(qs as Question[]))
     })
   }, [])
@@ -506,8 +520,10 @@ function LearnInner() {
   const filteredLenRef   = useRef(filtered.length)
   const filteredRef      = useRef(filtered)
   const learnQsRef       = useRef(learnQs)
+  const wrongCountsRef   = useRef(wrongCounts)
   useEffect(() => { gatedIdxRef.current    = gatedIdx },        [gatedIdx])
   useEffect(() => { cycleRangeRef.current  = cycleRange },      [cycleRange])
+  useEffect(() => { wrongCountsRef.current = wrongCounts },     [wrongCounts])
   useEffect(() => { filteredLenRef.current = filtered.length }, [filtered.length])
   useEffect(() => { filteredRef.current    = filtered },        [filtered])
   useEffect(() => { learnQsRef.current     = learnQs },         [learnQs])
@@ -539,7 +555,7 @@ function LearnInner() {
       const hadStoredOrder = orderedIds.length === expectedLen
       if (!hadStoredOrder) {
         const baseIds = filteredRef.current.slice(rng.start, rng.end + 1).map(q => q.id)
-        orderedIds = buildCycleOrder(baseIds, reps)
+        orderedIds = buildCycleOrder(baseIds, reps, wrongCountsRef.current)
       }
 
       // Derive cycleIdx from orderedIds[pos] only when we had the ORIGINAL stored order.
@@ -625,7 +641,7 @@ function LearnInner() {
 
     // Build the new traversal order for this lap
     const baseIds = filteredRef.current.slice(rng.start, rng.end + 1).map(q => q.id)
-    const newOrderedIds = buildCycleOrder(baseIds, newReps)
+    const newOrderedIds = buildCycleOrder(baseIds, newReps, wrongCountsRef.current)
     cycleOrderedIdsRef.current = newOrderedIds
 
     // Navigate to the first question in the new order
