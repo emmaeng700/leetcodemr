@@ -130,7 +130,7 @@ async function handleCheck(body) {
   return jsonResponse(true, { httpStatus: status, bodyText: text, ok })
 }
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+function handleMessage(msg, sendResponse) {
   ;(async () => {
     try {
       const kind = msg?.kind
@@ -146,5 +146,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
   })()
   return true
-})
+}
+
+// Messages from content scripts / extension pages
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => handleMessage(msg, sendResponse))
+
+// Messages from externally_connectable pages (localhost, vercel.app) — no relay needed
+chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => handleMessage(msg, sendResponse))
 

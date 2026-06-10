@@ -1,58 +1,52 @@
 type BridgeKind = 'ping' | 'graphql' | 'submit' | 'test' | 'check'
 
 type BridgeRequest = {
-  __lm_lc_bridge__: true
-  direction: 'page->ext'
-  id: string
   kind: BridgeKind
-  body?: any
+  body?: unknown
 }
 
 type BridgeResponse = {
-  __lm_lc_bridge__: true
-  direction: 'ext->page'
-  id: string
   ok: boolean
   error?: string
   httpStatus?: number
   bodyText?: string
+  pong?: boolean
 }
 
-function uuid() {
-  return Math.random().toString(16).slice(2) + Date.now().toString(16)
+// The content script stamps the extension ID onto the DOM via externally_connectable.
+// chrome.runtime is injected by Chrome on permitted origins so the page can call
+// sendMessage(extensionId, ...) directly — no postMessage relay needed.
+function getExtId(): string | null {
+  if (typeof document === 'undefined') return null
+  return document.documentElement?.getAttribute('data-lm-ext-id') ?? null
 }
 
-export async function extBridgeRequest(kind: BridgeKind, body?: any, timeoutMs = 15_000): Promise<BridgeResponse> {
-  if (typeof window === 'undefined') {
-    throw new Error('Bridge only available in browser.')
-  }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const cr = (): any => (typeof globalThis !== 'undefined' ? (globalThis as any).chrome?.runtime : undefined)
 
-  const id = uuid()
-  const req: BridgeRequest = { __lm_lc_bridge__: true, direction: 'page->ext', id, kind, body }
+export function hasLeetMasteryBridge(): boolean {
+  return typeof window !== 'undefined' && !!getExtId() && !!cr()
+}
 
-  return await new Promise<BridgeResponse>((resolve, reject) => {
-    const timeout = window.setTimeout(() => {
-      window.removeEventListener('message', onMsg)
-      reject(new Error('Extension bridge timeout.'))
-    }, timeoutMs)
+export async function extBridgeRequest(kind: BridgeKind, body?: unknown, timeoutMs = 15_000): Promise<BridgeResponse> {
+  const extId = getExtId()
+  const runtime = cr()
+  if (!extId || !runtime) throw new Error('Extension bridge not available.')
 
-    function onMsg(e: MessageEvent) {
-      const data = e.data as BridgeResponse
-      if (!data || data.__lm_lc_bridge__ !== true) return
-      if (data.direction !== 'ext->page') return
-      if (data.id !== id) return
-      window.clearTimeout(timeout)
-      window.removeEventListener('message', onMsg)
-      resolve(data)
-    }
+  return new Promise<BridgeResponse>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Extension bridge timeout.')), timeoutMs)
 
-    window.addEventListener('message', onMsg)
-    window.postMessage(req, '*')
+    runtime.sendMessage(extId, { kind, body } satisfies BridgeRequest, (resp: BridgeResponse | undefined) => {
+      clearTimeout(timer)
+      if (runtime.lastError) {
+        reject(new Error(String(runtime.lastError.message ?? runtime.lastError)))
+        return
+      }
+      resolve(resp ?? { ok: false, error: 'Empty response from extension.' })
+    })
   })
 }
 
-// Positive TTL: trust a healthy bridge for 30s without re-pinging.
-// Negative TTL: don't hammer the timeout on every submit when no extension is present.
 let _bridgeOk: boolean | null = null
 let _bridgeAt = 0
 const HEALTHY_TTL = 30_000

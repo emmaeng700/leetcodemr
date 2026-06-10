@@ -5,6 +5,12 @@
   "description": "Lets LeetMastery run/submit on LeetCode using your browser session (avoids serverless 403).",
   "permissions": ["cookies", "storage"],
   "host_permissions": ["<all_urls>"],
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:*/*",
+      "https://leetcodemr.vercel.app/*"
+    ]
+  },
   "background": {
     "service_worker": "service_worker.js"
   },
@@ -16,4 +22,3 @@
     }
   ]
 }
-
