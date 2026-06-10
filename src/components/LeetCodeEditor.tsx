@@ -11,7 +11,7 @@ import { getProgress, updateProgress, incrementAcSubmitCount, incrementWrongSubm
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { normalizeLcCookieValue, getCookieFromHeader, hasCfClearance } from '@/lib/leetcodeHttp'
 import { lcFetch, getLocalConnectorStatus } from '@/lib/leetcodeLocalConnector'
-import { extBridgeHealthy, hasLeetMasteryBridge } from '@/lib/leetcodeExtensionBridge'
+import { extBridgeHealthy } from '@/lib/leetcodeExtensionBridge'
 import toast from 'react-hot-toast'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
@@ -446,7 +446,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     // MV3 service worker may be asleep; ping can take a moment to wake it.
     let cancelled = false
     ;(async () => {
-      if (!hasLeetMasteryBridge()) { setExtBridgeOn(false); return }
       for (let i = 0; i < 3; i++) {
         try {
           const ok = await extBridgeHealthy()
