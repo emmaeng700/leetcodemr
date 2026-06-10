@@ -493,8 +493,10 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       if (s && c) { setSession(s); setCsrf(c) }
     }
     window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
-    return () => { cancelled = true }
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      cancelled = true
+    }
   }, [])
 
   /* ── Load CodeMirror extensions ── */
