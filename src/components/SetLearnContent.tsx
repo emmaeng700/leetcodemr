@@ -10,8 +10,14 @@ import {
   getSetProgress, updateSetQProgress, getSetCycleState, saveSetCycleState,
   srIntervalDays, nextReviewDate, type SetQProgress,
 } from '@/lib/setProgress'
-import { getSet2Questions, getSet3Questions, type SetQuestion } from '@/lib/questionSets'
+import {
+  getSet2Questions, getSet3Questions, buildSetExclusiveMap,
+  buildPriorityDifficultyPresets, type SetQuestion,
+} from '@/lib/questionSets'
+import { PATTERN_PRIORITY, QUICK_PATTERNS } from '@/lib/constants'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import PriorityBadge from '@/components/PriorityBadge'
+import StudyRoundHeader, { isNewRound } from '@/components/StudyRoundHeader'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import { stripScripts, resolveLeetCodeSlug, leetCodeUrl, formatLocalDate } from '@/lib/utils'
@@ -123,7 +129,7 @@ export default function SetLearnContent({ set, index }: Props) {
     async function load() {
       const main = await fetch('/questions_full.json').then(r => r.json())
       const mainIds = new Set((main as { id: number }[]).map(q => q.id))
-      const qs = set === 2 ? getSet2Questions(mainIds) : getSet3Questions(mainIds)
+      const qs = set === 2 ? getSet2Questions(mainIds, main) : getSet3Questions(mainIds, main)
       const prog = getSetProgress(set)
       setAllQuestions(qs)
       setProgress(prog)
@@ -152,6 +158,8 @@ export default function SetLearnContent({ set, index }: Props) {
   const safeIdx = filtered.length ? Math.min(Math.max(index, 0), filtered.length - 1) : 0
   const q = filtered[safeIdx] ?? null
 
+  const exclusiveMap = useMemo(() => buildSetExclusiveMap(allQuestions), [allQuestions])
+
   // Unique categories for filter panel
   const allCategories = useMemo(
     () => [...new Set(allQuestions.map(q => q.category))].sort(),
@@ -168,6 +176,16 @@ export default function SetLearnContent({ set, index }: Props) {
     }
   }, [allQuestions, q, progress])
   const catPct = catProgress.total ? Math.round((catProgress.solved / catProgress.total) * 100) : 0
+
+  const currentPatternName = q ? (exclusiveMap[q.id] ?? null) : null
+  const currentPattern = currentPatternName
+    ? QUICK_PATTERNS.find(p => p.name === currentPatternName) ?? null
+    : null
+  const patternQs = currentPatternName
+    ? allQuestions.filter(qq => exclusiveMap[qq.id] === currentPatternName)
+    : []
+  const patternSolved = patternQs.filter(qq => progress[String(qq.id)]?.solved).length
+  const patternPct = patternQs.length ? Math.round((patternSolved / patternQs.length) * 100) : 0
 
   // Build URL query string preserving current filters
   const buildQuery = useCallback((overrides?: { diff?: string; cat?: string; solved?: null | boolean }) => {
@@ -209,7 +227,7 @@ export default function SetLearnContent({ set, index }: Props) {
     const expectedLen = rng.end - rng.start + 1
     const orderedIds = Array.isArray(storedOrderedIds) && storedOrderedIds.length === expectedLen
       ? storedOrderedIds
-      : buildCycleOrder(allQuestions.slice(rng.start, rng.end + 1).map(q => q.id), reps)
+      : buildCycleOrder(filtered.slice(rng.start, rng.end + 1).map(q => q.id), reps)
     cycleAcceptedRef.current = new Set(accepted)
     setCycleAcceptedCount(accepted.length)
     setCycleRangeState(rng)
@@ -220,7 +238,7 @@ export default function SetLearnContent({ set, index }: Props) {
     cyclePosRef.current = pos
     cycleOrderedIdsRef.current = orderedIds
     cycleIdxRef.current = typeof state.cycleIdx === 'number' ? state.cycleIdx : rng.start
-  }, [allQuestions, set])
+  }, [allQuestions, filtered, set])
 
   // Save last visited index
   useEffect(() => {
@@ -353,7 +371,7 @@ export default function SetLearnContent({ set, index }: Props) {
   const checkCycleLapComplete = useCallback((): number | false => {
     const rng = cycleRangeForSave.current
     if (!rng) return false
-    const cycleQs  = allQuestions.slice(rng.start, rng.end + 1)
+    const cycleQs  = filteredRef.current.slice(rng.start, rng.end + 1)
     const solved   = cycleQs.filter(q => cycleAcceptedRef.current.has(q.id))
     if (solved.length < cycleQs.length) return false
     cycleAcceptedRef.current = new Set()
@@ -361,11 +379,11 @@ export default function SetLearnContent({ set, index }: Props) {
     const newReps = Math.min(cycleRepsRef.current + 1, CYCLE_REP_TARGET)
     setCycleRepsState(newReps)
     cycleRepsRef.current = newReps
-    const baseIds      = allQuestions.slice(rng.start, rng.end + 1).map(q => q.id)
+    const baseIds      = filteredRef.current.slice(rng.start, rng.end + 1).map(q => q.id)
     const newOrderedIds = buildCycleOrder(baseIds, newReps)
     cycleOrderedIdsRef.current = newOrderedIds
     const firstId  = newOrderedIds[0]
-    const firstIdx = allQuestions.findIndex(q => q.id === firstId)
+    const firstIdx = filteredRef.current.findIndex(q => q.id === firstId)
     const startIdx = firstIdx >= 0 ? firstIdx : rng.start
     cycleIdxRef.current = startIdx
     saveSetCycleState(set, {
@@ -381,7 +399,7 @@ export default function SetLearnContent({ set, index }: Props) {
       setTimeout(() => toast('🎲 Questions shuffled — new order, fresh challenge!', { duration: 4000 }), 2500)
     }
     return startIdx
-  }, [allQuestions, set, fireConfetti])
+  }, [set, fireConfetti])
 
   const recordCycleAccepted = useCallback((questionId: number): boolean => {
     if (cycleAcceptedRef.current.has(questionId)) return false
@@ -399,9 +417,10 @@ export default function SetLearnContent({ set, index }: Props) {
   }, [set])
 
   const startCycle = (start: number, end: number) => {
-    const s = Math.max(0, Math.min(start, allQuestions.length - 1))
-    const e = Math.max(s, Math.min(end, allQuestions.length - 1))
-    const baseIds    = allQuestions.slice(s, e + 1).map(q => q.id)
+    const n = filteredLenRef.current
+    const s = Math.max(0, Math.min(start, n - 1))
+    const e = Math.max(s, Math.min(end, n - 1))
+    const baseIds    = filteredRef.current.slice(s, e + 1).map(q => q.id)
     const orderedIds = buildCycleOrder(baseIds, 0)
     cycleOrderedIdsRef.current = orderedIds
     cycleAcceptedRef.current   = new Set()
@@ -414,13 +433,9 @@ export default function SetLearnContent({ set, index }: Props) {
     cyclePosRef.current  = 0
     setShowCyclePanel(false)
     saveSetCycleState(set, { cycleRange: { start: s, end: e }, cycleReps: 0, cyclePos: 0, cycleIdx: s, cycleAccepted: [] } as any)
-    // Navigate to filtered position of the first cycle question (URL index = filtered index)
-    const firstId = orderedIds[0] ?? allQuestions[s]?.id
-    const navIdx = firstId ? filtered.findIndex(q => q.id === firstId) : -1
-    const safeNavIdx = navIdx >= 0 ? navIdx : 0
-    cycleIdxRef.current = safeNavIdx
+    cycleIdxRef.current = s
     const qs = learnQsRef.current
-    router.push(`${learnBase}/${safeNavIdx}${qs ? `?${qs}` : ''}`, { scroll: false })
+    router.push(`${learnBase}/${s}${qs ? `?${qs}` : ''}`, { scroll: false })
   }
 
   const cancelCycle = () => {
@@ -504,29 +519,11 @@ export default function SetLearnContent({ set, index }: Props) {
     setShowList(false)
   }
 
-  // Cycle presets: per-category (contiguous after sort) + per-difficulty
-  const cyclePresets = useMemo(() => {
-    const out: { label: string; start: number; end: number }[] = []
-    // Category × difficulty (tight ranges since questions are sorted by cat→diff)
-    const cats = [...new Set(allQuestions.map(q => q.category))]
-    for (const cat of cats) {
-      for (const diff of ['Easy', 'Medium', 'Hard'] as const) {
-        const indices = allQuestions
-          .map((q, i) => ({ i, cat: q.category, diff: q.difficulty }))
-          .filter(x => x.cat === cat && x.diff === diff)
-          .map(x => x.i)
-        if (indices.length > 1)
-          out.push({ label: `${cat} · ${diff} (${indices.length})`, start: indices[0], end: indices[indices.length - 1] })
-      }
-    }
-    // Whole-category presets
-    for (const cat of cats) {
-      const indices = allQuestions.map((q, i) => ({ i, cat: q.category })).filter(x => x.cat === cat).map(x => x.i)
-      if (indices.length > 1)
-        out.push({ label: `${cat} · All (${indices.length})`, start: indices[0], end: indices[indices.length - 1] })
-    }
-    return out
-  }, [allQuestions])
+  // Cycle presets — priority × difficulty rounds (same as Learn 1)
+  const cyclePresets = useMemo(
+    () => buildPriorityDifficultyPresets(filtered, exclusiveMap, { minCount: 2, labelSuffix: '' }),
+    [filtered, exclusiveMap],
+  )
 
   // SR actions
   const prog: SetQProgress = progress[String(q?.id)] ?? {
@@ -595,9 +592,9 @@ export default function SetLearnContent({ set, index }: Props) {
   }
 
   const lcTitleSlug        = q ? resolveLeetCodeSlug(q.id, q.slug) : ''
-  const rangeSize          = cycleRange ? cycleRange.end - cycleRange.start + 1 : allQuestions.length
+  const rangeSize          = cycleRange ? cycleRange.end - cycleRange.start + 1 : filtered.length
   const displaySolvedCount = cycleRange
-    ? allQuestions.slice(cycleRange.start, cycleRange.end + 1).filter(aq => progress[String(aq.id)]?.solved).length
+    ? filtered.slice(cycleRange.start, cycleRange.end + 1).filter(fq => progress[String(fq.id)]?.solved).length
     : filtered.filter(fq => progress[String(fq.id)]?.solved).length
 
   // ── Question list dropdown ───────────────────────────────────────────────────
@@ -617,28 +614,16 @@ export default function SetLearnContent({ set, index }: Props) {
       )}
       {filtered.map((fq, i) => {
         const fp       = progress[String(fq.id)] || {}
-        const globalIdx = allQuestions.findIndex(aq => aq.id === fq.id)
-        const inRange   = cycleRange
-          ? globalIdx >= cycleRange.start && globalIdx <= cycleRange.end
-          : true
-        const prev       = i > 0 ? filtered[i - 1] : null
-        const newCat     = !prev || prev.category !== fq.category
-        const newDiff    = !prev || prev.difficulty !== fq.difficulty || newCat
-        const DIFF_COLOR = { Easy: 'text-green-700 bg-green-50 border-green-200', Medium: 'text-yellow-700 bg-yellow-50 border-yellow-200', Hard: 'text-red-700 bg-red-50 border-red-200' }
+        const inRange  = cycleRange ? i >= cycleRange.start && i <= cycleRange.end : true
+        const curPat   = exclusiveMap[fq.id] ?? null
+        const curPri   = curPat ? (PATTERN_PRIORITY[curPat] ?? null) : null
+        const prev     = i > 0 ? filtered[i - 1] : null
+        const prevPat  = prev ? (exclusiveMap[prev.id] ?? null) : null
+        const prevPri  = prevPat ? (PATTERN_PRIORITY[prevPat] ?? null) : null
+        const showRound = curPri && isNewRound(curPri, fq.difficulty, prevPri, prev?.difficulty)
         return (
           <div key={fq.id}>
-            {newCat && (
-              <div className="sticky top-[40px] z-[5] flex items-center gap-2 px-3 py-1.5 bg-gray-50 border-b border-t border-gray-100">
-                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest truncate">{fq.category}</span>
-              </div>
-            )}
-            {newDiff && !newCat && (
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-white border-b border-gray-50">
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${DIFF_COLOR[fq.difficulty]}`}>
-                  {fq.difficulty}
-                </span>
-              </div>
-            )}
+            {showRound && <StudyRoundHeader priority={curPri!} difficulty={fq.difficulty} />}
             <button type="button"
               onClick={() => {
                 if (!inRange && cycleRange) {
@@ -853,19 +838,19 @@ export default function SetLearnContent({ set, index }: Props) {
                 )}
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Custom range</p>
                 <div className="flex items-center gap-2">
-                  <input type="number" min={1} max={allQuestions.length}
+                  <input type="number" min={1} max={filtered.length}
                     value={cycleFromInput} onChange={e => setCycleFromInput(e.target.value)}
                     placeholder="From"
                     className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-center focus:border-indigo-400 outline-none" />
                   <span className="text-xs text-gray-400">–</span>
-                  <input type="number" min={1} max={allQuestions.length}
+                  <input type="number" min={1} max={filtered.length}
                     value={cycleToInput} onChange={e => setCycleToInput(e.target.value)}
-                    placeholder={String(allQuestions.length)}
+                    placeholder={String(filtered.length)}
                     className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-center focus:border-indigo-400 outline-none" />
                   <button type="button"
                     onClick={() => {
                       const s = (parseInt(cycleFromInput, 10) || 1) - 1
-                      const e = (parseInt(cycleToInput, 10) || allQuestions.length) - 1
+                      const e = (parseInt(cycleToInput, 10) || filtered.length) - 1
                       startCycle(s, e)
                     }}
                     className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors">
@@ -997,31 +982,38 @@ export default function SetLearnContent({ set, index }: Props) {
         </div>
       )}
 
-      {/* ── Category context strip ── */}
-      {q && (
+      {/* Pattern / priority context strip (matches Learn 1) */}
+      {q && currentPattern && (
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
-          <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🗂</span>
-          <span className="text-xs font-semibold text-[var(--text)] truncate">{q.category}</span>
-          <span className="text-xs text-[var(--text-subtle)]">·</span>
-          <span className="text-xs text-[var(--text-subtle)]">Set {set}</span>
-          {q.difficulty === 'Easy'   && filterDiff === 'All' && <span className="text-[10px] font-bold text-green-600  bg-green-50  border border-green-200  px-1.5 py-0.5 rounded-full shrink-0">🟢 Easy</span>}
-          {q.difficulty === 'Medium' && filterDiff === 'All' && <span className="text-[10px] font-bold text-yellow-600 bg-yellow-50 border border-yellow-200 px-1.5 py-0.5 rounded-full shrink-0">🟡 Medium</span>}
-          {q.difficulty === 'Hard'   && filterDiff === 'All' && <span className="text-[10px] font-bold text-red-600    bg-red-50    border border-red-200    px-1.5 py-0.5 rounded-full shrink-0">🔴 Hard</span>}
-          {catPct >= 80  && <span className="text-[10px] font-bold text-green-600  shrink-0">🔥 Crushing it!</span>}
-          {catPct >= 50  && catPct < 80  && <span className="text-[10px] font-bold text-indigo-500 shrink-0">💪 Solid progress</span>}
-          {catPct > 0   && catPct < 50  && <span className="text-[10px] font-semibold text-amber-500 shrink-0">📈 Building momentum</span>}
-          {catPct === 0  && <span className="text-[10px] font-semibold text-[var(--text-subtle)] shrink-0">🧩 Fresh territory</span>}
+          <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🧩</span>
+          <span className="text-xs font-semibold text-[var(--text)] truncate">{currentPattern.name}</span>
+          <PriorityBadge pattern={currentPattern.name} />
+          <span className="text-[10px] text-[var(--text-subtle)] truncate hidden sm:inline">· {q.category}</span>
+          {q.difficulty === 'Easy'   && filterDiff === 'All' && <span className="text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full shrink-0">🟢 Round · Easy</span>}
+          {q.difficulty === 'Medium' && filterDiff === 'All' && <span className="text-[10px] font-bold text-yellow-600 bg-yellow-50 border border-yellow-200 px-1.5 py-0.5 rounded-full shrink-0">🟡 Round · Medium</span>}
+          {q.difficulty === 'Hard'   && filterDiff === 'All' && <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full shrink-0">🔴 Round · Hard</span>}
+          {patternPct >= 80 && <span className="text-[10px] font-bold text-green-600 shrink-0">🔥 Crushing it!</span>}
+          {patternPct >= 50 && patternPct < 80 && <span className="text-[10px] font-bold text-indigo-500 shrink-0">💪 Solid progress</span>}
+          {patternPct > 0 && patternPct < 50 && <span className="text-[10px] font-semibold text-amber-500 shrink-0">📈 Building momentum</span>}
+          {patternPct === 0 && <span className="text-[10px] font-semibold text-[var(--text-subtle)] shrink-0">🧩 Fresh territory</span>}
           <div className="flex items-center gap-1.5 ml-auto shrink-0">
             <div className="w-16 sm:w-24 h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${catPct === 100 ? 'bg-green-500' : catPct >= 50 ? 'bg-indigo-500' : 'bg-amber-500'}`}
-                style={{ width: catPct + '%' }}
+                className={`h-full rounded-full transition-all ${patternPct === 100 ? 'bg-green-500' : patternPct >= 50 ? 'bg-indigo-500' : 'bg-amber-500'}`}
+                style={{ width: patternPct + '%' }}
               />
             </div>
-            <span className={`text-[11px] font-bold ${catPct === 100 ? 'text-green-500' : catPct >= 50 ? 'text-indigo-400' : 'text-amber-500'}`}>
-              {catProgress.solved}/{catProgress.total}
+            <span className={`text-[11px] font-bold ${patternPct === 100 ? 'text-green-500' : patternPct >= 50 ? 'text-indigo-400' : 'text-amber-500'}`}>
+              {patternSolved}/{patternQs.length}
             </span>
           </div>
+        </div>
+      )}
+      {q && !currentPattern && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
+          <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🗂</span>
+          <span className="text-xs font-semibold text-[var(--text)] truncate">{q.category}</span>
+          <span className="text-xs text-[var(--text-subtle)]">· Set {set}</span>
         </div>
       )}
 
@@ -1064,6 +1056,7 @@ export default function SetLearnContent({ set, index }: Props) {
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <span className="text-xs text-gray-400 font-mono">#{q.id}</span>
                         <DifficultyBadge difficulty={q.difficulty} />
+                        {currentPatternName && <PriorityBadge pattern={currentPatternName} />}
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--bg-muted)] text-[var(--text-subtle)] border border-[var(--border)]">
                           {q.category}
                         </span>

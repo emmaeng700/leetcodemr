@@ -7,7 +7,10 @@ import {
   getSetCycles, saveSetCycles, getSetCycleState, saveSetCycleState,
   clampSetCycleIdx, type SetSavedCycle,
 } from '@/lib/setProgress'
-import { getSet2Questions, getSet3Questions, type SetQuestion } from '@/lib/questionSets'
+import {
+  getSet2Questions, getSet3Questions, buildSetExclusiveMap,
+  buildPriorityDifficultyPresets, type SetQuestion,
+} from '@/lib/questionSets'
 
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
@@ -38,33 +41,19 @@ export default function SetCyclesPage({ set }: Props) {
       .then(r => r.json())
       .then((main: { id: number }[]) => {
         const mainIds = new Set(main.map((q: { id: number }) => q.id))
-        const qs = set === 2 ? getSet2Questions(mainIds) : getSet3Questions(mainIds)
+        const qs = set === 2 ? getSet2Questions(mainIds, main) : getSet3Questions(mainIds, main)
         setQs(qs)
         setCycles(getSetCycles(set))
         setLoading(false)
       })
   }, [set])
 
-  const presets = useMemo(() => {
-    const out: { label: string; start: number; end: number; group: string }[] = []
-    const cats = [...new Set(questions.map(q => q.category))]
-    // Category × difficulty (tight ranges after sort by cat→diff)
-    for (const cat of cats) {
-      for (const diff of ['Easy', 'Medium', 'Hard'] as const) {
-        const indices = questions
-          .map((q, i) => ({ i, cat: q.category, diff: q.difficulty }))
-          .filter(x => x.cat === cat && x.diff === diff)
-          .map(x => x.i)
-        if (indices.length > 0)
-          out.push({ label: `${cat} · ${diff} (${indices.length})`, start: indices[0], end: indices[indices.length - 1], group: cat })
-      }
-      // Whole category
-      const allIdx = questions.map((q, i) => ({ i, cat: q.category })).filter(x => x.cat === cat).map(x => x.i)
-      if (allIdx.length > 1)
-        out.push({ label: `${cat} · All (${allIdx.length})`, start: allIdx[0], end: allIdx[allIdx.length - 1], group: cat })
-    }
-    return out
-  }, [questions])
+  const exclusiveMap = useMemo(() => buildSetExclusiveMap(questions), [questions])
+
+  const presets = useMemo(
+    () => buildPriorityDifficultyPresets(questions, exclusiveMap),
+    [questions, exclusiveMap],
+  )
 
   const resolveRange = (): { start: number; end: number; label: string } | null => {
     if (formPreset) {
@@ -197,35 +186,22 @@ export default function SetCyclesPage({ set }: Props) {
           <input
             value={formName}
             onChange={e => setFormName(e.target.value)}
-            placeholder="e.g. Arrays Sprint, Medium Round…"
+            placeholder="e.g. High Easy Round, Graph Sprint…"
             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 outline-none focus:border-indigo-400 mb-4"
           />
 
           <label className="block text-xs font-semibold text-gray-500 mb-2">Range</label>
-          <div className="mb-3">
+          <div className="flex flex-wrap gap-1.5 mb-3">
             <button type="button" onClick={() => setFormPreset(null)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors mb-2 ${!formPreset ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'}`}>
-              Custom range
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${!formPreset ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'}`}>
+              Custom
             </button>
-            {(() => {
-              const cats = [...new Set(presets.map(p => p.group))]
-              return cats.map(cat => {
-                const catPresets = presets.filter(p => p.group === cat)
-                return (
-                  <div key={cat} className="mb-2">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{cat}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {catPresets.map(p => (
-                        <button key={p.label} type="button" onClick={() => setFormPreset(p.label)}
-                          className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold border transition-colors ${formPreset === p.label ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'}`}>
-                          {p.label.split(' · ')[1]}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })
-            })()}
+            {presets.map(p => (
+              <button key={p.label} type="button" onClick={() => setFormPreset(p.label)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${formPreset === p.label ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'}`}>
+                {p.label}
+              </button>
+            ))}
           </div>
 
           {!formPreset && (
