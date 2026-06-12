@@ -1186,11 +1186,11 @@ export default function SetLearnContent({ set, index }: Props) {
             </button>
           </div>
 
-          <MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} />
+          <div className="hidden"><MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} /></div>
           <div className="relative z-0 flex flex-col">
 
             {/* ── Content panel (description / best answers) ── */}
-            <div className={`${mobilePanel === 'content' ? 'flex' : 'hidden'} md:flex relative z-10 flex-col w-full bg-[var(--bg-card)] overflow-visible text-[var(--text)] border-b border-[var(--border)]`}>
+            <div className="flex relative z-10 flex-col w-full bg-[var(--bg-card)] overflow-visible text-[var(--text)] border-b border-[var(--border)]">
               <div className="overflow-visible">
 
                 {leftPanelTab === 'description' && (
@@ -1289,7 +1289,7 @@ export default function SetLearnContent({ set, index }: Props) {
             </div>
 
             {/* ── Editor panel ── */}
-            <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-col w-full min-h-[50dvh] md:h-[65vh] overflow-hidden border-t border-[var(--border)]`}>
+            <div className="flex flex-col w-full min-h-[50dvh] md:h-[65vh] overflow-hidden border-t border-[var(--border)]">
               <LeetCodeEditor
                 appQuestionId={q.id}
                 slug={q.slug}
