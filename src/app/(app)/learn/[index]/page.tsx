@@ -23,6 +23,7 @@ import BestAnswersPanel from '@/components/BestAnswersPanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import LearnSetTabs from '@/components/LearnSetTabs'
+import CycleProgressBanner from '@/components/CycleProgressBanner'
 
 interface Question {
   id: number
@@ -1056,44 +1057,9 @@ function LearnInner() {
           Filter {filterDiff !== 'All' || filterSource !== 'All' || filterPattern ? '•' : ''}
         </button>
 
-        {/* Cycle marker */}
+        {/* Cycle button (stats shown in banner below when active) */}
         <div className="relative">
-          {cycleRange ? (
-            <div className="flex items-center gap-1">
-              <div className="flex flex-col items-start px-2 py-1 rounded-lg bg-indigo-100 border border-indigo-300 text-indigo-700 text-xs font-bold leading-tight min-w-[96px]">
-                <span className="flex items-center gap-1">
-                  🔄
-                  <span>{cycleAcceptedCount}/{cycleRange.end - cycleRange.start + 1}</span>
-                  <span className="text-indigo-400 font-normal">accepted</span>
-                </span>
-                <span className="text-[10px] text-indigo-500 font-semibold">
-                  {cycleReps}/{CYCLE_REP_TARGET} full passes
-                </span>
-                <div className="w-full h-2 bg-indigo-200 rounded-full mt-1 overflow-hidden border border-indigo-300">
-                  <div
-                    className="h-full bg-indigo-500 rounded-full transition-all duration-300"
-                    style={{
-                      width: `${cycleRange ? (cycleAcceptedCount / (cycleRange.end - cycleRange.start + 1)) * 100 : 0}%`,
-                      minWidth: cycleAcceptedCount > 0 ? '6px' : '0',
-                    }}
-                  />
-                </div>
-                {needsCycleResume && (
-                  <button
-                    type="button"
-                    onClick={resumeCycle}
-                    className="mt-1.5 w-full flex items-center justify-center gap-1 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold transition-colors"
-                  >
-                    <Play size={9} /> Resume #{cycleResumeIdx! + 1}
-                  </button>
-                )}
-              </div>
-              <button type="button" onClick={() => setCycleRange(null)}
-                className="p-1 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50 transition-colors">
-                <X size={12} />
-              </button>
-            </div>
-          ) : (
+          {!cycleRange && (
             <button type="button" onClick={() => setShowCyclePanel(v => !v)}
               className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${showCyclePanel ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-500 hover:border-indigo-300'}`}>
               <RefreshCw size={11} /> Cycle
@@ -1180,27 +1146,26 @@ function LearnInner() {
               className="p-1.5 text-gray-300 hover:text-orange-400 transition-colors" title="Open on LeetCode">
               <ExternalLink size={14} />
             </a>
-
-            <p className="order-last w-full text-sm font-bold text-gray-800 leading-snug">{q.title}</p>
           </>
         )}
       </div>
 
-      {/* Resume cycle — prominent when arriving from Flashcards at wrong question */}
-      {fromFlashcards && cycleRange && needsCycleResume && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-200 bg-indigo-50 px-3 py-2 shrink-0">
-          <p className="text-xs text-indigo-800">
-            <span className="font-bold">Cycle in progress</span>
-            {' '}· {cycleAcceptedCount}/{cycleRange.end - cycleRange.start + 1} accepted
-            {' '}· jump back to question {cycleResumeIdx! + 1} to continue
-          </p>
-          <button
-            type="button"
-            onClick={resumeCycle}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors shrink-0"
-          >
-            <Play size={12} /> Resume cycle
-          </button>
+      {cycleRange && (
+        <CycleProgressBanner
+          acceptedCount={cycleAcceptedCount}
+          rangeSize={cycleRange.end - cycleRange.start + 1}
+          cycleReps={cycleReps}
+          repTarget={CYCLE_REP_TARGET}
+          onCancel={() => setCycleRange(null)}
+          needsResume={needsCycleResume}
+          onResume={resumeCycle}
+          resumeQuestionNum={cycleResumeIdx != null ? cycleResumeIdx + 1 : undefined}
+        />
+      )}
+
+      {q && (
+        <div className="px-3 py-2.5 border-b border-gray-100 bg-white shrink-0">
+          <h1 className="text-sm sm:text-base font-bold text-gray-800 leading-snug text-center">{q.title}</h1>
         </div>
       )}
 

@@ -25,6 +25,7 @@ import { stripScripts, resolveLeetCodeSlug, leetCodeUrl, formatLocalDate } from 
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import LearnSetTabs from '@/components/LearnSetTabs'
+import CycleProgressBanner from '@/components/CycleProgressBanner'
 
 interface Props { set: 2 | 3; index: number }
 
@@ -802,32 +803,9 @@ export default function SetLearnContent({ set, index }: Props) {
           Filter {filterDiff !== 'All' || filterPattern || initStarred || initSolved !== null ? '•' : ''}
         </button>
 
-        {/* Cycle button / indicator */}
+        {/* Cycle button (stats shown in banner below when active) */}
         <div className="relative">
-          {cycleRange ? (
-            <div className="flex items-center gap-1">
-              <div className="flex flex-col items-start px-2 py-1 rounded-lg bg-indigo-100 border border-indigo-300 text-indigo-700 text-xs font-bold leading-tight min-w-[96px]">
-                <span className="flex items-center gap-1">
-                  🔄
-                  <span>{cycleAcceptedCount}/{rangeSize}</span>
-                  <span className="text-indigo-400 font-normal">accepted</span>
-                </span>
-                <span className="text-[10px] text-indigo-500 font-semibold">
-                  {cycleReps}/{CYCLE_REP_TARGET} passes
-                </span>
-                <div className="w-full h-1.5 bg-indigo-200 rounded-full mt-1 overflow-hidden border border-indigo-300">
-                  <div
-                    className="h-full bg-indigo-500 rounded-full transition-all duration-300"
-                    style={{ width: `${(cycleAcceptedCount / rangeSize) * 100}%`, minWidth: cycleAcceptedCount > 0 ? '6px' : '0' }}
-                  />
-                </div>
-              </div>
-              <button type="button" onClick={cancelCycle}
-                className="p-1 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50 transition-colors">
-                <X size={12} />
-              </button>
-            </div>
-          ) : (
+          {!cycleRange && (
             <button type="button" onClick={() => setShowCyclePanel(v => !v)}
               className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
                 showCyclePanel ? 'bg-indigo-600 text-white border-indigo-600' :
@@ -907,11 +885,25 @@ export default function SetLearnContent({ set, index }: Props) {
               className="p-1.5 text-gray-300 hover:text-orange-400 transition-colors" title="Open on LeetCode">
               <ExternalLink size={14} />
             </a>
-
-            <p className="order-last w-full text-sm font-bold text-gray-800 leading-snug">{q.title}</p>
           </>
         )}
       </div>
+
+      {cycleRange && (
+        <CycleProgressBanner
+          acceptedCount={cycleAcceptedCount}
+          rangeSize={rangeSize}
+          cycleReps={cycleReps}
+          repTarget={CYCLE_REP_TARGET}
+          onCancel={cancelCycle}
+        />
+      )}
+
+      {q && (
+        <div className="px-3 py-2.5 border-b border-gray-100 bg-white shrink-0">
+          <h1 className="text-sm sm:text-base font-bold text-gray-800 leading-snug text-center">{q.title}</h1>
+        </div>
+      )}
 
       {!loading && allQuestions.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50/80 shrink-0">
