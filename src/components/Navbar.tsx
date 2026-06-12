@@ -28,6 +28,8 @@ const DRILL_LINKS = [
   { href: '/mock',       label: 'Mock',       icon: Timer },
   { href: '/patterns',   label: 'Patterns',   icon: GitBranch },
   { href: '/clipboard',  label: 'Clipboard',  icon: ClipboardList },
+  { href: '/learn2',     label: 'Learn 2',    icon: BookOpen },
+  { href: '/learn3',     label: 'Learn 3',    icon: BookOpen },
 ]
 const PRACTICE_LINKS = [...STUDY_LINKS, ...DRILL_LINKS]
 

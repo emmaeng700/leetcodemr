@@ -26,6 +26,8 @@ import {
   isQuestionDoneForDailyToday,
 } from '@/lib/dailyCompletion'
 import { isDayComplete } from '@/lib/streakGoals'
+import { getSetProgress, type SetQProgress } from '@/lib/setProgress'
+import { getSet2Questions, getSet3Questions, type SetQuestion } from '@/lib/questionSets'
 
 interface Question {
   id: number
@@ -239,6 +241,12 @@ export default function DailyPage() {
 
   const [breathers, setBreathers] = useState<ActiveBreather[]>([])
 
+  // Set 2/3 state
+  const [set2Questions, setSet2Questions] = useState<SetQuestion[]>([])
+  const [set3Questions, setSet3Questions] = useState<SetQuestion[]>([])
+  const [set2Progress, setSet2Progress] = useState<Record<string, SetQProgress>>({})
+  const [set3Progress, setSet3Progress] = useState<Record<string, SetQProgress>>({})
+
   const calendarDayIndex = useMemo(() => {
     if (!plan) return 0
     const today = todayISO()
@@ -287,12 +295,53 @@ export default function DailyPage() {
     [allQuestions, progress]
   )
 
+  // Set 2/3 SR reviews due — computed before early returns (Rules of Hooks)
+  const set2DueReviews = useMemo(() => {
+    const today = todayISO()
+    return set2Questions.filter(q => {
+      const p = set2Progress[String(q.id)]
+      return p?.solved && p.next_review && p.next_review <= today
+    }).map(q => ({
+      id: q.id,
+      review_count: set2Progress[String(q.id)]?.review_count ?? 0,
+      next_review: set2Progress[String(q.id)]?.next_review ?? today,
+      title: q.title,
+      slug: q.slug,
+    }))
+  }, [set2Questions, set2Progress])
+
+  const set3DueReviews = useMemo(() => {
+    const today = todayISO()
+    return set3Questions.filter(q => {
+      const p = set3Progress[String(q.id)]
+      return p?.solved && p.next_review && p.next_review <= today
+    }).map(q => ({
+      id: q.id,
+      review_count: set3Progress[String(q.id)]?.review_count ?? 0,
+      next_review: set3Progress[String(q.id)]?.next_review ?? today,
+      title: q.title,
+      slug: q.slug,
+    }))
+  }, [set3Questions, set3Progress])
+
+  const set2Unsolved = useMemo(
+    () => set2Questions.filter(q => !set2Progress[String(q.id)]?.solved),
+    [set2Questions, set2Progress]
+  )
+
+  const set3Unsolved = useMemo(
+    () => set3Questions.filter(q => !set3Progress[String(q.id)]?.solved),
+    [set3Questions, set3Progress]
+  )
+
   const refreshProgress = useCallback(async () => {
     try {
       const [prog, dailyDoneToday] = await Promise.all([getProgress(), getTodayDailyDoneCount()])
       if (prog !== null) setProgress(prog)
       setTodayDailyDoneCount(dailyDoneToday)
       setBreathers(getActiveBreathers())
+      setSet2Progress(getSetProgress(2))
+      setSet3Progress(getSetProgress(3))
     } catch {
       /* ignore — keep existing progress so rep dots don't vanish */
     }
@@ -302,6 +351,8 @@ export default function DailyPage() {
     try {
       const due = await getDueReviews()
       setDueReviews(due)
+      setSet2Progress(getSetProgress(2))
+      setSet3Progress(getSetProgress(3))
     } catch {
       /* ignore */
     }
@@ -397,6 +448,14 @@ export default function DailyPage() {
       setDueReviews(due)
       setTodayDailyDoneCount(dailyDoneToday)
       setBreathers(getActiveBreathers())
+
+      // Load Set 2/3 questions and progress
+      const mainIds = new Set((qs as { id: number }[]).map(q => q.id))
+      setSet2Questions(getSet2Questions(mainIds))
+      setSet3Questions(getSet3Questions(mainIds))
+      setSet2Progress(getSetProgress(2))
+      setSet3Progress(getSetProgress(3))
+
       setLoading(false)
 
       // Re-evaluate streak on every page load so any missed marks get caught.
@@ -897,6 +956,31 @@ export default function DailyPage() {
   const dailyBlockDone = isActiveDailyBlockComplete(planForGoals, progress, dailyGoalsOpts)
   const dayComplete = isDayComplete(plan, progress, dueReviews.length, dailyGoalsOpts)
 
+  // Extension: once Set 1 plan complete, progress to Set 2 → Set 3
+  const set1PlanComplete = !!todayInfo.complete
+  const extensionSet: 2 | 3 | null = (() => {
+    if (!set1PlanComplete) return null
+    if (set2Unsolved.length > 0) return 2
+    if (set3Unsolved.length > 0) return 3
+    return null
+  })()
+  const extensionPool = extensionSet === 2 ? set2Unsolved : extensionSet === 3 ? set3Unsolved : []
+  const extensionQsToday = extensionPool.slice(0, plan.per_day)
+  const extensionBlockDone = extensionSet === null || extensionQsToday.length === 0 ||
+    extensionQsToday.every(q => !!(extensionSet === 2 ? set2Progress : set3Progress)[String(q.id)]?.solved)
+  const totalDueCount = dueReviews.length + set2DueReviews.length + set3DueReviews.length
+  const effectiveDayComplete = extensionSet !== null
+    ? extensionBlockDone && totalDueCount === 0
+    : dayComplete
+  const effectiveDailyBlockDone = extensionSet !== null ? extensionBlockDone : dailyBlockDone
+  // Counts for extension progress bar
+  const extTotalCount = extensionSet === 2 ? set2Questions.length : extensionSet === 3 ? set3Questions.length : 0
+  const extSolvedCount = extensionSet === 2
+    ? set2Questions.length - set2Unsolved.length
+    : extensionSet === 3
+      ? set3Questions.length - set3Unsolved.length
+      : 0
+
   function launchDailyQuestion(qid: number) {
     const strictQueue = todayQs.map(q => q.id)
     const randomQueue = [qid, ...randomFocusQs.filter(q => q.id !== qid).map(q => q.id)].slice(0, plan!.per_day)
@@ -1111,18 +1195,18 @@ export default function DailyPage() {
       ))}
 
       {/* Day complete / daily done banners */}
-      {!todayInfo.pending && dayComplete && (
+      {!todayInfo.pending && effectiveDayComplete && (
         <div className="mb-4 rounded-xl border border-green-300 bg-gradient-to-br from-green-50 to-emerald-50 p-4 text-center shadow-sm">
           <p className="text-base font-black text-green-700">Done for the day! 🎉</p>
           <p className="mt-1 text-xs text-green-600">
-            Daily questions finished{dueReviews.length > 0 ? ' and reviews cleared' : ''} — streak counts for today.
+            Daily questions finished{totalDueCount > 0 ? ' and reviews cleared' : ''} — streak counts for today.
           </p>
         </div>
       )}
-      {!todayInfo.pending && !dayComplete && dailyBlockDone && dueReviews.length > 0 && (
+      {!todayInfo.pending && !effectiveDayComplete && effectiveDailyBlockDone && totalDueCount > 0 && (
         <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm font-semibold text-indigo-800">
-            Daily done — finish {dueReviews.length} review{dueReviews.length !== 1 ? 's' : ''} to complete today.
+            Daily done — finish {totalDueCount} review{totalDueCount !== 1 ? 's' : ''} to complete today.
           </p>
           <Link
             href="/review"
@@ -1132,7 +1216,7 @@ export default function DailyPage() {
           </Link>
         </div>
       )}
-      {!todayInfo.pending && !dayComplete && dailyBlockDone && dueReviews.length === 0 && (
+      {!todayInfo.pending && !effectiveDayComplete && effectiveDailyBlockDone && totalDueCount === 0 && (
         <div className="mb-4 rounded-xl border border-green-200 bg-green-50 p-3 text-center">
           <p className="text-sm font-bold text-green-700">Daily complete — no reviews due. You&apos;re done for today! 🎉</p>
         </div>
@@ -1187,6 +1271,27 @@ export default function DailyPage() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* Extension set progress bar */}
+      {extensionSet !== null && (
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-4">
+          <div className="flex justify-between text-xs font-semibold text-[var(--text-muted)] mb-2">
+            <span>Set {extensionSet} · {extensionSet === 2 ? 'NeetCode 150' : 'AlgoMaster 600'}</span>
+            <span className={extensionSet === 2 ? 'text-emerald-600' : 'text-purple-600'}>
+              {extSolvedCount}/{extTotalCount} solved
+            </span>
+          </div>
+          <div className="w-full h-3 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${extensionSet === 2 ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-gradient-to-r from-purple-500 to-fuchsia-500'}`}
+              style={{ width: `${extTotalCount > 0 ? Math.round((extSolvedCount / extTotalCount) * 100) : 0}%` }}
+            />
+          </div>
+          <div className="mt-2 text-xs text-[var(--text-subtle)]">
+            {extensionPool.length} remaining · Set 1 complete 🎉
+          </div>
         </div>
       )}
 
@@ -1437,8 +1542,8 @@ export default function DailyPage() {
           <div className="flex items-center gap-2">
             <Brain size={16} className="text-indigo-600" />
             <span className="text-sm font-bold text-indigo-700">
-              {dueReviews.length > 0
-                ? `Reviews due — ${dueReviews.length} question${dueReviews.length > 1 ? 's' : ''}`
+              {totalDueCount > 0
+                ? `Reviews due — ${totalDueCount} question${totalDueCount > 1 ? 's' : ''}`
                 : 'No reviews due today ✓'}
             </span>
           </div>
@@ -1446,26 +1551,75 @@ export default function DailyPage() {
         </button>
         {dueOpen && (
           <div className="px-4 pb-3">
-            {dueReviews.length === 0 ? (
+            {totalDueCount === 0 ? (
               <p className="text-xs text-indigo-500">You&apos;re all caught up — no spaced repetition reviews due.</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  href="/review"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-semibold text-indigo-700 hover:border-indigo-400 hover:shadow-sm transition-all"
-                >
-                  Open reviews <ArrowRight size={12} />
-                </Link>
-                {dueReviews.map(q => (
-                  <Link
-                    key={q.id}
-                    href={`/practice/${q.id}`}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs hover:border-indigo-400 hover:shadow-sm transition-all text-left"
-                  >
-                    <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
-                    <span className="text-indigo-400 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
-                  </Link>
-                ))}
+              <div className="flex flex-col gap-3">
+                {/* Set 1 reviews */}
+                {dueReviews.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1.5">Set 1 · Main 331</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Link
+                        href="/review"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-semibold text-indigo-700 hover:border-indigo-400 hover:shadow-sm transition-all"
+                      >
+                        Open reviews <ArrowRight size={12} />
+                      </Link>
+                      {dueReviews.map(q => (
+                        <Link key={q.id} href={`/practice/${q.id}`}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs hover:border-indigo-400 hover:shadow-sm transition-all text-left">
+                          <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                          <span className="text-indigo-400 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Set 2 reviews */}
+                {set2DueReviews.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1.5">Set 2 · NeetCode 150</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Link href="/learn2"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs font-semibold text-emerald-700 hover:border-emerald-400 hover:shadow-sm transition-all">
+                        Open Set 2 <ArrowRight size={12} />
+                      </Link>
+                      {set2DueReviews.map(q => {
+                        const idx = set2Questions.findIndex(x => x.id === q.id)
+                        return (
+                          <Link key={q.id} href={`/learn2/${Math.max(0, idx)}`}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs hover:border-emerald-400 hover:shadow-sm transition-all text-left">
+                            <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                            <span className="text-emerald-600 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                {/* Set 3 reviews */}
+                {set3DueReviews.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold text-purple-500 uppercase tracking-wider mb-1.5">Set 3 · AlgoMaster 600</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Link href="/learn3"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-purple-200 rounded-lg text-xs font-semibold text-purple-700 hover:border-purple-400 hover:shadow-sm transition-all">
+                        Open Set 3 <ArrowRight size={12} />
+                      </Link>
+                      {set3DueReviews.map(q => {
+                        const idx = set3Questions.findIndex(x => x.id === q.id)
+                        return (
+                          <Link key={q.id} href={`/learn3/${Math.max(0, idx)}`}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-purple-200 rounded-lg text-xs hover:border-purple-400 hover:shadow-sm transition-all text-left">
+                            <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                            <span className="text-purple-600 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1481,17 +1635,98 @@ export default function DailyPage() {
         </div>
       )}
 
-      {/* COMPLETE */}
-      {todayInfo.complete && (
+      {/* COMPLETE — only shown when all three sets are done */}
+      {todayInfo.complete && extensionSet === null && (
         <div className="bg-green-50  border border-green-200  rounded-xl p-5 mb-4 text-center">
           <div className="text-4xl mb-2">🏆</div>
-          <p className="font-bold text-green-700 ">You finished all {plan.question_order.length} questions!</p>
+          <p className="font-bold text-green-700">
+            {set2Questions.length > 0 || set3Questions.length > 0
+              ? 'All sets complete! Incredible work!'
+              : `You finished all ${plan.question_order.length} questions!`}
+          </p>
           <button
             onClick={async () => { await clearStudyPlan(); setPlan(null) }}
             className="mt-3 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-colors"
           >
             Start New Plan
           </button>
+        </div>
+      )}
+
+      {/* EXTENSION: Set 2/3 daily questions after Set 1 plan is complete */}
+      {todayInfo.complete && extensionSet !== null && (
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-5 mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <h2 className="font-bold text-[var(--text)] text-sm flex items-center gap-2">
+              <CalendarCheck size={15} className={extensionSet === 2 ? 'text-emerald-500' : 'text-purple-500'} />
+              Set {extensionSet} — Today
+              <span className="text-xs font-normal text-[var(--text-subtle)]">· {fmtDate(todayISO())}</span>
+            </h2>
+            <span className={`shrink-0 text-[11px] font-bold px-2 py-1 rounded-full ${
+              extensionBlockDone ? 'bg-green-100 text-green-700' : 'bg-indigo-100 text-indigo-700'
+            }`}>
+              {extensionQsToday.filter(q => !!(extensionSet === 2 ? set2Progress : set3Progress)[String(q.id)]?.solved).length}/{extensionQsToday.length} done
+            </span>
+          </div>
+          <p className="text-[10px] text-[var(--text-subtle)] mb-3">
+            Set 1 complete 🎉 · Continuing with Set {extensionSet} · {extensionPool.length} questions remaining
+          </p>
+          <div className="space-y-3">
+            {extensionQsToday.map(q => {
+              const prog = extensionSet === 2 ? set2Progress : set3Progress
+              const solved = !!prog[String(q.id)]?.solved
+              const fullSet = extensionSet === 2 ? set2Questions : set3Questions
+              const qIdx = fullSet.findIndex(x => x.id === q.id)
+              const learnBase = extensionSet === 2 ? '/learn2' : '/learn3'
+              return (
+                <div key={q.id} className={`flex flex-col items-start gap-3 sm:flex-row sm:items-center p-3 rounded-xl border transition-all ${
+                  solved ? 'bg-green-50 border-green-200' : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-indigo-400/50'
+                }`}>
+                  <div className="shrink-0">
+                    {solved ? <CheckCircle2 size={20} className="text-green-500" /> : <Circle size={20} className="text-[var(--text-subtle)]" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                      <span className={`text-sm font-semibold truncate ${solved ? 'text-green-600 line-through' : 'text-[var(--text)]'}`}>
+                        {q.title}
+                      </span>
+                      <a href={`https://leetcode.com/problems/${q.slug}/`} target="_blank" rel="noopener noreferrer"
+                        className="shrink-0 text-[var(--text-subtle)] hover:text-orange-400 transition-colors" onClick={e => e.stopPropagation()}>
+                        <ExternalLink size={11} />
+                      </a>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <DifficultyBadge difficulty={q.difficulty} />
+                      <span className="text-[10px] text-[var(--text-subtle)]">{q.category}</span>
+                      {solved && <span className="text-[10px] font-semibold text-green-600">Solved ✓</span>}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`${learnBase}/${Math.max(0, qIdx)}`)}
+                    className={`w-full sm:w-auto shrink-0 justify-center flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                      solved
+                        ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
+                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    }`}
+                  >
+                    {solved ? <><RotateCcw size={11} /> Revisit</> : <>Solve <ArrowRight size={12} /></>}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+          {extensionBlockDone && !effectiveDayComplete && totalDueCount > 0 && (
+            <div className="mt-4 text-center text-indigo-600 font-bold text-sm">
+              Today&apos;s questions done — finish reviews to complete today.
+            </div>
+          )}
+          {effectiveDayComplete && extensionQsToday.length > 0 && (
+            <div className="mt-4 text-center text-green-500 font-bold text-sm">
+              🎉 Done for the day! See you tomorrow.
+            </div>
+          )}
         </div>
       )}
 

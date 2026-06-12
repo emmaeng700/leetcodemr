@@ -1,0 +1,753 @@
+[
+  {
+    "id": 567,
+    "title": "Permutation in String",
+    "slug": "permutation-in-string",
+    "difficulty": "Medium",
+    "description": "<p>Given two strings <code>s1</code> and <code>s2</code>, return <code>true</code> if <code>s2</code> contains a <span data-keyword=\"permutation-string\">permutation</span> of <code>s1</code>, or <code>false</code> otherwise.</p>\n\n<p>In other words, return <code>true</code> if one of <code>s1</code>&#39;s permutations is the substring of <code>s2</code>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> s1 = &quot;ab&quot;, s2 = &quot;eidbaooo&quot;\n<strong>Output:</strong> true\n<strong>Explanation:</strong> s2 contains one permutation of s1 (&quot;ba&quot;).\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> s1 = &quot;ab&quot;, s2 = &quot;eidboaoo&quot;\n<strong>Output:</strong> false\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= s1.length, s2.length &lt;= 10<sup>4</sup></code></li>\n\t<li><code>s1</code> and <code>s2</code> consist of lowercase English letters.</li>\n</ul>\n",
+    "tags": [
+      "Hash Table",
+      "Two Pointers",
+      "String",
+      "Sliding Window"
+    ],
+    "url": "https://leetcode.com/problems/permutation-in-string/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/567/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def checkInclusion(self, s1: str, s2: str) -> bool:\n        cnt = Counter(s1)\n        need = len(cnt)\n        m = len(s1)\n        for i, c in enumerate(s2):\n            cnt[c] -= 1\n            if cnt[c] == 0:\n                need -= 1\n            if i >= m:\n                cnt[s2[i - m]] += 1\n                if cnt[s2[i - m]] == 1:\n                    need += 1\n            if need == 0:\n                return True\n        return False",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/permutation-in-string",
+    "starter_python": "class Solution:\n    def checkInclusion(self, s1: str, s2: str) -> bool:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    bool checkInclusion(string s1, string s2) {\n        \n    }\n};"
+  },
+  {
+    "id": 875,
+    "title": "Koko Eating Bananas",
+    "slug": "koko-eating-bananas",
+    "difficulty": "Medium",
+    "description": "<p>Koko loves to eat bananas. There are <code>n</code> piles of bananas, the <code>i<sup>th</sup></code> pile has <code>piles[i]</code> bananas. The guards have gone and will come back in <code>h</code> hours.</p>\n\n<p>Koko can decide her bananas-per-hour eating speed of <code>k</code>. Each hour, she chooses some pile of bananas and eats <code>k</code> bananas from that pile. If the pile has less than <code>k</code> bananas, she eats all of them instead and will not eat any more bananas during this hour.</p>\n\n<p>Koko likes to eat slowly but still wants to finish eating all the bananas before the guards return.</p>\n\n<p>Return <em>the minimum integer</em> <code>k</code> <em>such that she can eat all the bananas within</em> <code>h</code> <em>hours</em>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> piles = [3,6,7,11], h = 8\n<strong>Output:</strong> 4\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> piles = [30,11,23,4,20], h = 5\n<strong>Output:</strong> 30\n</pre>\n\n<p><strong class=\"example\">Example 3:</strong></p>\n\n<pre>\n<strong>Input:</strong> piles = [30,11,23,4,20], h = 6\n<strong>Output:</strong> 23\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= piles.length &lt;= 10<sup>4</sup></code></li>\n\t<li><code>piles.length &lt;= h &lt;= 10<sup>9</sup></code></li>\n\t<li><code>1 &lt;= piles[i] &lt;= 10<sup>9</sup></code></li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "Binary Search"
+    ],
+    "url": "https://leetcode.com/problems/koko-eating-bananas/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/875/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def minEatingSpeed(self, piles: List[int], h: int) -> int:\n        def check(k: int) -> bool:\n            return sum((x + k - 1) // k for x in piles) <= h\n\n        return 1 + bisect_left(range(1, max(piles) + 1), True, key=check)",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/koko-eating-bananas",
+    "starter_python": "class Solution:\n    def minEatingSpeed(self, piles: List[int], h: int) -> int:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    int minEatingSpeed(vector<int>& piles, int h) {\n        \n    }\n};"
+  },
+  {
+    "id": 1851,
+    "title": "Minimum Interval to Include Each Query",
+    "slug": "minimum-interval-to-include-each-query",
+    "difficulty": "Hard",
+    "description": "<p>You are given a 2D integer array <code>intervals</code>, where <code>intervals[i] = [left<sub>i</sub>, right<sub>i</sub>]</code> describes the <code>i<sup>th</sup></code> interval starting at <code>left<sub>i</sub></code> and ending at <code>right<sub>i</sub></code> <strong>(inclusive)</strong>. The <strong>size</strong> of an interval is defined as the number of integers it contains, or more formally <code>right<sub>i</sub> - left<sub>i</sub> + 1</code>.</p>\n\n<p>You are also given an integer array <code>queries</code>. The answer to the <code>j<sup>th</sup></code> query is the <strong>size of the smallest interval</strong> <code>i</code> such that <code>left<sub>i</sub> &lt;= queries[j] &lt;= right<sub>i</sub></code>. If no such interval exists, the answer is <code>-1</code>.</p>\n\n<p>Return <em>an array containing the answers to the queries</em>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> intervals = [[1,4],[2,4],[3,6],[4,4]], queries = [2,3,4,5]\n<strong>Output:</strong> [3,3,1,4]\n<strong>Explanation:</strong> The queries are processed as follows:\n- Query = 2: The interval [2,4] is the smallest interval containing 2. The answer is 4 - 2 + 1 = 3.\n- Query = 3: The interval [2,4] is the smallest interval containing 3. The answer is 4 - 2 + 1 = 3.\n- Query = 4: The interval [4,4] is the smallest interval containing 4. The answer is 4 - 4 + 1 = 1.\n- Query = 5: The interval [3,6] is the smallest interval containing 5. The answer is 6 - 3 + 1 = 4.\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> intervals = [[2,3],[2,5],[1,8],[20,25]], queries = [2,19,5,22]\n<strong>Output:</strong> [2,-1,4,6]\n<strong>Explanation:</strong> The queries are processed as follows:\n- Query = 2: The interval [2,3] is the smallest interval containing 2. The answer is 3 - 2 + 1 = 2.\n- Query = 19: None of the intervals contain 19. The answer is -1.\n- Query = 5: The interval [2,5] is the smallest interval containing 5. The answer is 5 - 2 + 1 = 4.\n- Query = 22: The interval [20,25] is the smallest interval containing 22. The answer is 25 - 20 + 1 = 6.\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= intervals.length &lt;= 10<sup>5</sup></code></li>\n\t<li><code>1 &lt;= queries.length &lt;= 10<sup>5</sup></code></li>\n\t<li><code>intervals[i].length == 2</code></li>\n\t<li><code>1 &lt;= left<sub>i</sub> &lt;= right<sub>i</sub> &lt;= 10<sup>7</sup></code></li>\n\t<li><code>1 &lt;= queries[j] &lt;= 10<sup>7</sup></code></li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "Binary Search",
+      "Sweep Line",
+      "Sorting",
+      "Heap (Priority Queue)"
+    ],
+    "url": "https://leetcode.com/problems/minimum-interval-to-include-each-query/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/1851/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def minInterval(self, intervals: List[List[int]], queries: List[int]) -> List[int]:\n        n, m = len(intervals), len(queries)\n        intervals.sort()\n        queries = sorted((x, i) for i, x in enumerate(queries))\n        ans = [-1] * m\n        pq = []\n        i = 0\n        for x, j in queries:\n            while i < n and intervals[i][0] <= x:\n                a, b = intervals[i]\n                heappush(pq, (b - a + 1, b))\n                i += 1\n            while pq and pq[0][1] < x:\n                heappop(pq)\n            if pq:\n                ans[j] = pq[0][0]\n        return ans",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/minimum-interval-to-include-each-query",
+    "starter_python": "class Solution:\n    def minInterval(self, intervals: List[List[int]], queries: List[int]) -> List[int]:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    vector<int> minInterval(vector<vector<int>>& intervals, vector<int>& queries) {\n        \n    }\n};"
+  },
+  {
+    "id": 1448,
+    "title": "Count Good Nodes in Binary Tree",
+    "slug": "count-good-nodes-in-binary-tree",
+    "difficulty": "Medium",
+    "description": "<p>Given a binary tree <code>root</code>, a node <em>X</em> in the tree is named&nbsp;<strong>good</strong> if in the path from root to <em>X</em> there are no nodes with a value <em>greater than</em> X.</p>\r\n\r\n<p>Return the number of <strong>good</strong> nodes in the binary tree.</p>\r\n\r\n<p>&nbsp;</p>\r\n<p><strong class=\"example\">Example 1:</strong></p>\r\n\r\n<p><strong><img alt=\"\" src=\"https://assets.leetcode.com/uploads/2020/04/02/test_sample_1.png\" style=\"width: 263px; height: 156px;\" /></strong></p>\r\n\r\n<pre>\r\n<strong>Input:</strong> root = [3,1,4,3,null,1,5]\r\n<strong>Output:</strong> 4\r\n<strong>Explanation:</strong> Nodes in blue are <strong>good</strong>.\r\nRoot Node (3) is always a good node.\r\nNode 4 -&gt; (3,4) is the maximum value in the path starting from the root.\r\nNode 5 -&gt; (3,4,5) is the maximum value in the path\r\nNode 3 -&gt; (3,1,3) is the maximum value in the path.</pre>\r\n\r\n<p><strong class=\"example\">Example 2:</strong></p>\r\n\r\n<p><strong><img alt=\"\" src=\"https://assets.leetcode.com/uploads/2020/04/02/test_sample_2.png\" style=\"width: 157px; height: 161px;\" /></strong></p>\r\n\r\n<pre>\r\n<strong>Input:</strong> root = [3,3,null,4,2]\r\n<strong>Output:</strong> 3\r\n<strong>Explanation:</strong> Node 2 -&gt; (3, 3, 2) is not good, because &quot;3&quot; is higher than it.</pre>\r\n\r\n<p><strong class=\"example\">Example 3:</strong></p>\r\n\r\n<pre>\r\n<strong>Input:</strong> root = [1]\r\n<strong>Output:</strong> 1\r\n<strong>Explanation:</strong> Root is considered as <strong>good</strong>.</pre>\r\n\r\n<p>&nbsp;</p>\r\n<p><strong>Constraints:</strong></p>\r\n\r\n<ul>\r\n\t<li>The number of nodes in the binary tree is in the range&nbsp;<code>[1, 10^5]</code>.</li>\r\n\t<li>Each node&#39;s value is between <code>[-10^4, 10^4]</code>.</li>\r\n</ul>",
+    "tags": [
+      "Tree",
+      "Depth-First Search",
+      "Breadth-First Search",
+      "Binary Tree"
+    ],
+    "url": "https://leetcode.com/problems/count-good-nodes-in-binary-tree/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/1448/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "# Definition for a binary tree node.\n# class TreeNode:\n#     def __init__(self, val=0, left=None, right=None):\n#         self.val = val\n#         self.left = left\n#         self.right = right\nclass Solution:\n    def goodNodes(self, root: TreeNode) -> int:\n        def dfs(root: TreeNode, mx: int):\n            if root is None:\n                return\n            nonlocal ans\n            if mx <= root.val:\n                ans += 1\n                mx = root.val\n            dfs(root.left, mx)\n            dfs(root.right, mx)\n\n        ans = 0\n        dfs(root, -1000000)\n        return ans",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/count-good-nodes-in-binary-tree",
+    "starter_python": "# Definition for a binary tree node.\n# class TreeNode:\n#     def __init__(self, val=0, left=None, right=None):\n#         self.val = val\n#         self.left = left\n#         self.right = right\nclass Solution:\n    def goodNodes(self, root: TreeNode) -> int:\n        ",
+    "starter_cpp": "/**\n * Definition for a binary tree node.\n * struct TreeNode {\n *     int val;\n *     TreeNode *left;\n *     TreeNode *right;\n *     TreeNode() : val(0), left(nullptr), right(nullptr) {}\n *     TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}\n *     TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}\n * };\n */\nclass Solution {\npublic:\n    int goodNodes(TreeNode* root) {\n        \n    }\n};"
+  },
+  {
+    "id": 684,
+    "title": "Redundant Connection",
+    "slug": "redundant-connection",
+    "difficulty": "Medium",
+    "description": "<p>In this problem, a tree is an <strong>undirected graph</strong> that is connected and has no cycles.</p>\n\n<p>You are given a graph that started as a tree with <code>n</code> nodes labeled from <code>1</code> to <code>n</code>, with one additional edge added. The added edge has two <strong>different</strong> vertices chosen from <code>1</code> to <code>n</code>, and was not an edge that already existed. The graph is represented as an array <code>edges</code> of length <code>n</code> where <code>edges[i] = [a<sub>i</sub>, b<sub>i</sub>]</code> indicates that there is an edge between nodes <code>a<sub>i</sub></code> and <code>b<sub>i</sub></code> in the graph.</p>\n\n<p>Return <em>an edge that can be removed so that the resulting graph is a tree of </em><code>n</code><em> nodes</em>. If there are multiple answers, return the answer that occurs last in the input.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n<img alt=\"\" src=\"https://assets.leetcode.com/uploads/2021/05/02/reduntant1-1-graph.jpg\" style=\"width: 222px; height: 222px;\" />\n<pre>\n<strong>Input:</strong> edges = [[1,2],[1,3],[2,3]]\n<strong>Output:</strong> [2,3]\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n<img alt=\"\" src=\"https://assets.leetcode.com/uploads/2021/05/02/reduntant1-2-graph.jpg\" style=\"width: 382px; height: 222px;\" />\n<pre>\n<strong>Input:</strong> edges = [[1,2],[2,3],[3,4],[1,4],[1,5]]\n<strong>Output:</strong> [1,4]\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>n == edges.length</code></li>\n\t<li><code>3 &lt;= n &lt;= 1000</code></li>\n\t<li><code>edges[i].length == 2</code></li>\n\t<li><code>1 &lt;= a<sub>i</sub> &lt; b<sub>i</sub> &lt;= edges.length</code></li>\n\t<li><code>a<sub>i</sub> != b<sub>i</sub></code></li>\n\t<li>There are no repeated edges.</li>\n\t<li>The given graph is connected.</li>\n</ul>\n",
+    "tags": [
+      "Depth-First Search",
+      "Breadth-First Search",
+      "Union-Find",
+      "Graph Theory"
+    ],
+    "url": "https://leetcode.com/problems/redundant-connection/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/684/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def findRedundantConnection(self, edges: List[List[int]]) -> List[int]:\n        def find(x: int) -> int:\n            if p[x] != x:\n                p[x] = find(p[x])\n            return p[x]\n\n        p = list(range(len(edges)))\n        for a, b in edges:\n            pa, pb = find(a - 1), find(b - 1)\n            if pa == pb:\n                return [a, b]\n            p[pa] = pb",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/redundant-connection",
+    "starter_python": "class Solution:\n    def findRedundantConnection(self, edges: List[List[int]]) -> List[int]:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    vector<int> findRedundantConnection(vector<vector<int>>& edges) {\n        \n    }\n};"
+  },
+  {
+    "id": 743,
+    "title": "Network Delay Time",
+    "slug": "network-delay-time",
+    "difficulty": "Medium",
+    "description": "<p>You are given a network of <code>n</code> nodes, labeled from <code>1</code> to <code>n</code>. You are also given <code>times</code>, a list of travel times as directed edges <code>times[i] = (u<sub>i</sub>, v<sub>i</sub>, w<sub>i</sub>)</code>, where <code>u<sub>i</sub></code> is the source node, <code>v<sub>i</sub></code> is the target node, and <code>w<sub>i</sub></code> is the time it takes for a signal to travel from source to target.</p>\n\n<p>We will send a signal from a given node <code>k</code>. Return <em>the <strong>minimum</strong> time it takes for all the</em> <code>n</code> <em>nodes to receive the signal</em>. If it is impossible for all the <code>n</code> nodes to receive the signal, return <code>-1</code>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n<img alt=\"\" src=\"https://assets.leetcode.com/uploads/2019/05/23/931_example_1.png\" style=\"width: 217px; height: 239px;\" />\n<pre>\n<strong>Input:</strong> times = [[2,1,1],[2,3,1],[3,4,1]], n = 4, k = 2\n<strong>Output:</strong> 2\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> times = [[1,2,1]], n = 2, k = 1\n<strong>Output:</strong> 1\n</pre>\n\n<p><strong class=\"example\">Example 3:</strong></p>\n\n<pre>\n<strong>Input:</strong> times = [[1,2,1]], n = 2, k = 2\n<strong>Output:</strong> -1\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= k &lt;= n &lt;= 100</code></li>\n\t<li><code>1 &lt;= times.length &lt;= 6000</code></li>\n\t<li><code>times[i].length == 3</code></li>\n\t<li><code>1 &lt;= u<sub>i</sub>, v<sub>i</sub> &lt;= n</code></li>\n\t<li><code>u<sub>i</sub> != v<sub>i</sub></code></li>\n\t<li><code>0 &lt;= w<sub>i</sub> &lt;= 100</code></li>\n\t<li>All the pairs <code>(u<sub>i</sub>, v<sub>i</sub>)</code> are <strong>unique</strong>. (i.e., no multiple edges.)</li>\n</ul>\n",
+    "tags": [
+      "Depth-First Search",
+      "Breadth-First Search",
+      "Graph Theory",
+      "Heap (Priority Queue)",
+      "Shortest Path"
+    ],
+    "url": "https://leetcode.com/problems/network-delay-time/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/743/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def networkDelayTime(self, times: List[List[int]], n: int, k: int) -> int:\n        g = [[inf] * n for _ in range(n)]\n        for u, v, w in times:\n            g[u - 1][v - 1] = w\n        dist = [inf] * n\n        dist[k - 1] = 0\n        vis = [False] * n\n        for _ in range(n):\n            t = -1\n            for j in range(n):\n                if not vis[j] and (t == -1 or dist[t] > dist[j]):\n                    t = j\n            vis[t] = True\n            for j in range(n):\n                dist[j] = min(dist[j], dist[t] + g[t][j])\n        ans = max(dist)\n        return -1 if ans == inf else ans",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/network-delay-time",
+    "starter_python": "class Solution:\n    def networkDelayTime(self, times: List[List[int]], n: int, k: int) -> int:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    int networkDelayTime(vector<vector<int>>& times, int n, int k) {\n        \n    }\n};"
+  },
+  {
+    "id": 332,
+    "title": "Reconstruct Itinerary",
+    "slug": "reconstruct-itinerary",
+    "difficulty": "Hard",
+    "description": "<p>You are given a list of airline <code>tickets</code> where <code>tickets[i] = [from<sub>i</sub>, to<sub>i</sub>]</code> represent the departure and the arrival airports of one flight. Reconstruct the itinerary in order and return it.</p>\n\n<p>All of the tickets belong to a man who departs from <code>&quot;JFK&quot;</code>, thus, the itinerary must begin with <code>&quot;JFK&quot;</code>. If there are multiple valid itineraries, you should return the itinerary that has the smallest lexical order when read as a single string.</p>\n\n<ul>\n\t<li>For example, the itinerary <code>[&quot;JFK&quot;, &quot;LGA&quot;]</code> has a smaller lexical order than <code>[&quot;JFK&quot;, &quot;LGB&quot;]</code>.</li>\n</ul>\n\n<p>You may assume all tickets form at least one valid itinerary. You must use all the tickets once and only once.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n<img alt=\"\" src=\"https://assets.leetcode.com/uploads/2021/03/14/itinerary1-graph.jpg\" style=\"width: 382px; height: 222px;\" />\n<pre>\n<strong>Input:</strong> tickets = [[&quot;MUC&quot;,&quot;LHR&quot;],[&quot;JFK&quot;,&quot;MUC&quot;],[&quot;SFO&quot;,&quot;SJC&quot;],[&quot;LHR&quot;,&quot;SFO&quot;]]\n<strong>Output:</strong> [&quot;JFK&quot;,&quot;MUC&quot;,&quot;LHR&quot;,&quot;SFO&quot;,&quot;SJC&quot;]\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n<img alt=\"\" src=\"https://assets.leetcode.com/uploads/2021/03/14/itinerary2-graph.jpg\" style=\"width: 222px; height: 230px;\" />\n<pre>\n<strong>Input:</strong> tickets = [[&quot;JFK&quot;,&quot;SFO&quot;],[&quot;JFK&quot;,&quot;ATL&quot;],[&quot;SFO&quot;,&quot;ATL&quot;],[&quot;ATL&quot;,&quot;JFK&quot;],[&quot;ATL&quot;,&quot;SFO&quot;]]\n<strong>Output:</strong> [&quot;JFK&quot;,&quot;ATL&quot;,&quot;JFK&quot;,&quot;SFO&quot;,&quot;ATL&quot;,&quot;SFO&quot;]\n<strong>Explanation:</strong> Another possible reconstruction is [&quot;JFK&quot;,&quot;SFO&quot;,&quot;ATL&quot;,&quot;JFK&quot;,&quot;ATL&quot;,&quot;SFO&quot;] but it is larger in lexical order.\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= tickets.length &lt;= 300</code></li>\n\t<li><code>tickets[i].length == 2</code></li>\n\t<li><code>from<sub>i</sub>.length == 3</code></li>\n\t<li><code>to<sub>i</sub>.length == 3</code></li>\n\t<li><code>from<sub>i</sub></code> and <code>to<sub>i</sub></code> consist of uppercase English letters.</li>\n\t<li><code>from<sub>i</sub> != to<sub>i</sub></code></li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "String",
+      "Depth-First Search",
+      "Graph Theory",
+      "Sorting",
+      "Heap (Priority Queue)",
+      "Eulerian Circuit"
+    ],
+    "url": "https://leetcode.com/problems/reconstruct-itinerary/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/332/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def findItinerary(self, tickets: List[List[str]]) -> List[str]:\n        def dfs(f: str):\n            while g[f]:\n                dfs(g[f].pop())\n            ans.append(f)\n\n        g = defaultdict(list)\n        for f, t in sorted(tickets, reverse=True):\n            g[f].append(t)\n        ans = []\n        dfs(\"JFK\")\n        return ans[::-1]",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/reconstruct-itinerary",
+    "starter_python": "class Solution:\n    def findItinerary(self, tickets: List[List[str]]) -> List[str]:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    vector<string> findItinerary(vector<vector<string>>& tickets) {\n        \n    }\n};"
+  },
+  {
+    "id": 1584,
+    "title": "Min Cost to Connect All Points",
+    "slug": "min-cost-to-connect-all-points",
+    "difficulty": "Medium",
+    "description": "<p>You are given an array <code>points</code> representing integer coordinates of some points on a 2D-plane, where <code>points[i] = [x<sub>i</sub>, y<sub>i</sub>]</code>.</p>\n\n<p>The cost of connecting two points <code>[x<sub>i</sub>, y<sub>i</sub>]</code> and <code>[x<sub>j</sub>, y<sub>j</sub>]</code> is the <strong>manhattan distance</strong> between them: <code>|x<sub>i</sub> - x<sub>j</sub>| + |y<sub>i</sub> - y<sub>j</sub>|</code>, where <code>|val|</code> denotes the absolute value of <code>val</code>.</p>\n\n<p>Return <em>the minimum cost to make all points connected.</em> All points are connected if there is <strong>exactly one</strong> simple path between any two points.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n<img alt=\"\" src=\"https://assets.leetcode.com/uploads/2020/08/26/d.png\" style=\"width: 214px; height: 268px;\" />\n<pre>\n<strong>Input:</strong> points = [[0,0],[2,2],[3,10],[5,2],[7,0]]\n<strong>Output:</strong> 20\n<strong>Explanation:</strong> \n<img alt=\"\" src=\"https://assets.leetcode.com/uploads/2020/08/26/c.png\" style=\"width: 214px; height: 268px;\" />\nWe can connect the points as shown above to get the minimum cost of 20.\nNotice that there is a unique path between every pair of points.\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> points = [[3,12],[-2,5],[-4,1]]\n<strong>Output:</strong> 18\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= points.length &lt;= 1000</code></li>\n\t<li><code>-10<sup>6</sup> &lt;= x<sub>i</sub>, y<sub>i</sub> &lt;= 10<sup>6</sup></code></li>\n\t<li>All pairs <code>(x<sub>i</sub>, y<sub>i</sub>)</code> are distinct.</li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "Union-Find",
+      "Graph Theory",
+      "Minimum Spanning Tree"
+    ],
+    "url": "https://leetcode.com/problems/min-cost-to-connect-all-points/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/1584/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def minCostConnectPoints(self, points: List[List[int]]) -> int:\n        n = len(points)\n        g = [[0] * n for _ in range(n)]\n        dist = [inf] * n\n        vis = [False] * n\n        for i, (x1, y1) in enumerate(points):\n            for j in range(i + 1, n):\n                x2, y2 = points[j]\n                t = abs(x1 - x2) + abs(y1 - y2)\n                g[i][j] = g[j][i] = t\n        dist[0] = 0\n        ans = 0\n        for _ in range(n):\n            i = -1\n            for j in range(n):\n                if not vis[j] and (i == -1 or dist[j] < dist[i]):\n                    i = j\n            vis[i] = True\n            ans += dist[i]\n            for j in range(n):\n                if not vis[j]:\n                    dist[j] = min(dist[j], g[i][j])\n        return ans",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/min-cost-to-connect-all-points",
+    "starter_python": "class Solution:\n    def minCostConnectPoints(self, points: List[List[int]]) -> int:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    int minCostConnectPoints(vector<vector<int>>& points) {\n        \n    }\n};"
+  },
+  {
+    "id": 778,
+    "title": "Swim in Rising Water",
+    "slug": "swim-in-rising-water",
+    "difficulty": "Hard",
+    "description": "<p>You are given an <code>n x n</code> integer matrix <code>grid</code> where each value <code>grid[i][j]</code> represents the elevation at that point <code>(i, j)</code>.</p>\n\n<p>It starts raining, and water gradually rises over time. At time <code>t</code>, the water level is <code>t</code>, meaning <strong>any</strong> cell with elevation less than equal to <code>t</code> is submerged or reachable.</p>\n\n<p>You can swim from a square to another 4-directionally adjacent square if and only if the elevation of both squares individually are at most <code>t</code>. You can swim infinite distances in zero time. Of course, you must stay within the boundaries of the grid during your swim.</p>\n\n<p>Return <em>the minimum time until you can reach the bottom right square </em><code>(n - 1, n - 1)</code><em> if you start at the top left square </em><code>(0, 0)</code>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n<img alt=\"\" src=\"https://assets.leetcode.com/uploads/2021/06/29/swim1-grid.jpg\" style=\"width: 164px; height: 165px;\" />\n<pre>\n<strong>Input:</strong> grid = [[0,2],[1,3]]\n<strong>Output:</strong> 3\nExplanation:\nAt time 0, you are in grid location (0, 0).\nYou cannot go anywhere else because 4-directionally adjacent neighbors have a higher elevation than t = 0.\nYou cannot reach point (1, 1) until time 3.\nWhen the depth of water is 3, we can swim anywhere inside the grid.\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n<img alt=\"\" src=\"https://assets.leetcode.com/uploads/2021/06/29/swim2-grid-1.jpg\" style=\"width: 404px; height: 405px;\" />\n<pre>\n<strong>Input:</strong> grid = [[0,1,2,3,4],[24,23,22,21,5],[12,13,14,15,16],[11,17,18,19,20],[10,9,8,7,6]]\n<strong>Output:</strong> 16\n<strong>Explanation:</strong> The final route is shown.\nWe need to wait until time 16 so that (0, 0) and (4, 4) are connected.\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>n == grid.length</code></li>\n\t<li><code>n == grid[i].length</code></li>\n\t<li><code>1 &lt;= n &lt;= 50</code></li>\n\t<li><code>0 &lt;= grid[i][j] &lt;&nbsp;n<sup>2</sup></code></li>\n\t<li>Each value <code>grid[i][j]</code> is <strong>unique</strong>.</li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "Binary Search",
+      "Depth-First Search",
+      "Breadth-First Search",
+      "Union-Find",
+      "Heap (Priority Queue)",
+      "Matrix"
+    ],
+    "url": "https://leetcode.com/problems/swim-in-rising-water/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/778/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def swimInWater(self, grid: List[List[int]]) -> int:\n        def find(x: int) -> int:\n            if p[x] != x:\n                p[x] = find(p[x])\n            return p[x]\n\n        n = len(grid)\n        m = n * n\n        p = list(range(m))\n        hi = [0] * m\n        for i, row in enumerate(grid):\n            for j, h in enumerate(row):\n                hi[h] = i * n + j\n        dirs = (-1, 0, 1, 0, -1)\n        for t in range(m):\n            x, y = divmod(hi[t], n)\n            for dx, dy in pairwise(dirs):\n                nx, ny = x + dx, y + dy\n                if 0 <= nx < n and 0 <= ny < n and grid[nx][ny] <= t:\n                    p[find(x * n + y)] = find(nx * n + ny)\n            if find(0) == find(m - 1):\n                return t\n        return 0",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/swim-in-rising-water",
+    "starter_python": "class Solution:\n    def swimInWater(self, grid: List[List[int]]) -> int:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    int swimInWater(vector<vector<int>>& grid) {\n        \n    }\n};"
+  },
+  {
+    "id": 138,
+    "title": "Copy List with Random Pointer",
+    "slug": "copy-list-with-random-pointer",
+    "difficulty": "Medium",
+    "description": "<p>A linked list of length <code>n</code> is given such that each node contains an additional random pointer, which could point to any node in the list, or <code>null</code>.</p>\n\n<p>Construct a <a href=\"https://en.wikipedia.org/wiki/Object_copying#Deep_copy\" target=\"_blank\"><strong>deep copy</strong></a> of the list. The deep copy should consist of exactly <code>n</code> <strong>brand new</strong> nodes, where each new node has its value set to the value of its corresponding original node. Both the <code>next</code> and <code>random</code> pointer of the new nodes should point to new nodes in the copied list such that the pointers in the original list and copied list represent the same list state. <strong>None of the pointers in the new list should point to nodes in the original list</strong>.</p>\n\n<p>For example, if there are two nodes <code>X</code> and <code>Y</code> in the original list, where <code>X.random --&gt; Y</code>, then for the corresponding two nodes <code>x</code> and <code>y</code> in the copied list, <code>x.random --&gt; y</code>.</p>\n\n<p>Return <em>the head of the copied linked list</em>.</p>\n\n<p>The linked list is represented in the input/output as a list of <code>n</code> nodes. Each node is represented as a pair of <code>[val, random_index]</code> where:</p>\n\n<ul>\n\t<li><code>val</code>: an integer representing <code>Node.val</code></li>\n\t<li><code>random_index</code>: the index of the node (range from <code>0</code> to <code>n-1</code>) that the <code>random</code> pointer points to, or <code>null</code> if it does not point to any node.</li>\n</ul>\n\n<p>Your code will <strong>only</strong> be given the <code>head</code> of the original linked list.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n<img alt=\"\" src=\"https://assets.leetcode.com/uploads/2019/12/18/e1.png\" style=\"width: 700px; height: 142px;\" />\n<pre>\n<strong>Input:</strong> head = [[7,null],[13,0],[11,4],[10,2],[1,0]]\n<strong>Output:</strong> [[7,null],[13,0],[11,4],[10,2],[1,0]]\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n<img alt=\"\" src=\"https://assets.leetcode.com/uploads/2019/12/18/e2.png\" style=\"width: 700px; height: 114px;\" />\n<pre>\n<strong>Input:</strong> head = [[1,1],[2,1]]\n<strong>Output:</strong> [[1,1],[2,1]]\n</pre>\n\n<p><strong class=\"example\">Example 3:</strong></p>\n\n<p><strong><img alt=\"\" src=\"https://assets.leetcode.com/uploads/2019/12/18/e3.png\" style=\"width: 700px; height: 122px;\" /></strong></p>\n\n<pre>\n<strong>Input:</strong> head = [[3,null],[3,0],[3,null]]\n<strong>Output:</strong> [[3,null],[3,0],[3,null]]\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>0 &lt;= n &lt;= 1000</code></li>\n\t<li><code>-10<sup>4</sup> &lt;= Node.val &lt;= 10<sup>4</sup></code></li>\n\t<li><code>Node.random</code> is <code>null</code> or is pointing to some node in the linked list.</li>\n</ul>\n",
+    "tags": [
+      "Hash Table",
+      "Linked List"
+    ],
+    "url": "https://leetcode.com/problems/copy-list-with-random-pointer/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/138/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "\"\"\"\n# Definition for a Node.\nclass Node:\n    def __init__(self, x: int, next: 'Node' = None, random: 'Node' = None):\n        self.val = int(x)\n        self.next = next\n        self.random = random\n\"\"\"\n\n\nclass Solution:\n    def copyRandomList(self, head: \"Optional[Node]\") -> \"Optional[Node]\":\n        d = {}\n        dummy = tail = Node(0)\n        cur = head\n        while cur:\n            node = Node(cur.val)\n            tail.next = node\n            tail = tail.next\n            d[cur] = node\n            cur = cur.next\n        cur = head\n        while cur:\n            d[cur].random = d[cur.random] if cur.random else None\n            cur = cur.next\n        return dummy.next",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/copy-list-with-random-pointer",
+    "starter_python": "\"\"\"\n# Definition for a Node.\nclass Node:\n    def __init__(self, x: int, next: 'Node' = None, random: 'Node' = None):\n        self.val = int(x)\n        self.next = next\n        self.random = random\n\"\"\"\n\nclass Solution:\n    def copyRandomList(self, head: 'Optional[Node]') -> 'Optional[Node]':\n        ",
+    "starter_cpp": "/*\n// Definition for a Node.\nclass Node {\npublic:\n    int val;\n    Node* next;\n    Node* random;\n    \n    Node(int _val) {\n        val = _val;\n        next = NULL;\n        random = NULL;\n    }\n};\n*/\n\nclass Solution {\npublic:\n    Node* copyRandomList(Node* head) {\n        \n    }\n};"
+  },
+  {
+    "id": 853,
+    "title": "Car Fleet",
+    "slug": "car-fleet",
+    "difficulty": "Medium",
+    "description": "<p>There are <code>n</code> cars at given miles away from the starting mile 0, traveling to reach the mile <code>target</code>.</p>\n\n<p>You are given two integer arrays&nbsp;<code>position</code> and <code>speed</code>, both of length <code>n</code>, where <code>position[i]</code> is the starting mile of the <code>i<sup>th</sup></code> car and <code>speed[i]</code> is the speed of the <code>i<sup>th</sup></code> car in miles per hour.</p>\n\n<p>A car cannot pass another car, but it can catch up and then travel next to it at the speed of the slower car.</p>\n\n<p>A <strong>car fleet</strong> is a single car or a group of cars driving next to each other. The speed of the car fleet is the <strong>minimum</strong> speed of any car in the fleet.</p>\n\n<p>If a car catches up to a car fleet at the mile <code>target</code>, it will still be considered as part of the car fleet.</p>\n\n<p>Return the number of car fleets that will arrive at the destination.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<div class=\"example-block\">\n<p><strong>Input:</strong> <span class=\"example-io\">target = 12, position = [10,8,0,5,3], speed = [2,4,1,1,3]</span></p>\n\n<p><strong>Output:</strong> <span class=\"example-io\">3</span></p>\n\n<p><strong>Explanation:</strong></p>\n\n<ul>\n\t<li>The cars starting at 10 (speed 2) and 8 (speed 4) become a fleet, meeting each other at 12. The fleet forms at <code>target</code>.</li>\n\t<li>The car starting at 0 (speed 1) does not catch up to any other car, so it is a fleet by itself.</li>\n\t<li>The cars starting at 5 (speed 1) and 3 (speed 3) become a fleet, meeting each other at 6. The fleet moves at speed 1 until it reaches <code>target</code>.</li>\n</ul>\n</div>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<div class=\"example-block\">\n<p><strong>Input:</strong> <span class=\"example-io\">target = 10, position = [3], speed = [3]</span></p>\n\n<p><strong>Output:</strong> <span class=\"example-io\">1</span></p>\n\n<p><strong>Explanation:</strong></p>\nThere is only one car, hence there is only one fleet.</div>\n\n<p><strong class=\"example\">Example 3:</strong></p>\n\n<div class=\"example-block\">\n<p><strong>Input:</strong> <span class=\"example-io\">target = 100, position = [0,2,4], speed = [4,2,1]</span></p>\n\n<p><strong>Output:</strong> <span class=\"example-io\">1</span></p>\n\n<p><strong>Explanation:</strong></p>\n\n<ul>\n\t<li>The cars starting at 0 (speed 4) and 2 (speed 2) become a fleet, meeting each other at 4. The car starting at 4 (speed 1) travels to 5.</li>\n\t<li>Then, the fleet at 4 (speed 2) and the car at position 5 (speed 1) become one fleet, meeting each other at 6. The fleet moves at speed 1 until it reaches <code>target</code>.</li>\n</ul>\n</div>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>n == position.length == speed.length</code></li>\n\t<li><code>1 &lt;= n &lt;= 10<sup>5</sup></code></li>\n\t<li><code>0 &lt; target &lt;= 10<sup>6</sup></code></li>\n\t<li><code>0 &lt;= position[i] &lt; target</code></li>\n\t<li>All the values of <code>position</code> are <strong>unique</strong>.</li>\n\t<li><code>0 &lt; speed[i] &lt;= 10<sup>6</sup></code></li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "Stack",
+      "Sorting",
+      "Monotonic Stack"
+    ],
+    "url": "https://leetcode.com/problems/car-fleet/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/853/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def carFleet(self, target: int, position: List[int], speed: List[int]) -> int:\n        idx = sorted(range(len(position)), key=lambda i: position[i])\n        ans = pre = 0\n        for i in idx[::-1]:\n            t = (target - position[i]) / speed[i]\n            if t > pre:\n                ans += 1\n                pre = t\n        return ans",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/car-fleet",
+    "starter_python": "class Solution:\n    def carFleet(self, target: int, position: List[int], speed: List[int]) -> int:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    int carFleet(int target, vector<int>& position, vector<int>& speed) {\n        \n    }\n};"
+  },
+  {
+    "id": 703,
+    "title": "Kth Largest Element in a Stream",
+    "slug": "kth-largest-element-in-a-stream",
+    "difficulty": "Easy",
+    "description": "<p>You are part of a university admissions office and need to keep track of the <code>kth</code> highest test score from applicants in real-time. This helps to determine cut-off marks for interviews and admissions dynamically as new applicants submit their scores.</p>\n\n<p>You are tasked to implement a class which, for a given integer&nbsp;<code>k</code>, maintains a stream of test scores and continuously returns the&nbsp;<code>k</code>th highest test score&nbsp;<strong>after</strong>&nbsp;a new score has been submitted. More specifically, we are looking for the <code>k</code>th highest score in the sorted list of all scores.</p>\n\n<p>Implement the&nbsp;<code>KthLargest</code> class:</p>\n\n<ul>\n\t<li><code>KthLargest(int k, int[] nums)</code> Initializes the object with the integer <code>k</code> and the stream of test scores&nbsp;<code>nums</code>.</li>\n\t<li><code>int add(int val)</code> Adds a new test score&nbsp;<code>val</code> to the stream and returns the element representing the <code>k<sup>th</sup></code> largest element in the pool of test scores so far.</li>\n</ul>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<div class=\"example-block\">\n<p><strong>Input:</strong><br />\n<span class=\"example-io\">[&quot;KthLargest&quot;, &quot;add&quot;, &quot;add&quot;, &quot;add&quot;, &quot;add&quot;, &quot;add&quot;]<br />\n[[3, [4, 5, 8, 2]], [3], [5], [10], [9], [4]]</span></p>\n\n<p><strong>Output:</strong> <span class=\"example-io\">[null, 4, 5, 5, 8, 8]</span></p>\n\n<p><strong>Explanation:</strong></p>\n\n<p>KthLargest kthLargest = new KthLargest(3, [4, 5, 8, 2]);<br />\nkthLargest.add(3); // return 4<br />\nkthLargest.add(5); // return 5<br />\nkthLargest.add(10); // return 5<br />\nkthLargest.add(9); // return 8<br />\nkthLargest.add(4); // return 8</p>\n</div>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<div class=\"example-block\">\n<p><strong>Input:</strong><br />\n<span class=\"example-io\">[&quot;KthLargest&quot;, &quot;add&quot;, &quot;add&quot;, &quot;add&quot;, &quot;add&quot;]<br />\n[[4, [7, 7, 7, 7, 8, 3]], [2], [10], [9], [9]]</span></p>\n\n<p><strong>Output:</strong> <span class=\"example-io\">[null, 7, 7, 7, 8]</span></p>\n\n<p><strong>Explanation:</strong></p>\nKthLargest kthLargest = new KthLargest(4, [7, 7, 7, 7, 8, 3]);<br />\nkthLargest.add(2); // return 7<br />\nkthLargest.add(10); // return 7<br />\nkthLargest.add(9); // return 7<br />\nkthLargest.add(9); // return 8</div>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>0 &lt;= nums.length &lt;= 10<sup>4</sup></code></li>\n\t<li><code>1 &lt;= k &lt;= nums.length + 1</code></li>\n\t<li><code>-10<sup>4</sup> &lt;= nums[i] &lt;= 10<sup>4</sup></code></li>\n\t<li><code>-10<sup>4</sup> &lt;= val &lt;= 10<sup>4</sup></code></li>\n\t<li>At most <code>10<sup>4</sup></code> calls will be made to <code>add</code>.</li>\n</ul>\n",
+    "tags": [
+      "Tree",
+      "Design",
+      "Binary Search Tree",
+      "Heap (Priority Queue)",
+      "Binary Tree",
+      "Data Stream"
+    ],
+    "url": "https://leetcode.com/problems/kth-largest-element-in-a-stream/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/703/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class KthLargest:\n\n    def __init__(self, k: int, nums: List[int]):\n        self.k = k\n        self.min_q = []\n        for x in nums:\n            self.add(x)\n\n    def add(self, val: int) -> int:\n        heappush(self.min_q, val)\n        if len(self.min_q) > self.k:\n            heappop(self.min_q)\n        return self.min_q[0]\n\n\n# Your KthLargest object will be instantiated and called as such:\n# obj = KthLargest(k, nums)\n# param_1 = obj.add(val)",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/kth-largest-element-in-a-stream",
+    "starter_python": "class KthLargest:\n\n    def __init__(self, k: int, nums: List[int]):\n        \n\n    def add(self, val: int) -> int:\n        \n\n\n# Your KthLargest object will be instantiated and called as such:\n# obj = KthLargest(k, nums)\n# param_1 = obj.add(val)",
+    "starter_cpp": "class KthLargest {\npublic:\n    KthLargest(int k, vector<int>& nums) {\n        \n    }\n    \n    int add(int val) {\n        \n    }\n};\n\n/**\n * Your KthLargest object will be instantiated and called as such:\n * KthLargest* obj = new KthLargest(k, nums);\n * int param_1 = obj->add(val);\n */"
+  },
+  {
+    "id": 1046,
+    "title": "Last Stone Weight",
+    "slug": "last-stone-weight",
+    "difficulty": "Easy",
+    "description": "<p>You are given an array of integers <code>stones</code> where <code>stones[i]</code> is the weight of the <code>i<sup>th</sup></code> stone.</p>\n\n<p>We are playing a game with the stones. On each turn, we choose the <strong>heaviest two stones</strong> and smash them together. Suppose the heaviest two stones have weights <code>x</code> and <code>y</code> with <code>x &lt;= y</code>. The result of this smash is:</p>\n\n<ul>\n\t<li>If <code>x == y</code>, both stones are destroyed, and</li>\n\t<li>If <code>x != y</code>, the stone of weight <code>x</code> is destroyed, and the stone of weight <code>y</code> has new weight <code>y - x</code>.</li>\n</ul>\n\n<p>At the end of the game, there is <strong>at most one</strong> stone left.</p>\n\n<p>Return <em>the weight of the last remaining stone</em>. If there are no stones left, return <code>0</code>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> stones = [2,7,4,1,8,1]\n<strong>Output:</strong> 1\n<strong>Explanation:</strong> \nWe combine 7 and 8 to get 1 so the array converts to [2,4,1,1,1] then,\nwe combine 2 and 4 to get 2 so the array converts to [2,1,1,1] then,\nwe combine 2 and 1 to get 1 so the array converts to [1,1,1] then,\nwe combine 1 and 1 to get 0 so the array converts to [1] then that&#39;s the value of the last stone.\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> stones = [1]\n<strong>Output:</strong> 1\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= stones.length &lt;= 30</code></li>\n\t<li><code>1 &lt;= stones[i] &lt;= 1000</code></li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "Heap (Priority Queue)"
+    ],
+    "url": "https://leetcode.com/problems/last-stone-weight/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/1046/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def lastStoneWeight(self, stones: List[int]) -> int:\n        h = [-x for x in stones]\n        heapify(h)\n        while len(h) > 1:\n            y, x = -heappop(h), -heappop(h)\n            if x != y:\n                heappush(h, x - y)\n        return 0 if not h else -h[0]",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/last-stone-weight",
+    "starter_python": "class Solution:\n    def lastStoneWeight(self, stones: List[int]) -> int:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    int lastStoneWeight(vector<int>& stones) {\n        \n    }\n};"
+  },
+  {
+    "id": 355,
+    "title": "Design Twitter",
+    "slug": "design-twitter",
+    "difficulty": "Medium",
+    "description": "<p>Design a simplified version of Twitter where users can post tweets, follow/unfollow another user, and is able to see the <code>10</code> most recent tweets in the user&#39;s news feed.</p>\n\n<p>Implement the <code>Twitter</code> class:</p>\n\n<ul>\n\t<li><code>Twitter()</code> Initializes your twitter object.</li>\n\t<li><code>void postTweet(int userId, int tweetId)</code> Composes a new tweet with ID <code>tweetId</code> by the user <code>userId</code>. Each call to this function will be made with a unique <code>tweetId</code>.</li>\n\t<li><code>List&lt;Integer&gt; getNewsFeed(int userId)</code> Retrieves the <code>10</code> most recent tweet IDs in the user&#39;s news feed. Each item in the news feed must be posted by users who the user followed or by the user themself. Tweets must be <strong>ordered from most recent to least recent</strong>.</li>\n\t<li><code>void follow(int followerId, int followeeId)</code> The user with ID <code>followerId</code> started following the user with ID <code>followeeId</code>.</li>\n\t<li><code>void unfollow(int followerId, int followeeId)</code> The user with ID <code>followerId</code> started unfollowing the user with ID <code>followeeId</code>.</li>\n</ul>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input</strong>\n[&quot;Twitter&quot;, &quot;postTweet&quot;, &quot;getNewsFeed&quot;, &quot;follow&quot;, &quot;postTweet&quot;, &quot;getNewsFeed&quot;, &quot;unfollow&quot;, &quot;getNewsFeed&quot;]\n[[], [1, 5], [1], [1, 2], [2, 6], [1], [1, 2], [1]]\n<strong>Output</strong>\n[null, null, [5], null, null, [6, 5], null, [5]]\n\n<strong>Explanation</strong>\nTwitter twitter = new Twitter();\ntwitter.postTweet(1, 5); // User 1 posts a new tweet (id = 5).\ntwitter.getNewsFeed(1);  // User 1&#39;s news feed should return a list with 1 tweet id -&gt; [5]. return [5]\ntwitter.follow(1, 2);    // User 1 follows user 2.\ntwitter.postTweet(2, 6); // User 2 posts a new tweet (id = 6).\ntwitter.getNewsFeed(1);  // User 1&#39;s news feed should return a list with 2 tweet ids -&gt; [6, 5]. Tweet id 6 should precede tweet id 5 because it is posted after tweet id 5.\ntwitter.unfollow(1, 2);  // User 1 unfollows user 2.\ntwitter.getNewsFeed(1);  // User 1&#39;s news feed should return a list with 1 tweet id -&gt; [5], since user 1 is no longer following user 2.\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= userId, followerId, followeeId &lt;= 500</code></li>\n\t<li><code>0 &lt;= tweetId &lt;= 10<sup>4</sup></code></li>\n\t<li>All the tweets have <strong>unique</strong> IDs.</li>\n\t<li>At most <code>3 * 10<sup>4</sup></code> calls will be made to <code>postTweet</code>, <code>getNewsFeed</code>, <code>follow</code>, and <code>unfollow</code>.</li>\n\t<li>A user cannot follow himself.</li>\n</ul>\n",
+    "tags": [
+      "Hash Table",
+      "Linked List",
+      "Design",
+      "Heap (Priority Queue)"
+    ],
+    "url": "https://leetcode.com/problems/design-twitter/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/355/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Twitter:\n    def __init__(self):\n        \"\"\"\n        Initialize your data structure here.\n        \"\"\"\n        self.user_tweets = defaultdict(list)\n        self.user_following = defaultdict(set)\n        self.tweets = defaultdict()\n        self.time = 0\n\n    def postTweet(self, userId: int, tweetId: int) -> None:\n        \"\"\"\n        Compose a new tweet.\n        \"\"\"\n        self.time += 1\n        self.user_tweets[userId].append(tweetId)\n        self.tweets[tweetId] = self.time\n\n    def getNewsFeed(self, userId: int) -> List[int]:\n        \"\"\"\n        Retrieve the 10 most recent tweet ids in the user's news feed. Each item in the news feed must be posted by users who the user followed or by the user herself. Tweets must be ordered from most recent to least recent.\n        \"\"\"\n        following = self.user_following[userId]\n        users = set(following)\n        users.add(userId)\n        tweets = [self.user_tweets[u][::-1][:10] for u in users]\n        tweets = sum(tweets, [])\n        return nlargest(10, tweets, key=lambda tweet: self.tweets[tweet])\n\n    def follow(self, followerId: int, followeeId: int) -> None:\n        \"\"\"\n        Follower follows a followee. If the operation is invalid, it should be a no-op.\n        \"\"\"\n        self.user_following[followerId].add(followeeId)\n\n    def unfollow(self, followerId: int, followeeId: int) -> None:\n        \"\"\"\n        Follower unfollows a followee. If the operation is invalid, it should be a no-op.\n        \"\"\"\n        following = self.user_following[followerId]\n        if followeeId in following:\n            following.remove(followeeId)\n\n\n# Your Twitter object will be instantiated and called as such:\n# obj = Twitter()\n# obj.postTweet(userId,tweetId)\n# param_2 = obj.getNewsFeed(userId)\n# obj.follow(followerId,followeeId)\n# obj.unfollow(followerId,followeeId)",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/design-twitter",
+    "starter_python": "class Twitter:\n\n    def __init__(self):\n        \n\n    def postTweet(self, userId: int, tweetId: int) -> None:\n        \n\n    def getNewsFeed(self, userId: int) -> List[int]:\n        \n\n    def follow(self, followerId: int, followeeId: int) -> None:\n        \n\n    def unfollow(self, followerId: int, followeeId: int) -> None:\n        \n\n\n# Your Twitter object will be instantiated and called as such:\n# obj = Twitter()\n# obj.postTweet(userId,tweetId)\n# param_2 = obj.getNewsFeed(userId)\n# obj.follow(followerId,followeeId)\n# obj.unfollow(followerId,followeeId)",
+    "starter_cpp": "class Twitter {\npublic:\n    Twitter() {\n        \n    }\n    \n    void postTweet(int userId, int tweetId) {\n        \n    }\n    \n    vector<int> getNewsFeed(int userId) {\n        \n    }\n    \n    void follow(int followerId, int followeeId) {\n        \n    }\n    \n    void unfollow(int followerId, int followeeId) {\n        \n    }\n};\n\n/**\n * Your Twitter object will be instantiated and called as such:\n * Twitter* obj = new Twitter();\n * obj->postTweet(userId,tweetId);\n * vector<int> param_2 = obj->getNewsFeed(userId);\n * obj->follow(followerId,followeeId);\n * obj->unfollow(followerId,followeeId);\n */"
+  },
+  {
+    "id": 40,
+    "title": "Combination Sum II",
+    "slug": "combination-sum-ii",
+    "difficulty": "Medium",
+    "description": "<p>Given a collection of candidate numbers (<code>candidates</code>) and a target number (<code>target</code>), find all unique combinations in <code>candidates</code>&nbsp;where the candidate numbers sum to <code>target</code>.</p>\n\n<p>Each number in <code>candidates</code>&nbsp;may only be used <strong>once</strong> in the combination.</p>\n\n<p><strong>Note:</strong>&nbsp;The solution set must not contain duplicate combinations.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> candidates = [10,1,2,7,6,1,5], target = 8\n<strong>Output:</strong> \n[\n[1,1,6],\n[1,2,5],\n[1,7],\n[2,6]\n]\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> candidates = [2,5,2,1,2], target = 5\n<strong>Output:</strong> \n[\n[1,2,2],\n[5]\n]\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;=&nbsp;candidates.length &lt;= 100</code></li>\n\t<li><code>1 &lt;=&nbsp;candidates[i] &lt;= 50</code></li>\n\t<li><code>1 &lt;= target &lt;= 30</code></li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "Backtracking"
+    ],
+    "url": "https://leetcode.com/problems/combination-sum-ii/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/40/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def combinationSum2(self, candidates: List[int], target: int) -> List[List[int]]:\n        def dfs(i: int, s: int):\n            if s == 0:\n                ans.append(t[:])\n                return\n            if i >= len(candidates) or s < candidates[i]:\n                return\n            for j in range(i, len(candidates)):\n                if j > i and candidates[j] == candidates[j - 1]:\n                    continue\n                t.append(candidates[j])\n                dfs(j + 1, s - candidates[j])\n                t.pop()\n\n        candidates.sort()\n        ans = []\n        t = []\n        dfs(0, target)\n        return ans",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/combination-sum-ii",
+    "starter_python": "class Solution:\n    def combinationSum2(self, candidates: List[int], target: int) -> List[List[int]]:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    vector<vector<int>> combinationSum2(vector<int>& candidates, int target) {\n        \n    }\n};"
+  },
+  {
+    "id": 131,
+    "title": "Palindrome Partitioning",
+    "slug": "palindrome-partitioning",
+    "difficulty": "Medium",
+    "description": "<p>Given a string <code>s</code>, partition <code>s</code> such that every <span data-keyword=\"substring-nonempty\">substring</span> of the partition is a <span data-keyword=\"palindrome-string\"><strong>palindrome</strong></span>. Return <em>all possible palindrome partitioning of </em><code>s</code>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n<pre><strong>Input:</strong> s = \"aab\"\n<strong>Output:</strong> [[\"a\",\"a\",\"b\"],[\"aa\",\"b\"]]\n</pre><p><strong class=\"example\">Example 2:</strong></p>\n<pre><strong>Input:</strong> s = \"a\"\n<strong>Output:</strong> [[\"a\"]]\n</pre>\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= s.length &lt;= 16</code></li>\n\t<li><code>s</code> contains only lowercase English letters.</li>\n</ul>\n",
+    "tags": [
+      "String",
+      "Dynamic Programming",
+      "Backtracking"
+    ],
+    "url": "https://leetcode.com/problems/palindrome-partitioning/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/131/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def partition(self, s: str) -> List[List[str]]:\n        def dfs(i: int):\n            if i == n:\n                ans.append(t[:])\n                return\n            for j in range(i, n):\n                if f[i][j]:\n                    t.append(s[i : j + 1])\n                    dfs(j + 1)\n                    t.pop()\n\n        n = len(s)\n        f = [[True] * n for _ in range(n)]\n        for i in range(n - 1, -1, -1):\n            for j in range(i + 1, n):\n                f[i][j] = s[i] == s[j] and f[i + 1][j - 1]\n        ans = []\n        t = []\n        dfs(0)\n        return ans",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/palindrome-partitioning",
+    "starter_python": "class Solution:\n    def partition(self, s: str) -> List[List[str]]:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    vector<vector<string>> partition(string s) {\n        \n    }\n};"
+  },
+  {
+    "id": 45,
+    "title": "Jump Game II",
+    "slug": "jump-game-ii",
+    "difficulty": "Medium",
+    "description": "<p>You are given a <strong>0-indexed</strong> array of integers <code>nums</code> of length <code>n</code>. You are initially positioned at&nbsp;index 0.</p>\n\n<p>Each element <code>nums[i]</code> represents the maximum length of a forward jump from index <code>i</code>. In other words, if you are at index <code>i</code>, you can jump to any index <code>(i + j)</code>&nbsp;where:</p>\n\n<ul>\n\t<li><code>0 &lt;= j &lt;= nums[i]</code> and</li>\n\t<li><code>i + j &lt; n</code></li>\n</ul>\n\n<p>Return <em>the minimum number of jumps to reach index </em><code>n - 1</code>. The test cases are generated such that you can reach index&nbsp;<code>n - 1</code>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> nums = [2,3,1,1,4]\n<strong>Output:</strong> 2\n<strong>Explanation:</strong> The minimum number of jumps to reach the last index is 2. Jump 1 step from index 0 to 1, then 3 steps to the last index.\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> nums = [2,3,0,1,4]\n<strong>Output:</strong> 2\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= nums.length &lt;= 10<sup>4</sup></code></li>\n\t<li><code>0 &lt;= nums[i] &lt;= 1000</code></li>\n\t<li>It&#39;s guaranteed that you can reach <code>nums[n - 1]</code>.</li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "Dynamic Programming",
+      "Greedy"
+    ],
+    "url": "https://leetcode.com/problems/jump-game-ii/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/45/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def jump(self, nums: List[int]) -> int:\n        ans = mx = last = 0\n        for i, x in enumerate(nums[:-1]):\n            mx = max(mx, i + x)\n            if last == i:\n                ans += 1\n                last = mx\n        return ans",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/jump-game-ii",
+    "starter_python": "class Solution:\n    def jump(self, nums: List[int]) -> int:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    int jump(vector<int>& nums) {\n        \n    }\n};"
+  },
+  {
+    "id": 846,
+    "title": "Hand of Straights",
+    "slug": "hand-of-straights",
+    "difficulty": "Medium",
+    "description": "<p>Alice has some number of cards and she wants to rearrange the cards into groups so that each group is of size <code>groupSize</code>, and consists of <code>groupSize</code> consecutive cards.</p>\n\n<p>Given an integer array <code>hand</code> where <code>hand[i]</code> is the value written on the <code>i<sup>th</sup></code> card and an integer <code>groupSize</code>, return <code>true</code> if she can rearrange the cards, or <code>false</code> otherwise.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> hand = [1,2,3,6,2,3,4,7,8], groupSize = 3\n<strong>Output:</strong> true\n<strong>Explanation:</strong> Alice&#39;s hand can be rearranged as [1,2,3],[2,3,4],[6,7,8]\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> hand = [1,2,3,4,5], groupSize = 4\n<strong>Output:</strong> false\n<strong>Explanation:</strong> Alice&#39;s hand can not be rearranged into groups of 4.\n\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= hand.length &lt;= 10<sup>4</sup></code></li>\n\t<li><code>0 &lt;= hand[i] &lt;= 10<sup>9</sup></code></li>\n\t<li><code>1 &lt;= groupSize &lt;= hand.length</code></li>\n</ul>\n\n<p>&nbsp;</p>\n<p><strong>Note:</strong> This question is the same as 1296: <a href=\"https://leetcode.com/problems/divide-array-in-sets-of-k-consecutive-numbers/\" target=\"_blank\">https://leetcode.com/problems/divide-array-in-sets-of-k-consecutive-numbers/</a></p>\n",
+    "tags": [
+      "Array",
+      "Hash Table",
+      "Greedy",
+      "Sorting"
+    ],
+    "url": "https://leetcode.com/problems/hand-of-straights/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/846/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def isNStraightHand(self, hand: List[int], groupSize: int) -> bool:\n        if len(hand) % groupSize:\n            return False\n        cnt = Counter(hand)\n        for x in sorted(hand):\n            if cnt[x]:\n                for y in range(x, x + groupSize):\n                    if cnt[y] == 0:\n                        return False\n                    cnt[y] -= 1\n        return True",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/hand-of-straights",
+    "starter_python": "class Solution:\n    def isNStraightHand(self, hand: List[int], groupSize: int) -> bool:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    bool isNStraightHand(vector<int>& hand, int groupSize) {\n        \n    }\n};"
+  },
+  {
+    "id": 1899,
+    "title": "Merge Triplets to Form Target Triplet",
+    "slug": "merge-triplets-to-form-target-triplet",
+    "difficulty": "Medium",
+    "description": "<p>A <strong>triplet</strong> is an array of three integers. You are given a 2D integer array <code>triplets</code>, where <code>triplets[i] = [a<sub>i</sub>, b<sub>i</sub>, c<sub>i</sub>]</code> describes the <code>i<sup>th</sup></code> <strong>triplet</strong>. You are also given an integer array <code>target = [x, y, z]</code> that describes the <strong>triplet</strong> you want to obtain.</p>\n\n<p>To obtain <code>target</code>, you may apply the following operation on <code>triplets</code> <strong>any number</strong> of times (possibly <strong>zero</strong>):</p>\n\n<ul>\n\t<li>Choose two indices (<strong>0-indexed</strong>) <code>i</code> and <code>j</code> (<code>i != j</code>) and <strong>update</strong> <code>triplets[j]</code> to become <code>[max(a<sub>i</sub>, a<sub>j</sub>), max(b<sub>i</sub>, b<sub>j</sub>), max(c<sub>i</sub>, c<sub>j</sub>)]</code>.\n\n\t<ul>\n\t\t<li>For example, if <code>triplets[i] = [2, 5, 3]</code> and <code>triplets[j] = [1, 7, 5]</code>, <code>triplets[j]</code> will be updated to <code>[max(2, 1), max(5, 7), max(3, 5)] = [2, 7, 5]</code>.</li>\n\t</ul>\n\t</li>\n</ul>\n\n<p>Return <code>true</code> <em>if it is possible to obtain the </em><code>target</code><em> <strong>triplet</strong> </em><code>[x, y, z]</code><em> as an<strong> element</strong> of </em><code>triplets</code><em>, or </em><code>false</code><em> otherwise</em>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> triplets = [[2,5,3],[1,8,4],[1,7,5]], target = [2,7,5]\n<strong>Output:</strong> true\n<strong>Explanation:</strong> Perform the following operations:\n- Choose the first and last triplets [<u>[2,5,3]</u>,[1,8,4],<u>[1,7,5]</u>]. Update the last triplet to be [max(2,1), max(5,7), max(3,5)] = [2,7,5]. triplets = [[2,5,3],[1,8,4],<u>[2,7,5]</u>]\nThe target triplet [2,7,5] is now an element of triplets.\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> triplets = [[3,4,5],[4,5,6]], target = [3,2,5]\n<strong>Output:</strong> false\n<strong>Explanation:</strong> It is impossible to have [3,2,5] as an element because there is no 2 in any of the triplets.\n</pre>\n\n<p><strong class=\"example\">Example 3:</strong></p>\n\n<pre>\n<strong>Input:</strong> triplets = [[2,5,3],[2,3,4],[1,2,5],[5,2,3]], target = [5,5,5]\n<strong>Output:</strong> true\n<strong>Explanation: </strong>Perform the following operations:\n- Choose the first and third triplets [<u>[2,5,3]</u>,[2,3,4],<u>[1,2,5]</u>,[5,2,3]]. Update the third triplet to be [max(2,1), max(5,2), max(3,5)] = [2,5,5]. triplets = [[2,5,3],[2,3,4],<u>[2,5,5]</u>,[5,2,3]].\n- Choose the third and fourth triplets [[2,5,3],[2,3,4],<u>[2,5,5]</u>,<u>[5,2,3]</u>]. Update the fourth triplet to be [max(2,5), max(5,2), max(5,3)] = [5,5,5]. triplets = [[2,5,3],[2,3,4],[2,5,5],<u>[5,5,5]</u>].\nThe target triplet [5,5,5] is now an element of triplets.\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= triplets.length &lt;= 10<sup>5</sup></code></li>\n\t<li><code>triplets[i].length == target.length == 3</code></li>\n\t<li><code>1 &lt;= a<sub>i</sub>, b<sub>i</sub>, c<sub>i</sub>, x, y, z &lt;= 1000</code></li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "Greedy"
+    ],
+    "url": "https://leetcode.com/problems/merge-triplets-to-form-target-triplet/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/1899/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def mergeTriplets(self, triplets: List[List[int]], target: List[int]) -> bool:\n        x, y, z = target\n        d = e = f = 0\n        for a, b, c in triplets:\n            if a <= x and b <= y and c <= z:\n                d = max(d, a)\n                e = max(e, b)\n                f = max(f, c)\n        return [d, e, f] == target",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/merge-triplets-to-form-target-triplet",
+    "starter_python": "class Solution:\n    def mergeTriplets(self, triplets: List[List[int]], target: List[int]) -> bool:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    bool mergeTriplets(vector<vector<int>>& triplets, vector<int>& target) {\n        \n    }\n};"
+  },
+  {
+    "id": 763,
+    "title": "Partition Labels",
+    "slug": "partition-labels",
+    "difficulty": "Medium",
+    "description": "<p>You are given a string <code>s</code>. We want to partition the string into as many parts as possible so that each letter appears in at most one part. For example, the string <code>&quot;ababcc&quot;</code> can be partitioned into <code>[&quot;abab&quot;, &quot;cc&quot;]</code>, but partitions such as <code>[&quot;aba&quot;, &quot;bcc&quot;]</code> or <code>[&quot;ab&quot;, &quot;ab&quot;, &quot;cc&quot;]</code> are invalid.</p>\n\n<p>Note that the partition is done so that after concatenating all the parts in order, the resultant string should be <code>s</code>.</p>\n\n<p>Return <em>a list of integers representing the size of these parts</em>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> s = &quot;ababcbacadefegdehijhklij&quot;\n<strong>Output:</strong> [9,7,8]\n<strong>Explanation:</strong>\nThe partition is &quot;ababcbaca&quot;, &quot;defegde&quot;, &quot;hijhklij&quot;.\nThis is a partition so that each letter appears in at most one part.\nA partition like &quot;ababcbacadefegde&quot;, &quot;hijhklij&quot; is incorrect, because it splits s into less parts.\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> s = &quot;eccbbbbdec&quot;\n<strong>Output:</strong> [10]\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= s.length &lt;= 500</code></li>\n\t<li><code>s</code> consists of lowercase English letters.</li>\n</ul>\n",
+    "tags": [
+      "Hash Table",
+      "Two Pointers",
+      "String",
+      "Greedy"
+    ],
+    "url": "https://leetcode.com/problems/partition-labels/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/763/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def partitionLabels(self, s: str) -> List[int]:\n        last = {c: i for i, c in enumerate(s)}\n        mx = j = 0\n        ans = []\n        for i, c in enumerate(s):\n            mx = max(mx, last[c])\n            if mx == i:\n                ans.append(i - j + 1)\n                j = i + 1\n        return ans",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/partition-labels",
+    "starter_python": "class Solution:\n    def partitionLabels(self, s: str) -> List[int]:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    vector<int> partitionLabels(string s) {\n        \n    }\n};"
+  },
+  {
+    "id": 678,
+    "title": "Valid Parenthesis String",
+    "slug": "valid-parenthesis-string",
+    "difficulty": "Medium",
+    "description": "<p>Given a string <code>s</code> containing only three types of characters: <code>&#39;(&#39;</code>, <code>&#39;)&#39;</code> and <code>&#39;*&#39;</code>, return <code>true</code> <em>if</em> <code>s</code> <em>is <strong>valid</strong></em>.</p>\n\n<p>The following rules define a <strong>valid</strong> string:</p>\n\n<ul>\n\t<li>Any left parenthesis <code>&#39;(&#39;</code> must have a corresponding right parenthesis <code>&#39;)&#39;</code>.</li>\n\t<li>Any right parenthesis <code>&#39;)&#39;</code> must have a corresponding left parenthesis <code>&#39;(&#39;</code>.</li>\n\t<li>Left parenthesis <code>&#39;(&#39;</code> must go before the corresponding right parenthesis <code>&#39;)&#39;</code>.</li>\n\t<li><code>&#39;*&#39;</code> could be treated as a single right parenthesis <code>&#39;)&#39;</code> or a single left parenthesis <code>&#39;(&#39;</code> or an empty string <code>&quot;&quot;</code>.</li>\n</ul>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n<pre><strong>Input:</strong> s = \"()\"\n<strong>Output:</strong> true\n</pre><p><strong class=\"example\">Example 2:</strong></p>\n<pre><strong>Input:</strong> s = \"(*)\"\n<strong>Output:</strong> true\n</pre><p><strong class=\"example\">Example 3:</strong></p>\n<pre><strong>Input:</strong> s = \"(*))\"\n<strong>Output:</strong> true\n</pre>\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= s.length &lt;= 100</code></li>\n\t<li><code>s[i]</code> is <code>&#39;(&#39;</code>, <code>&#39;)&#39;</code> or <code>&#39;*&#39;</code>.</li>\n</ul>\n",
+    "tags": [
+      "String",
+      "Dynamic Programming",
+      "Stack",
+      "Greedy"
+    ],
+    "url": "https://leetcode.com/problems/valid-parenthesis-string/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/678/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def checkValidString(self, s: str) -> bool:\n        n = len(s)\n        dp = [[False] * n for _ in range(n)]\n        for i, c in enumerate(s):\n            dp[i][i] = c == '*'\n        for i in range(n - 2, -1, -1):\n            for j in range(i + 1, n):\n                dp[i][j] = (\n                    s[i] in '(*' and s[j] in '*)' and (i + 1 == j or dp[i + 1][j - 1])\n                )\n                dp[i][j] = dp[i][j] or any(\n                    dp[i][k] and dp[k + 1][j] for k in range(i, j)\n                )\n        return dp[0][-1]",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/valid-parenthesis-string",
+    "starter_python": "class Solution:\n    def checkValidString(self, s: str) -> bool:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    bool checkValidString(string s) {\n        \n    }\n};"
+  },
+  {
+    "id": 746,
+    "title": "Min Cost Climbing Stairs",
+    "slug": "min-cost-climbing-stairs",
+    "difficulty": "Easy",
+    "description": "<p>You are given an integer array <code>cost</code> where <code>cost[i]</code> is the cost of <code>i<sup>th</sup></code> step on a staircase. Once you pay the cost, you can either climb one or two steps.</p>\n\n<p>You can either start from the step with index <code>0</code>, or the step with index <code>1</code>.</p>\n\n<p>Return <em>the minimum cost to reach the top of the floor</em>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> cost = [10,<u>15</u>,20]\n<strong>Output:</strong> 15\n<strong>Explanation:</strong> You will start at index 1.\n- Pay 15 and climb two steps to reach the top.\nThe total cost is 15.\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> cost = [<u>1</u>,100,<u>1</u>,1,<u>1</u>,100,<u>1</u>,<u>1</u>,100,<u>1</u>]\n<strong>Output:</strong> 6\n<strong>Explanation:</strong> You will start at index 0.\n- Pay 1 and climb two steps to reach index 2.\n- Pay 1 and climb two steps to reach index 4.\n- Pay 1 and climb two steps to reach index 6.\n- Pay 1 and climb one step to reach index 7.\n- Pay 1 and climb two steps to reach index 9.\n- Pay 1 and climb one step to reach the top.\nThe total cost is 6.\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>2 &lt;= cost.length &lt;= 1000</code></li>\n\t<li><code>0 &lt;= cost[i] &lt;= 999</code></li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "Dynamic Programming"
+    ],
+    "url": "https://leetcode.com/problems/min-cost-climbing-stairs/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/746/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def minCostClimbingStairs(self, cost: List[int]) -> int:\n        @cache\n        def dfs(i: int) -> int:\n            if i >= len(cost):\n                return 0\n            return cost[i] + min(dfs(i + 1), dfs(i + 2))\n\n        return min(dfs(0), dfs(1))",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/min-cost-climbing-stairs",
+    "starter_python": "class Solution:\n    def minCostClimbingStairs(self, cost: List[int]) -> int:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    int minCostClimbingStairs(vector<int>& cost) {\n        \n    }\n};"
+  },
+  {
+    "id": 213,
+    "title": "House Robber II",
+    "slug": "house-robber-ii",
+    "difficulty": "Medium",
+    "description": "<p>You are a professional robber planning to rob houses along a street. Each house has a certain amount of money stashed. All houses at this place are <strong>arranged in a circle.</strong> That means the first house is the neighbor of the last one. Meanwhile, adjacent houses have a security system connected, and&nbsp;<b>it will automatically contact the police if two adjacent houses were broken into on the same night</b>.</p>\n\n<p>Given an integer array <code>nums</code> representing the amount of money of each house, return <em>the maximum amount of money you can rob tonight <strong>without alerting the police</strong></em>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> nums = [2,3,2]\n<strong>Output:</strong> 3\n<strong>Explanation:</strong> You cannot rob house 1 (money = 2) and then rob house 3 (money = 2), because they are adjacent houses.\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> nums = [1,2,3,1]\n<strong>Output:</strong> 4\n<strong>Explanation:</strong> Rob house 1 (money = 1) and then rob house 3 (money = 3).\nTotal amount you can rob = 1 + 3 = 4.\n</pre>\n\n<p><strong class=\"example\">Example 3:</strong></p>\n\n<pre>\n<strong>Input:</strong> nums = [1,2,3]\n<strong>Output:</strong> 3\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= nums.length &lt;= 100</code></li>\n\t<li><code>0 &lt;= nums[i] &lt;= 1000</code></li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "Dynamic Programming"
+    ],
+    "url": "https://leetcode.com/problems/house-robber-ii/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/213/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def rob(self, nums: List[int]) -> int:\n        def _rob(nums):\n            f = g = 0\n            for x in nums:\n                f, g = max(f, g), f + x\n            return max(f, g)\n\n        if len(nums) == 1:\n            return nums[0]\n        return max(_rob(nums[1:]), _rob(nums[:-1]))",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/house-robber-ii",
+    "starter_python": "class Solution:\n    def rob(self, nums: List[int]) -> int:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    int rob(vector<int>& nums) {\n        \n    }\n};"
+  },
+  {
+    "id": 647,
+    "title": "Palindromic Substrings",
+    "slug": "palindromic-substrings",
+    "difficulty": "Medium",
+    "description": "<p>Given a string <code>s</code>, return <em>the number of <strong>palindromic substrings</strong> in it</em>.</p>\n\n<p>A string is a <strong>palindrome</strong> when it reads the same backward as forward.</p>\n\n<p>A <strong>substring</strong> is a contiguous sequence of characters within the string.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> s = &quot;abc&quot;\n<strong>Output:</strong> 3\n<strong>Explanation:</strong> Three palindromic strings: &quot;a&quot;, &quot;b&quot;, &quot;c&quot;.\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> s = &quot;aaa&quot;\n<strong>Output:</strong> 6\n<strong>Explanation:</strong> Six palindromic strings: &quot;a&quot;, &quot;a&quot;, &quot;a&quot;, &quot;aa&quot;, &quot;aa&quot;, &quot;aaa&quot;.\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= s.length &lt;= 1000</code></li>\n\t<li><code>s</code> consists of lowercase English letters.</li>\n</ul>\n",
+    "tags": [
+      "Two Pointers",
+      "String",
+      "Dynamic Programming"
+    ],
+    "url": "https://leetcode.com/problems/palindromic-substrings/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/647/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def countSubstrings(self, s: str) -> int:\n        ans, n = 0, len(s)\n        for k in range(n * 2 - 1):\n            i, j = k // 2, (k + 1) // 2\n            while ~i and j < n and s[i] == s[j]:\n                ans += 1\n                i, j = i - 1, j + 1\n        return ans",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/palindromic-substrings",
+    "starter_python": "class Solution:\n    def countSubstrings(self, s: str) -> int:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    int countSubstrings(string s) {\n        \n    }\n};"
+  },
+  {
+    "id": 518,
+    "title": "Coin Change II",
+    "slug": "coin-change-ii",
+    "difficulty": "Medium",
+    "description": "<p>You are given an integer array <code>coins</code> representing coins of different denominations and an integer <code>amount</code> representing a total amount of money.</p>\n\n<p>Return <em>the number of combinations that make up that amount</em>. If that amount of money cannot be made up by any combination of the coins, return <code>0</code>.</p>\n\n<p>You may assume that you have an infinite number of each kind of coin.</p>\n\n<p>The <strong>final</strong> answer is <strong>guaranteed</strong> to fit into a signed <strong>32-bit</strong> integer.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> amount = 5, coins = [1,2,5]\n<strong>Output:</strong> 4\n<strong>Explanation:</strong> there are four ways to make up the amount:\n5=5\n5=2+2+1\n5=2+1+1+1\n5=1+1+1+1+1\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> amount = 3, coins = [2]\n<strong>Output:</strong> 0\n<strong>Explanation:</strong> the amount of 3 cannot be made up just with coins of 2.\n</pre>\n\n<p><strong class=\"example\">Example 3:</strong></p>\n\n<pre>\n<strong>Input:</strong> amount = 10, coins = [10]\n<strong>Output:</strong> 1\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= coins.length &lt;= 300</code></li>\n\t<li><code>1 &lt;= coins[i] &lt;= 5000</code></li>\n\t<li>All the values of <code>coins</code> are <strong>unique</strong>.</li>\n\t<li><code>0 &lt;= amount &lt;= 5000</code></li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "Dynamic Programming"
+    ],
+    "url": "https://leetcode.com/problems/coin-change-ii/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/518/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def change(self, amount: int, coins: List[int]) -> int:\n        m, n = len(coins), amount\n        f = [[0] * (n + 1) for _ in range(m + 1)]\n        f[0][0] = 1\n        for i, x in enumerate(coins, 1):\n            for j in range(n + 1):\n                f[i][j] = f[i - 1][j]\n                if j >= x:\n                    f[i][j] += f[i][j - x]\n        return f[m][n]",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/coin-change-ii",
+    "starter_python": "class Solution:\n    def change(self, amount: int, coins: List[int]) -> int:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    int change(int amount, vector<int>& coins) {\n        \n    }\n};"
+  },
+  {
+    "id": 494,
+    "title": "Target Sum",
+    "slug": "target-sum",
+    "difficulty": "Medium",
+    "description": "<p>You are given an integer array <code>nums</code> and an integer <code>target</code>.</p>\n\n<p>You want to build an <strong>expression</strong> out of nums by adding one of the symbols <code>&#39;+&#39;</code> and <code>&#39;-&#39;</code> before each integer in nums and then concatenate all the integers.</p>\n\n<ul>\n\t<li>For example, if <code>nums = [2, 1]</code>, you can add a <code>&#39;+&#39;</code> before <code>2</code> and a <code>&#39;-&#39;</code> before <code>1</code> and concatenate them to build the expression <code>&quot;+2-1&quot;</code>.</li>\n</ul>\n\n<p>Return the number of different <strong>expressions</strong> that you can build, which evaluates to <code>target</code>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> nums = [1,1,1,1,1], target = 3\n<strong>Output:</strong> 5\n<strong>Explanation:</strong> There are 5 ways to assign symbols to make the sum of nums be target 3.\n-1 + 1 + 1 + 1 + 1 = 3\n+1 - 1 + 1 + 1 + 1 = 3\n+1 + 1 - 1 + 1 + 1 = 3\n+1 + 1 + 1 - 1 + 1 = 3\n+1 + 1 + 1 + 1 - 1 = 3\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> nums = [1], target = 1\n<strong>Output:</strong> 1\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= nums.length &lt;= 20</code></li>\n\t<li><code>0 &lt;= nums[i] &lt;= 1000</code></li>\n\t<li><code>0 &lt;= sum(nums[i]) &lt;= 1000</code></li>\n\t<li><code>-1000 &lt;= target &lt;= 1000</code></li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "Dynamic Programming",
+      "Backtracking"
+    ],
+    "url": "https://leetcode.com/problems/target-sum/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/494/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def findTargetSumWays(self, nums: List[int], target: int) -> int:\n        s = sum(nums)\n        if s < target or (s - target) % 2:\n            return 0\n        m, n = len(nums), (s - target) // 2\n        f = [[0] * (n + 1) for _ in range(m + 1)]\n        f[0][0] = 1\n        for i, x in enumerate(nums, 1):\n            for j in range(n + 1):\n                f[i][j] = f[i - 1][j]\n                if j >= x:\n                    f[i][j] += f[i - 1][j - x]\n        return f[m][n]",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/target-sum",
+    "starter_python": "class Solution:\n    def findTargetSumWays(self, nums: List[int], target: int) -> int:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    int findTargetSumWays(vector<int>& nums, int target) {\n        \n    }\n};"
+  },
+  {
+    "id": 97,
+    "title": "Interleaving String",
+    "slug": "interleaving-string",
+    "difficulty": "Medium",
+    "description": "<p>Given strings <code>s1</code>, <code>s2</code>, and <code>s3</code>, find whether <code>s3</code> is formed by an <strong>interleaving</strong> of <code>s1</code> and <code>s2</code>.</p>\n\n<p>An <strong>interleaving</strong> of two strings <code>s</code> and <code>t</code> is a configuration where <code>s</code> and <code>t</code> are divided into <code>n</code> and <code>m</code> <span data-keyword=\"substring-nonempty\">substrings</span> respectively, such that:</p>\n\n<ul>\n\t<li><code>s = s<sub>1</sub> + s<sub>2</sub> + ... + s<sub>n</sub></code></li>\n\t<li><code>t = t<sub>1</sub> + t<sub>2</sub> + ... + t<sub>m</sub></code></li>\n\t<li><code>|n - m| &lt;= 1</code></li>\n\t<li>The <strong>interleaving</strong> is <code>s<sub>1</sub> + t<sub>1</sub> + s<sub>2</sub> + t<sub>2</sub> + s<sub>3</sub> + t<sub>3</sub> + ...</code> or <code>t<sub>1</sub> + s<sub>1</sub> + t<sub>2</sub> + s<sub>2</sub> + t<sub>3</sub> + s<sub>3</sub> + ...</code></li>\n</ul>\n\n<p><strong>Note:</strong> <code>a + b</code> is the concatenation of strings <code>a</code> and <code>b</code>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n<img alt=\"\" src=\"https://assets.leetcode.com/uploads/2020/09/02/interleave.jpg\" style=\"width: 561px; height: 203px;\" />\n<pre>\n<strong>Input:</strong> s1 = &quot;aabcc&quot;, s2 = &quot;dbbca&quot;, s3 = &quot;aadbbcbcac&quot;\n<strong>Output:</strong> true\n<strong>Explanation:</strong> One way to obtain s3 is:\nSplit s1 into s1 = &quot;aa&quot; + &quot;bc&quot; + &quot;c&quot;, and s2 into s2 = &quot;dbbc&quot; + &quot;a&quot;.\nInterleaving the two splits, we get &quot;aa&quot; + &quot;dbbc&quot; + &quot;bc&quot; + &quot;a&quot; + &quot;c&quot; = &quot;aadbbcbcac&quot;.\nSince s3 can be obtained by interleaving s1 and s2, we return true.\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> s1 = &quot;aabcc&quot;, s2 = &quot;dbbca&quot;, s3 = &quot;aadbbbaccc&quot;\n<strong>Output:</strong> false\n<strong>Explanation:</strong> Notice how it is impossible to interleave s2 with any other string to obtain s3.\n</pre>\n\n<p><strong class=\"example\">Example 3:</strong></p>\n\n<pre>\n<strong>Input:</strong> s1 = &quot;&quot;, s2 = &quot;&quot;, s3 = &quot;&quot;\n<strong>Output:</strong> true\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>0 &lt;= s1.length, s2.length &lt;= 100</code></li>\n\t<li><code>0 &lt;= s3.length &lt;= 200</code></li>\n\t<li><code>s1</code>, <code>s2</code>, and <code>s3</code> consist of lowercase English letters.</li>\n</ul>\n\n<p>&nbsp;</p>\n<p><strong>Follow up:</strong> Could you solve it using only <code>O(s2.length)</code> additional memory space?</p>\n",
+    "tags": [
+      "String",
+      "Dynamic Programming"
+    ],
+    "url": "https://leetcode.com/problems/interleaving-string/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/97/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def isInterleave(self, s1: str, s2: str, s3: str) -> bool:\n        @cache\n        def dfs(i: int, j: int) -> bool:\n            if i >= m and j >= n:\n                return True\n            k = i + j\n            if i < m and s1[i] == s3[k] and dfs(i + 1, j):\n                return True\n            if j < n and s2[j] == s3[k] and dfs(i, j + 1):\n                return True\n            return False\n\n        m, n = len(s1), len(s2)\n        if m + n != len(s3):\n            return False\n        return dfs(0, 0)",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/interleaving-string",
+    "starter_python": "class Solution:\n    def isInterleave(self, s1: str, s2: str, s3: str) -> bool:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    bool isInterleave(string s1, string s2, string s3) {\n        \n    }\n};"
+  },
+  {
+    "id": 371,
+    "title": "Sum of Two Integers",
+    "slug": "sum-of-two-integers",
+    "difficulty": "Medium",
+    "description": "<p>Given two integers <code>a</code> and <code>b</code>, return <em>the sum of the two integers without using the operators</em> <code>+</code> <em>and</em> <code>-</code>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n<pre><strong>Input:</strong> a = 1, b = 2\n<strong>Output:</strong> 3\n</pre><p><strong class=\"example\">Example 2:</strong></p>\n<pre><strong>Input:</strong> a = 2, b = 3\n<strong>Output:</strong> 5\n</pre>\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>-1000 &lt;= a, b &lt;= 1000</code></li>\n</ul>\n",
+    "tags": [
+      "Math",
+      "Bit Manipulation"
+    ],
+    "url": "https://leetcode.com/problems/sum-of-two-integers/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/371/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def getSum(self, a: int, b: int) -> int:\n        a, b = a & 0xFFFFFFFF, b & 0xFFFFFFFF\n        while b:\n            carry = ((a & b) << 1) & 0xFFFFFFFF\n            a, b = a ^ b, carry\n        return a if a < 0x80000000 else ~(a ^ 0xFFFFFFFF)",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/sum-of-two-integers",
+    "starter_python": "class Solution:\n    def getSum(self, a: int, b: int) -> int:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    int getSum(int a, int b) {\n        \n    }\n};"
+  },
+  {
+    "id": 202,
+    "title": "Happy Number",
+    "slug": "happy-number",
+    "difficulty": "Easy",
+    "description": "<p>Write an algorithm to determine if a number <code>n</code> is happy.</p>\n\n<p>A <strong>happy number</strong> is a number defined by the following process:</p>\n\n<ul>\n\t<li>Starting with any positive integer, replace the number by the sum of the squares of its digits.</li>\n\t<li>Repeat the process until the number equals 1 (where it will stay), or it <strong>loops endlessly in a cycle</strong> which does not include 1.</li>\n\t<li>Those numbers for which this process <strong>ends in 1</strong> are happy.</li>\n</ul>\n\n<p>Return <code>true</code> <em>if</em> <code>n</code> <em>is a happy number, and</em> <code>false</code> <em>if not</em>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> n = 19\n<strong>Output:</strong> true\n<strong>Explanation:</strong>\n1<sup>2</sup> + 9<sup>2</sup> = 82\n8<sup>2</sup> + 2<sup>2</sup> = 68\n6<sup>2</sup> + 8<sup>2</sup> = 100\n1<sup>2</sup> + 0<sup>2</sup> + 0<sup>2</sup> = 1\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> n = 2\n<strong>Output:</strong> false\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= n &lt;= 2<sup>31</sup> - 1</code></li>\n</ul>\n",
+    "tags": [
+      "Hash Table",
+      "Math",
+      "Two Pointers"
+    ],
+    "url": "https://leetcode.com/problems/happy-number/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/202/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def isHappy(self, n: int) -> bool:\n        vis = set()\n        while n != 1 and n not in vis:\n            vis.add(n)\n            x = 0\n            while n:\n                n, v = divmod(n, 10)\n                x += v * v\n            n = x\n        return n == 1",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/happy-number",
+    "starter_python": "class Solution:\n    def isHappy(self, n: int) -> bool:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    bool isHappy(int n) {\n        \n    }\n};"
+  },
+  {
+    "id": 66,
+    "title": "Plus One",
+    "slug": "plus-one",
+    "difficulty": "Easy",
+    "description": "<p>You are given a <strong>large integer</strong> represented as an integer array <code>digits</code>, where each <code>digits[i]</code> is the <code>i<sup>th</sup></code> digit of the integer. The digits are ordered from most significant to least significant in left-to-right order. The large integer does not contain any leading <code>0</code>&#39;s.</p>\n\n<p>Increment the large integer by one and return <em>the resulting array of digits</em>.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n\n<pre>\n<strong>Input:</strong> digits = [1,2,3]\n<strong>Output:</strong> [1,2,4]\n<strong>Explanation:</strong> The array represents the integer 123.\nIncrementing by one gives 123 + 1 = 124.\nThus, the result should be [1,2,4].\n</pre>\n\n<p><strong class=\"example\">Example 2:</strong></p>\n\n<pre>\n<strong>Input:</strong> digits = [4,3,2,1]\n<strong>Output:</strong> [4,3,2,2]\n<strong>Explanation:</strong> The array represents the integer 4321.\nIncrementing by one gives 4321 + 1 = 4322.\nThus, the result should be [4,3,2,2].\n</pre>\n\n<p><strong class=\"example\">Example 3:</strong></p>\n\n<pre>\n<strong>Input:</strong> digits = [9]\n<strong>Output:</strong> [1,0]\n<strong>Explanation:</strong> The array represents the integer 9.\nIncrementing by one gives 9 + 1 = 10.\nThus, the result should be [1,0].\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= digits.length &lt;= 100</code></li>\n\t<li><code>0 &lt;= digits[i] &lt;= 9</code></li>\n\t<li><code>digits</code> does not contain any leading <code>0</code>&#39;s.</li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "Math"
+    ],
+    "url": "https://leetcode.com/problems/plus-one/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/66/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def plusOne(self, digits: List[int]) -> List[int]:\n        n = len(digits)\n        for i in range(n - 1, -1, -1):\n            digits[i] += 1\n            digits[i] %= 10\n            if digits[i] != 0:\n                return digits\n        return [1] + digits",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/plus-one",
+    "starter_python": "class Solution:\n    def plusOne(self, digits: List[int]) -> List[int]:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    vector<int> plusOne(vector<int>& digits) {\n        \n    }\n};"
+  },
+  {
+    "id": 43,
+    "title": "Multiply Strings",
+    "slug": "multiply-strings",
+    "difficulty": "Medium",
+    "description": "<p>Given two non-negative integers <code>num1</code> and <code>num2</code> represented as strings, return the product of <code>num1</code> and <code>num2</code>, also represented as a string.</p>\n\n<p><strong>Note:</strong>&nbsp;You must not use any built-in BigInteger library or convert the inputs to integer directly.</p>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n<pre><strong>Input:</strong> num1 = \"2\", num2 = \"3\"\n<strong>Output:</strong> \"6\"\n</pre><p><strong class=\"example\">Example 2:</strong></p>\n<pre><strong>Input:</strong> num1 = \"123\", num2 = \"456\"\n<strong>Output:</strong> \"56088\"\n</pre>\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>1 &lt;= num1.length, num2.length &lt;= 200</code></li>\n\t<li><code>num1</code> and <code>num2</code> consist of digits only.</li>\n\t<li>Both <code>num1</code> and <code>num2</code>&nbsp;do not contain any leading zero, except the number <code>0</code> itself.</li>\n</ul>\n",
+    "tags": [
+      "Math",
+      "String",
+      "Simulation"
+    ],
+    "url": "https://leetcode.com/problems/multiply-strings/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/43/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class Solution:\n    def multiply(self, num1: str, num2: str) -> str:\n        if num1 == \"0\" or num2 == \"0\":\n            return \"0\"\n        m, n = len(num1), len(num2)\n        arr = [0] * (m + n)\n        for i in range(m - 1, -1, -1):\n            a = int(num1[i])\n            for j in range(n - 1, -1, -1):\n                b = int(num2[j])\n                arr[i + j + 1] += a * b\n        for i in range(m + n - 1, 0, -1):\n            arr[i - 1] += arr[i] // 10\n            arr[i] %= 10\n        i = 0 if arr[0] else 1\n        return \"\".join(str(x) for x in arr[i:])",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/multiply-strings",
+    "starter_python": "class Solution:\n    def multiply(self, num1: str, num2: str) -> str:\n        ",
+    "starter_cpp": "class Solution {\npublic:\n    string multiply(string num1, string num2) {\n        \n    }\n};"
+  },
+  {
+    "id": 2013,
+    "title": "Detect Squares",
+    "slug": "detect-squares",
+    "difficulty": "Medium",
+    "description": "<p>You are given a stream of points on the X-Y plane. Design an algorithm that:</p>\n\n<ul>\n\t<li><strong>Adds</strong> new points from the stream into a data structure. <strong>Duplicate</strong> points are allowed and should be treated as different points.</li>\n\t<li>Given a query point, <strong>counts</strong> the number of ways to choose three points from the data structure such that the three points and the query point form an <strong>axis-aligned square</strong> with <strong>positive area</strong>.</li>\n</ul>\n\n<p>An <strong>axis-aligned square</strong> is a square whose edges are all the same length and are either parallel or perpendicular to the x-axis and y-axis.</p>\n\n<p>Implement the <code>DetectSquares</code> class:</p>\n\n<ul>\n\t<li><code>DetectSquares()</code> Initializes the object with an empty data structure.</li>\n\t<li><code>void add(int[] point)</code> Adds a new point <code>point = [x, y]</code> to the data structure.</li>\n\t<li><code>int count(int[] point)</code> Counts the number of ways to form <strong>axis-aligned squares</strong> with point <code>point = [x, y]</code> as described above.</li>\n</ul>\n\n<p>&nbsp;</p>\n<p><strong class=\"example\">Example 1:</strong></p>\n<img alt=\"\" src=\"https://assets.leetcode.com/uploads/2021/09/01/image.png\" style=\"width: 869px; height: 504px;\" />\n<pre>\n<strong>Input</strong>\n[&quot;DetectSquares&quot;, &quot;add&quot;, &quot;add&quot;, &quot;add&quot;, &quot;count&quot;, &quot;count&quot;, &quot;add&quot;, &quot;count&quot;]\n[[], [[3, 10]], [[11, 2]], [[3, 2]], [[11, 10]], [[14, 8]], [[11, 2]], [[11, 10]]]\n<strong>Output</strong>\n[null, null, null, null, 1, 0, null, 2]\n\n<strong>Explanation</strong>\nDetectSquares detectSquares = new DetectSquares();\ndetectSquares.add([3, 10]);\ndetectSquares.add([11, 2]);\ndetectSquares.add([3, 2]);\ndetectSquares.count([11, 10]); // return 1. You can choose:\n                               //   - The first, second, and third points\ndetectSquares.count([14, 8]);  // return 0. The query point cannot form a square with any points in the data structure.\ndetectSquares.add([11, 2]);    // Adding duplicate points is allowed.\ndetectSquares.count([11, 10]); // return 2. You can choose:\n                               //   - The first, second, and third points\n                               //   - The first, third, and fourth points\n</pre>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n\n<ul>\n\t<li><code>point.length == 2</code></li>\n\t<li><code>0 &lt;= x, y &lt;= 1000</code></li>\n\t<li>At most <code>3000</code> calls <strong>in total</strong> will be made to <code>add</code> and <code>count</code>.</li>\n</ul>\n",
+    "tags": [
+      "Array",
+      "Hash Table",
+      "Design",
+      "Counting",
+      "Data Stream"
+    ],
+    "url": "https://leetcode.com/problems/detect-squares/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/2013/",
+    "source": [
+      "NeetCode 150"
+    ],
+    "python_solution": "class DetectSquares:\n    def __init__(self):\n        self.cnt = defaultdict(Counter)\n\n    def add(self, point: List[int]) -> None:\n        x, y = point\n        self.cnt[x][y] += 1\n\n    def count(self, point: List[int]) -> int:\n        x1, y1 = point\n        if x1 not in self.cnt:\n            return 0\n        ans = 0\n        for x2 in self.cnt.keys():\n            if x2 != x1:\n                d = x2 - x1\n                ans += self.cnt[x2][y1] * self.cnt[x1][y1 + d] * self.cnt[x2][y1 + d]\n                ans += self.cnt[x2][y1] * self.cnt[x1][y1 - d] * self.cnt[x2][y1 - d]\n        return ans\n\n\n# Your DetectSquares object will be instantiated and called as such:\n# obj = DetectSquares()\n# obj.add(point)\n# param_2 = obj.count(point)",
+    "cpp_solution": "",
+    "explanation": "",
+    "solution_url": "https://www.simplyleet.com/detect-squares",
+    "starter_python": "class DetectSquares:\n\n    def __init__(self):\n        \n\n    def add(self, point: List[int]) -> None:\n        \n\n    def count(self, point: List[int]) -> int:\n        \n\n\n# Your DetectSquares object will be instantiated and called as such:\n# obj = DetectSquares()\n# obj.add(point)\n# param_2 = obj.count(point)",
+    "starter_cpp": "class DetectSquares {\npublic:\n    DetectSquares() {\n        \n    }\n    \n    void add(vector<int> point) {\n        \n    }\n    \n    int count(vector<int> point) {\n        \n    }\n};\n\n/**\n * Your DetectSquares object will be instantiated and called as such:\n * DetectSquares* obj = new DetectSquares();\n * obj->add(point);\n * int param_2 = obj->count(point);\n */"
+  }
+]

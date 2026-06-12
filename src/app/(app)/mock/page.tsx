@@ -1,6 +1,7 @@
 'use client'
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import SetMockTab from '@/components/SetMockTab'
 import {
   Timer, Zap, CheckCircle, XCircle, RotateCcw, Trophy,
   Lock, Unlock, BookOpen, Code2, Loader2, ExternalLink,
@@ -68,7 +69,41 @@ function PremiumBlock({ slug }: { slug?: string }) {
   )
 }
 
-export default function MockInterviewPage() {
+function MockSetTabBar({ set, setSet }: { set: 1|2|3; setSet: (s: 1|2|3) => void }) {
+  return (
+    <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
+      {([1, 2, 3] as const).map(s => (
+        <button key={s} onClick={() => setSet(s)}
+          className={`px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${
+            set === s ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
+          }`}>
+          {s === 1 ? 'Set 1 (331)' : s === 2 ? 'Set 2 (NC150)' : 'Set 3 (AM600)'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function MockHub() {
+  const searchParams = useSearchParams()
+  const [set, setSet] = useState<1|2|3>(() => {
+    const s = parseInt(searchParams.get('set') ?? '1', 10)
+    return (s === 2 || s === 3) ? s : 1
+  })
+  if (set === 2) return <div className="flex flex-col h-[calc(100dvh-56px)]"><MockSetTabBar set={set} setSet={setSet} /><div className="flex-1 overflow-y-auto"><SetMockTab set={2} /></div></div>
+  if (set === 3) return <div className="flex flex-col h-[calc(100dvh-56px)]"><MockSetTabBar set={set} setSet={setSet} /><div className="flex-1 overflow-y-auto"><SetMockTab set={3} /></div></div>
+  return <><MockSetTabBar set={set} setSet={setSet} /><MockInterviewPage /></>
+}
+
+export default function MockRoot() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-48 text-[var(--text-subtle)] text-sm">Loading…</div>}>
+      <MockHub />
+    </Suspense>
+  )
+}
+
+function MockInterviewPage() {
   const router = useRouter()
   const online = useOnlineStatus()
   const [phase, setPhase] = useState<Phase>('setup')

@@ -3,6 +3,7 @@ import { useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Brain, Clock, GitBranch, RefreshCw, Bookmark } from 'lucide-react'
 import dynamic from 'next/dynamic'
+import SetReviewPage from '@/components/SetReviewPage'
 
 const ReviewContent      = dynamic(() => import('./ReviewContent'),                    { ssr: false })
 const QuickReviewPage    = dynamic(() => import('../quick-review/page'),               { ssr: false })
@@ -11,11 +12,13 @@ const SRQueuePage        = dynamic(() => import('../sr-queue/page'),            
 const BestSolutionsPage  = dynamic(() => import('../best-solutions/page'),             { ssr: false })
 
 const TABS = [
-  { key: 'reviews',        label: 'Reviews',        icon: Brain,      Page: ReviewContent     },
-  { key: 'my-best',        label: 'My Best',        icon: Bookmark,   Page: BestSolutionsPage },
-  { key: 'quick-review',   label: 'Quick Review',   icon: Clock,      Page: QuickReviewPage   },
-  { key: 'pattern-review', label: 'Pattern Review', icon: GitBranch,  Page: PatternReviewPage },
-  { key: 'sr-queue',       label: 'SR Queue',       icon: RefreshCw,  Page: SRQueuePage       },
+  { key: 'reviews',        label: 'Reviews',        icon: Brain,      Page: () => <ReviewContent />     },
+  { key: 'my-best',        label: 'My Best',        icon: Bookmark,   Page: () => <BestSolutionsPage /> },
+  { key: 'quick-review',   label: 'Quick Review',   icon: Clock,      Page: () => <QuickReviewPage />   },
+  { key: 'pattern-review', label: 'Pattern Review', icon: GitBranch,  Page: () => <PatternReviewPage /> },
+  { key: 'sr-queue',       label: 'SR Queue',       icon: RefreshCw,  Page: () => <SRQueuePage />       },
+  { key: 'sr-set2',        label: 'SR Set 2',       icon: RefreshCw,  Page: () => <SetReviewPage set={2} /> },
+  { key: 'sr-set3',        label: 'SR Set 3',       icon: RefreshCw,  Page: () => <SetReviewPage set={3} /> },
 ]
 
 function ReviewsInner() {

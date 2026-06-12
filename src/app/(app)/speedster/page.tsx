@@ -1,7 +1,9 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
+import SetSpeedsterTab from '@/components/SetSpeedsterTab'
 import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2, WifiOff, Brain } from 'lucide-react'
 import { getMasteryRunsByQuestion, addMasteryRunEvent, getProgress, getStudyPlan, getFcVisited, addFcVisited } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -57,7 +59,41 @@ function readSavedRepsTarget() {
   return Math.max(1, parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '2', 10) || 2)
 }
 
-export default function SpeedsterPage() {
+function SpeedsterSetTabBar({ set, setSet }: { set: 1|2|3; setSet: (s: 1|2|3) => void }) {
+  return (
+    <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
+      {([1, 2, 3] as const).map(s => (
+        <button key={s} onClick={() => setSet(s)}
+          className={`px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${
+            set === s ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
+          }`}>
+          {s === 1 ? 'Set 1 (331)' : s === 2 ? 'Set 2 (NC150)' : 'Set 3 (AM600)'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function SpeedsterHub() {
+  const searchParams = useSearchParams()
+  const [set, setSet] = useState<1|2|3>(() => {
+    const s = parseInt(searchParams.get('set') ?? '1', 10)
+    return (s === 2 || s === 3) ? s : 1
+  })
+  if (set === 2) return <><SpeedsterSetTabBar set={set} setSet={setSet} /><SetSpeedsterTab set={2} /></>
+  if (set === 3) return <><SpeedsterSetTabBar set={set} setSet={setSet} /><SetSpeedsterTab set={3} /></>
+  return <><SpeedsterSetTabBar set={set} setSet={setSet} /><SpeedsterPage /></>
+}
+
+export default function SpeedsterRoot() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-48 text-[var(--text-subtle)] text-sm">Loading…</div>}>
+      <SpeedsterHub />
+    </Suspense>
+  )
+}
+
+function SpeedsterPage() {
   const router = useRouter()
   const [questions, setQuestions] = useState<Question[]>([])
   const [planOrder, setPlanOrder] = useState<number[]>([])

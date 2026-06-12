@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect, useRef, useMemo, Suspense } from 'react'
+import React from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { Star, CheckCircle2, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp, RotateCcw } from 'lucide-react'
+import { Star, CheckCircle2, Circle, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp, RotateCcw } from 'lucide-react'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 
@@ -1050,6 +1051,111 @@ function buildStudyParams(
   return p.toString()
 }
 
+function SetExternalQuestions({
+  set,
+  questions,
+  progress,
+  onProgressChange,
+}: {
+  set: 2 | 3
+  questions: import('@/lib/questionSets').SetQuestion[]
+  progress: Record<string, import('@/lib/setProgress').SetQProgress>
+  onProgressChange: (p: Record<string, import('@/lib/setProgress').SetQProgress>) => void
+}) {
+  const learnBase = set === 2 ? '/learn2' : '/learn3'
+  const label     = set === 2 ? 'NeetCode 150 (not in Set 1)' : 'AlgoMaster 600 (not in NC150)'
+  const [search, setSearch] = React.useState('')
+  const [diff, setDiff]     = React.useState('All')
+
+  function toggleSolved(q: import('@/lib/questionSets').SetQuestion) {
+    const { updateSetQProgress } = require('@/lib/setProgress')
+    const cur = progress[String(q.id)]
+    const next = updateSetQProgress(set, q.id, { solved: !cur?.solved })
+    onProgressChange({ ...progress, [String(q.id)]: next })
+  }
+
+  const filtered = questions.filter(q => {
+    if (diff !== 'All' && q.difficulty !== diff) return false
+    if (search) {
+      const s = search.toLowerCase()
+      if (!q.title.toLowerCase().includes(s) && !String(q.id).includes(s)) return false
+    }
+    return true
+  })
+
+  const solved = Object.values(progress).filter(p => p.solved).length
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-3 mb-3 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] px-4 py-3 shadow-sm">
+        <CheckCircle size={15} className="text-green-400 shrink-0" />
+        <span className="text-sm font-bold text-[var(--text)]">{solved}/{questions.length} solved</span>
+        <div className="flex-1 h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all"
+            style={{ width: `${questions.length ? Math.round((solved / questions.length) * 100) : 0}%` }} />
+        </div>
+        <span className="text-xs text-[var(--text-subtle)]">{label}</span>
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-3">
+        {['All', 'Easy', 'Medium', 'Hard'].map(d => (
+          <button key={d} onClick={() => setDiff(d)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+              diff === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:brightness-110'
+            }`}>{d}</button>
+        ))}
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
+          className="px-3 py-1.5 rounded-full text-xs bg-[var(--bg-muted)] border border-[var(--border-soft)] text-[var(--text)] outline-none focus:border-indigo-400 w-36" />
+        <Link href={learnBase}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors ml-auto">
+          <BookOpen size={12} /> Learn {set === 2 ? '2' : '3'}
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {filtered.map((q, i) => {
+          const p = progress[String(q.id)]
+          return (
+            <div key={q.id}
+              className={`group rounded-xl border p-4 transition-all duration-150 hover:shadow-xl hover:shadow-indigo-900/20 hover:border-indigo-500/50 ${p?.solved ? 'bg-green-50 border-green-300' : 'bg-[var(--bg-card)] border-[var(--border-soft)]'}`}>
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
+                  <a href={`https://leetcode.com/problems/${q.slug}/`} target="_blank" rel="noopener noreferrer"
+                    className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-400 transition-colors">
+                    {q.title}
+                  </a>
+                </div>
+                <button onClick={() => toggleSolved(q)}
+                  className={`shrink-0 transition-colors ${p?.solved ? 'text-green-400' : 'text-[var(--text-subtle)] hover:text-green-400'}`}>
+                  {p?.solved ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <DifficultyBadge difficulty={q.difficulty} />
+                <span className="text-[11px] text-[var(--text-subtle)] truncate">{q.category}</span>
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <Link href={`${learnBase}/${i}`}
+                  className="text-[11px] text-indigo-400 hover:underline">
+                  Learn mode
+                </Link>
+                <a href={`https://leetcode.com/problems/${q.slug}/`} target="_blank" rel="noopener noreferrer"
+                  className="text-[11px] text-orange-400 hover:underline">
+                  LeetCode ↗
+                </a>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {filtered.length === 0 && (
+        <p className="text-center py-10 text-[var(--text-subtle)] text-sm">No questions match your filters.</p>
+      )}
+    </div>
+  )
+}
+
 function HomeInner() {
   const sp = useSearchParams()
   const pathname = usePathname()
@@ -1064,6 +1170,11 @@ function HomeInner() {
   const [activePattern, setActivePattern] = useState<string | null>(null)
   const [qPage, setQPage] = useState(1)
   const search = sp.get('search') || ''
+  const [questionSet, setQuestionSet] = useState<1 | 2 | 3>(1)
+  const [set2Questions, setSet2Questions] = useState<import('@/lib/questionSets').SetQuestion[]>([])
+  const [set3Questions, setSet3Questions] = useState<import('@/lib/questionSets').SetQuestion[]>([])
+  const [setProgress2, setSetProgress2] = useState<Record<string, import('@/lib/setProgress').SetQProgress>>({})
+  const [setProgress3, setSetProgress3] = useState<Record<string, import('@/lib/setProgress').SetQProgress>>({})
 
   const PAGE_SIZE = 10
 
@@ -1077,6 +1188,14 @@ function HomeInner() {
       const prog = await getProgress()
       setQuestions(qs)
       if (prog !== null) setProgress(prog)
+      // Compute Set 2/3 question lists
+      const { getSet2Questions, getSet3Questions } = await import('@/lib/questionSets')
+      const { getSetProgress } = await import('@/lib/setProgress')
+      const mainIds = new Set((qs as { id: number }[]).map(q => q.id))
+      setSet2Questions(getSet2Questions(mainIds))
+      setSet3Questions(getSet3Questions(mainIds))
+      setSetProgress2(getSetProgress(2))
+      setSetProgress3(getSetProgress(3))
       setLoading(false)
     }
     void load()
@@ -1177,6 +1296,31 @@ function HomeInner() {
       <DueReviewBanner />
       {!loading && <PatternCoverageGrid questions={questions} progress={progress} />}
 
+      {/* Question Set Switcher */}
+      <div className="flex items-center gap-1 mb-3">
+        {([1, 2, 3] as const).map(s => (
+          <button key={s} onClick={() => setQuestionSet(s)}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors border ${
+              questionSet === s
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-[0_0_8px_rgba(99,102,241,0.3)]'
+                : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:brightness-110'
+            }`}>
+            {s === 1 ? 'Questions Set 1' : s === 2 ? 'Questions Set 2' : 'Questions Set 3'}
+          </button>
+        ))}
+      </div>
+
+      {/* Set 2 question list */}
+      {questionSet !== 1 && (
+        <SetExternalQuestions
+          set={questionSet as 2 | 3}
+          questions={questionSet === 2 ? set2Questions : set3Questions}
+          progress={questionSet === 2 ? setProgress2 : setProgress3}
+          onProgressChange={questionSet === 2 ? setSetProgress2 : setSetProgress3}
+        />
+      )}
+
+      {questionSet === 1 && <div>
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 mb-6 shadow-lg">
         <div className="flex flex-wrap gap-1">
           {DIFFICULTIES.map(d => (
@@ -1313,6 +1457,7 @@ function HomeInner() {
           </button>
         </div>
       )}
+      </div>}
     </div>
   )
 }

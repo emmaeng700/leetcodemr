@@ -1,6 +1,8 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import OfflineBanner from '@/components/OfflineBanner'
+import SetStatsTab from '@/components/SetStatsTab'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { Trophy, TrendingUp, Download, Upload, CheckCircle, AlertTriangle, Lock, Unlock } from 'lucide-react'
 import { getProgress, getSolvedLog, getTimeTracking, getDailyTarget, setDailyTarget, getStudyPlan, resetAllProgress, getMasteryRunsByQuestion } from '@/lib/db'
@@ -15,7 +17,41 @@ interface Question {
   difficulty: string
 }
 
-export default function StatsPage() {
+function StatsSetTabBar({ set, setSet }: { set: 1|2|3; setSet: (s: 1|2|3) => void }) {
+  return (
+    <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
+      {([1, 2, 3] as const).map(s => (
+        <button key={s} onClick={() => setSet(s)}
+          className={`px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${
+            set === s ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
+          }`}>
+          {s === 1 ? 'Set 1 (331)' : s === 2 ? 'Set 2 (NC150)' : 'Set 3 (AM600)'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function StatsHub() {
+  const searchParams = useSearchParams()
+  const [set, setSet] = useState<1|2|3>(() => {
+    const s = parseInt(searchParams.get('set') ?? '1', 10)
+    return (s === 2 || s === 3) ? s : 1
+  })
+  if (set === 2) return <><StatsSetTabBar set={set} setSet={setSet} /><SetStatsTab set={2} /></>
+  if (set === 3) return <><StatsSetTabBar set={set} setSet={setSet} /><SetStatsTab set={3} /></>
+  return <><StatsSetTabBar set={set} setSet={setSet} /><StatsPage /></>
+}
+
+export default function StatsRoot() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-48 text-[var(--text-subtle)] text-sm">Loading…</div>}>
+      <StatsHub />
+    </Suspense>
+  )
+}
+
+function StatsPage() {
   const online = useOnlineStatus()
   const [questions, setQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, any>>({})

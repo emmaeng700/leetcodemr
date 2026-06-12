@@ -556,10 +556,54 @@ function FlashcardsInner() {
   )
 }
 
+import SetFlashcardsTab from '@/components/SetFlashcardsTab'
+
+function FlashcardsHub() {
+  const searchParams = useSearchParams()
+  const [set, setSet] = useState<1 | 2 | 3>(() => {
+    const s = parseInt(searchParams.get('set') ?? '1', 10)
+    return (s === 2 || s === 3) ? s : 1
+  })
+
+  if (set === 2) return (
+    <div className="flex flex-col">
+      <SetTabBar set={set} setSet={setSet} />
+      <SetFlashcardsTab set={2} />
+    </div>
+  )
+  if (set === 3) return (
+    <div className="flex flex-col">
+      <SetTabBar set={set} setSet={setSet} />
+      <SetFlashcardsTab set={3} />
+    </div>
+  )
+  return (
+    <div className="flex flex-col">
+      <SetTabBar set={set} setSet={setSet} />
+      <FlashcardsInner />
+    </div>
+  )
+}
+
+function SetTabBar({ set, setSet }: { set: 1 | 2 | 3; setSet: (s: 1 | 2 | 3) => void }) {
+  return (
+    <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
+      {([1, 2, 3] as const).map(s => (
+        <button key={s} onClick={() => setSet(s)}
+          className={`px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${
+            set === s ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
+          }`}>
+          {s === 1 ? 'Set 1 (331)' : s === 2 ? 'Set 2 (NC150)' : 'Set 3 (AM600)'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function FlashcardsPage() {
   return (
     <Suspense fallback={<div className="text-center py-32 text-[var(--text-subtle)] animate-pulse text-sm">Loading flashcards...</div>}>
-      <FlashcardsInner />
+      <FlashcardsHub />
     </Suspense>
   )
 }

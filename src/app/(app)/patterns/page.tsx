@@ -1,6 +1,7 @@
 'use client'
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import SetPatternsTab from '@/components/SetPatternsTab'
 import {
   ChevronDown, ChevronRight, ChevronLeft, Shuffle, RotateCcw,
   CheckCircle, Circle, List, Layers,
@@ -306,7 +307,41 @@ function PatternFlashcards({
   )
 }
 
-export default function PatternsPage() {
+function PatternsSetTabBar({ set, setSet }: { set: 1|2|3; setSet: (s: 1|2|3) => void }) {
+  return (
+    <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
+      {([1, 2, 3] as const).map(s => (
+        <button key={s} onClick={() => setSet(s)}
+          className={`px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${
+            set === s ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
+          }`}>
+          {s === 1 ? 'Set 1 (331)' : s === 2 ? 'Set 2 (NC150)' : 'Set 3 (AM600)'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function PatternsHub() {
+  const searchParams = useSearchParams()
+  const [set, setSet] = useState<1|2|3>(() => {
+    const s = parseInt(searchParams.get('set') ?? '1', 10)
+    return (s === 2 || s === 3) ? s : 1
+  })
+  if (set === 2) return <><PatternsSetTabBar set={set} setSet={setSet} /><SetPatternsTab set={2} /></>
+  if (set === 3) return <><PatternsSetTabBar set={set} setSet={setSet} /><SetPatternsTab set={3} /></>
+  return <><PatternsSetTabBar set={set} setSet={setSet} /><PatternsPage /></>
+}
+
+export default function PatternsRoot() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-48 text-[var(--text-subtle)] text-sm">Loading…</div>}>
+      <PatternsHub />
+    </Suspense>
+  )
+}
+
+function PatternsPage() {
   const router = useRouter()
   const [questions, setQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, any>>({})

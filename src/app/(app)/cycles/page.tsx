@@ -1,12 +1,13 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useMemo, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { RefreshCw, Plus, Trash2, Play, ChevronRight, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getSavedCycles, setSavedCycles, saveCycleState, getCycleState, clampCycleIdx, type SavedCycle } from '@/lib/db'
 import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { PATTERN_PRIORITY, QUICK_PATTERNS } from '@/lib/constants'
+import SetCyclesPage from '@/components/SetCyclesPage'
 
 interface Question { id: number; title: string; difficulty: string; tags: string[]; source: string[] }
 
@@ -14,7 +15,7 @@ function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
 
-export default function CyclesPage() {
+function CyclesInner() {
   const router = useRouter()
   const [cycles,    setCycles]    = useState<SavedCycle[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
@@ -354,4 +355,44 @@ export default function CyclesPage() {
       )}
     </div>
   )
+}
+
+const SET_TABS = [
+  { key: '1', label: 'Set 1 (331)' },
+  { key: '2', label: 'Set 2 (NC150)' },
+  { key: '3', label: 'Set 3 (AM600)' },
+]
+
+function CyclesHub() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const activeSet = searchParams.get('set') ?? '1'
+
+  return (
+    <div className="flex flex-col min-h-[calc(100dvh-56px)]">
+      <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
+        {SET_TABS.map(({ key, label }) => (
+          <button key={key}
+            onClick={() => router.replace(`/cycles?set=${key}`, { scroll: false })}
+            className={`px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${
+              activeSet === key
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="flex-1 overflow-auto">
+        {activeSet === '1' && <CyclesInner />}
+        {activeSet === '2' && <SetCyclesPage set={2} />}
+        {activeSet === '3' && <SetCyclesPage set={3} />}
+      </div>
+    </div>
+  )
+}
+
+export default function CyclesPage() {
+  return <Suspense><CyclesHub /></Suspense>
 }
