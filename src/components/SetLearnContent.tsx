@@ -395,9 +395,12 @@ export default function SetLearnContent({ set, index }: Props) {
   const checkCycleLapComplete = useCallback((): number | false => {
     const rng = cycleRangeForSave.current
     if (!rng) return false
-    const cycleQs  = filteredRef.current.slice(rng.start, rng.end + 1)
-    const solved   = cycleQs.filter(q => cycleAcceptedRef.current.has(q.id))
-    if (solved.length < cycleQs.length) return false
+    // Use the stored ordered IDs (set at cycle start) not a re-slice of the current
+    // filtered list — filters can narrow the visible set and cause a false "all done".
+    const cycleIds = cycleOrderedIdsRef.current
+    if (cycleIds.length === 0) return false
+    const solved = cycleIds.filter(id => cycleAcceptedRef.current.has(id))
+    if (solved.length < cycleIds.length) return false
     cycleAcceptedRef.current = new Set()
     setCycleAcceptedCount(0)
     const newReps = Math.min(cycleRepsRef.current + 1, CYCLE_REP_TARGET)

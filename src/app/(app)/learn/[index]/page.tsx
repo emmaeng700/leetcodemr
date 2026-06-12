@@ -659,9 +659,11 @@ function LearnInner() {
     const rng = cycleRangeRef.current
     if (!rng) return false
 
-    const cycleQs  = filteredRef.current.slice(rng.start, rng.end + 1)
-    const cycleIds = cycleQs.map(q => q.id)
-    const solved   = cycleIds.filter(id => cycleAcceptedRef.current.has(id))
+    // Use the stored ordered IDs (set at cycle start) not a re-slice of the current
+    // filtered list — filters can narrow the visible set and cause a false "all done".
+    const cycleIds = cycleOrderedIdsRef.current
+    if (cycleIds.length === 0) return false
+    const solved = cycleIds.filter(id => cycleAcceptedRef.current.has(id))
     if (solved.length < cycleIds.length) return false   // not done yet
 
     // All solved — celebrate and reset for next lap
