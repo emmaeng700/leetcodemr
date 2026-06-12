@@ -855,15 +855,10 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           --indent-marker-active-bg-color: rgba(150, 175, 255, 0.55);
         }
         .lc-editor-root .cm-scroller { overflow-x: hidden !important; overflow-y: auto !important; overscroll-behavior: contain; touch-action: pan-y; }
-        @media (min-width: 768px) {
-          .lc-editor-root .cm-scroller { overflow-x: auto !important; }
-        }
-        @media (max-width: 767px) {
-          .lc-editor-root .cm-line,
-          .lc-editor-root .cm-content {
-            white-space: pre-wrap !important;
-            overflow-wrap: anywhere !important;
-          }
+        .lc-editor-root .cm-line,
+        .lc-editor-root .cm-content {
+          white-space: pre-wrap !important;
+          overflow-wrap: anywhere !important;
         }
         .lc-editor-root .cm-editor { touch-action: manipulation; }
         .lc-editor-root .cm-editor, .lc-editor-root .cm-content { max-width: 100%; }
