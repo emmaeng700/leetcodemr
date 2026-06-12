@@ -194,16 +194,6 @@ export default function BestAnswersPanel({
   return (
     <div className={`relative z-20 pointer-events-auto ${className}`}>
 
-      {/* ── Your LeetCode (most recent AC per language) ─────────────────── */}
-      {(lcBlocks.length > 0 || lcLoading) && (
-        <CollapsibleLcAcceptedBlocks
-          blocks={lcBlocks}
-          loading={lcLoading}
-          resetKey={`${questionId}-${slug}`}
-          renderCode={(code, lang) => <HighlightedCode code={code} lang={lang} />}
-        />
-      )}
-
       {/* ── View mode toggle ──────────────────────────────────────────────── */}
       <div className="relative z-20 flex items-center gap-2 mb-4 pointer-events-auto">
         <button
