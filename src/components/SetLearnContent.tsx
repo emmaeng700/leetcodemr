@@ -14,7 +14,7 @@ import {
   getSet2Questions, getSet3Questions, buildSetExclusiveMap,
   buildPriorityDifficultyPresets, type SetQuestion,
 } from '@/lib/questionSets'
-import { PATTERN_PRIORITY, QUICK_PATTERNS } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, PATTERN_PRIORITY, QUICK_PATTERNS } from '@/lib/constants'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import StudyRoundHeader, { isNewRound } from '@/components/StudyRoundHeader'
@@ -80,9 +80,10 @@ export default function SetLearnContent({ set, index }: Props) {
 
   // URL filter params
   const initDiff        = searchParams.get('diff')   || 'All'
-  const initCat         = searchParams.get('cat')    || 'All'
   const initSearch      = searchParams.get('search') || ''
   const initStarred     = searchParams.get('starred') === '1'
+  const initTagsRaw     = searchParams.get('tags')   || ''
+  const initTags        = initTagsRaw ? initTagsRaw.split(',') : []
   const initSolvedParam = searchParams.get('solved')
   const initSolved: null | boolean =
     initSolvedParam === 'true' ? true : initSolvedParam === 'false' ? false : null
@@ -95,8 +96,12 @@ export default function SetLearnContent({ set, index }: Props) {
   const leftPanelTab = activeTab === 'editor' ? 'description' : activeTab
   const [showList,     setShowList]     = useState(false)
   const [showFilters,  setShowFilters]  = useState(false)
-  const [filterDiff,   setFilterDiff]   = useState(initDiff)
-  const [filterCat,    setFilterCat]    = useState(initCat)
+  const [filterDiff,     setFilterDiff]     = useState(initDiff)
+  const [filterPattern, setFilterPattern] = useState<string | null>(
+    initTags.length > 0
+      ? (QUICK_PATTERNS.find(p => p.tags.some(t => initTags.includes(t)))?.name ?? null)
+      : null,
+  )
   const listWrapRef = useRef<HTMLDivElement>(null)
 
   // Live LC description
@@ -138,11 +143,13 @@ export default function SetLearnContent({ set, index }: Props) {
     load()
   }, [set])
 
+  const exclusiveMap = useMemo(() => buildSetExclusiveMap(allQuestions), [allQuestions])
+
   // Filtered list
   const filtered = useMemo(() => {
     return allQuestions.filter(q => {
       if (filterDiff !== 'All' && q.difficulty !== filterDiff) return false
-      if (filterCat  !== 'All' && q.category  !== filterCat)  return false
+      if (filterPattern && exclusiveMap[q.id] !== filterPattern) return false
       if (initSearch) {
         const s = initSearch.toLowerCase()
         if (!q.title.toLowerCase().includes(s) && !String(q.id).includes(s.replace(/^#/, ''))) return false
@@ -153,29 +160,22 @@ export default function SetLearnContent({ set, index }: Props) {
       if (initSolved === false &&  p.solved) return false
       return true
     })
-  }, [allQuestions, filterDiff, filterCat, initSearch, initStarred, initSolved, progress])
+  }, [allQuestions, filterDiff, filterPattern, exclusiveMap, initSearch, initStarred, initSolved, progress])
 
   const safeIdx = filtered.length ? Math.min(Math.max(index, 0), filtered.length - 1) : 0
   const q = filtered[safeIdx] ?? null
 
-  const exclusiveMap = useMemo(() => buildSetExclusiveMap(allQuestions), [allQuestions])
-
-  // Unique categories for filter panel
-  const allCategories = useMemo(
-    () => [...new Set(allQuestions.map(q => q.category))].sort(),
-    [allQuestions],
-  )
-
-  // Category progress for context strip
-  const catProgress = useMemo(() => {
-    if (!q) return { solved: 0, total: 0 }
-    const catQs = allQuestions.filter(aq => aq.category === q.category)
-    return {
-      solved: catQs.filter(aq => progress[String(aq.id)]?.solved).length,
-      total: catQs.length,
+  const patternProgressMap = useMemo(() => {
+    const map: Record<string, { solved: number; total: number }> = {}
+    for (const p of QUICK_PATTERNS) {
+      const qs = allQuestions.filter(aq => exclusiveMap[aq.id] === p.name)
+      map[p.name] = {
+        solved: qs.filter(aq => progress[String(aq.id)]?.solved).length,
+        total: qs.length,
+      }
     }
-  }, [allQuestions, q, progress])
-  const catPct = catProgress.total ? Math.round((catProgress.solved / catProgress.total) * 100) : 0
+    return map
+  }, [allQuestions, exclusiveMap, progress])
 
   const currentPatternName = q ? (exclusiveMap[q.id] ?? null) : null
   const currentPattern = currentPatternName
@@ -188,18 +188,27 @@ export default function SetLearnContent({ set, index }: Props) {
   const patternPct = patternQs.length ? Math.round((patternSolved / patternQs.length) * 100) : 0
 
   // Build URL query string preserving current filters
-  const buildQuery = useCallback((overrides?: { diff?: string; cat?: string; solved?: null | boolean }) => {
+  const buildQuery = useCallback((overrides?: {
+    diff?: string
+    pattern?: string | null
+    solved?: null | boolean
+  }) => {
     const sp = new URLSearchParams(searchParams.toString())
-    const diff   = overrides?.diff   !== undefined ? overrides.diff   : filterDiff
-    const cat    = overrides?.cat    !== undefined ? overrides.cat    : filterCat
-    const solved = overrides?.solved !== undefined ? overrides.solved : initSolved
+    const diff    = overrides?.diff    !== undefined ? overrides.diff    : filterDiff
+    const pattern = overrides?.pattern !== undefined ? overrides.pattern : filterPattern
+    const solved  = overrides?.solved  !== undefined ? overrides.solved  : initSolved
     if (diff !== 'All') sp.set('diff', diff); else sp.delete('diff')
-    if (cat  !== 'All') sp.set('cat',  cat);  else sp.delete('cat')
+    if (pattern) {
+      const tags = QUICK_PATTERNS.find(p => p.name === pattern)?.tags ?? []
+      if (tags.length) sp.set('tags', tags.join(','))
+    } else {
+      sp.delete('tags')
+    }
     if (solved === true)  sp.set('solved', 'true')
     else if (solved === false) sp.set('solved', 'false')
     else sp.delete('solved')
     return sp.toString()
-  }, [searchParams, filterDiff, filterCat, initSolved])
+  }, [searchParams, filterDiff, filterPattern, initSolved])
 
   const learnQs = useMemo(() => buildQuery(), [buildQuery])
 
@@ -257,7 +266,13 @@ export default function SetLearnContent({ set, index }: Props) {
   // Sync filter state from URL on back/forward navigation
   useEffect(() => {
     setFilterDiff(searchParams.get('diff') || 'All')
-    setFilterCat( searchParams.get('cat')  || 'All')
+    const tr = searchParams.get('tags') || ''
+    const tags = tr ? tr.split(',') : []
+    setFilterPattern(
+      tags.length > 0
+        ? (QUICK_PATTERNS.find(p => p.tags.some(t => tags.includes(t)))?.name ?? null)
+        : null,
+    )
   }, [searchParams])
 
   // Reset LC content on question change
@@ -779,7 +794,7 @@ export default function SetLearnContent({ set, index }: Props) {
             showFilters ? 'bg-indigo-600 text-white border-indigo-600' :
             'border-gray-200 text-gray-500 hover:border-indigo-300'
           }`}>
-          Filter {filterDiff !== 'All' || filterCat !== 'All' || initSolved !== null ? '•' : ''}
+          Filter {filterDiff !== 'All' || filterPattern || initStarred || initSolved !== null ? '•' : ''}
         </button>
 
         {/* Cycle button / indicator */}
@@ -942,38 +957,62 @@ export default function SetLearnContent({ set, index }: Props) {
             </button>
           </div>
 
-          {/* Category */}
+          {/* Starred */}
           <div className="flex items-center flex-wrap gap-2">
             <button type="button" data-set-filter
               onClick={() => {
-                setFilterCat('All')
-                const qs = buildQuery({ cat: 'All' })
+                const sp = new URLSearchParams(buildQuery())
+                if (initStarred) sp.delete('starred')
+                else sp.set('starred', '1')
+                router.push(`${learnBase}/0${sp.toString() ? `?${sp}` : ''}`, { scroll: false })
+              }}
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
+                initStarred ? 'bg-yellow-500 text-white border-yellow-500' :
+                'bg-white text-gray-500 border-gray-200 hover:border-yellow-300'
+              }`}>
+              Starred
+            </button>
+          </div>
+
+          {/* Pattern filter — matches Learn 1 */}
+          <div className="flex items-center flex-wrap gap-2">
+            <button type="button" data-set-filter
+              onClick={() => {
+                setFilterPattern(null)
+                const qs = buildQuery({ pattern: null })
                 router.push(`${learnBase}/0${qs ? `?${qs}` : ''}`, { scroll: false })
               }}
               className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
-                filterCat === 'All' ? 'bg-cyan-600 text-white border-cyan-600' :
+                !filterPattern ? 'bg-cyan-600 text-white border-cyan-600' :
                 'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'
               }`}>
-              All Categories
+              All Patterns
             </button>
-            {allCategories.map(cat => {
-              const catQs     = allQuestions.filter(aq => aq.category === cat)
-              const catSolved = catQs.filter(aq => progress[String(aq.id)]?.solved).length
-              const isActive  = filterCat === cat
+            {QUICK_PATTERNS
+              .slice()
+              .sort((a, b) =>
+                DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
+                DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number]))
+              .map(p => {
+              const pp = patternProgressMap[p.name] || { solved: 0, total: 0 }
+              if (pp.total === 0) return null
+              const isActive = filterPattern === p.name
               return (
-                <button key={cat} type="button" data-set-filter
+                <button key={p.name} type="button" data-set-filter
                   onClick={() => {
-                    setFilterCat(cat)
-                    const qs = buildQuery({ cat })
+                    const next = filterPattern === p.name ? null : p.name
+                    setFilterPattern(next)
+                    const qs = buildQuery({ pattern: next })
                     router.push(`${learnBase}/0${qs ? `?${qs}` : ''}`, { scroll: false })
                   }}
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
                     isActive ? 'bg-cyan-600 text-white border-cyan-600' :
                     'bg-white text-gray-500 border-gray-200 hover:border-cyan-300'
                   }`}>
-                  {cat}
+                  <span>{p.name}</span>
+                  <PriorityBadge pattern={p.name} active={isActive} />
                   <span className={`font-mono text-[10px] ${isActive ? 'text-white/70' : 'text-gray-400'}`}>
-                    {catSolved}/{catQs.length}
+                    {pp.solved}/{pp.total}
                   </span>
                 </button>
               )

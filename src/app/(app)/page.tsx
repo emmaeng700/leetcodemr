@@ -1051,6 +1051,26 @@ function buildStudyParams(
   return p.toString()
 }
 
+function buildSetStudyParams(
+  diff: string,
+  search: string,
+  showStarred: boolean,
+  showSolved: null | boolean,
+  patternName: string | null,
+): string {
+  const p = new URLSearchParams()
+  if (diff !== 'All') p.set('diff', diff)
+  if (search) p.set('search', search)
+  if (showStarred) p.set('starred', '1')
+  if (showSolved === true) p.set('solved', 'true')
+  if (showSolved === false) p.set('solved', 'false')
+  if (patternName) {
+    const tags = QUICK_PATTERNS.find(pat => pat.name === patternName)?.tags ?? []
+    if (tags.length) p.set('tags', tags.join(','))
+  }
+  return p.toString()
+}
+
 function SetExternalQuestions({
   set,
   questions,
@@ -1064,25 +1084,38 @@ function SetExternalQuestions({
 }) {
   const learnBase = set === 2 ? '/learn2' : '/learn3'
   const label     = set === 2 ? 'NeetCode 150 (not in Set 1)' : 'AlgoMaster 600 (not in NC150)'
-  const [search, setSearch] = React.useState('')
-  const [diff, setDiff]     = React.useState('All')
+  const [search, setSearch]           = React.useState('')
+  const [difficulty, setDifficulty]   = React.useState('All')
+  const [showStarred, setShowStarred] = React.useState(false)
+  const [showSolved, setShowSolved]     = React.useState<null | boolean>(null)
+  const [activePattern, setActivePattern] = React.useState<string | null>(null)
 
-  function toggleSolved(q: import('@/lib/questionSets').SetQuestion) {
+  const exclusiveMap = useMemo(
+    () => buildExclusivePatternMap(questions),
+    [questions],
+  )
+
+  function patchProgress(qid: number, patch: Partial<import('@/lib/setProgress').SetQProgress>) {
     const { updateSetQProgress } = require('@/lib/setProgress')
-    const cur = progress[String(q.id)]
-    const next = updateSetQProgress(set, q.id, { solved: !cur?.solved })
-    onProgressChange({ ...progress, [String(q.id)]: next })
+    const next = updateSetQProgress(set, qid, patch)
+    onProgressChange({ ...progress, [String(qid)]: next })
   }
 
-  const filtered = questions.filter(q => {
-    if (diff !== 'All' && q.difficulty !== diff) return false
+  const filtered = useMemo(() => questions.filter(q => {
+    if (difficulty !== 'All' && q.difficulty !== difficulty) return false
+    if (activePattern && exclusiveMap[q.id] !== activePattern) return false
     if (search) {
       const s = search.toLowerCase()
-      if (!q.title.toLowerCase().includes(s) && !String(q.id).includes(s)) return false
+      if (!q.title.toLowerCase().includes(s) && !String(q.id).includes(s.replace(/^#/, ''))) return false
     }
+    const p = progress[String(q.id)] || {}
+    if (showStarred && !p.starred) return false
+    if (showSolved === true && !p.solved) return false
+    if (showSolved === false && p.solved) return false
     return true
-  })
+  }), [questions, difficulty, activePattern, exclusiveMap, search, showStarred, showSolved, progress])
 
+  const studyQs = buildSetStudyParams(difficulty, search, showStarred, showSolved, activePattern)
   const solved = Object.values(progress).filter(p => p.solved).length
 
   return (
@@ -1097,24 +1130,84 @@ function SetExternalQuestions({
         <span className="text-xs text-[var(--text-subtle)]">{label}</span>
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-3">
-        {['All', 'Easy', 'Medium', 'Hard'].map(d => (
-          <button key={d} onClick={() => setDiff(d)}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
-              diff === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:brightness-110'
-            }`}>{d}</button>
-        ))}
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
-          className="px-3 py-1.5 rounded-full text-xs bg-[var(--bg-muted)] border border-[var(--border-soft)] text-[var(--text)] outline-none focus:border-indigo-400 w-36" />
-        <Link href={learnBase}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors ml-auto">
-          <BookOpen size={12} /> Learn {set === 2 ? '2' : '3'}
-        </Link>
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 mb-4 shadow-lg">
+        <div className="flex flex-wrap gap-1">
+          {DIFFICULTIES.map(d => (
+            <button key={d} onClick={() => setDifficulty(d)}
+              className={'px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (difficulty === d ? 'bg-indigo-600 text-white shadow-[0_0_10px_rgba(99,102,241,0.3)]' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 border border-[var(--border-soft)]')}>
+              {d}
+            </button>
+          ))}
+          <span className="w-px bg-[var(--border)] mx-0.5 shrink-0" />
+          <button onClick={() => setShowStarred(v => !v)}
+            className={'flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (showStarred ? 'bg-yellow-500 text-white shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 border border-[var(--border-soft)]')}>
+            <Star size={12} /> Starred
+          </button>
+          <button onClick={() => setShowSolved(v => v === null ? false : v === false ? true : null)}
+            className={'flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (showSolved === false ? 'bg-orange-500 text-white' : showSolved === true ? 'bg-green-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 border border-[var(--border-soft)]')}>
+            <CheckCircle2 size={12} />
+            {showSolved === false ? 'Unsolved' : showSolved === true ? 'Solved' : 'All'}
+          </button>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
+            className="px-3 py-1.5 rounded-full text-xs bg-[var(--bg-muted)] border border-[var(--border-soft)] text-[var(--text)] outline-none focus:border-indigo-400 w-36 ml-auto" />
+        </div>
+
+        <div className="flex flex-wrap gap-1 pt-2 border-t border-[var(--border-soft)] mt-2">
+          <span className="text-xs text-[var(--text-subtle)] self-center shrink-0 mr-1">Pattern:</span>
+          {activePattern && (
+            <button onClick={() => setActivePattern(null)}
+              className="px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 transition-colors border border-[var(--border)]">
+              ✕ Clear
+            </button>
+          )}
+          {ORDERED_QUICK_PATTERNS.map(pat => {
+            const count = questions.filter(q => exclusiveMap[q.id] === pat.name).length
+            if (count === 0) return null
+            const active = activePattern === pat.name
+            return (
+              <button key={pat.name}
+                onClick={() => setActivePattern(active ? null : pat.name)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 border ${
+                  active
+                    ? 'bg-cyan-700 text-white border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.25)]'
+                    : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:border-cyan-500/50 hover:text-cyan-300'
+                }`}>
+                {pat.name}
+                <PriorityBadge pattern={pat.name} active={active} />
+                <span className="opacity-50">·{count}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-xs text-[var(--text-subtle)]">{filtered.length} questions{activePattern ? ` · ${activePattern}` : ''}</span>
+          {(activePattern || difficulty !== 'All' || showStarred || showSolved !== null || search) && (
+            <button
+              onClick={() => { setActivePattern(null); setDifficulty('All'); setShowStarred(false); setShowSolved(null); setSearch('') }}
+              className="text-xs text-[var(--text-subtle)] hover:text-red-400 transition-colors">
+              Clear all filters
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[var(--border)]">
+          <span className="text-xs text-[var(--text-subtle)] self-center">Study {filtered.length} as:</span>
+          <Link href={`/flashcards?set=${set}${studyQs ? `&${studyQs}` : ''}`}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 transition-colors">
+            <Layers size={12} /> Flashcards
+          </Link>
+          <Link href={`${learnBase}/0${studyQs ? `?${studyQs}` : ''}`}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors">
+            <BookOpen size={12} /> Learn mode
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {filtered.map((q, i) => {
           const p = progress[String(q.id)]
+          const patternName = exclusiveMap[q.id] ?? null
           return (
             <div key={q.id}
               className={`group rounded-xl border p-4 transition-all duration-150 hover:shadow-xl hover:shadow-indigo-900/20 hover:border-indigo-500/50 ${p?.solved ? 'bg-green-50 border-green-300' : 'bg-[var(--bg-card)] border-[var(--border-soft)]'}`}>
@@ -1126,17 +1219,27 @@ function SetExternalQuestions({
                     {q.title}
                   </a>
                 </div>
-                <button onClick={() => toggleSolved(q)}
-                  className={`shrink-0 transition-colors ${p?.solved ? 'text-green-400' : 'text-[var(--text-subtle)] hover:text-green-400'}`}>
-                  {p?.solved ? <CheckCircle2 size={14} /> : <Circle size={14} />}
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => patchProgress(q.id, { starred: !p?.starred })}
+                    className={`transition-colors ${p?.starred ? 'text-yellow-400' : 'text-[var(--text-subtle)] hover:text-yellow-400'}`}>
+                    <Star size={14} className={p?.starred ? 'fill-yellow-400' : ''} />
+                  </button>
+                  <button onClick={() => patchProgress(q.id, { solved: !p?.solved })}
+                    className={`transition-colors ${p?.solved ? 'text-green-400' : 'text-[var(--text-subtle)] hover:text-green-400'}`}>
+                    {p?.solved ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <DifficultyBadge difficulty={q.difficulty} />
+                {patternName && <PriorityBadge pattern={patternName} />}
+                {patternName && (
+                  <span className="text-[11px] text-[var(--text-subtle)] truncate">{patternName}</span>
+                )}
                 <span className="text-[11px] text-[var(--text-subtle)] truncate">{q.category}</span>
               </div>
               <div className="mt-2 flex items-center gap-2">
-                <Link href={`${learnBase}/${i}`}
+                <Link href={`${learnBase}/${i}${studyQs ? `?${studyQs}` : ''}`}
                   className="text-[11px] text-indigo-400 hover:underline">
                   Learn mode
                 </Link>
@@ -1192,8 +1295,8 @@ function HomeInner() {
       const { getSet2Questions, getSet3Questions } = await import('@/lib/questionSets')
       const { getSetProgress } = await import('@/lib/setProgress')
       const mainIds = new Set((qs as { id: number }[]).map(q => q.id))
-      setSet2Questions(getSet2Questions(mainIds))
-      setSet3Questions(getSet3Questions(mainIds))
+      setSet2Questions(getSet2Questions(mainIds, qs))
+      setSet3Questions(getSet3Questions(mainIds, qs))
       setSetProgress2(getSetProgress(2))
       setSetProgress3(getSetProgress(3))
       setLoading(false)
