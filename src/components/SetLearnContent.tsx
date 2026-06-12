@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Star, CheckCircle, ExternalLink,
-  RefreshCw, List, BookOpen, Brain, Loader2, X, Play,
+  RefreshCw, List, BookOpen, Brain, Loader2, X, Play, Sparkles,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
@@ -12,11 +12,33 @@ import {
 } from '@/lib/setProgress'
 import { getSet2Questions, getSet3Questions, type SetQuestion } from '@/lib/questionSets'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import BestAnswersPanel from '@/components/BestAnswersPanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
-import { stripScripts, resolveLeetCodeSlug, leetCodeUrl } from '@/lib/utils'
+import { stripScripts, resolveLeetCodeSlug, leetCodeUrl, formatLocalDate } from '@/lib/utils'
+import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 
 interface Props { set: 2 | 3; index: number }
+
+function PremiumBlock({ slug }: { slug?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+      <div className="text-4xl mb-3">🔒</div>
+      <h3 className="font-bold text-gray-800 text-base mb-1">LeetCode Premium Question</h3>
+      <p className="text-sm text-gray-500 mb-4 leading-relaxed max-w-xs">
+        This question requires a LeetCode Premium subscription to view the description.
+        Your subscription may have lapsed or you may not have one active.
+      </p>
+      {slug && (
+        <a href={leetCodeUrl(slug)} target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition-colors">
+          Open on LeetCode ↗
+        </a>
+      )}
+      <p className="text-xs text-gray-400 mt-3">You can still use the code editor on the right to practice.</p>
+    </div>
+  )
+}
 
 function todayISO() { return new Date().toISOString().slice(0, 10) }
 
@@ -62,7 +84,9 @@ export default function SetLearnContent({ set, index }: Props) {
   const [allQuestions, setAllQuestions] = useState<SetQuestion[]>([])
   const [progress,     setProgress]     = useState<Record<string, SetQProgress>>({})
   const [loading,      setLoading]      = useState(true)
-  const [activeTab,    setActiveTab]    = useState<'description' | 'editor'>('description')
+  const [activeTab,    setActiveTab]    = useState<'description' | 'best' | 'editor'>('description')
+  const [studyMode,    setStudyMode]    = useState<'show' | 'hide' | null>(null)
+  const leftPanelTab = activeTab === 'editor' ? 'description' : activeTab
   const [showList,     setShowList]     = useState(false)
   const [showFilters,  setShowFilters]  = useState(false)
   const [filterDiff,   setFilterDiff]   = useState(initDiff)
@@ -261,6 +285,27 @@ export default function SetLearnContent({ set, index }: Props) {
       .finally(() => { clearTimeout(timer); if (!cancelled) setLcLoading(false) })
     return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
   }, [q?.id, q?.slug])
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('lm_study_mode')
+      setStudyMode(saved === 'show' || saved === 'hide' ? saved : null)
+    } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => {
+    if (studyMode !== null) localStorage.setItem('lm_study_mode', studyMode)
+  }, [studyMode])
+
+  useEffect(() => {
+    if (studyMode === 'hide' && activeTab === 'best') setActiveTab('description')
+  }, [studyMode, activeTab])
+
+  useEffect(() => {
+    if (!q) return
+    setOpenQuestionContext({ id: q.id, slug: q.slug, title: q.title })
+    return () => setOpenQuestionContext(null)
+  }, [q?.id, q?.slug, q?.title])
 
   // Close list dropdown on outside click
   useEffect(() => {
@@ -645,7 +690,45 @@ export default function SetLearnContent({ set, index }: Props) {
   )
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-56px)]">
+    <div className="flex min-h-[calc(100dvh-56px)] flex-col md:h-[calc(100dvh-56px)]">
+
+      {/* ── Study mode modal ── */}
+      {studyMode === null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
+          onClick={() => setStudyMode('show')}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-1">
+              <Brain size={20} className="text-indigo-600" />
+              <h2 className="text-lg font-black text-gray-900">Study Mode</h2>
+            </div>
+            <p className="text-sm text-gray-500 mb-5">How do you want to study this session?</p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => setStudyMode('hide')}
+                className="flex items-start gap-3 p-4 rounded-xl border-2 border-indigo-500 bg-indigo-50 text-left hover:bg-indigo-100 transition"
+              >
+                <span className="text-xl mt-0.5">🧠</span>
+                <div>
+                  <p className="font-bold text-indigo-700 text-sm">Challenge Mode</p>
+                  <p className="text-xs text-indigo-500 mt-0.5">Answers are hidden — try to solve before looking</p>
+                </div>
+              </button>
+              <button
+                onClick={() => setStudyMode('show')}
+                className="flex items-start gap-3 p-4 rounded-xl border-2 border-gray-200 text-left hover:border-gray-300 hover:bg-gray-50 transition"
+              >
+                <span className="text-xl mt-0.5">📖</span>
+                <div>
+                  <p className="font-bold text-gray-700 text-sm">Review Mode</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Answers are visible — study at your own pace</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Top bar ── */}
       <div className="relative z-30 flex flex-wrap items-center gap-2 overflow-visible border-b border-gray-100 bg-white px-3 py-2 shrink-0">
@@ -950,114 +1033,118 @@ export default function SetLearnContent({ set, index }: Props) {
         </div>
       ) : (
         <>
-          {/* Tab bar */}
+          {/* Unified tab bar — matches Learn 1 (description / best answers; editor always visible) */}
           <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
             <button onClick={() => setActiveTab('description')}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${
-                activeTab === 'description' ? 'border-indigo-500 text-indigo-600' :
-                'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
-              }`}>
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
               <BookOpen size={12} /> Description
               {lcLoading && <Loader2 size={10} className="animate-spin text-[var(--text-muted)]" />}
             </button>
-            <button onClick={() => setActiveTab('editor')}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${
-                activeTab === 'editor' ? 'border-indigo-500 text-indigo-600' :
-                'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
-              }`}>
-              💻 Editor
+            {studyMode !== 'hide' && (
+              <button onClick={() => setActiveTab('best')}
+                className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${leftPanelTab === 'best' ? 'border-amber-500 text-amber-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+                <Sparkles size={12} /> Best answers
+              </button>
+            )}
+            <button onClick={() => setStudyMode(prev => prev === 'hide' ? 'show' : 'hide')}
+              className={`ml-auto flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors shrink-0 ${studyMode === 'hide' ? 'text-orange-500 hover:text-orange-600' : 'text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+              🧠 {studyMode === 'hide' ? 'Challenge Mode' : 'Review Mode'}
             </button>
           </div>
 
-          {/* Two-panel layout */}
           <div className="relative z-0 flex flex-col md:flex-row min-h-0 flex-1 overflow-visible md:overflow-hidden">
 
-            {/* ── Left: Description ── */}
-            <div className={`${activeTab === 'description' ? 'flex' : 'hidden'} md:flex relative z-10 flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-y-auto border-r border-[var(--border)]`}>
-              <div className="p-4 space-y-4">
+            {/* ── Content panel (description / best answers) ── */}
+            <div className="relative z-10 flex flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-visible md:overflow-hidden text-[var(--text)] border-r border-[var(--border)]">
+              <div className="flex-1 overflow-visible md:overflow-y-auto">
 
-                {/* Title + meta */}
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="text-xs text-gray-400 font-mono">#{q.id}</span>
-                    <DifficultyBadge difficulty={q.difficulty} />
-                  </div>
-                  <h1 className="font-bold text-gray-800 text-base leading-snug">{q.title}</h1>
-                  {prog.solved && prog.next_review && !reviewDue && (
-                    <p className="text-xs text-green-600 mt-1">
-                      🗓 Next review: {prog.next_review} · {srIntervalDays((prog.review_count ?? 0) + 1)}d interval
-                    </p>
-                  )}
-                </div>
+                {leftPanelTab === 'description' && (
+                  <div className="p-4 space-y-4">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="text-xs text-gray-400 font-mono">#{q.id}</span>
+                        <DifficultyBadge difficulty={q.difficulty} />
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--bg-muted)] text-[var(--text-subtle)] border border-[var(--border)]">
+                          {q.category}
+                        </span>
+                      </div>
+                      <h1 className="font-bold text-gray-800 text-base leading-snug">{q.title}</h1>
+                      {prog.solved && prog.next_review && !reviewDue && (
+                        <p className="text-xs text-green-600 mt-1">
+                          🗓 Next review: {formatLocalDate(prog.next_review)} · {srIntervalDays((prog.review_count ?? 0) + 1)}d interval
+                        </p>
+                      )}
+                    </div>
 
-                {/* SR review banner */}
-                {reviewDue && (
-                  <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex items-center gap-2">
-                      <Brain size={14} className="text-indigo-600" />
-                      <span className="text-xs font-semibold text-indigo-700">
-                        Review #{(prog.review_count ?? 0) + 1} due!
+                    {reviewDue && (
+                      <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <Brain size={14} className="text-indigo-600" />
+                          <span className="text-xs font-semibold text-indigo-700">
+                            Review #{(prog.review_count ?? 0) + 1} due!
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={handleAgain}
+                            className="px-3 py-1 rounded-lg text-xs font-bold transition-colors border bg-white text-indigo-700 border-indigo-200 hover:border-indigo-300">
+                            Again
+                          </button>
+                          <button onClick={handlePass}
+                            className="px-3 py-1 rounded-lg text-xs font-bold transition-colors bg-indigo-600 text-white hover:bg-indigo-700">
+                            Pass
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {lcContent ? (
+                      <div className="lc-description text-sm text-[var(--text)]"
+                        dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
+                    ) : isPremium ? (
+                      <PremiumBlock slug={lcTitleSlug} />
+                    ) : lcLoading ? (
+                      <div className="space-y-2 animate-pulse">
+                        <div className="h-3 bg-gray-100 rounded w-full" />
+                        <div className="h-3 bg-gray-100 rounded w-5/6" />
+                        <div className="h-3 bg-gray-100 rounded w-4/6" />
+                        <div className="h-10 bg-gray-100 rounded w-full mt-2" />
+                        <div className="h-3 bg-gray-100 rounded w-full" />
+                        <div className="h-3 bg-gray-100 rounded w-3/4" />
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 italic text-xs">
+                        No description cached.{' '}
+                        <a href={leetCodeUrl(lcTitleSlug)} target="_blank" rel="noopener noreferrer"
+                          className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
                       </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={handleAgain}
-                        className="px-3 py-1 rounded-lg text-xs font-bold transition-colors border bg-white text-indigo-700 border-indigo-200 hover:border-indigo-300">
-                        Again
-                      </button>
-                      <button onClick={handlePass}
-                        className="px-3 py-1 rounded-lg text-xs font-bold transition-colors bg-indigo-600 text-white hover:bg-indigo-700">
-                        Pass
-                      </button>
-                    </div>
+                    )}
+
+                    {prog.solved && prog.next_review && (
+                      <div className="pt-3 border-t border-gray-100">
+                        <p className="text-xs text-green-600">
+                          ✅ Review #{(prog.review_count ?? 0) + 1} in {srIntervalDays(prog.review_count ?? 0)}d · {formatLocalDate(prog.next_review)}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Live LC description */}
-                {lcContent ? (
-                  <div className="lc-description text-sm text-[var(--text)]"
-                    dangerouslySetInnerHTML={{ __html: stripScripts(lcContent) }} />
-                ) : isPremium ? (
-                  <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-                    <div className="text-4xl mb-3">🔒</div>
-                    <h3 className="font-bold text-gray-800 text-base mb-1">LeetCode Premium Question</h3>
-                    <p className="text-sm text-gray-500 mb-4 max-w-xs">Requires Premium subscription.</p>
-                    <a href={leetCodeUrl(lcTitleSlug)} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition-colors">
-                      Open on LeetCode ↗
-                    </a>
-                  </div>
-                ) : lcLoading ? (
-                  <div className="space-y-2 animate-pulse">
-                    <div className="h-3 bg-gray-100 rounded w-full" />
-                    <div className="h-3 bg-gray-100 rounded w-5/6" />
-                    <div className="h-3 bg-gray-100 rounded w-4/6" />
-                    <div className="h-10 bg-gray-100 rounded w-full mt-2" />
-                    <div className="h-3 bg-gray-100 rounded w-full" />
-                    <div className="h-3 bg-gray-100 rounded w-3/4" />
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-400 italic">
-                    No description loaded.{' '}
-                    <a href={leetCodeUrl(lcTitleSlug)} target="_blank" rel="noopener noreferrer"
-                      className="text-indigo-500 hover:underline">View on LeetCode ↗</a>
-                  </p>
-                )}
-
-                {/* SR summary */}
-                {prog.solved && prog.next_review && (
-                  <div className="pt-3 border-t border-gray-100">
-                    <p className="text-xs text-green-600">
-                      ✅ Review #{(prog.review_count ?? 0) + 1} in {srIntervalDays(prog.review_count ?? 0)}d · {prog.next_review}
-                    </p>
+                {leftPanelTab === 'best' && (
+                  <div className="p-4 h-full">
+                    <BestAnswersPanel
+                      questionId={q.id}
+                      slug={lcTitleSlug ?? q.slug}
+                      active={leftPanelTab === 'best'}
+                      preferredLangs={['python', 'cpp', 'javascript']}
+                    />
                   </div>
                 )}
               </div>
             </div>
 
-            {/* ── Right: Editor ── */}
-            <div className={`${activeTab === 'editor' ? 'flex flex-col' : 'hidden'} md:flex md:flex-col w-full md:w-[58%] flex-1 min-h-[30rem] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0`}>
+            {/* ── Editor panel (always visible — stacked below on mobile) ── */}
+            <div className="flex flex-col w-full md:w-[58%] flex-1 min-h-[30rem] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
               <LeetCodeEditor
-                key={q.slug}
                 appQuestionId={q.id}
                 slug={q.slug}
                 syncToApp={false}
