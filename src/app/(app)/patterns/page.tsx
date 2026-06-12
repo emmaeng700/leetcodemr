@@ -1,15 +1,18 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import SetPatternsTab from '@/components/SetPatternsTab'
 import {
   ChevronDown, ChevronRight, ChevronLeft, Shuffle, RotateCcw,
-  CheckCircle, Circle, List, Layers,
+  CheckCircle, Circle, List, Layers, ExternalLink,
 } from 'lucide-react'
 import { getProgress, getPatternFcVisited, addPatternFcVisited } from '@/lib/db'
 import { shuffle, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { getSet2Questions, getSet3Questions, type SetQuestion } from '@/lib/questionSets'
+import { getSetProgress, updateSetQProgress, type SetQProgress } from '@/lib/setProgress'
+import { learnHrefForSetQuestion } from '@/lib/dailyExtension'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import CodePanel from '@/components/CodePanel'
@@ -97,14 +100,24 @@ function ImageIfExists({ id, title }: { id: number; title: string }) {
   )
 }
 
-function PatternFlashcards({
-  questions, progress, visited, onVisit,
-}: {
+type PatternFlashcardsProps = {
   questions: Question[]
   progress: Record<string, any>
   visited: Set<number>
   onVisit: (id: number) => void
-}) {
+  questionHref: (q: Question) => string
+  isSolved: (id: number) => boolean
+  extensionSet?: 2 | 3
+  onToggleSolved?: (id: number) => void
+  solutionBase?: string
+  solutionLabel?: string
+}
+
+function PatternFlashcards({
+  questions, progress, visited, onVisit,
+  questionHref, isSolved, extensionSet,
+  onToggleSolved, solutionBase, solutionLabel,
+}: PatternFlashcardsProps) {
   const router = useRouter()
   const [deck, setDeck] = useState(questions)
   const [idx, setIdx] = useState(0)
@@ -222,7 +235,7 @@ function PatternFlashcards({
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-[var(--text-subtle)] font-mono">#{card.id}</span>
                 <DifficultyBadge difficulty={card.difficulty} />
-                {progress[String(card.id)]?.solved && (
+                {isSolved(card.id) && (
                   <span className="text-xs text-green-600  font-semibold">✓ Solved</span>
                 )}
               </div>
@@ -266,7 +279,7 @@ function PatternFlashcards({
                 <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{card.id}</span>
                 <DifficultyBadge difficulty={card.difficulty} />
                 <span className="text-sm font-bold text-indigo-700  truncate cursor-pointer hover:underline"
-                  onClick={e => { e.stopPropagation(); router.push(`/practice/${card.id}`) }}>
+                  onClick={e => { e.stopPropagation(); router.push(questionHref(card)) }}>
                   {card.title} ↗
                 </span>
               </div>
@@ -282,8 +295,33 @@ function PatternFlashcards({
                 <span className="hidden sm:inline text-xs text-indigo-400 ">← Flip back</span>
               </div>
             </div>
-            <div className="p-3">
-              <CodePanel pythonCode={card.python_solution} cppCode={card.cpp_solution} />
+            <div className="p-3" onClick={e => e.stopPropagation()}>
+              {extensionSet && solutionBase && solutionLabel ? (
+                <div className="space-y-3">
+                  <Link href={`${solutionBase}/${card.slug}`}
+                    className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl text-white font-semibold text-sm transition-colors ${
+                      extensionSet === 2 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-purple-600 hover:bg-purple-700'
+                    }`}>
+                    <ExternalLink size={14} /> View Solution on {solutionLabel}
+                  </Link>
+                  <a href={leetCodeUrl(resolveLeetCodeSlug(card.id, card.slug))} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm transition-colors">
+                    <ExternalLink size={14} /> Open on LeetCode
+                  </a>
+                  {onToggleSolved && (
+                    <button type="button" onClick={() => onToggleSolved(card.id)}
+                      className={`flex w-full items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
+                        isSolved(card.id)
+                          ? 'bg-green-600 text-white border-green-600'
+                          : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-green-400'
+                      }`}>
+                      {isSolved(card.id) ? <><CheckCircle size={13} /> Solved</> : <><Circle size={13} /> Mark Solved</>}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <CodePanel pythonCode={card.python_solution} cppCode={card.cpp_solution} />
+              )}
             </div>
           </div>
         )}
@@ -294,7 +332,7 @@ function PatternFlashcards({
           className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:border-indigo-300 hover:text-indigo-500 transition-colors text-xs font-medium">
           <ChevronLeft size={14} /> Prev
         </button>
-        <button onClick={e => { e.stopPropagation(); router.push(`/practice/${card.id}`) }}
+        <button onClick={e => { e.stopPropagation(); router.push(questionHref(card)) }}
           className="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:border-indigo-300 hover:text-indigo-500 transition-colors text-xs font-medium">
           Open question ↗
         </button>
@@ -323,14 +361,22 @@ function PatternsSetTabBar({ set, setSet }: { set: 1|2|3; setSet: (s: 1|2|3) => 
 }
 
 function PatternsHub() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [set, setSet] = useState<1|2|3>(() => {
     const s = parseInt(searchParams.get('set') ?? '1', 10)
     return (s === 2 || s === 3) ? s : 1
   })
-  if (set === 2) return <><PatternsSetTabBar set={set} setSet={setSet} /><SetPatternsTab set={2} /></>
-  if (set === 3) return <><PatternsSetTabBar set={set} setSet={setSet} /><SetPatternsTab set={3} /></>
-  return <><PatternsSetTabBar set={set} setSet={setSet} /><PatternsPage /></>
+  const pickSet = (s: 1 | 2 | 3) => {
+    setSet(s)
+    router.replace(`/patterns?set=${s}`, { scroll: false })
+  }
+  return (
+    <>
+      <PatternsSetTabBar set={set} setSet={pickSet} />
+      <PatternsPage set={set} key={set} />
+    </>
+  )
 }
 
 export default function PatternsRoot() {
@@ -341,9 +387,25 @@ export default function PatternsRoot() {
   )
 }
 
-function PatternsPage() {
+function setQuestionToPatternQuestion(q: SetQuestion): Question {
+  return {
+    id: q.id,
+    title: q.title,
+    slug: q.slug,
+    difficulty: q.difficulty,
+    tags: q.tags,
+  }
+}
+
+const SET_META: Record<2 | 3, { label: string; solutionBase: string; solutionLabel: string }> = {
+  2: { label: 'NeetCode 150', solutionBase: '/neetcode', solutionLabel: 'NeetCode' },
+  3: { label: 'AlgoMaster 600', solutionBase: '/algomaster', solutionLabel: 'AlgoMaster' },
+}
+
+function PatternsPage({ set }: { set: 1 | 2 | 3 }) {
   const router = useRouter()
   const [questions, setQuestions] = useState<Question[]>([])
+  const [extensionQuestions, setExtensionQuestions] = useState<SetQuestion[]>([])
   const [progress, setProgress] = useState<Record<string, any>>({})
   const [visited, setVisited] = useState<Set<number>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -351,19 +413,57 @@ function PatternsPage() {
   const [viewMode, setViewMode] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    Promise.all([
-      fetch('/questions_full.json').then(r => r.json()),
-      getProgress(),
-      getPatternFcVisited(),
-    ]).then(([qs, prog, vis]) => {
-      setQuestions(qs); setProgress(prog ?? {}); setVisited(vis); setLoading(false)
-    })
-  }, [])
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      const main = await fetch('/questions_full.json').then(r => r.json())
+      const vis = await getPatternFcVisited()
+      if (cancelled) return
+      if (set === 1) {
+        const prog = await getProgress()
+        if (cancelled) return
+        setQuestions(main)
+        setExtensionQuestions([])
+        setProgress(prog ?? {})
+      } else {
+        const mainIds = new Set((main as { id: number }[]).map(q => q.id))
+        const qs = set === 2 ? getSet2Questions(mainIds, main) : getSet3Questions(mainIds, main)
+        if (cancelled) return
+        setExtensionQuestions(qs)
+        setQuestions(qs.map(setQuestionToPatternQuestion))
+        setProgress(getSetProgress(set))
+      }
+      setVisited(vis)
+      setExpanded(null)
+      setLoading(false)
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [set])
 
   const handleVisit = useCallback(async (id: number) => {
     setVisited(prev => { const s = new Set(prev); s.add(id); return s })
     await addPatternFcVisited(id)
   }, [])
+
+  const isSolved = useCallback((id: number) => !!progress[String(id)]?.solved, [progress])
+
+  const questionHref = useCallback((q: Question) => {
+    if (set === 1) return `/practice/${q.id}`
+    return learnHrefForSetQuestion(
+      q.id,
+      set,
+      set === 2 ? extensionQuestions : [],
+      set === 3 ? extensionQuestions : [],
+    )
+  }, [set, extensionQuestions])
+
+  const handleToggleSolved = useCallback((id: number) => {
+    if (set === 1) return
+    const cur = progress[String(id)] as SetQProgress | undefined
+    const updated = updateSetQProgress(set, id, { solved: !cur?.solved })
+    setProgress(prev => ({ ...prev, [String(id)]: updated }))
+  }, [set, progress])
 
   // Build exclusive map — each question belongs to exactly one pattern
   const exclusiveMap = useMemo(() => buildExclusivePatternMap(questions), [questions])
@@ -373,15 +473,24 @@ function PatternsPage() {
       const qs = questions
         .filter(q => exclusiveMap[q.id] === p.name)
         .sort((a, b) => ({ Easy: 0, Medium: 1, Hard: 2 }[a.difficulty] ?? 1) - ({ Easy: 0, Medium: 1, Hard: 2 }[b.difficulty] ?? 1))
-      const solved = qs.filter(q => progress[String(q.id)]?.solved).length
+      const solved = qs.filter(q => !!progress[String(q.id)]?.solved).length
       const palette = PALETTE[i % PALETTE.length]
       return { name: p.name, icon: PATTERN_ICONS[p.name] ?? '🧩', questions: qs, solved, total: qs.length, palette }
     }).filter(p => p.total > 0),
   [questions, progress, exclusiveMap])
 
-  const totalSolved = questions.filter(q => progress[String(q.id)]?.solved).length
+  const totalSolved = questions.filter(q => isSolved(q.id)).length
   const getMode = (name: string) => viewMode[name] || 'flashcards'
   const setMode = (name: string, mode: string) => setViewMode(prev => ({ ...prev, [name]: mode }))
+  const extensionMeta = set !== 1 ? SET_META[set] : null
+  const flashcardExtras = extensionMeta
+    ? {
+        extensionSet: set as 2 | 3,
+        onToggleSolved: handleToggleSolved,
+        solutionBase: extensionMeta.solutionBase,
+        solutionLabel: extensionMeta.solutionLabel,
+      }
+    : {}
 
   if (loading) return <div className="text-center py-32 text-[var(--text-subtle)] animate-pulse text-sm">Loading patterns…</div>
 
@@ -389,7 +498,9 @@ function PatternsPage() {
     <div className="max-w-4xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-[var(--text)] mb-1 flex items-center gap-2">🕸️ Patterns</h1>
       <p className="text-sm text-[var(--text-muted)] mb-1">
-        Each question belongs to exactly one pattern — no repetition across sections.
+        {set === 1
+          ? 'Each question belongs to exactly one pattern — no repetition across sections.'
+          : `Set ${set} · ${extensionMeta?.label} — same pattern groupings as Set 1.`}
       </p>
       <p className="text-xs text-indigo-500  font-semibold mb-7">
         {totalSolved} / {questions.length} questions solved overall
@@ -446,15 +557,23 @@ function PatternsPage() {
                   </div>
 
                   {mode === 'flashcards' ? (
-                    <PatternFlashcards questions={p.questions} progress={progress} visited={visited} onVisit={handleVisit} />
+                    <PatternFlashcards
+                      questions={p.questions}
+                      progress={progress}
+                      visited={visited}
+                      onVisit={handleVisit}
+                      questionHref={questionHref}
+                      isSolved={isSolved}
+                      {...flashcardExtras}
+                    />
                   ) : (
                     <div className="divide-y divide-white/30 ">
                       {p.questions.map(q => {
-                        const prog = progress[String(q.id)] || {}
+                        const solved = isSolved(q.id)
                         return (
-                          <div key={q.id} onClick={() => router.push(`/practice/${q.id}`)}
+                          <div key={q.id} onClick={() => router.push(questionHref(q))}
                             className="flex items-center gap-2 px-3 sm:px-5 py-2.5 cursor-pointer hover:bg-white/50  transition-colors group">
-                            <span className={`w-2 h-2 rounded-full shrink-0 ${prog.solved ? 'bg-green-500' : 'bg-[var(--border)]'}`} />
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${solved ? 'bg-green-500' : 'bg-[var(--border)]'}`} />
                             <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
                             <span className="text-sm font-medium text-[var(--text)] group-hover:text-indigo-500 truncate flex-1">{q.title}</span>
                             <DifficultyBadge difficulty={q.difficulty} />
