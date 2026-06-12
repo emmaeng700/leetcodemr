@@ -36,6 +36,8 @@ import {
   isSet1PlanAllDaysComplete,
   questionIdsForScheduleDay,
   resolveScheduleDay,
+  learnHrefForSetQuestion,
+  reviewHrefForQuestion,
 } from '@/lib/dailyExtension'
 
 interface Question {
@@ -1640,16 +1642,13 @@ export default function DailyPage() {
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs font-semibold text-emerald-700 hover:border-emerald-400 hover:shadow-sm transition-all">
                         Open Set 2 <ArrowRight size={12} />
                       </Link>
-                      {set2DueReviews.map(q => {
-                        const idx = set2Questions.findIndex(x => x.id === q.id)
-                        return (
-                          <Link key={q.id} href={`/learn2/${Math.max(0, idx)}`}
+                      {set2DueReviews.map(q => (
+                          <Link key={q.id} href={reviewHrefForQuestion(q.id, set2Questions, set3Questions)}
                             className="flex items-center gap-2 px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs hover:border-emerald-400 hover:shadow-sm transition-all text-left">
                             <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
                             <span className="text-emerald-600 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
                           </Link>
-                        )
-                      })}
+                      ))}
                     </div>
                   </div>
                 )}
@@ -1662,16 +1661,13 @@ export default function DailyPage() {
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-purple-200 rounded-lg text-xs font-semibold text-purple-700 hover:border-purple-400 hover:shadow-sm transition-all">
                         Open Set 3 <ArrowRight size={12} />
                       </Link>
-                      {set3DueReviews.map(q => {
-                        const idx = set3Questions.findIndex(x => x.id === q.id)
-                        return (
-                          <Link key={q.id} href={`/learn3/${Math.max(0, idx)}`}
+                      {set3DueReviews.map(q => (
+                          <Link key={q.id} href={reviewHrefForQuestion(q.id, set2Questions, set3Questions)}
                             className="flex items-center gap-2 px-3 py-1.5 bg-white border border-purple-200 rounded-lg text-xs hover:border-purple-400 hover:shadow-sm transition-all text-left">
                             <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
                             <span className="text-purple-600 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
                           </Link>
-                        )
-                      })}
+                      ))}
                     </div>
                   </div>
                 )}
@@ -1730,9 +1726,6 @@ export default function DailyPage() {
             {extensionQsToday.map(q => {
               const prog = extensionSet === 2 ? set2Progress : set3Progress
               const solved = !!prog[String(q.id)]?.solved
-              const fullSet = extensionSet === 2 ? set2Questions : set3Questions
-              const qIdx = fullSet.findIndex(x => x.id === q.id)
-              const learnBase = extensionSet === 2 ? '/learn2' : '/learn3'
               return (
                 <div key={q.id} className={`flex flex-col items-start gap-3 sm:flex-row sm:items-center p-3 rounded-xl border transition-all ${
                   solved ? 'bg-green-50 border-green-200' : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-indigo-400/50'
@@ -1759,7 +1752,7 @@ export default function DailyPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => router.push(`${learnBase}/${Math.max(0, qIdx)}`)}
+                    onClick={() => router.push(learnHrefForSetQuestion(q.id, extensionSet!, set2Questions, set3Questions))}
                     className={`w-full sm:w-auto shrink-0 justify-center flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
                       solved
                         ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
@@ -1831,7 +1824,7 @@ export default function DailyPage() {
               const prevPri = prevTopic ? (PATTERN_PRIORITY[prevTopic] ?? null) : null
               const showRound = curPri && isNewRound(curPri, q.difficulty, prevPri, prev?.difficulty)
               const learnHref = previewScheduleDay.kind === 'extension'
-                ? `${previewScheduleDay.phase.set === 2 ? '/learn2' : '/learn3'}/${Math.max(0, previewScheduleDay.phase.questions.findIndex(x => x.id === q.id))}`
+                ? learnHrefForSetQuestion(q.id, previewScheduleDay.phase.set, set2Questions, set3Questions)
                 : `/practice/${q.id}`
               return (
                 <div key={q.id}>

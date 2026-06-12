@@ -1,9 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
-import SetSpeedsterTab from '@/components/SetSpeedsterTab'
+import { useRouter } from 'next/navigation'
 import { Gauge, CheckCircle, Circle, ChevronLeft, ChevronRight, RotateCcw, List, Code2, WifiOff, Brain } from 'lucide-react'
 import { getMasteryRunsByQuestion, addMasteryRunEvent, getProgress, getStudyPlan, getFcVisited, addFcVisited } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -22,7 +20,14 @@ import { listDropdownMobileBackdropDense, listDropdownMobilePanelViewportOnly } 
 import { stripScripts } from '@/lib/utils'
 import { getSet2Questions, getSet3Questions, type SetQuestion } from '@/lib/questionSets'
 import { getSetProgress, type SetQProgress } from '@/lib/setProgress'
-import { buildExtensionPhases, getGrandTotalDays } from '@/lib/dailyExtension'
+import {
+  buildCombinedScheduleDays,
+  buildExtensionPhases,
+  getGrandTotalDays,
+  isExtensionSetQuestionSolved,
+  learnHrefForSetQuestion,
+  reviewHrefForQuestion,
+} from '@/lib/dailyExtension'
 
 interface Question {
   id: number
@@ -62,41 +67,7 @@ function readSavedRepsTarget() {
   return Math.max(1, parseInt(localStorage.getItem(REPS_PER_Q_KEY) ?? '2', 10) || 2)
 }
 
-function SpeedsterSetTabBar({ set, setSet }: { set: 1|2|3; setSet: (s: 1|2|3) => void }) {
-  return (
-    <div className="flex overflow-x-auto scrollbar-none border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
-      {([1, 2, 3] as const).map(s => (
-        <button key={s} onClick={() => setSet(s)}
-          className={`px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${
-            set === s ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
-          }`}>
-          {s === 1 ? 'Set 1 (331)' : s === 2 ? 'Set 2 (NC150)' : 'Set 3 (AM600)'}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function SpeedsterHub() {
-  const searchParams = useSearchParams()
-  const [set, setSet] = useState<1|2|3>(() => {
-    const s = parseInt(searchParams.get('set') ?? '1', 10)
-    return (s === 2 || s === 3) ? s : 1
-  })
-  if (set === 2) return <><SpeedsterSetTabBar set={set} setSet={setSet} /><SetSpeedsterTab set={2} /></>
-  if (set === 3) return <><SpeedsterSetTabBar set={set} setSet={setSet} /><SetSpeedsterTab set={3} /></>
-  return <><SpeedsterSetTabBar set={set} setSet={setSet} /><SpeedsterPage /></>
-}
-
-export default function SpeedsterRoot() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center h-48 text-[var(--text-subtle)] text-sm">Loading…</div>}>
-      <SpeedsterHub />
-    </Suspense>
-  )
-}
-
-function SpeedsterPage() {
+export default function SpeedsterPage() {
   const router = useRouter()
   const [questions, setQuestions] = useState<Question[]>([])
   const [planOrder, setPlanOrder] = useState<number[]>([])
@@ -279,19 +250,9 @@ function SpeedsterPage() {
     set1DayCount,
   )
 
-  // Group into days — Set 1 then Set 2 then Set 3
-  const days: number[][] = []
-  const daySets: (1 | 2 | 3)[] = []
-  for (let i = 0; i < planOrder.length; i += perDay) {
-    days.push(planOrder.slice(i, i + perDay))
-    daySets.push(1)
-  }
-  for (const phase of extensionPhases) {
-    for (let i = 0; i < phase.order.length; i += perDay) {
-      days.push(phase.order.slice(i, i + perDay))
-      daySets.push(phase.set)
-    }
-  }
+  const scheduleDays = buildCombinedScheduleDays(planOrder, perDay, extensionPhases)
+  const days = scheduleDays.map(d => d.questionIds)
+  const daySets = scheduleDays.map(d => d.set)
 
   const extendedQMap = useMemo(() => {
     const map: Record<number, Question> = { ...qMap }
@@ -328,16 +289,11 @@ function SpeedsterPage() {
 
   const totalDays  = getGrandTotalDays(set1DayCount, extensionPhases) || days.length
   const currentDay = days[dayIdx] ?? []
-  const daySolved  = currentDay.filter(id => {
-    if (currentDaySet === 1) return (runs[String(id)] ?? 0) >= repsTarget
-    const prog = currentDaySet === 2 ? set2Progress : set3Progress
-    return !!prog[String(id)]?.solved
-  }).length
   const isQuestionMastered = useCallback((id: number, daySet: 1 | 2 | 3 = currentDaySet) => {
     if (daySet === 1) return (runs[String(id)] ?? 0) >= repsTarget
-    const prog = daySet === 2 ? set2Progress : set3Progress
-    return !!prog[String(id)]?.solved
+    return isExtensionSetQuestionSolved(id, daySet, set2Progress, set3Progress)
   }, [runs, repsTarget, set2Progress, set3Progress, currentDaySet])
+  const daySolved  = currentDay.filter(id => isQuestionMastered(id)).length
 
   const currentDayFiltered = currentDay.filter(id => {
     const mastered = isQuestionMastered(id)
@@ -357,9 +313,7 @@ function SpeedsterPage() {
       launchSpeedsterQuestion(qid, currentDay, 'strict')
       return
     }
-    const fullSet = currentDaySet === 2 ? set2Questions : set3Questions
-    const idx = fullSet.findIndex(x => x.id === qid)
-    router.push(`/learn${currentDaySet}/${Math.max(0, idx)}`)
+    router.push(learnHrefForSetQuestion(qid, currentDaySet, set2Questions, set3Questions))
   }, [currentDaySet, currentDay, launchSpeedsterQuestion, router, set2Questions, set3Questions])
 
   // Flashcard helpers — respects active filters
@@ -846,17 +800,10 @@ function SpeedsterPage() {
               (reviewFocus === 'due' ? srDue : (srByDay[reviewFocus] ?? [])).map(it => {
                 const q = extendedQMap[it.id]
                 if (!q) return null
-                const set2Idx = set2Questions.findIndex(x => x.id === it.id)
-                const set3Idx = set3Questions.findIndex(x => x.id === it.id)
-                const reviewHref = set2Idx >= 0
-                  ? `/learn2/${set2Idx}`
-                  : set3Idx >= 0
-                    ? `/learn3/${set3Idx}`
-                    : `/practice/${it.id}`
                 return (
                   <Link
                     key={it.id}
-                    href={reviewHref}
+                    href={reviewHrefForQuestion(it.id, set2Questions, set3Questions)}
                     className="flex items-center gap-3 p-3 rounded-xl border border-[var(--border)] hover:border-indigo-200 hover:bg-indigo-50/10 transition-colors"
                   >
                     <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{it.id}</span>

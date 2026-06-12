@@ -164,3 +164,59 @@ export function questionIdsForScheduleDay(
     scheduleDay.dayWithinPhase,
   )
 }
+
+/** One scheduled day in the merged Set 1 ? Set 2 ? Set 3 timeline. */
+export type CombinedScheduleDay = {
+  questionIds: number[]
+  set: 1 | 2 | 3
+}
+
+/** Build per-day buckets for Speedster / timeline UIs (Set 1 then extension phases). */
+export function buildCombinedScheduleDays(
+  planOrder: number[],
+  perDay: number,
+  extensionPhases: ExtensionPhase[],
+): CombinedScheduleDay[] {
+  const days: CombinedScheduleDay[] = []
+  for (let i = 0; i < planOrder.length; i += perDay) {
+    days.push({ questionIds: planOrder.slice(i, i + perDay), set: 1 })
+  }
+  for (const phase of extensionPhases) {
+    for (let i = 0; i < phase.order.length; i += perDay) {
+      days.push({ questionIds: phase.order.slice(i, i + perDay), set: phase.set })
+    }
+  }
+  return days
+}
+
+export function isExtensionSetQuestionSolved(
+  id: number,
+  set: 2 | 3,
+  set2Progress: Record<string, SetQProgress>,
+  set3Progress: Record<string, SetQProgress>,
+): boolean {
+  const prog = set === 2 ? set2Progress : set3Progress
+  return !!prog[String(id)]?.solved
+}
+
+export function learnHrefForSetQuestion(
+  id: number,
+  set: 2 | 3,
+  set2Questions: SetQuestion[],
+  set3Questions: SetQuestion[],
+): string {
+  const fullSet = set === 2 ? set2Questions : set3Questions
+  return `/learn${set}/${Math.max(0, fullSet.findIndex(q => q.id === id))}`
+}
+
+export function reviewHrefForQuestion(
+  id: number,
+  set2Questions: SetQuestion[],
+  set3Questions: SetQuestion[],
+): string {
+  const set2Idx = set2Questions.findIndex(q => q.id === id)
+  if (set2Idx >= 0) return `/learn2/${set2Idx}`
+  const set3Idx = set3Questions.findIndex(q => q.id === id)
+  if (set3Idx >= 0) return `/learn3/${set3Idx}`
+  return `/practice/${id}`
+}
