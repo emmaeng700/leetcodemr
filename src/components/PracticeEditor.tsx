@@ -288,7 +288,7 @@ int main() {
         { key: 'Enter', run: smartEnter },
         indentWithTab,
       ]))
-      setExtensions([lang === 'python' ? python() : cpp(), smartKeys, indentationMarkers()])
+      setExtensions([lang === 'python' ? python() : cpp(), smartKeys, indentationMarkers(), viewMod.EditorView.lineWrapping])
     }
     loadExtensions()
   }, [lang])

@@ -241,21 +241,40 @@ body {
 /* Make the gutter (line numbers column) blend with the editor body */
 .cm-gutters { background-color: transparent !important; border-right: 1px solid rgba(255,255,255,0.06) !important; }
 
-/* Code editors — responsive font sizes, no line wrapping */
+/* Code editors — touch/scroll; wrap rules split by breakpoint below */
 .practice-cm-wrap .cm-content,
 .practice-cm-wrap .cm-line,
 .lc-editor-root .cm-content,
-.lc-editor-root .cm-line {
+.lc-editor-root .cm-line,
+.practice-fs-portal .cm-content,
+.practice-fs-portal .cm-line {
   touch-action: manipulation;
-  white-space: pre !important;
-  word-break: normal !important;
-}
-.practice-cm-wrap .cm-scroller,
-.lc-editor-root .cm-scroller {
-  overflow-x: auto !important;
 }
 
-/* Mobile: compact 9px code font. Page zoom is blocked by viewport maximum-scale=1 in layout.tsx. */
+@media (min-width: 768px) {
+  .practice-cm-wrap .cm-content,
+  .practice-cm-wrap .cm-line,
+  .lc-editor-root .cm-content,
+  .lc-editor-root .cm-line,
+  .practice-fs-portal .cm-content,
+  .practice-fs-portal .cm-line {
+    white-space: pre !important;
+    word-break: normal !important;
+  }
+  .practice-cm-wrap .cm-scroller,
+  .lc-editor-root .cm-scroller,
+  .practice-fs-portal .cm-scroller {
+    overflow-x: auto !important;
+  }
+  .practice-cm-wrap .cm-content,
+  .practice-cm-wrap .cm-line,
+  .lc-editor-root .cm-content,
+  .lc-editor-root .cm-line {
+    font-size: 12px;
+  }
+}
+
+/* Mobile: 9px font + wrap long lines to fit narrow screens */
 @media (max-width: 767px) {
   .practice-cm-wrap .cm-editor,
   .practice-cm-wrap .cm-content,
@@ -271,15 +290,20 @@ body {
   .practice-fs-portal .cm-line {
     font-size: 9px !important;
     line-height: 1.4 !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
   }
-}
-
-@media (min-width: 768px) {
-  .practice-cm-wrap .cm-content,
-  .practice-cm-wrap .cm-line,
+  .practice-cm-wrap .cm-scroller,
+  .lc-editor-root .cm-scroller,
+  .lc-fs-portal .cm-scroller,
+  .practice-fs-portal .cm-scroller {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
   .lc-editor-root .cm-content,
-  .lc-editor-root .cm-line {
-    font-size: 12px;
+  .practice-cm-wrap .cm-content {
+    max-width: 100%;
   }
 }
 
@@ -287,9 +311,6 @@ body {
 @media (min-width: 768px) {
   .practice-fs-portal .cm-editor { font-size: 12px !important; line-height: 1.45 !important; }
 }
-.practice-fs-portal .cm-scroller { overflow-x: auto !important; }
-.practice-fs-portal .cm-content,
-.practice-fs-portal .cm-line { white-space: pre !important; word-break: normal !important; touch-action: manipulation; }
 
 /* Prevent iOS auto-zoom on form fields (CodeMirror uses viewport lock instead) */
 input[type="text"],
