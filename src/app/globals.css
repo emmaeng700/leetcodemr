@@ -255,8 +255,7 @@ body {
   overflow-x: auto !important;
 }
 
-/* Mobile: 16px stops iOS Safari auto-zoom on CodeMirror focus (contenteditable).
-   Viewport maximum-scale=1 is the primary lock; this is the backup. */
+/* Mobile: compact 9px code font. Page zoom is blocked by viewport maximum-scale=1 in layout.tsx. */
 @media (max-width: 767px) {
   .practice-cm-wrap .cm-editor,
   .practice-cm-wrap .cm-content,
@@ -270,8 +269,8 @@ body {
   .practice-fs-portal .cm-editor,
   .practice-fs-portal .cm-content,
   .practice-fs-portal .cm-line {
-    font-size: 16px !important;
-    line-height: 1.45 !important;
+    font-size: 9px !important;
+    line-height: 1.4 !important;
   }
 }
 
@@ -285,21 +284,14 @@ body {
 }
 
 /* Practice / LC portal fullscreen — desktop sizing */
-.practice-fs-portal .cm-editor { font-size: 12px !important; line-height: 1.45 !important; }
+@media (min-width: 768px) {
+  .practice-fs-portal .cm-editor { font-size: 12px !important; line-height: 1.45 !important; }
+}
 .practice-fs-portal .cm-scroller { overflow-x: auto !important; }
 .practice-fs-portal .cm-content,
 .practice-fs-portal .cm-line { white-space: pre !important; word-break: normal !important; touch-action: manipulation; }
 
-@media (max-width: 767px) {
-  .practice-fs-portal .cm-editor,
-  .practice-fs-portal .cm-content,
-  .practice-fs-portal .cm-line {
-    font-size: 16px !important;
-    line-height: 1.45 !important;
-  }
-}
-
-/* Prevent iOS auto-zoom */
+/* Prevent iOS auto-zoom on form fields (CodeMirror uses viewport lock instead) */
 input[type="text"],
 input[type="password"],
 input[type="email"],

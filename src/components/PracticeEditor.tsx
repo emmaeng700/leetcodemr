@@ -561,7 +561,7 @@ int main() {
               value={code}
               onChange={e => handleChange(e.target.value)}
               className="w-full h-[320px] p-4 font-mono bg-gray-50 text-gray-900 border border-gray-200 resize-none focus:outline-none"
-              style={{ fontSize: '16px' }}
+              style={{ fontSize: '9px' }}
             />
           )}
         </div>

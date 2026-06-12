@@ -843,9 +843,12 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   return (
     <div className="lc-editor-root relative flex flex-col overflow-x-hidden rounded-none sm:rounded-xl border-0 sm:border border-gray-700/50 bg-[#1a1a2e] flex-1 min-h-0 sm:min-h-0 w-full">
       <style>{`
-        /* Desktop CodeMirror sizing — mobile uses globals.css (16px anti-zoom) */
+        /* Desktop CodeMirror sizing — mobile uses globals.css (9px, viewport blocks zoom) */
         @media (min-width: 768px) {
           .lc-editor-root .cm-editor { font-size: 12px; line-height: 1.55; }
+        }
+        @media (max-width: 767px) {
+          .lc-editor-root .cm-editor { font-size: 9px !important; line-height: 1.4; }
         }
         .lc-editor-root .cm-editor {
           --indent-marker-bg-color: rgba(120, 140, 190, 0.35);
