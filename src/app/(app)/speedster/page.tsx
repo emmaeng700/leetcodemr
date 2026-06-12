@@ -20,6 +20,9 @@ import StudyRoundHeader, { isNewRound } from '@/components/StudyRoundHeader'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdropDense, listDropdownMobilePanelViewportOnly } from '@/lib/listDropdownUi'
 import { stripScripts } from '@/lib/utils'
+import { getSet2Questions, getSet3Questions, type SetQuestion } from '@/lib/questionSets'
+import { getSetProgress, type SetQProgress } from '@/lib/setProgress'
+import { buildExtensionPhases, getGrandTotalDays } from '@/lib/dailyExtension'
 
 interface Question {
   id: number
@@ -135,6 +138,11 @@ function SpeedsterPage() {
   const [cardExpanded, setCardExpanded] = useState(false)
   const online = useOnlineStatus()
 
+  const [set2Questions, setSet2Questions] = useState<SetQuestion[]>([])
+  const [set3Questions, setSet3Questions] = useState<SetQuestion[]>([])
+  const [set2Progress, setSet2Progress] = useState<Record<string, SetQProgress>>({})
+  const [set3Progress, setSet3Progress] = useState<Record<string, SetQProgress>>({})
+
   const [planMode, setPlanMode] = useState<'strict' | 'random'>('strict')
   const launchSpeedsterQuestion = useCallback((qid: number, queue: number[], mode: 'strict' | 'random') => {
     try {
@@ -183,6 +191,11 @@ function SpeedsterPage() {
           setPerDay(plan.per_day || 3)
           if (plan?.start_date) setPlanStartISO(String(plan.start_date))
         }
+        const mainIds = new Set((qs as Question[]).map(q => q.id))
+        setSet2Questions(getSet2Questions(mainIds, qs as Question[]))
+        setSet3Questions(getSet3Questions(mainIds, qs as Question[]))
+        setSet2Progress(getSetProgress(2))
+        setSet3Progress(getSetProgress(3))
       } catch (e) {
         console.error('[speedster] load failed:', e)
         toast.error('Failed to load Speedster data — check console/Supabase policies')
@@ -218,12 +231,27 @@ function SpeedsterPage() {
       )
   ), [])
 
-  const srItems = planOrder
-    .map(id => {
-      const p = progress[String(id)] || {}
-      return { id, next_review: p.next_review as string | null | undefined, review_count: p.review_count as number | undefined, solved: !!p.solved }
-    })
-    .filter(x => x.solved && !!x.next_review)
+  const srItems = useMemo(() => {
+    const fromSet1 = planOrder
+      .map(id => {
+        const p = progress[String(id)] || {}
+        return { id, next_review: p.next_review as string | null | undefined, review_count: p.review_count as number | undefined, solved: !!p.solved }
+      })
+      .filter(x => x.solved && !!x.next_review)
+    const fromSet2 = set2Questions
+      .map(q => {
+        const p = set2Progress[String(q.id)]
+        return { id: q.id, next_review: p?.next_review, review_count: p?.review_count, solved: !!p?.solved }
+      })
+      .filter(x => x.solved && !!x.next_review)
+    const fromSet3 = set3Questions
+      .map(q => {
+        const p = set3Progress[String(q.id)]
+        return { id: q.id, next_review: p?.next_review, review_count: p?.review_count, solved: !!p?.solved }
+      })
+      .filter(x => x.solved && !!x.next_review)
+    return [...fromSet1, ...fromSet2, ...fromSet3]
+  }, [planOrder, progress, set2Questions, set2Progress, set3Questions, set3Progress])
 
   const srToday = todayISOChicago()
   const srStart = isoAddDays(srToday, reviewWeek * 7)
@@ -241,11 +269,49 @@ function SpeedsterPage() {
     srByDay[nr].push(it)
   }
 
-  // Group into days
+  const set1DayCount = Math.ceil(planOrder.length / perDay) || 0
+  const extensionPhases = buildExtensionPhases(
+    set2Questions,
+    set3Questions,
+    set2Progress,
+    set3Progress,
+    perDay,
+    set1DayCount,
+  )
+
+  // Group into days — Set 1 then Set 2 then Set 3
   const days: number[][] = []
+  const daySets: (1 | 2 | 3)[] = []
   for (let i = 0; i < planOrder.length; i += perDay) {
     days.push(planOrder.slice(i, i + perDay))
+    daySets.push(1)
   }
+  for (const phase of extensionPhases) {
+    for (let i = 0; i < phase.order.length; i += perDay) {
+      days.push(phase.order.slice(i, i + perDay))
+      daySets.push(phase.set)
+    }
+  }
+
+  const extendedQMap = useMemo(() => {
+    const map: Record<number, Question> = { ...qMap }
+    for (const q of [...set2Questions, ...set3Questions]) {
+      if (!map[q.id]) {
+        map[q.id] = {
+          id: q.id,
+          title: q.title,
+          difficulty: q.difficulty,
+          slug: q.slug,
+          tags: q.tags,
+          source: [],
+        }
+      }
+    }
+    return map
+  }, [qMap, set2Questions, set3Questions])
+
+  const currentDaySet = daySets[dayIdx] ?? 1
+  const isExtensionDay = currentDaySet !== 1
 
   const todayScheduleIdx = useMemo(() => {
     try {
@@ -260,15 +326,41 @@ function SpeedsterPage() {
     } catch { return 0 }
   }, [planStartISO])
 
-  const totalDays  = days.length
+  const totalDays  = getGrandTotalDays(set1DayCount, extensionPhases) || days.length
   const currentDay = days[dayIdx] ?? []
-  const daySolved  = currentDay.filter(id => (runs[String(id)] ?? 0) >= repsTarget).length
+  const daySolved  = currentDay.filter(id => {
+    if (currentDaySet === 1) return (runs[String(id)] ?? 0) >= repsTarget
+    const prog = currentDaySet === 2 ? set2Progress : set3Progress
+    return !!prog[String(id)]?.solved
+  }).length
+  const isQuestionMastered = useCallback((id: number, daySet: 1 | 2 | 3 = currentDaySet) => {
+    if (daySet === 1) return (runs[String(id)] ?? 0) >= repsTarget
+    const prog = daySet === 2 ? set2Progress : set3Progress
+    return !!prog[String(id)]?.solved
+  }, [runs, repsTarget, set2Progress, set3Progress, currentDaySet])
+
   const currentDayFiltered = currentDay.filter(id => {
-    const mastered = (runs[String(id)] ?? 0) >= repsTarget
+    const mastered = isQuestionMastered(id)
     if (filterSolved === 'Unsolved' && mastered) return false
     if (filterSolved === 'Solved' && !mastered) return false
     return true
   })
+
+  const topicLabelForId = useCallback((id: number) => {
+    if (patternMap?.[id]) return patternMap[id]
+    const sq = set2Questions.find(q => q.id === id) ?? set3Questions.find(q => q.id === id)
+    return sq?.category ?? 'Other'
+  }, [patternMap, set2Questions, set3Questions])
+
+  const launchDayQuestion = useCallback((qid: number) => {
+    if (currentDaySet === 1) {
+      launchSpeedsterQuestion(qid, currentDay, 'strict')
+      return
+    }
+    const fullSet = currentDaySet === 2 ? set2Questions : set3Questions
+    const idx = fullSet.findIndex(x => x.id === qid)
+    router.push(`/learn${currentDaySet}/${Math.max(0, idx)}`)
+  }, [currentDaySet, currentDay, launchSpeedsterQuestion, router, set2Questions, set3Questions])
 
   // Flashcard helpers — respects active filters
   const filteredOrder = planOrder.filter(id => {
@@ -553,7 +645,14 @@ function SpeedsterPage() {
               <ChevronLeft size={16} /> Prev
             </button>
             <div className="text-center min-w-0 flex-1">
-              <p className="text-base font-black text-gray-800">Day {dayIdx + 1}</p>
+              <p className="text-base font-black text-gray-800">
+                Day {dayIdx + 1}
+                {isExtensionDay && (
+                  <span className={`ml-1.5 text-xs font-bold ${currentDaySet === 2 ? 'text-emerald-600' : 'text-purple-600'}`}>
+                    · Set {currentDaySet}
+                  </span>
+                )}
+              </p>
               <p className="text-xs text-gray-400 mb-1">{daySolved}/{currentDay.length} solved · {dayIdx + 1} of {totalDays} days</p>
               <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden w-32 mx-auto">
                 <div
@@ -612,9 +711,9 @@ function SpeedsterPage() {
               </div>
             )}
             {currentDayFiltered.map((qid, i) => {
-              const q = qMap[qid]
+              const q = extendedQMap[qid]
               if (!q) return null
-              const mastered = (runs[String(qid)] ?? 0) >= repsTarget
+              const mastered = isQuestionMastered(qid)
               const topic = patternMap?.[qid] ?? 'Other'
               const curPri = PATTERN_PRIORITY[topic] ?? null
               const prevId = i > 0 ? currentDayFiltered[i - 1] : null
@@ -627,7 +726,7 @@ function SpeedsterPage() {
                   {showRound && <StudyRoundHeader priority={curPri!} difficulty={q.difficulty} className={i !== 0 ? 'border-t border-gray-100' : ''} />}
                   <button
                     type="button"
-                    onClick={() => launchSpeedsterQuestion(qid, currentDay, 'strict')}
+                    onClick={() => launchDayQuestion(qid)}
                     className={`flex w-full items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 text-left transition-colors group ${i !== 0 || showRound ? 'border-t border-gray-100' : ''} ${mastered ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
                     <div className="shrink-0">
                       {mastered
@@ -745,12 +844,19 @@ function SpeedsterPage() {
               <div className="text-xs text-[var(--text-subtle)] py-2">No reviews in this bucket.</div>
             ) : (
               (reviewFocus === 'due' ? srDue : (srByDay[reviewFocus] ?? [])).map(it => {
-                const q = qMap[it.id]
+                const q = extendedQMap[it.id]
                 if (!q) return null
+                const set2Idx = set2Questions.findIndex(x => x.id === it.id)
+                const set3Idx = set3Questions.findIndex(x => x.id === it.id)
+                const reviewHref = set2Idx >= 0
+                  ? `/learn2/${set2Idx}`
+                  : set3Idx >= 0
+                    ? `/learn3/${set3Idx}`
+                    : `/practice/${it.id}`
                 return (
                   <Link
                     key={it.id}
-                    href={`/practice/${it.id}`}
+                    href={reviewHref}
                     className="flex items-center gap-3 p-3 rounded-xl border border-[var(--border)] hover:border-indigo-200 hover:bg-indigo-50/10 transition-colors"
                   >
                     <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{it.id}</span>
@@ -1045,7 +1151,14 @@ function SpeedsterPage() {
                 <ChevronLeft size={16} /> Prev
               </button>
               <div className="text-center">
-                <p className="text-base font-black text-gray-800">Day {dayIdx + 1}</p>
+                <p className="text-base font-black text-gray-800">
+                  Day {dayIdx + 1}
+                  {isExtensionDay && (
+                    <span className={`ml-1.5 text-xs font-bold ${currentDaySet === 2 ? 'text-emerald-600' : 'text-purple-600'}`}>
+                      · Set {currentDaySet}
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-gray-400">{daySolved}/{currentDay.length} solved · {dayIdx + 1} of {totalDays} days</p>
               </div>
               <button onClick={() => setDayIdx(i => Math.min(totalDays - 1, i + 1))} disabled={dayIdx === totalDays - 1}
@@ -1098,12 +1211,12 @@ function SpeedsterPage() {
                 </div>
               )}
               {currentDayFiltered.map((qid, i) => {
-                const q = qMap[qid]
+                const q = extendedQMap[qid]
                 if (!q) return null
-                const mastered = (runs[String(qid)] ?? 0) >= repsTarget
-                const topic = patternMap?.[qid] ?? 'Other'
+                const mastered = isQuestionMastered(qid)
+                const topic = topicLabelForId(qid)
                 const prevId = i > 0 ? currentDayFiltered[i - 1] : null
-                const prevTopic = prevId != null ? (patternMap?.[prevId] ?? 'Other') : null
+                const prevTopic = prevId != null ? topicLabelForId(prevId) : null
                 const showTopic = i === 0 || topic !== prevTopic
                 return (
                   <div key={qid}>
@@ -1116,7 +1229,7 @@ function SpeedsterPage() {
                     )}
                     <button
                       type="button"
-                      onClick={() => launchSpeedsterQuestion(qid, currentDay, 'strict')}
+                      onClick={() => launchDayQuestion(qid)}
                       className={`flex w-full items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 text-left transition-colors group ${i !== 0 || showTopic ? 'border-t border-gray-100' : ''} ${mastered ? 'bg-green-50 hover:bg-green-100/60' : 'hover:bg-yellow-50/40'}`}>
                       <div className="shrink-0">
                         {mastered

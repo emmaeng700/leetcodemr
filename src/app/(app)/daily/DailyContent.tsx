@@ -28,6 +28,15 @@ import {
 import { isDayComplete } from '@/lib/streakGoals'
 import { getSetProgress, type SetQProgress } from '@/lib/setProgress'
 import { getSet2Questions, getSet3Questions, type SetQuestion } from '@/lib/questionSets'
+import {
+  buildExtensionPhases,
+  findActiveExtensionDay,
+  getActiveExtensionPhase,
+  getGrandTotalDays,
+  isSet1PlanAllDaysComplete,
+  questionIdsForScheduleDay,
+  resolveScheduleDay,
+} from '@/lib/dailyExtension'
 
 interface Question {
   id: number
@@ -924,10 +933,6 @@ export default function DailyPage() {
   const todayInfo = getTodayInfo(plan, allQuestions, progress, dailyReps, repsPerQ)
   const totalDays = Math.ceil(plan.question_order.length / plan.per_day)
 
-  const progressPct = isRandomMode
-    ? Math.round((totalSolved / Math.max(allQuestions.length, 1)) * 100)
-    : (todayInfo.dayNumber ? Math.round((todayInfo.dayNumber / totalDays) * 100) : 0)
-
   const todayQs    = todayInfo.questions || []
   todayQsRef.current = todayQs   // keep ref fresh for incrementRep auto-advance
   const todayDone  = todayQs.filter(q => isRepDone(q.id)).length
@@ -956,30 +961,58 @@ export default function DailyPage() {
   const dailyBlockDone = isActiveDailyBlockComplete(planForGoals, progress, dailyGoalsOpts)
   const dayComplete = isDayComplete(plan, progress, dueReviews.length, dailyGoalsOpts)
 
-  // Extension: once Set 1 plan complete, progress to Set 2 → Set 3
-  const set1PlanComplete = !!todayInfo.complete
-  const extensionSet: 2 | 3 | null = (() => {
-    if (!set1PlanComplete) return null
-    if (set2Unsolved.length > 0) return 2
-    if (set3Unsolved.length > 0) return 3
-    return null
-  })()
-  const extensionPool = extensionSet === 2 ? set2Unsolved : extensionSet === 3 ? set3Unsolved : []
-  const extensionQsToday = extensionPool.slice(0, plan.per_day)
-  const extensionBlockDone = extensionSet === null || extensionQsToday.length === 0 ||
-    extensionQsToday.every(q => !!(extensionSet === 2 ? set2Progress : set3Progress)[String(q.id)]?.solved)
+  // Extension: after all Set 1 plan days are done, continue Set 2 → Set 3 on the same schedule
+  const set1AllDaysComplete = isSet1PlanAllDaysComplete(
+    plan.question_order,
+    plan.per_day,
+    progress,
+    calendarDayIndex,
+    todayISO(),
+    dailyReps,
+    repsPerQ,
+  )
+  const inExtensionMode = set1AllDaysComplete || !!todayInfo.complete
+  const extensionPhases = buildExtensionPhases(
+    set2Questions,
+    set3Questions,
+    set2Progress,
+    set3Progress,
+    plan.per_day,
+    totalDays,
+  )
+  const grandTotalDays = getGrandTotalDays(totalDays, extensionPhases)
+  const activeExtensionPhase = inExtensionMode ? getActiveExtensionPhase(extensionPhases, plan.per_day) : null
+  const extensionSet = activeExtensionPhase?.set ?? null
+  const extensionActiveDay = activeExtensionPhase
+    ? findActiveExtensionDay(activeExtensionPhase, plan.per_day)
+    : null
+  const extensionQsToday: SetQuestion[] = extensionActiveDay
+    ? extensionActiveDay.questionIds
+        .map(id => activeExtensionPhase!.questions.find(q => q.id === id))
+        .filter(Boolean) as SetQuestion[]
+    : []
+  const extensionBlockDone = !activeExtensionPhase || extensionQsToday.length === 0 ||
+    extensionQsToday.every(q => !!activeExtensionPhase!.progress[String(q.id)]?.solved)
+  const extensionPool = activeExtensionPhase
+    ? activeExtensionPhase.questions.filter(q => !activeExtensionPhase.progress[String(q.id)]?.solved)
+    : []
   const totalDueCount = dueReviews.length + set2DueReviews.length + set3DueReviews.length
-  const effectiveDayComplete = extensionSet !== null
+  const effectiveDayComplete = activeExtensionPhase
     ? extensionBlockDone && totalDueCount === 0
     : dayComplete
-  const effectiveDailyBlockDone = extensionSet !== null ? extensionBlockDone : dailyBlockDone
-  // Counts for extension progress bar
-  const extTotalCount = extensionSet === 2 ? set2Questions.length : extensionSet === 3 ? set3Questions.length : 0
-  const extSolvedCount = extensionSet === 2
-    ? set2Questions.length - set2Unsolved.length
-    : extensionSet === 3
-      ? set3Questions.length - set3Unsolved.length
-      : 0
+  const effectiveDailyBlockDone = activeExtensionPhase ? extensionBlockDone : dailyBlockDone
+  const extTotalCount = activeExtensionPhase?.questions.length ?? 0
+  const extSolvedCount = activeExtensionPhase
+    ? activeExtensionPhase.questions.filter(q => activeExtensionPhase.progress[String(q.id)]?.solved).length
+    : 0
+  const globalTodayDayIdx = activeExtensionPhase && extensionActiveDay
+    ? activeExtensionPhase.startDayIndex + extensionActiveDay.dayIndex
+    : (todayInfo.dayNumber ?? 1) - 1
+  const allSetsComplete = inExtensionMode && !activeExtensionPhase
+
+  const progressPct = isRandomMode
+    ? Math.round((totalSolved / Math.max(allQuestions.length, 1)) * 100)
+    : Math.round(((globalTodayDayIdx + 1) / Math.max(grandTotalDays, 1)) * 100)
 
   function launchDailyQuestion(qid: number) {
     const strictQueue = todayQs.map(q => q.id)
@@ -1019,14 +1052,28 @@ export default function DailyPage() {
   const displayPast = pastDaysShowAll ? pastDayCount : Math.min(PAST_DAYS_INITIAL, pastDayCount)
   const hasMorePastToReveal = pastDayCount > PAST_DAYS_INITIAL
 
-  // Upcoming days preview
-  const todayDayIdx = !isRandomMode && todayInfo.dayNumber ? todayInfo.dayNumber - 1 : -1
-  const futureDayCount = todayDayIdx >= 0 ? totalDays - (todayDayIdx + 1) : 0
+  // Upcoming days preview — includes Set 2/3 after Set 1
+  const todayDayIdx = !isRandomMode && (todayInfo.dayNumber || activeExtensionPhase) ? globalTodayDayIdx : -1
+  const futureDayCount = todayDayIdx >= 0 ? grandTotalDays - (todayDayIdx + 1) : 0
   const safePreviewOffset = Math.min(previewOffset, Math.max(0, futureDayCount - 1))
-  const previewDayIdx = todayDayIdx + 1 + safePreviewOffset
-  const previewDayInfo = futureDayCount > 0 && previewDayIdx < totalDays
-    ? getDayInfo(plan, previewDayIdx, allQuestions, progress)
+  const previewGlobalDayIdx = todayDayIdx + 1 + safePreviewOffset
+  const previewScheduleDay = futureDayCount > 0
+    ? resolveScheduleDay(previewGlobalDayIdx, totalDays, extensionPhases)
     : null
+  const previewQuestionIds = previewScheduleDay
+    ? questionIdsForScheduleDay(previewScheduleDay, plan.question_order, plan.per_day)
+    : []
+  const previewQuestions: Array<Question | SetQuestion> = previewScheduleDay
+    ? previewQuestionIds.map(id => {
+        if (previewScheduleDay.kind === 'set1') {
+          return allQuestions.find(q => q.id === id)
+        }
+        return previewScheduleDay.phase.questions.find(q => q.id === id)
+      }).filter(Boolean) as Array<Question | SetQuestion>
+    : []
+  const previewSetLabel = previewScheduleDay?.kind === 'extension'
+    ? `Set ${previewScheduleDay.phase.set}`
+    : 'Set 1'
 
   return (
     <div className="max-w-xl mx-auto px-4 py-8">
@@ -1040,11 +1087,13 @@ export default function DailyPage() {
               <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">🎲 Random</span>
             )}
           </h1>
-          {!todayInfo.pending && !todayInfo.complete && todayInfo.dayNumber && (
+          {!todayInfo.pending && !allSetsComplete && (todayInfo.dayNumber || activeExtensionPhase) && (
             <p className="text-xs text-[var(--text-subtle)] mt-0.5">
               {isRandomMode
                 ? `Day ${todayInfo.dayNumber} · ${totalSolved}/${allQuestions.length} solved · ${plan.per_day}/day goal`
-                : `Day ${todayInfo.dayNumber} of ${totalDays} · finish by ${fmtDate(todayInfo.finishDate || '')}`
+                : activeExtensionPhase
+                  ? `Day ${globalTodayDayIdx + 1} of ${grandTotalDays} · Set ${activeExtensionPhase.set} · ${extensionPool.length} new left`
+                  : `Day ${todayInfo.dayNumber} of ${grandTotalDays} · finish by ${fmtDate(todayInfo.finishDate || '')}`
               }
             </p>
           )}
@@ -1053,8 +1102,8 @@ export default function DailyPage() {
               Starts in {todayInfo.daysUntil} day{todayInfo.daysUntil !== 1 ? 's' : ''} ({fmtDate(todayInfo.startDate || '')})
             </p>
           )}
-          {todayInfo.complete && (
-            <p className="text-xs text-green-500  font-semibold mt-0.5">Plan complete!</p>
+          {allSetsComplete && (
+            <p className="text-xs text-green-500 font-semibold mt-0.5">All sets complete!</p>
           )}
         </div>
         <div className="flex items-center gap-2 overflow-visible">
@@ -1255,7 +1304,13 @@ export default function DailyPage() {
           ) : (
             <>
               <div className="flex justify-between text-xs font-semibold text-[var(--text-muted)] mb-2">
-                <span>{todayInfo.complete ? 'Completed!' : `${todayInfo.dayNumber}/${totalDays} days`}</span>
+                <span>
+                  {allSetsComplete
+                    ? 'All sets complete!'
+                    : activeExtensionPhase
+                      ? `Day ${globalTodayDayIdx + 1}/${grandTotalDays} · Set ${activeExtensionPhase.set}`
+                      : `${todayInfo.dayNumber ?? 0}/${grandTotalDays} days`}
+                </span>
                 <span className="text-indigo-600">{progressPct}%</span>
               </div>
               <div className="w-full h-3 bg-[var(--bg-muted)] rounded-full overflow-hidden">
@@ -1266,8 +1321,8 @@ export default function DailyPage() {
               </div>
               <div className="flex justify-between text-xs text-[var(--text-subtle)] mt-2">
                 <span>{fmtDate(plan.start_date)}</span>
-                <span>{todayInfo.daysLeft !== undefined ? `${todayInfo.daysLeft} days left` : ''}</span>
-                <span>{fmtDate(todayInfo.finishDate || '')}</span>
+                <span>{grandTotalDays - (globalTodayDayIdx + 1)} days left</span>
+                <span>{dayScheduledDate(plan.start_date, grandTotalDays - 1)}</span>
               </div>
             </>
           )}
@@ -1413,8 +1468,8 @@ export default function DailyPage() {
         </div>
       )}
 
-      {/* TODAY'S QUESTIONS — strict mode */}
-      {!todayInfo.pending && !todayInfo.complete && todayInfo.dayNumber && !isRandomMode && (
+      {/* TODAY'S QUESTIONS — strict mode (Set 1 only until all plan days done) */}
+      {!todayInfo.pending && !set1AllDaysComplete && !todayInfo.complete && todayInfo.dayNumber && !isRandomMode && (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-5 mb-4">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h2 className="min-w-0 font-bold text-[var(--text)] text-sm flex items-center gap-2">
@@ -1636,7 +1691,7 @@ export default function DailyPage() {
       )}
 
       {/* COMPLETE — only shown when all three sets are done */}
-      {todayInfo.complete && extensionSet === null && (
+      {allSetsComplete && (
         <div className="bg-green-50  border border-green-200  rounded-xl p-5 mb-4 text-center">
           <div className="text-4xl mb-2">🏆</div>
           <p className="font-bold text-green-700">
@@ -1653,13 +1708,13 @@ export default function DailyPage() {
         </div>
       )}
 
-      {/* EXTENSION: Set 2/3 daily questions after Set 1 plan is complete */}
-      {todayInfo.complete && extensionSet !== null && (
+      {/* EXTENSION: Set 2/3 daily questions after Set 1 plan days are complete */}
+      {activeExtensionPhase && extensionSet !== null && (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-5 mb-4">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h2 className="font-bold text-[var(--text)] text-sm flex items-center gap-2">
               <CalendarCheck size={15} className={extensionSet === 2 ? 'text-emerald-500' : 'text-purple-500'} />
-              Set {extensionSet} — Today
+              Set {extensionSet} — Day {globalTodayDayIdx + 1}
               <span className="text-xs font-normal text-[var(--text-subtle)]">· {fmtDate(todayISO())}</span>
             </h2>
             <span className={`shrink-0 text-[11px] font-bold px-2 py-1 rounded-full ${
@@ -1731,10 +1786,13 @@ export default function DailyPage() {
       )}
 
       {/* UPCOMING DAYS PREVIEW */}
-      {!isRandomMode && !todayInfo.pending && !todayInfo.complete && futureDayCount > 0 && previewDayInfo && (
+      {!isRandomMode && !todayInfo.pending && !allSetsComplete && futureDayCount > 0 && previewScheduleDay && previewQuestions.length > 0 && (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-5 mb-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-[var(--text)] text-sm">Upcoming Days</h2>
+            <div>
+              <h2 className="font-bold text-[var(--text)] text-sm">Upcoming Days</h2>
+              <p className="text-[10px] text-[var(--text-subtle)] mt-0.5">{previewSetLabel}</p>
+            </div>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
@@ -1745,7 +1803,7 @@ export default function DailyPage() {
                 <ChevronLeft size={14} />
               </button>
               <span className="text-xs font-mono text-[var(--text-subtle)] min-w-[90px] text-center">
-                Day {previewDayIdx + 1} · {dayScheduledDate(plan.start_date, previewDayIdx)}
+                Day {previewGlobalDayIdx + 1} · {dayScheduledDate(plan.start_date, previewGlobalDayIdx)}
               </span>
               <button
                 type="button"
@@ -1758,13 +1816,23 @@ export default function DailyPage() {
             </div>
           </div>
           <div className="space-y-1.5">
-            {previewDayInfo.questions.map((q, idx) => {
-              const learned = isLearned(q.id)
-              const pTopic  = topicMap[q.id] ?? 'Other'
-              const curPri  = PATTERN_PRIORITY[pTopic] ?? null
-              const prev    = idx > 0 ? previewDayInfo.questions[idx - 1] : null
-              const prevPri = prev ? (PATTERN_PRIORITY[topicMap[prev.id] ?? ''] ?? null) : null
+            {previewQuestions.map((q, idx) => {
+              const learned = previewScheduleDay.kind === 'set1'
+                ? isLearned(q.id)
+                : !!activeExtensionPhase?.progress[String(q.id)]?.solved
+              const pTopic  = previewScheduleDay.kind === 'set1'
+                ? (topicMap[q.id] ?? 'Other')
+                : null
+              const curPri  = pTopic ? (PATTERN_PRIORITY[pTopic] ?? null) : null
+              const prev    = idx > 0 ? previewQuestions[idx - 1] : null
+              const prevTopic = prev && previewScheduleDay.kind === 'set1'
+                ? (topicMap[prev.id] ?? 'Other')
+                : null
+              const prevPri = prevTopic ? (PATTERN_PRIORITY[prevTopic] ?? null) : null
               const showRound = curPri && isNewRound(curPri, q.difficulty, prevPri, prev?.difficulty)
+              const learnHref = previewScheduleDay.kind === 'extension'
+                ? `${previewScheduleDay.phase.set === 2 ? '/learn2' : '/learn3'}/${Math.max(0, previewScheduleDay.phase.questions.findIndex(x => x.id === q.id))}`
+                : `/practice/${q.id}`
               return (
                 <div key={q.id}>
                   {showRound && <StudyRoundHeader priority={curPri!} difficulty={q.difficulty} className="py-1" />}
@@ -1775,11 +1843,11 @@ export default function DailyPage() {
                     }
                     <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
                     <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-                      <Link href={`/practice/${q.id}`} className="text-sm text-[var(--text)] hover:text-indigo-500 truncate">
+                      <Link href={learnHref} className="text-sm text-[var(--text)] hover:text-indigo-500 truncate">
                         {q.title}
                       </Link>
                       {learned && (
-                        <span className="text-[10px] font-semibold text-indigo-500 shrink-0">Learn ✓</span>
+                        <span className="text-[10px] font-semibold text-indigo-500 shrink-0">Solved ✓</span>
                       )}
                     </div>
                     <a
@@ -1792,7 +1860,7 @@ export default function DailyPage() {
                       <ExternalLink size={11} />
                     </a>
                     <DifficultyBadge difficulty={q.difficulty} />
-                    {curPri && <PriorityBadge pattern={pTopic} />}
+                    {pTopic && curPri && <PriorityBadge pattern={pTopic} />}
                   </div>
                 </div>
               )
