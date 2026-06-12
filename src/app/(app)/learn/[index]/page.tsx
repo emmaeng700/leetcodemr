@@ -1017,7 +1017,7 @@ function LearnInner() {
   return (
     <>
     <LearnSetTabs activeSet={1} />
-    <div className="flex min-h-0 flex-col md:h-[calc(100dvh-56px)]">
+    <div className="flex min-h-0 flex-col md:h-[calc(100dvh-138px)]">
 
       {/* ── Study mode modal ── */}
       {studyMode === null && (
@@ -1423,10 +1423,10 @@ function LearnInner() {
           </button>
         </div>
         <MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} />
-        <div className="relative z-0 flex flex-col md:flex-row min-h-0 flex-1 overflow-visible md:overflow-hidden">
+        <div className="relative z-0 flex flex-col min-h-0 flex-1 overflow-hidden">
 
           {/* ── Content panel (all non-editor tabs) ── */}
-          <div className={`${mobilePanel === 'content' ? 'flex' : 'hidden'} md:flex relative z-10 flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-visible md:overflow-hidden text-[var(--text)] border-r border-[var(--border)]`}>
+          <div className={`${mobilePanel === 'content' ? 'flex' : 'hidden'} md:flex relative z-10 flex-col w-full md:shrink-0 md:h-1/3 bg-[var(--bg-card)] overflow-hidden text-[var(--text)] border-b border-[var(--border)]`}>
 
             {/* Panel content */}
             <div className="flex-1 overflow-visible md:overflow-y-auto">
@@ -1563,7 +1563,7 @@ function LearnInner() {
           </div>
 
           {/* ── Editor panel ── */}
-          <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-col w-full md:w-[58%] flex-1 min-h-[50dvh] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0`}>
+          <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-col w-full flex-1 min-h-[50dvh] md:min-h-0 overflow-hidden border-t border-[var(--border)]`}>
             <LeetCodeEditor
               appQuestionId={q.id}
               slug={q.slug}
