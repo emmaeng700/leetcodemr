@@ -748,7 +748,7 @@ export default function SetLearnContent({ set, index }: Props) {
   )
 
   return (
-    <div className="flex min-h-0 flex-col md:h-[calc(100dvh-56px)]">
+    <div className="flex min-h-0 flex-col md:h-[calc(100dvh-162px)]">
       <LearnSetTabs activeSet={set} />
 
       {/* ── Study mode modal ── */}
@@ -1289,7 +1289,7 @@ export default function SetLearnContent({ set, index }: Props) {
             </div>
 
             {/* ── Editor panel ── */}
-            <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-col w-full md:w-[58%] flex-1 min-h-[50dvh] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0`}>
+            <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-col w-full md:w-[58%] flex-1 min-h-[50dvh] md:min-h-0 overflow-x-hidden border-t border-[var(--border)] md:border-t-0`}>
               <LeetCodeEditor
                 appQuestionId={q.id}
                 slug={q.slug}
