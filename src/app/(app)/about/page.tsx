@@ -2,7 +2,7 @@
 import {
   BookOpen, CheckCircle, Layers, BarChart2, MessageSquare, Gem,
   Server, Calendar, Code2, Brain, Zap, Timer, Map, GraduationCap, BookMarked, Trophy,
-  Gamepad2, Gauge, Headphones, RefreshCw, ListChecks, Star, MessageCircle, ArrowUpCircle,
+  Gamepad2, Headphones, RefreshCw, ListChecks, Star, MessageCircle, ArrowUpCircle,
 } from 'lucide-react'
 
 const FEATURES = [
@@ -100,13 +100,13 @@ const FEATURES = [
     icon: Calendar,
     color: 'text-orange-400',
     label: 'Daily Study Plan (LeetCode Police)',
-    desc: "Generate a locked daily plan across all 331 questions ordered Easy to Hard. Set questions per day, start date, and a lock code to hold yourself accountable. Tracks today's progress, past day history (last 14 days), and unlocks sneak-peek bonus days once today is done. Daily email at 8 AM CT includes today's questions and any spaced repetition reviews due.",
+    desc: "Generate a locked daily plan across all 331 questions ordered Easy to Hard, then continue into Set 2 and Set 3 when the plan ends. Set questions per day, start date, and a lock code to hold yourself accountable. Tracks today's progress, upcoming days preview, past day history (last 14 days), and unlocks sneak-peek bonus days once today is done. Daily email at 8 AM CT includes today's questions and any spaced repetition reviews due.",
   },
   {
-    icon: Gauge,
+    icon: RefreshCw,
     color: 'text-amber-500',
-    label: 'Speedster',
-    desc: 'Browse your full daily-plan question list by day and open any problem in plan order. Includes an inline flashcard deck (same order as the plan) for quick question/solution review. Practice here does not mark questions solved -- use it for extra passes without affecting progress.',
+    label: 'Cycles',
+    desc: 'Create custom question ranges (or use priority × difficulty presets) and grind them in Learn with lap tracking. Jump ahead of your daily plan without changing solved progress. Set 2 and Set 3 have their own cycle pages under Learn 2 / Learn 3.',
   },
   {
     icon: ArrowUpCircle,

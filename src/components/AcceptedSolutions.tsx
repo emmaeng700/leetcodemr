@@ -135,7 +135,7 @@ export default function AcceptedSolutions({
   onSelect: (id: string, lang: string) => void
   onCopy: () => void
   onBack: () => void
-  /** `dark` for LeetCode workspace; `light` for Practice / Learn / Speedster (solid white panel). */
+  /** `dark` for LeetCode workspace; `light` for Practice / Learn (solid white panel). */
   surface?: 'light' | 'dark'
 }) {
   const codeRef = useRef<HTMLElement>(null)

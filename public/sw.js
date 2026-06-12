@@ -60,7 +60,8 @@ const OFFLINE_HTML = `<!DOCTYPE html>
     <div class="grid">
       <a class="link" href="/">🏠 Questions</a>
       <a class="link" href="/flashcards">🃏 Flashcards</a>
-      <a class="link" href="/speedster">⚡ Speedster</a>
+      <a class="link" href="/daily">📅 Daily</a>
+      <a class="link" href="/cycles">🔄 Cycles</a>
       <a class="link" href="/behavioral">🎯 Behavioral</a>
       <a class="link" href="/system-design">🏗️ System Design</a>
       <a class="link" href="/dsa">📐 DSA</a>

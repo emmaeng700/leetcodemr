@@ -1,47 +1,59 @@
 'use client'
 import React, { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { getOpenQuestionContext } from '@/lib/openQuestionContext'
 import {
   Menu, X, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
-  Calendar, Info, Timer, Code2, Zap, Gauge, Gamepad2, RefreshCw, Library,
+  Calendar, Info, Timer, Code2, Zap, Gamepad2, RefreshCw, Library,
   BookOpen, Swords, Rocket, Download, Bookmark, ClipboardList, Settings, Check,
+  ChevronDown,
 } from 'lucide-react'
+import { isMcpSectionPath, mcpTabUrl, type McpTab } from '@/lib/mcpNav'
+import {
+  activeLearnSetFromPath,
+  isLearnSectionPath,
+  learnHubHref,
+  learnSetLabel,
+  type LearnSet,
+} from '@/lib/learnNav'
+
+type NavLink = { href: string; label: string; icon: React.ElementType; also?: string[] }
 
 // ── Starred (core daily-use pages) ───────────────────────────────────────────
-const STARRED_LINKS = [
+const STARRED_LINKS: NavLink[] = [
   { href: '/daily',  label: '★ Daily',   icon: Calendar },
   { href: '/review', label: '★ Reviews', icon: Brain,    also: ['/quick-review', '/sr-queue', '/pattern-review', '/best-solutions'] },
-  { href: '/learn',  label: '★ Learn',   icon: BookOpen, also: ['/cycles'] },
 ]
 
+const LEARN_CHILDREN: LearnSet[] = [1, 2, 3]
+
 // ── Secondary (practice & reference) ─────────────────────────────────────────
-const STUDY_LINKS = [
+const STUDY_LINKS: NavLink[] = [
   { href: '/',          label: 'Questions', icon: Home, also: ['/practice', '/question'] },
 ]
-const DRILL_LINKS = [
+const MCP_CHILDREN: { tab: McpTab; label: string; icon: React.ElementType }[] = [
+  { tab: 'mock',      label: 'Mock',      icon: Timer },
+  { tab: 'patterns',  label: 'Patterns',  icon: GitBranch },
+  { tab: 'clipboard', label: 'Clipboard', icon: ClipboardList },
+]
+
+const DRILL_LINKS: NavLink[] = [
   { href: '/flashcards', label: 'Flashcards', icon: Layers },
-  { href: '/speedster',  label: 'Speedster',  icon: Gauge },
   { href: '/cycles',     label: 'Cycles',     icon: RefreshCw },
-  { href: '/mock',       label: 'Mock',       icon: Timer },
-  { href: '/patterns',   label: 'Patterns',   icon: GitBranch },
-  { href: '/clipboard',  label: 'Clipboard',  icon: ClipboardList },
-  { href: '/learn2',     label: 'Learn 2',    icon: BookOpen },
-  { href: '/learn3',     label: 'Learn 3',    icon: BookOpen },
 ]
 const PRACTICE_LINKS = [...STUDY_LINKS, ...DRILL_LINKS]
 
-const SITES_LINKS = [
+const SITES_LINKS: NavLink[] = [
   { href: '/sites', label: 'Sites', icon: Zap, also: ['/neetcode', '/leetcode-api', '/answers'] },
 ]
 
 // Behavioral, System Design, Gems, DSA → merged under /resources
-const TOPIC_LINKS = [
+const TOPIC_LINKS: NavLink[] = [
   { href: '/resources', label: 'Resources', icon: Server, also: ['/behavioral', '/system-design', '/gems', '/dsa', '/downloads'] },
 ]
-const META_LINKS = [
+const META_LINKS: NavLink[] = [
   { href: '/stats',    label: 'Stats',    icon: BarChart2 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
@@ -60,6 +72,101 @@ function buildAnswersNavHref(): string {
   if (!ctx) return '/answers'
   const t = ctx.title ? `&title=${encodeURIComponent(ctx.title)}` : ''
   return `/answers?id=${ctx.id}&slug=${encodeURIComponent(ctx.slug)}${t}`
+}
+
+function navLinkClass(active: boolean) {
+  return `px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-150 whitespace-nowrap ${
+    active
+      ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-semibold shadow-[0_2px_10px_rgba(99,102,241,0.45),0_0_0_1px_rgba(124,58,237,0.4)]'
+      : 'text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-muted)] hover:shadow-sm'
+  }`
+}
+
+function LearnNavDropdown({ pathname }: { pathname: string }) {
+  const [open, setOpen] = useState(false)
+  const learnActive = isLearnSectionPath(pathname)
+  const activeSet = activeLearnSetFromPath(pathname)
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <Link href={learnHubHref(1)} className={`${navLinkClass(learnActive)} inline-flex items-center gap-1`}>
+        ★ Learn
+        <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </Link>
+      {open && (
+        <div className="absolute top-full left-0 pt-1.5 z-[110] min-w-[9rem]">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_8px_30px_rgba(0,0,0,0.12)] py-1 overflow-hidden">
+            {LEARN_CHILDREN.map(set => {
+              const childActive = learnActive && activeSet === set
+              return (
+                <Link
+                  key={set}
+                  href={learnHubHref(set)}
+                  className={`flex items-center gap-2.5 px-3 py-2 text-sm font-medium transition-colors ${
+                    childActive
+                      ? 'bg-indigo-50 text-indigo-600'
+                      : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
+                  }`}
+                >
+                  <BookOpen size={14} className="shrink-0" />
+                  {learnSetLabel(set)}
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function McpNavDropdown({ pathname }: { pathname: string }) {
+  const searchParams = useSearchParams()
+  const [open, setOpen] = useState(false)
+  const mcpActive = isMcpSectionPath(pathname)
+  const activeTab = pathname.startsWith('/mcp')
+    ? (searchParams.get('tab') as McpTab | null)
+    : null
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <Link href="/mcp" className={`${navLinkClass(mcpActive)} inline-flex items-center gap-1`}>
+        MCP
+        <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </Link>
+      {open && (
+        <div className="absolute top-full left-0 pt-1.5 z-[110] min-w-[11rem]">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_8px_30px_rgba(0,0,0,0.12)] py-1 overflow-hidden">
+            {MCP_CHILDREN.map(({ tab, label, icon: Icon }) => {
+              const childActive = mcpActive && (activeTab === tab || (!activeTab && tab === 'mock' && pathname === '/mcp'))
+              return (
+                <Link
+                  key={tab}
+                  href={mcpTabUrl(tab)}
+                  className={`flex items-center gap-2.5 px-3 py-2 text-sm font-medium transition-colors ${
+                    childActive
+                      ? 'bg-indigo-50 text-indigo-600'
+                      : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
+                  }`}
+                >
+                  <Icon size={14} className="shrink-0" />
+                  {label}
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function Navbar() {
@@ -146,12 +253,51 @@ export default function Navbar() {
 
         {/* ── Desktop Nav ────────────────────────────────────────── */}
         <div className="hidden md:flex flex-wrap items-center gap-1 pb-2.5">
-          {[STARRED_LINKS, STUDY_LINKS, DRILL_LINKS, SITES_LINKS, TOPIC_LINKS, META_LINKS].map((group, gi) => (
-            <React.Fragment key={gi}>
+          {[
+            { key: 'starred', links: STARRED_LINKS },
+            { key: 'study', links: STUDY_LINKS },
+            { key: 'drill', links: DRILL_LINKS },
+            { key: 'sites', links: SITES_LINKS },
+            { key: 'topics', links: TOPIC_LINKS },
+            { key: 'meta', links: META_LINKS },
+          ].map((section, gi) => (
+            <React.Fragment key={section.key}>
               {gi > 0 && (
                 <span className="w-px h-4 mx-1.5 shrink-0 rounded-full" style={{ background: 'var(--border)' }} />
               )}
-              {group.map(({ href, label, also }: { href: string; label: string; icon: React.ElementType; also?: string[] }) => {
+              {section.key === 'starred' && (
+                <>
+                  {section.links.map(({ href, label, also }) => {
+                    const base = href === '/' ? '/' : '/' + href.split('/')[1]
+                    const active = (href === '/' ? pathname === '/' : pathname.startsWith(base))
+                      || (also ?? []).some(p => pathname.startsWith(p))
+                    return (
+                      <Link key={href} href={href} className={navLinkClass(active)}>{label}</Link>
+                    )
+                  })}
+                  <LearnNavDropdown pathname={pathname} />
+                </>
+              )}
+              {section.key === 'drill' && (
+                <>
+                  {section.links.slice(0, 2).map(({ href, label }) => {
+                    const base = '/' + href.split('/')[1]
+                    const active = pathname.startsWith(base)
+                    return (
+                      <Link key={href} href={href} className={navLinkClass(active)}>{label}</Link>
+                    )
+                  })}
+                  <McpNavDropdown pathname={pathname} />
+                  {section.links.slice(2).map(({ href, label }) => {
+                    const base = '/' + href.split('/')[1]
+                    const active = pathname.startsWith(base)
+                    return (
+                      <Link key={href} href={href} className={navLinkClass(active)}>{label}</Link>
+                    )
+                  })}
+                </>
+              )}
+              {section.key !== 'drill' && section.key !== 'starred' && section.links.map(({ href, label, also }) => {
                 const base = href === '/' ? '/' : '/' + href.split('/')[1]
                 const active = (href === '/' ? pathname === '/' : pathname.startsWith(base))
                   || (also ?? []).some(p => pathname.startsWith(p))
@@ -159,11 +305,7 @@ export default function Navbar() {
                   <Link
                     key={href}
                     href={href === '/answers' ? answersNavHref : href}
-                    className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-150 whitespace-nowrap ${
-                      active
-                        ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-semibold shadow-[0_2px_10px_rgba(99,102,241,0.45),0_0_0_1px_rgba(124,58,237,0.4)]'
-                        : 'text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-muted)] hover:shadow-sm'
-                    }`}
+                    className={navLinkClass(active)}
                   >
                     {label}
                   </Link>
@@ -200,7 +342,92 @@ export default function Navbar() {
                   <p className="text-[10px] font-black text-[var(--text-subtle)] uppercase tracking-widest">{label}</p>
                 </div>
 
-                {group.map(({ href, label: lnk, icon: Icon, also }: { href: string; label: string; icon: React.ElementType; also?: string[] }) => {
+                {group === STARRED_LINKS && (
+                  <>
+                    {group.map(({ href, label: lnk, icon: Icon, also }) => {
+                      const base = '/' + href.split('/')[1]
+                      const active = pathname.startsWith(base) || (also ?? []).some(p => pathname.startsWith(p))
+                      return (
+                        <Link key={href} href={href} onClick={() => setOpen(false)}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                            active ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
+                          }`}>
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${active ? 'bg-indigo-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)]'}`}>
+                            <Icon size={14} />
+                          </div>
+                          {lnk}
+                        </Link>
+                      )
+                    })}
+                    <Link href={learnHubHref(1)} onClick={() => setOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                        isLearnSectionPath(pathname) ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
+                      }`}>
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isLearnSectionPath(pathname) ? 'bg-indigo-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)]'}`}>
+                        <BookOpen size={14} />
+                      </div>
+                      ★ Learn
+                    </Link>
+                    {LEARN_CHILDREN.map(set => (
+                      <Link key={set} href={learnHubHref(set)} onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 pl-8 pr-3 py-2 rounded-xl text-sm text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]">
+                        <BookOpen size={13} className="shrink-0 text-[var(--text-subtle)]" />
+                        {learnSetLabel(set)}
+                      </Link>
+                    ))}
+                  </>
+                )}
+                {group === DRILL_LINKS && (
+                  <>
+                    {group.slice(0, 2).map(({ href, label: lnk, icon: Icon }) => {
+                      const base = '/' + href.split('/')[1]
+                      const active = pathname.startsWith(base)
+                      return (
+                        <Link key={href} href={href} onClick={() => setOpen(false)}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                            active ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
+                          }`}>
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${active ? 'bg-indigo-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)]'}`}>
+                            <Icon size={14} />
+                          </div>
+                          {lnk}
+                        </Link>
+                      )
+                    })}
+                    <Link href="/mcp" onClick={() => setOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                        isMcpSectionPath(pathname) ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
+                      }`}>
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isMcpSectionPath(pathname) ? 'bg-indigo-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)]'}`}>
+                        <Timer size={14} />
+                      </div>
+                      MCP
+                    </Link>
+                    {MCP_CHILDREN.map(({ tab, label, icon: Icon }) => (
+                      <Link key={tab} href={mcpTabUrl(tab)} onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 pl-8 pr-3 py-2 rounded-xl text-sm text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]">
+                        <Icon size={13} className="shrink-0 text-[var(--text-subtle)]" />
+                        {label}
+                      </Link>
+                    ))}
+                    {group.slice(2).map(({ href, label: lnk, icon: Icon }) => {
+                      const base = '/' + href.split('/')[1]
+                      const active = pathname.startsWith(base)
+                      return (
+                        <Link key={href} href={href} onClick={() => setOpen(false)}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                            active ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
+                          }`}>
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${active ? 'bg-indigo-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)]'}`}>
+                            <Icon size={14} />
+                          </div>
+                          {lnk}
+                        </Link>
+                      )
+                    })}
+                  </>
+                )}
+                {group !== DRILL_LINKS && group !== STARRED_LINKS && group.map(({ href, label: lnk, icon: Icon, also }) => {
                   const base = href === '/' ? '/' : '/' + href.split('/')[1]
                   const active = (href === '/' ? pathname === '/' : pathname.startsWith(base))
                     || (also ?? []).some(p => pathname.startsWith(p))

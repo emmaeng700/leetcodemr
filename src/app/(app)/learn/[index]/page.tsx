@@ -22,6 +22,7 @@ import PriorityBadge from '@/components/PriorityBadge'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
+import LearnSetTabs from '@/components/LearnSetTabs'
 
 interface Question {
   id: number
@@ -934,6 +935,7 @@ function LearnInner() {
 
   return (
     <>
+    <LearnSetTabs activeSet={1} />
     <div className="flex min-h-[calc(100dvh-56px)] flex-col md:h-[calc(100dvh-56px)]">
 
       {/* ── Study mode modal ── */}

@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { isMcpPath, mcpTabUrl } from '@/lib/mcpNav'
 import {
   ChevronDown, ChevronRight, ChevronLeft, Shuffle, RotateCcw,
   CheckCircle, Circle, List, Layers, ExternalLink,
@@ -362,6 +363,7 @@ function PatternsSetTabBar({ set, setSet }: { set: 1|2|3; setSet: (s: 1|2|3) => 
 
 function PatternsHub() {
   const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const [set, setSet] = useState<1|2|3>(() => {
     const s = parseInt(searchParams.get('set') ?? '1', 10)
@@ -369,7 +371,10 @@ function PatternsHub() {
   })
   const pickSet = (s: 1 | 2 | 3) => {
     setSet(s)
-    router.replace(`/patterns?set=${s}`, { scroll: false })
+    router.replace(
+      isMcpPath(pathname) ? mcpTabUrl('patterns', { set: s }) : `/patterns?set=${s}`,
+      { scroll: false },
+    )
   }
   return (
     <>

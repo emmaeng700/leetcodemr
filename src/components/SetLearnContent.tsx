@@ -19,10 +19,12 @@ import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import StudyRoundHeader, { isNewRound } from '@/components/StudyRoundHeader'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
+import { QuestionCountHighlight, SetExclusiveCountLabel } from '@/components/QuestionCountHighlight'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import { stripScripts, resolveLeetCodeSlug, leetCodeUrl, formatLocalDate } from '@/lib/utils'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
+import LearnSetTabs from '@/components/LearnSetTabs'
 
 interface Props { set: 2 | 3; index: number }
 
@@ -683,6 +685,8 @@ export default function SetLearnContent({ set, index }: Props) {
     </div>
   )
 
+  const exclusiveCountMeta = SetExclusiveCountLabel(set, allQuestions.length)
+
   if (loading) return (
     <div className="flex min-h-[calc(100dvh-56px)] items-center justify-center gap-2 text-[var(--text-subtle)] text-sm">
       <Loader2 size={15} className="animate-spin" /> Loading…
@@ -691,6 +695,7 @@ export default function SetLearnContent({ set, index }: Props) {
 
   return (
     <div className="flex min-h-[calc(100dvh-56px)] flex-col md:h-[calc(100dvh-56px)]">
+      <LearnSetTabs activeSet={set} />
 
       {/* ── Study mode modal ── */}
       {studyMode === null && (
@@ -907,6 +912,19 @@ export default function SetLearnContent({ set, index }: Props) {
           </>
         )}
       </div>
+
+      {!loading && allQuestions.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50/80 shrink-0">
+          <QuestionCountHighlight
+            value={exclusiveCountMeta.value}
+            label={exclusiveCountMeta.label}
+            variant="exclusive"
+          />
+          <span className="text-[11px] text-gray-500">
+            Learn {set} · {set === 2 ? 'from NeetCode 150' : 'from AlgoMaster 600'}
+          </span>
+        </div>
+      )}
 
       {/* ── Filter panel ── */}
       {showFilters && (

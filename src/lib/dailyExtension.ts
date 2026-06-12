@@ -171,7 +171,7 @@ export type CombinedScheduleDay = {
   set: 1 | 2 | 3
 }
 
-/** Build per-day buckets for Speedster / timeline UIs (Set 1 then extension phases). */
+/** Build per-day buckets for Daily / timeline UIs (Set 1 then extension phases). */
 export function buildCombinedScheduleDays(
   planOrder: number[],
   perDay: number,

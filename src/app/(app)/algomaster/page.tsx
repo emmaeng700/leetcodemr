@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { CheckCircle, Circle, ChevronDown, ChevronUp, Search, ExternalLink } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
 import { ALGOMASTER_600, type AM600Category } from '@/lib/algomaster600'
+import { AM600_TOTAL, countAm600NotInSet1, getSet3Questions } from '@/lib/questionSets'
+import { QuestionCountHighlight } from '@/components/QuestionCountHighlight'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,7 +13,7 @@ const supabase = createClient(
 )
 const USER_ID = 'emmanuel'
 
-const TOTAL = ALGOMASTER_600.reduce((acc, cat) => acc + cat.questions.length, 0)
+const TOTAL = AM600_TOTAL
 
 function questionHref(id: number, slug: string, libraryIds: Set<number>): string {
   if (libraryIds.has(id)) return `/practice/${id}`
@@ -92,6 +94,15 @@ export default function AlgoMaster600Page() {
   const medTotal   = useMemo(() => allQuestions.filter(q => q.difficulty === 'Medium').length, [allQuestions])
   const hardTotal  = useMemo(() => allQuestions.filter(q => q.difficulty === 'Hard').length, [allQuestions])
 
+  const notIn331Count = useMemo(
+    () => (libraryIds.size > 0 ? countAm600NotInSet1(libraryIds) : 0),
+    [libraryIds],
+  )
+  const learn3ExclusiveCount = useMemo(
+    () => (libraryIds.size > 0 ? getSet3Questions(libraryIds).length : 0),
+    [libraryIds],
+  )
+
   const filteredCategories = useMemo((): AM600Category[] => {
     const q = search.trim().toLowerCase()
     return ALGOMASTER_600.map(cat => ({
@@ -118,11 +129,33 @@ export default function AlgoMaster600Page() {
 
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
             <span className="text-2xl">🧠</span>
             <h1 className="text-xl font-bold text-gray-100">AlgoMaster 600</h1>
+            <QuestionCountHighlight
+              value={TOTAL}
+              label="in catalog"
+              variant="total"
+              className="!text-gray-200 !border-gray-600"
+            />
           </div>
-          <p className="text-xs text-gray-500">600 curated DSA pattern questions from AlgoMaster — track your progress below</p>
+          <p className="text-xs text-gray-500 mb-2">600 curated DSA pattern questions from AlgoMaster — track your progress below</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {notIn331Count > 0 && (
+              <QuestionCountHighlight
+                value={notIn331Count}
+                label="not in Set 1 (331)"
+                variant="notIn331"
+              />
+            )}
+            {learn3ExclusiveCount > 0 && (
+              <QuestionCountHighlight
+                value={learn3ExclusiveCount}
+                label="exclusive · Learn 3 pool (not in Set 1 or NC150)"
+                variant="exclusive"
+              />
+            )}
+          </div>
         </div>
 
         {/* Progress stats */}

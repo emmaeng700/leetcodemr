@@ -11,6 +11,7 @@ import {
   getSet2Questions, getSet3Questions, buildSetExclusiveMap,
   buildPriorityDifficultyPresets, type SetQuestion,
 } from '@/lib/questionSets'
+import { QuestionCountHighlight, SetExclusiveCountLabel } from '@/components/QuestionCountHighlight'
 
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
@@ -155,8 +156,19 @@ export default function SetCyclesPage({ set }: Props) {
     </div>
   )
 
+  const exclusiveMeta = SetExclusiveCountLabel(set, questions.length)
+
   return (
     <div className="max-w-xl mx-auto px-4 py-6">
+      {questions.length > 0 && (
+        <div className="mb-4">
+          <QuestionCountHighlight
+            value={exclusiveMeta.value}
+            label={exclusiveMeta.label}
+            variant="exclusive"
+          />
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">

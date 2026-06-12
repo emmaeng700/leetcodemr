@@ -11,7 +11,7 @@ A [Next.js](https://nextjs.org) app for **LeetCode-style interview prep**: curat
 ## Features
 
 - **Questions** — Filter by difficulty, tags, and curated lists (e.g. Grind 169, Denny Zhang, Premium 98, CodeSignal); track solved, starred, notes, and streaks
-- **Practice** — Daily practice, Speedster, structured Learn paths, mock interviews
+- **Practice** — Daily plan, Cycles, structured Learn paths, mock interviews
 - **LeetCode** — API routes to connect session and run/submit/check solutions
 - **Study** — Flashcards, quick review, Gems, DSA tutorials and reference
 - **Interview prep** — Behavioral and system design sections

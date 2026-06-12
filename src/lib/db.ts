@@ -1641,53 +1641,6 @@ export async function saveCycleState(state: CycleState | null): Promise<void> {
   }
 }
 
-// ─── Speedster Runs (isolated — never marks questions as solved) ──────────────
-
-export async function getSpeedsterRuns(): Promise<Record<string, number>> {
-  const { data, error } = await supabase
-    .from('speedster_runs')
-    .select('question_id,run_count')
-    .eq('user_id', USER_ID)
-  if (error) {
-    if (isMissingTableError(error.message) || isFetchTransportError(error.message)) return {}
-    console.error('[db] getSpeedsterRuns:', error.message)
-    return {}
-  }
-  const out: Record<string, number> = {}
-  for (const row of data ?? []) {
-    const r = row as Record<string, unknown>
-    out[String(r.question_id)] = Number(r.run_count ?? 0)
-  }
-  return out
-}
-
-export async function addSpeedsterRunEvent(questionId: number): Promise<{ ok: boolean }> {
-  // Read current count, then upsert with +1
-  const { data: existing } = await supabase
-    .from('speedster_runs')
-    .select('run_count')
-    .eq('user_id', USER_ID)
-    .eq('question_id', questionId)
-    .maybeSingle()
-
-  const next = ((existing as Record<string, unknown> | null)?.run_count as number ?? 0) + 1
-  const { error } = await supabase
-    .from('speedster_runs')
-    .upsert({
-      user_id: USER_ID,
-      question_id: questionId,
-      run_count: next,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id,question_id' })
-
-  if (error) {
-    if (isMissingTableError(error.message)) return { ok: false }
-    console.error('[db] addSpeedsterRunEvent:', error.message)
-    return { ok: false }
-  }
-  return { ok: true }
-}
-
 // ─── Pattern FC Visited ───────────────────────────────────────────────────────
 export async function getPatternFcVisited(): Promise<Set<number>> {
   const { data } = await supabase

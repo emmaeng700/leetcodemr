@@ -1,25 +1,36 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, ExternalLink, CheckCircle, Circle, Star, RotateCcw } from 'lucide-react'
-import { getSetProgress, updateSetQProgress, type SetQProgress } from '@/lib/setProgress'
+import { ChevronLeft, ChevronRight, Shuffle, RotateCcw, Layers, CheckCircle, Circle, Code2 } from 'lucide-react'
+import { getFcVisited, addFcVisited } from '@/lib/db'
+import { getSetProgress, type SetQProgress } from '@/lib/setProgress'
 import { getSet2Questions, getSet3Questions, type SetQuestion } from '@/lib/questionSets'
+import { learnHrefForSetQuestion } from '@/lib/dailyExtension'
+import { shuffle, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
+import { DIFFICULTY_LEVELS, DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
-import { resolveLeetCodeSlug, stripScripts, leetCodeUrl } from '@/lib/utils'
+import PriorityBadge from '@/components/PriorityBadge'
+import QuestionImage from '@/components/QuestionImage'
+import BestAnswersDeck from '@/components/BestAnswersDeck'
 
 interface Props { set: 2 | 3 }
 
-type DiffFilter = 'All' | 'Easy' | 'Medium' | 'Hard'
-
 export default function SetFlashcardsTab({ set }: Props) {
   const [allQuestions, setAllQuestions] = useState<SetQuestion[]>([])
+  const [set2Questions, setSet2Questions] = useState<SetQuestion[]>([])
+  const [set3Questions, setSet3Questions] = useState<SetQuestion[]>([])
   const [progress, setProgress] = useState<Record<string, SetQProgress>>({})
   const [loading, setLoading] = useState(true)
   const [flipped, setFlipped] = useState(false)
   const [fading, setFading] = useState(false)
   const [idx, setIdx] = useState(0)
-  const [diffFilter, setDiffFilter] = useState<DiffFilter>('All')
-  const [catFilter, setCatFilter] = useState<string>('All')
+  const [filterDiff, setFilterDiff] = useState('All')
+  const [filterPattern, setFilterPattern] = useState<string | null>(null)
+  const [isShuffled, setIsShuffled] = useState(false)
+  const [visited, setVisited] = useState<Set<number>>(new Set())
+  const [sessionSeen, setSessionSeen] = useState<Set<number>>(new Set())
+  const filterNavKeyRef = useRef<string | null>(null)
 
   const [lcContent, setLcContent] = useState<string | null>(null)
   const [lcLoading, setLcLoading] = useState(false)
@@ -27,29 +38,61 @@ export default function SetFlashcardsTab({ set }: Props) {
   const [cardExpanded, setCardExpanded] = useState(false)
   const lcCacheRef = useRef<Record<string, string>>({})
 
+  const exclusiveMapAll = useMemo(() => buildExclusivePatternMap(allQuestions), [allQuestions])
+  const sortedPatterns = useMemo(
+    () => (QUICK_PATTERNS as unknown as { name: string; tags: readonly string[] }[])
+      .slice()
+      .sort((a, b) =>
+        DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
+        DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
+      ),
+    []
+  )
+
   useEffect(() => {
     async function load() {
-      const main = await fetch('/questions_full.json').then(r => r.json())
+      const [main, vis] = await Promise.all([
+        fetch('/questions_full.json').then(r => r.json()),
+        getFcVisited(),
+      ])
       const mainIds = new Set((main as { id: number }[]).map(q => q.id))
-      const qs = set === 2 ? getSet2Questions(mainIds) : getSet3Questions(mainIds)
-      setAllQuestions(qs)
+      const s2 = getSet2Questions(mainIds, main)
+      const s3 = getSet3Questions(mainIds, main)
+      setSet2Questions(s2)
+      setSet3Questions(s3)
+      setAllQuestions(set === 2 ? s2 : s3)
       setProgress(getSetProgress(set))
+      setVisited(vis)
       setLoading(false)
     }
     load()
   }, [set])
 
-  const categories = ['All', ...Array.from(new Set(allQuestions.map(q => q.category))).sort()]
+  const deck = useMemo(() => {
+    let filtered = allQuestions
+    if (filterDiff !== 'All') filtered = filtered.filter(q => q.difficulty === filterDiff)
+    if (filterPattern) filtered = filtered.filter(q => exclusiveMapAll[q.id] === filterPattern)
+    if (isShuffled) return shuffle(filtered)
+    return filtered
+  }, [allQuestions, filterDiff, filterPattern, isShuffled, exclusiveMapAll])
 
-  const deck = allQuestions.filter(q => {
-    if (diffFilter !== 'All' && q.difficulty !== diffFilter) return false
-    if (catFilter !== 'All' && q.category !== catFilter) return false
-    return true
-  })
+  useEffect(() => {
+    const navKey = `${filterDiff}|${filterPattern}|${isShuffled}|${allQuestions.length}`
+    if (filterNavKeyRef.current !== navKey) {
+      filterNavKeyRef.current = navKey
+      setIdx(0)
+      setFlipped(false)
+    } else {
+      setIdx(i => Math.min(i, Math.max(0, deck.length - 1)))
+    }
+  }, [deck.length, filterDiff, filterPattern, isShuffled, allQuestions.length])
 
   const q = deck[idx] ?? null
 
-  // Reset LC description when card changes
+  useEffect(() => {
+    if (q?.id != null) setSessionSeen(prev => new Set([...prev, q.id]))
+  }, [q?.id])
+
   useEffect(() => {
     if (!q?.slug) return
     const titleSlug = resolveLeetCodeSlug(q.id, q.slug)
@@ -58,7 +101,6 @@ export default function SetFlashcardsTab({ set }: Props) {
     setCardExpanded(false)
   }, [q?.id, q?.slug])
 
-  // Fetch live LeetCode description
   useEffect(() => {
     if (!q?.slug) return
     const titleSlug = resolveLeetCodeSlug(q.id, q.slug)
@@ -91,85 +133,128 @@ export default function SetFlashcardsTab({ set }: Props) {
     return () => { cancelled = true; ctrl.abort(); clearTimeout(timer) }
   }, [q?.id, q?.slug])
 
+  const patternAllQs = filterPattern
+    ? allQuestions.filter(q => exclusiveMapAll[q.id] === filterPattern)
+    : []
+  const patternSolvedCount = patternAllQs.filter(q => progress[String(q.id)]?.solved).length
+  const patternPct = patternAllQs.length ? Math.round((patternSolvedCount / patternAllQs.length) * 100) : 0
+
   const fadeSwap = useCallback((fn: () => void) => {
     setFading(true)
-    setTimeout(() => { fn(); setFading(false) }, 160)
+    setTimeout(() => { fn(); setFading(false) }, 180)
   }, [])
+
+  const handleFlip = useCallback(() => {
+    fadeSwap(() => setFlipped(f => !f))
+  }, [fadeSwap])
 
   const go = useCallback((dir: number) => {
     fadeSwap(() => { setFlipped(false); setIdx(i => Math.max(0, Math.min(deck.length - 1, i + dir))) })
   }, [deck.length, fadeSwap])
 
-  useEffect(() => { setIdx(0); setFlipped(false) }, [diffFilter, catFilter])
+  const reset = () => fadeSwap(() => { setIdx(0); setFlipped(false) })
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === 'INPUT') return
+      if ((e.target as HTMLElement)?.tagName === 'INPUT' || (e.target as HTMLElement)?.tagName === 'TEXTAREA') return
       if (e.key === 'ArrowRight') go(1)
       if (e.key === 'ArrowLeft') go(-1)
-      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setFlipped(f => !f) }
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); handleFlip() }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [go])
-
-  function toggleSolved(qId: number) {
-    const cur = progress[String(qId)]
-    const updated = updateSetQProgress(set, qId, { solved: !cur?.solved })
-    setProgress(prev => ({ ...prev, [String(qId)]: updated }))
-  }
-
-  function toggleStar(qId: number) {
-    const cur = progress[String(qId)]
-    const updated = updateSetQProgress(set, qId, { starred: !cur?.starred })
-    setProgress(prev => ({ ...prev, [String(qId)]: updated }))
-  }
+  }, [go, handleFlip])
 
   if (loading) return (
-    <div className="flex items-center justify-center h-48 text-[var(--text-subtle)] text-sm animate-pulse">
-      Loading flashcards…
-    </div>
+    <div className="text-center py-32 text-[var(--text-subtle)] animate-pulse text-sm">Loading flashcards...</div>
   )
 
-  const solvedCount = deck.filter(q => progress[String(q.id)]?.solved).length
-  const solutionBase = set === 2 ? '/neetcode' : '/algomaster'
-  const solutionLabel = set === 2 ? 'NeetCode' : 'AlgoMaster'
-  const solutionColor = set === 2 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-purple-600 hover:bg-purple-700'
-
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="font-black text-[var(--text)] text-base">Flashcards — Set {set}</h2>
-          <p className="text-xs text-[var(--text-subtle)] mt-0.5">
-            {deck.length === 0 ? '0 / 0' : `${idx + 1} / ${deck.length}`} · {solvedCount} solved · Tap card to flip
-          </p>
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="mb-6">
+        <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
+          <div>
+            <h1 className="text-2xl font-bold text-[var(--text)] flex items-center gap-2">
+              <Layers className="text-indigo-500" /> Flashcards — Set {set}
+            </h1>
+            <p className="text-xs text-[var(--text-subtle)] mt-0.5">
+              Tap card to flip · ← → to navigate · Space to flip
+            </p>
+          </div>
         </div>
-        <button onClick={() => { setIdx(0); setFlipped(false) }}
-          className="p-2 rounded-lg border border-[var(--border)] text-[var(--text-subtle)] hover:text-[var(--text)] transition-colors">
-          <RotateCcw size={14} />
-        </button>
+        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[var(--text-muted)]">
+          <span className="bg-indigo-50 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-full">
+            {deck.length === 0 ? '0 / 0' : `${idx + 1} / ${deck.length}`}
+          </span>
+          <span className="bg-green-50 text-green-600 border border-green-200 px-3 py-1.5 rounded-full flex items-center gap-1">
+            <CheckCircle size={11} /> {deck.filter(dq => visited.has(dq.id)).length}/{deck.length} visited
+          </span>
+          <button
+            onClick={() => setIsShuffled(s => !s)}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-full border transition-colors ${
+              isShuffled ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-400'
+            }`}
+          >
+            <Shuffle size={12} /> Shuffle
+          </button>
+          <button
+            onClick={reset}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full border bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:brightness-110 transition-colors"
+          >
+            <RotateCcw size={12} /> Reset
+          </button>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="space-y-2 mb-5">
-        <div className="flex flex-wrap gap-1.5">
-          {(['All', 'Easy', 'Medium', 'Hard'] as const).map(d => (
-            <button key={d} onClick={() => setDiffFilter(d)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                diffFilter === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-400'
+      {filterPattern && patternAllQs.length > 0 && (
+        <div className={`mb-4 flex items-center gap-3 rounded-xl border px-4 py-3 ${
+          patternPct === 100
+            ? 'bg-green-50 border-green-200'
+            : 'bg-violet-50 border-violet-200'
+        }`}>
+          <span className="text-xl shrink-0">🧩</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="text-xs font-bold text-[var(--text)]">{filterPattern}</span>
+              <span className={`text-xs font-bold ${patternPct === 100 ? 'text-green-500' : patternPct >= 50 ? 'text-indigo-400' : 'text-amber-500'}`}>
+                {patternSolvedCount}/{patternAllQs.length} solved ({patternPct}%)
+              </span>
+            </div>
+            <div className="h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${patternPct === 100 ? 'bg-green-500' : patternPct >= 50 ? 'bg-indigo-500' : 'bg-amber-500'}`}
+                style={{ width: patternPct + '%' }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-5 space-y-2">
+        <div className="flex flex-wrap gap-2">
+          {DIFFICULTY_LEVELS.map(d => (
+            <button key={d} onClick={() => setFilterDiff(d)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
+                filterDiff === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-indigo-400'
               }`}>
               {d}
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {categories.map(c => (
-            <button key={c} onClick={() => setCatFilter(c)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                catFilter === c ? 'bg-violet-600 text-white border-violet-600' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-violet-400'
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setFilterPattern(null)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
+              !filterPattern ? 'bg-cyan-700 text-white border-cyan-500' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:border-cyan-500/50'
+            }`}>
+            All Patterns
+          </button>
+          {sortedPatterns.map(p => (
+            <button key={p.name} onClick={() => setFilterPattern(filterPattern === p.name ? null : p.name)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shrink-0 ${
+                filterPattern === p.name ? 'bg-cyan-700 text-white border-cyan-500' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:border-cyan-500/50'
               }`}>
-              {c}
+              {p.name}
+              <PriorityBadge pattern={p.name} active={filterPattern === p.name} />
             </button>
           ))}
         </div>
@@ -182,12 +267,14 @@ export default function SetFlashcardsTab({ set }: Props) {
       {q && (
         <>
           <div className="flex items-center justify-between mb-3">
-            <button onClick={() => go(-1)}
-              className="flex items-center gap-1 px-4 py-2.5 rounded-xl bg-[var(--bg-muted)] border border-[var(--border)] text-sm font-semibold text-[var(--text-muted)] hover:border-indigo-400 transition-colors"
-              style={{ opacity: idx === 0 ? 0.3 : 1 }}>
-              <ChevronLeft size={15} /> Prev
+            <button
+              onClick={() => go(-1)}
+              disabled={idx === 0}
+              className="flex items-center gap-1 px-3 sm:px-5 py-2.5 rounded-xl bg-[var(--bg-muted)] border border-[var(--border)] text-sm font-semibold text-[var(--text-muted)] hover:border-indigo-500/50 hover:text-indigo-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft size={16} /> Prev
             </button>
-            <div className="flex items-center gap-1.5 overflow-x-auto max-w-[160px]">
+            <div className="flex items-center gap-1.5 overflow-x-auto max-w-[160px] sm:max-w-none">
               {deck.length <= 15 ? deck.map((_, i) => (
                 <button key={i} onClick={() => { setIdx(i); setFlipped(false) }}
                   className={`rounded-full transition-all ${i === idx ? 'w-4 h-4 bg-indigo-500' : 'w-3 h-3 bg-[var(--bg-muted)] hover:brightness-125'}`} />
@@ -195,33 +282,66 @@ export default function SetFlashcardsTab({ set }: Props) {
                 <span className="text-xs text-[var(--text-subtle)] font-mono">{idx + 1} / {deck.length}</span>
               )}
             </div>
-            <button onClick={() => go(1)}
-              className="flex items-center gap-1 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors"
-              style={{ opacity: idx === deck.length - 1 ? 0.3 : 1 }}>
-              Next <ChevronRight size={15} />
+            <button
+              onClick={() => go(1)}
+              disabled={idx === deck.length - 1}
+              className="flex items-center gap-1 px-3 sm:px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Next <ChevronRight size={16} />
             </button>
           </div>
 
-          <div onClick={() => setFlipped(f => !f)}
-            className="cursor-pointer select-none"
-            style={{ opacity: fading ? 0 : 1, transition: 'opacity 0.16s ease' }}>
+          <Link
+            href={learnHrefForSetQuestion(q.id, set, set2Questions, set3Questions) + '?from=flashcards'}
+            className="mb-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-indigo-300 text-indigo-600 text-sm font-semibold hover:bg-indigo-50 transition-colors"
+          >
+            <Code2 size={15} /> Code it →
+          </Link>
 
+          <div
+            onClick={handleFlip}
+            className="cursor-pointer select-none"
+            style={{ opacity: fading ? 0 : 1, transition: 'opacity 0.18s ease' }}
+          >
             {!flipped ? (
-              /* FRONT */
               <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] shadow-xl overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4 pb-2 border-b border-[var(--border)]">
+                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-[var(--border)]">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
                     <DifficultyBadge difficulty={q.difficulty} />
-                    <span className="text-xs bg-violet-50 text-violet-700 border border-violet-200 px-2 py-0.5 rounded-full">{q.category}</span>
+                    <PriorityBadge pattern={exclusiveMapAll[q.id] ?? ''} />
                   </div>
-                  <span className="text-xs text-[var(--text-subtle)]">Tap to flip →</span>
+                  <div className="flex items-center gap-2">
+                    {sessionSeen.has(q.id) && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-400 border border-indigo-200 font-semibold shrink-0">seen</span>
+                    )}
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        const next = new Set(visited)
+                        if (next.has(q.id)) { next.delete(q.id) } else { next.add(q.id); addFcVisited(q.id) }
+                        setVisited(next)
+                      }}
+                      className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors ${
+                        visited.has(q.id) ? 'bg-green-100 text-green-600 border-green-300' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)] border-[var(--border)] hover:border-green-500/50 hover:text-green-400'
+                      }`}
+                    >
+                      {visited.has(q.id) ? <><CheckCircle size={11} /> Visited</> : <><Circle size={11} /> Mark visited</>}
+                    </button>
+                    <span className="hidden sm:inline text-xs text-[var(--text-subtle)] font-medium">Tap to reveal →</span>
+                  </div>
                 </div>
-                <div className="px-5 pt-4 pb-2">
-                  <h3 className="text-lg font-bold text-[var(--text)]">{q.title}</h3>
+
+                <div className="px-5 pt-3 pb-1">
+                  <h2 className="text-base font-bold text-[var(--text)]">{q.title}</h2>
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {(q.tags || []).map(tag => (
+                      <span key={tag} className="text-xs bg-[var(--bg-muted)] text-[var(--text-subtle)] px-2 py-0.5 rounded-full">{tag}</span>
+                    ))}
+                  </div>
                 </div>
-                {/* Live LeetCode description */}
-                <div className="px-5 pb-4" onClick={e => e.stopPropagation()}>
+
+                <div className="px-5 pb-4 mt-2" onClick={e => e.stopPropagation()}>
                   {lcContent ? (
                     <>
                       <div className={`relative ${!cardExpanded ? 'max-h-[200px] overflow-hidden' : ''}`}>
@@ -233,7 +353,8 @@ export default function SetFlashcardsTab({ set }: Props) {
                       </div>
                       <button
                         onClick={e => { e.stopPropagation(); setCardExpanded(v => !v) }}
-                        className="mt-2 text-xs font-semibold text-indigo-500 hover:text-indigo-600 transition-colors">
+                        className="mt-2 text-xs font-semibold text-indigo-500 hover:text-indigo-600 transition-colors"
+                      >
                         {cardExpanded ? '↑ Show less' : '↓ Show more'}
                       </button>
                     </>
@@ -246,48 +367,34 @@ export default function SetFlashcardsTab({ set }: Props) {
                       <div className="h-3 bg-[var(--bg-muted)] rounded w-full" />
                     </div>
                   ) : isPremium ? (
-                    <p className="text-xs text-[var(--text-subtle)] italic">🔒 Premium — <a href={leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">view on LeetCode ↗</a></p>
-                  ) : null}
+                    <p className="text-xs text-[var(--text-subtle)] italic">🔒 Premium question — <a href={leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">view on LeetCode ↗</a></p>
+                  ) : (
+                    <QuestionImage questionId={q.id} alt={q.title} className="bg-[var(--bg-muted)]" />
+                  )}
                 </div>
               </div>
             ) : (
-              /* BACK */
-              <div className="bg-[var(--bg-card)] rounded-2xl border border-indigo-400/50 shadow-xl overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4 pb-2 border-b border-indigo-200 bg-indigo-50">
-                  <div className="flex flex-wrap items-center gap-2">
+              <div className="bg-[var(--bg-card)] rounded-2xl border border-indigo-500/40 shadow-xl shadow-indigo-900/20 overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-3 px-5 pt-4 pb-2 border-b border-indigo-200 bg-indigo-50">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
                     <DifficultyBadge difficulty={q.difficulty} />
-                    <span className="font-bold text-sm text-indigo-700">{q.title}</span>
+                    <PriorityBadge pattern={exclusiveMapAll[q.id] ?? ''} />
+                    <span className="text-sm font-bold text-indigo-700 truncate">{q.title}</span>
                   </div>
-                  <button onClick={e => { e.stopPropagation() }} className="text-xs text-indigo-400">← Flip back</button>
+                  <button
+                    onClick={e => { e.stopPropagation(); handleFlip() }}
+                    className="text-xs text-indigo-400 font-medium shrink-0"
+                  >
+                    ← Flip back
+                  </button>
                 </div>
-                <div className="px-5 py-5 space-y-3" onClick={e => e.stopPropagation()}>
-                  <Link href={`${solutionBase}/${q.slug}`}
-                    className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl ${solutionColor} text-white font-semibold text-sm transition-colors`}>
-                    <ExternalLink size={14} /> View Solution on {solutionLabel}
-                  </Link>
-                  <a href={`https://leetcode.com/problems/${q.slug}/`} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm transition-colors">
-                    <ExternalLink size={14} /> Open on LeetCode
-                  </a>
-                  <div className="flex gap-2">
-                    <button onClick={() => toggleSolved(q.id)}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
-                        progress[String(q.id)]?.solved
-                          ? 'bg-green-600 text-white border-green-600'
-                          : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-green-400'
-                      }`}>
-                      {progress[String(q.id)]?.solved ? <><CheckCircle size={13} /> Solved</> : <><Circle size={13} /> Mark Solved</>}
-                    </button>
-                    <button onClick={() => toggleStar(q.id)}
-                      className={`px-4 py-2.5 rounded-xl border transition-colors ${
-                        progress[String(q.id)]?.starred
-                          ? 'bg-yellow-400 text-white border-yellow-400'
-                          : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border)] hover:border-yellow-400'
-                      }`}>
-                      <Star size={14} fill={progress[String(q.id)]?.starred ? 'currentColor' : 'none'} />
-                    </button>
-                  </div>
+                <div className="p-4" onClick={e => e.stopPropagation()}>
+                  <BestAnswersDeck
+                    questionId={q.id}
+                    slug={resolveLeetCodeSlug(q.id, q.slug)}
+                    active={flipped}
+                  />
                 </div>
               </div>
             )}

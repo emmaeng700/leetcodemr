@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { CheckCircle, Circle, ChevronDown, ChevronUp, Search, ExternalLink } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
 import { NEETCODE_150, type NC150Category } from '@/lib/neetcode150'
+import { NC150_TOTAL, countNc150NotInSet1 } from '@/lib/questionSets'
+import { QuestionCountHighlight } from '@/components/QuestionCountHighlight'
 import { PATTERN_PRIORITY } from '@/lib/constants'
 import PriorityBadge from '@/components/PriorityBadge'
 
@@ -113,6 +115,10 @@ export default function NeetCode150Page() {
   const medTotal     = useMemo(() => NEETCODE_150.flatMap(c => c.questions).filter(q => q.difficulty === 'Medium').length, [])
   const hardTotal    = useMemo(() => NEETCODE_150.flatMap(c => c.questions).filter(q => q.difficulty === 'Hard').length, [])
 
+  const notIn331Count = useMemo(
+    () => (libraryIds.size > 0 ? countNc150NotInSet1(libraryIds) : 0),
+    [libraryIds],
+  )
   const filteredCategories = useMemo((): NC150Category[] => {
     const q = search.trim().toLowerCase()
     return NEETCODE_150.map(cat => ({
@@ -139,11 +145,24 @@ export default function NeetCode150Page() {
 
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
             <span className="text-2xl">🚀</span>
             <h1 className="text-xl font-bold text-gray-100">NeetCode 150</h1>
+            <QuestionCountHighlight
+              value={NC150_TOTAL}
+              label="in catalog"
+              variant="total"
+              className="!text-gray-200 !border-gray-600"
+            />
           </div>
-          <p className="text-xs text-gray-500">Top 150 questions curated by NeetCode — track your progress below</p>
+          <p className="text-xs text-gray-500 mb-2">Top 150 questions curated by NeetCode — track your progress below</p>
+          {notIn331Count > 0 && (
+            <QuestionCountHighlight
+              value={notIn331Count}
+              label="not in Set 1 (331) · Learn 2 exclusive pool"
+              variant="exclusive"
+            />
+          )}
         </div>
 
         {/* Progress stats */}

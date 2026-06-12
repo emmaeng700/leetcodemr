@@ -19,6 +19,37 @@ export const NC150_ID_SET: Set<number> = new Set(
   NEETCODE_150.flatMap(c => c.questions.map(q => q.id))
 )
 
+export const NC150_TOTAL = NEETCODE_150.reduce((n, c) => n + c.questions.length, 0)
+export const AM600_TOTAL = ALGOMASTER_600.reduce((n, c) => n + c.questions.length, 0)
+
+/** Questions in a catalog list that are not in Set 1 (`questions_full.json`). */
+export function countCatalogNotInSet1(
+  catalog: ReadonlyArray<{ questions: ReadonlyArray<{ id: number }> }>,
+  mainIds: Set<number>,
+): number {
+  return catalog.reduce(
+    (n, cat) => n + cat.questions.filter(q => !mainIds.has(q.id)).length,
+    0,
+  )
+}
+
+export function countNc150NotInSet1(mainIds: Set<number>): number {
+  return countCatalogNotInSet1(NEETCODE_150, mainIds)
+}
+
+export function countAm600NotInSet1(mainIds: Set<number>): number {
+  return countCatalogNotInSet1(ALGOMASTER_600, mainIds)
+}
+
+/** Union of Set 1 + exclusive Set 2 + exclusive Set 3 (no overlap). */
+export function totalAppQuestionCount(
+  set1Count: number,
+  set2Count: number,
+  set3Count: number,
+): number {
+  return set1Count + set2Count + set3Count
+}
+
 type TaggedRow = { id: number; tags?: string[] }
 
 /** Tags from main bank + scraped extra JSON (Set 2/3 questions often live only in extras). */

@@ -25,6 +25,8 @@ import {
 } from '@/lib/streakGoals'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
+import { QuestionCountHighlight, SetExclusiveCountLabel } from '@/components/QuestionCountHighlight'
+import { totalAppQuestionCount } from '@/lib/questionSets'
 import toast from 'react-hot-toast'
 import { addToRebootQueue, getRebootQueue, removeFromRebootQueue } from '@/lib/rebootQueue'
 import { todayISOChicago } from '@/lib/studyPlanDay'
@@ -1083,7 +1085,7 @@ function SetExternalQuestions({
   onProgressChange: (p: Record<string, import('@/lib/setProgress').SetQProgress>) => void
 }) {
   const learnBase = set === 2 ? '/learn2' : '/learn3'
-  const label     = set === 2 ? 'NeetCode 150 (not in Set 1)' : 'AlgoMaster 600 (not in NC150)'
+  const exclusiveLabel = SetExclusiveCountLabel(set, questions.length)
   const [search, setSearch]           = React.useState('')
   const [difficulty, setDifficulty]   = React.useState('All')
   const [showStarred, setShowStarred] = React.useState(false)
@@ -1120,14 +1122,18 @@ function SetExternalQuestions({
 
   return (
     <div className="mb-6">
-      <div className="flex items-center gap-3 mb-3 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] px-4 py-3 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3 mb-3 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] px-4 py-3 shadow-sm">
+        <QuestionCountHighlight
+          value={exclusiveLabel.value}
+          label={exclusiveLabel.label}
+          variant="exclusive"
+        />
         <CheckCircle size={15} className="text-green-400 shrink-0" />
         <span className="text-sm font-bold text-[var(--text)]">{solved}/{questions.length} solved</span>
-        <div className="flex-1 h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+        <div className="flex-1 min-w-[120px] h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
           <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all"
             style={{ width: `${questions.length ? Math.round((solved / questions.length) * 100) : 0}%` }} />
         </div>
-        <span className="text-xs text-[var(--text-subtle)]">{label}</span>
       </div>
 
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 mb-4 shadow-lg">
@@ -1362,6 +1368,11 @@ function HomeInner() {
   const paginated = filtered.slice((qPage - 1) * PAGE_SIZE, qPage * PAGE_SIZE)
 
   const solved = Object.values(progress).filter(p => p.solved).length
+  const appTotalQuestions = totalAppQuestionCount(
+    questions.length,
+    set2Questions.length,
+    set3Questions.length,
+  )
 
   async function toggleSolved(e: React.MouseEvent, q: Question) {
     e.preventDefault()
@@ -1382,6 +1393,18 @@ function HomeInner() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
+      {!loading && appTotalQuestions > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <QuestionCountHighlight
+            value={appTotalQuestions}
+            label="total questions in app"
+            variant="total"
+          />
+          <span className="text-xs text-[var(--text-subtle)]">
+            Set 1 ({questions.length}) + Set 2 ({set2Questions.length}) + Set 3 ({set3Questions.length})
+          </span>
+        </div>
+      )}
       <div className="flex items-center gap-4 mb-5 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg px-5 py-3">
         <div className="flex items-center gap-2">
           <CheckCircle size={16} className="text-green-400" />
@@ -1408,7 +1431,11 @@ function HomeInner() {
                 ? 'bg-indigo-600 text-white border-indigo-600 shadow-[0_0_8px_rgba(99,102,241,0.3)]'
                 : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:brightness-110'
             }`}>
-            {s === 1 ? 'Questions Set 1' : s === 2 ? 'Questions Set 2' : 'Questions Set 3'}
+            {s === 1
+              ? `Questions Set 1 (${questions.length})`
+              : s === 2
+                ? `Questions Set 2 (${set2Questions.length})`
+                : `Questions Set 3 (${set3Questions.length})`}
           </button>
         ))}
       </div>
