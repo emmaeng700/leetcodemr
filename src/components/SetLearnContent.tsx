@@ -1161,16 +1161,15 @@ export default function SetLearnContent({ set, index }: Props) {
                   </div>
                 )}
 
-                {leftPanelTab === 'best' && (
-                  <div className="p-4 h-full">
-                    <BestAnswersPanel
-                      questionId={q.id}
-                      slug={lcTitleSlug ?? q.slug}
-                      active={leftPanelTab === 'best'}
-                      preferredLangs={['python', 'cpp', 'javascript']}
-                    />
-                  </div>
-                )}
+                <div className={`p-4 h-full ${leftPanelTab !== 'best' ? 'hidden' : ''}`}>
+                  <BestAnswersPanel
+                    questionId={q.id}
+                    slug={lcTitleSlug ?? q.slug}
+                    active={leftPanelTab === 'best'}
+                    lcActive
+                    preferredLangs={['python', 'cpp', 'javascript']}
+                  />
+                </div>
               </div>
             </div>
 

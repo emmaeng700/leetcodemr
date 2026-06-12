@@ -12,6 +12,7 @@ import {
   labelForLang,
   type BestAnswerDeckCard,
 } from '@/lib/bestAnswersMerge'
+import CollapsibleLcAcceptedBlocks from '@/components/CollapsibleLcAcceptedBlocks'
 import { useLeetCodeAcceptedBlocks } from '@/lib/useLeetCodeAcceptedBlocks'
 
 export { BEST_ANSWER_SITES }
@@ -97,6 +98,8 @@ export type BestAnswersPanelProps = {
   questionId: number
   slug: string
   active: boolean
+  /** Fetch your LeetCode AC even when `active` is false (e.g. prefetch while description tab is open). */
+  lcActive?: boolean
   preferredLangs?: string[]
   theme?: 'default' | 'dark'
   layout?: 'compact' | 'full'
@@ -107,6 +110,7 @@ export default function BestAnswersPanel({
   questionId,
   slug,
   active,
+  lcActive,
   preferredLangs,
   theme = 'default',
   layout = 'compact',
@@ -116,7 +120,8 @@ export default function BestAnswersPanel({
   const [viewMode, setViewMode] = useState<'grid' | 'flashcard'>('flashcard')
   const [cardIdx, setCardIdx]   = useState(0)
   const [lcCardOpen, setLcCardOpen] = useState(true)
-  const { blocks: lcBlocks, loading: lcLoading } = useLeetCodeAcceptedBlocks(slug, active)
+  const shouldFetchLc = lcActive ?? active
+  const { blocks: lcBlocks, loading: lcLoading } = useLeetCodeAcceptedBlocks(slug, shouldFetchLc)
 
   /* inject highlight.js stylesheet once */
   useEffect(() => {
@@ -188,6 +193,16 @@ export default function BestAnswersPanel({
 
   return (
     <div className={`relative z-20 pointer-events-auto ${className}`}>
+
+      {/* ── Your LeetCode (most recent AC per language) ─────────────────── */}
+      {(lcBlocks.length > 0 || lcLoading) && (
+        <CollapsibleLcAcceptedBlocks
+          blocks={lcBlocks}
+          loading={lcLoading}
+          resetKey={`${questionId}-${slug}`}
+          renderCode={(code, lang) => <HighlightedCode code={code} lang={lang} />}
+        />
+      )}
 
       {/* ── View mode toggle ──────────────────────────────────────────────── */}
       <div className="relative z-20 flex items-center gap-2 mb-4 pointer-events-auto">

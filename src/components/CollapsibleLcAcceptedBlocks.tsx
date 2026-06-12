@@ -27,7 +27,7 @@ export default function CollapsibleLcAcceptedBlocks({
     setExpandedLangs(new Set())
   }, [resetKey])
 
-  if (blocks.length === 0) return null
+  if (blocks.length === 0 && !loading) return null
 
   const toggleLang = (lang: string) => {
     setExpandedLangs(prev => {
@@ -46,6 +46,12 @@ export default function CollapsibleLcAcceptedBlocks({
         {loading && <Loader2 size={12} className="animate-spin text-amber-500/70 ml-auto" />}
       </div>
       <div className="p-2 space-y-1">
+        {blocks.length === 0 && loading && (
+          <div className="flex items-center justify-center gap-2 py-4 text-xs text-amber-500/80">
+            <Loader2 size={14} className="animate-spin" />
+            Loading your LeetCode submissions…
+          </div>
+        )}
         {blocks.map(b => {
           const open = expandedLangs.has(b.lang)
           return (
