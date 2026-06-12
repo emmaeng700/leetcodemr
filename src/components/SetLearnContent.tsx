@@ -27,6 +27,7 @@ import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import LearnSetTabs from '@/components/LearnSetTabs'
 import CycleProgressBanner from '@/components/CycleProgressBanner'
+import { canonicalCycleBaseIds } from '@/lib/cycleLapReset'
 
 interface Props { set: 2 | 3; index: number }
 
@@ -237,11 +238,11 @@ export default function SetLearnContent({ set, index }: Props) {
     const reps     = state.cycleReps ?? 0
     const pos      = state.cyclePos  ?? 0
     const accepted = Array.isArray(state.cycleAccepted) ? state.cycleAccepted : []
-    const storedOrderedIds = (state as any).cycleOrderedIds
+    const storedOrderedIds = state.cycleOrderedIds
     const expectedLen = rng.end - rng.start + 1
     const orderedIds = Array.isArray(storedOrderedIds) && storedOrderedIds.length === expectedLen
       ? storedOrderedIds
-      : buildCycleOrder(filtered.slice(rng.start, rng.end + 1).map(q => q.id), reps)
+      : buildCycleOrder(allQuestions.slice(rng.start, rng.end + 1).map(q => q.id), reps)
     cycleAcceptedRef.current = new Set(accepted)
     setCycleAcceptedCount(accepted.length)
     setCycleRangeState(rng)
@@ -252,7 +253,13 @@ export default function SetLearnContent({ set, index }: Props) {
     cyclePosRef.current = pos
     cycleOrderedIdsRef.current = orderedIds
     cycleIdxRef.current = typeof state.cycleIdx === 'number' ? state.cycleIdx : rng.start
-  }, [allQuestions, filtered, set])
+    if (!Array.isArray(storedOrderedIds) || storedOrderedIds.length !== expectedLen) {
+      saveSetCycleState(set, {
+        cycleRange: rng, cycleReps: reps, cyclePos: pos, cycleIdx: cycleIdxRef.current,
+        cycleAccepted: accepted, cycleOrderedIds: orderedIds,
+      })
+    }
+  }, [allQuestions, set])
 
   // Save last visited index
   useEffect(() => {
@@ -478,6 +485,45 @@ export default function SetLearnContent({ set, index }: Props) {
     cycleOrderedIdsRef.current = []
     saveSetCycleState(set, null)
   }
+
+  const resetToLapOne = useCallback(() => {
+    const rng = cycleRangeForSave.current
+    if (!rng) return
+    const ids = cycleOrderedIdsRef.current
+    const membership = ids.length > 0
+      ? canonicalCycleBaseIds(ids, allQuestions)
+      : allQuestions.slice(rng.start, rng.end + 1).map(q => q.id)
+    if (membership.length === 0) {
+      toast.error('Could not restore cycle questions — try re-activating from Cycles.')
+      return
+    }
+    const newOrder = buildCycleOrder(membership, 0)
+    cycleOrderedIdsRef.current = newOrder
+    cycleAcceptedRef.current = new Set()
+    setCycleAcceptedCount(0)
+    setCycleRepsState(0)
+    cycleRepsRef.current = 0
+    setCyclePosState(0)
+    cyclePosRef.current = 0
+
+    const firstId = newOrder[0]
+    const firstIdx = filteredRef.current.findIndex(q => q.id === firstId)
+    const startIdx = firstIdx >= 0 ? firstIdx : rng.start
+    cycleIdxRef.current = startIdx
+
+    saveSetCycleState(set, {
+      cycleRange: rng,
+      cycleReps: 0,
+      cyclePos: 0,
+      cycleIdx: startIdx,
+      cycleAccepted: [],
+      cycleOrderedIds: newOrder,
+    })
+
+    const qs = learnQsRef.current
+    router.push(`${learnBase}/${startIdx}${qs ? `?${qs}` : ''}`, { scroll: false })
+    toast.success('Back on Lap 1 — same questions, fresh accepted list.')
+  }, [allQuestions, learnBase, router, set])
 
   // Navigation
   const goNext = useCallback(() => {
@@ -982,6 +1028,13 @@ export default function SetLearnContent({ set, index }: Props) {
           onCancel={cancelCycle}
           onNextTodo={goNextUnaccepted}
           onOpenList={() => setShowList(true)}
+          showResetToLapOne={!!cycleRange}
+          onResetToLapOne={() => {
+            if (!window.confirm(
+              'Reset to Lap 1? Same question set, but lap counter and accepted list start over.',
+            )) return
+            resetToLapOne()
+          }}
         />
       )}
 

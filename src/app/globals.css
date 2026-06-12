@@ -90,6 +90,8 @@
 html {
   overscroll-behavior: none;
   scroll-behavior: auto;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -239,39 +241,63 @@ body {
 /* Make the gutter (line numbers column) blend with the editor body */
 .cm-gutters { background-color: transparent !important; border-right: 1px solid rgba(255,255,255,0.06) !important; }
 
-/* Practice editor — responsive font sizes, no line wrapping */
+/* Code editors — responsive font sizes, no line wrapping */
 .practice-cm-wrap .cm-content,
-.practice-cm-wrap .cm-line {
-  font-size: 11px;
+.practice-cm-wrap .cm-line,
+.lc-editor-root .cm-content,
+.lc-editor-root .cm-line {
   touch-action: manipulation;
   white-space: pre !important;
   word-break: normal !important;
 }
-.practice-cm-wrap .cm-scroller { overflow-x: auto !important; }
-
-/* Practice portal fullscreen — same small font, no line wrapping */
-.practice-fs-portal .cm-editor { font-size: 11px !important; line-height: 1.4 !important; }
-.practice-fs-portal .cm-scroller { overflow-x: auto !important; }
-.practice-fs-portal .cm-content,
-.practice-fs-portal .cm-line { font-size: 11px !important; white-space: pre !important; word-break: normal !important; touch-action: manipulation; }
-@media (min-width: 640px) {
-  .practice-cm-wrap .cm-content,
-  .practice-cm-wrap .cm-line { font-size: 10px; }
+.practice-cm-wrap .cm-scroller,
+.lc-editor-root .cm-scroller {
+  overflow-x: auto !important;
 }
+
+/* Mobile: 16px stops iOS Safari auto-zoom on CodeMirror focus (contenteditable).
+   Viewport maximum-scale=1 is the primary lock; this is the backup. */
+@media (max-width: 767px) {
+  .practice-cm-wrap .cm-editor,
+  .practice-cm-wrap .cm-content,
+  .practice-cm-wrap .cm-line,
+  .lc-editor-root .cm-editor,
+  .lc-editor-root .cm-content,
+  .lc-editor-root .cm-line,
+  .lc-fs-portal .cm-editor,
+  .lc-fs-portal .cm-content,
+  .lc-fs-portal .cm-line,
+  .practice-fs-portal .cm-editor,
+  .practice-fs-portal .cm-content,
+  .practice-fs-portal .cm-line {
+    font-size: 16px !important;
+    line-height: 1.45 !important;
+  }
+}
+
 @media (min-width: 768px) {
   .practice-cm-wrap .cm-content,
-  .practice-cm-wrap .cm-line { font-size: 12px; }
-}
-@media (min-width: 1024px) {
-  .practice-cm-wrap .cm-content,
-  .practice-cm-wrap .cm-line { font-size: 12px; }
+  .practice-cm-wrap .cm-line,
+  .lc-editor-root .cm-content,
+  .lc-editor-root .cm-line {
+    font-size: 12px;
+  }
 }
 
-/* Practice portal fullscreen — small font, no line wrapping */
-.practice-fs-portal .cm-editor { font-size: 10px !important; line-height: 1.45 !important; }
+/* Practice / LC portal fullscreen — desktop sizing */
+.practice-fs-portal .cm-editor { font-size: 12px !important; line-height: 1.45 !important; }
 .practice-fs-portal .cm-scroller { overflow-x: auto !important; }
 .practice-fs-portal .cm-content,
-.practice-fs-portal .cm-line { font-size: 10px !important; white-space: pre !important; word-break: normal !important; touch-action: manipulation; }
+.practice-fs-portal .cm-line { white-space: pre !important; word-break: normal !important; touch-action: manipulation; }
+
+@media (max-width: 767px) {
+  .practice-fs-portal .cm-editor,
+  .practice-fs-portal .cm-content,
+  .practice-fs-portal .cm-line {
+    font-size: 16px !important;
+    line-height: 1.45 !important;
+  }
+}
 
 /* Prevent iOS auto-zoom */
 input[type="text"],

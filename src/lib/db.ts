@@ -1483,6 +1483,7 @@ export interface SavedCycle {
   cyclePos?:  number                           // steps taken in current lap
   cycleIdx?:  number                           // last question index in study order (filtered)
   cycleAccepted?: number[]                     // question IDs accepted this lap
+  cycleOrderedIds?: number[]                   // full lap question IDs (locked at cycle start)
   createdAt:  string                           // ISO timestamp
 }
 
@@ -1574,6 +1575,7 @@ async function syncSavedCycleProgress(state: CycleState): Promise<void> {
       cyclePos: state.cyclePos,
       cycleIdx: state.cycleIdx,
       cycleAccepted: state.cycleAccepted,
+      cycleOrderedIds: state.cycleOrderedIds,
     }
   })
   if (changed) await setSavedCycles(next)
@@ -1645,28 +1647,47 @@ async function enrichCycleStateFromSavedCycles(state: CycleState): Promise<Cycle
       cycleAccepted: merged,
       cyclePos: match.cyclePos ?? state.cyclePos,
       cycleIdx: match.cycleIdx ?? state.cycleIdx,
+      cycleOrderedIds: state.cycleOrderedIds ?? match.cycleOrderedIds,
     }
   } catch {
     return state
   }
 }
 
+function enrichOrderFromSessionStorage(state: CycleState | null): CycleState | null {
+  if (!state?.cycleRange) return state
+  if (Array.isArray(state.cycleOrderedIds) && state.cycleOrderedIds.length > 0) return state
+  if (typeof window === 'undefined') return state
+  try {
+    const raw = sessionStorage.getItem('lm_learn_cycle_order')
+    if (!raw) return state
+    const order = JSON.parse(raw) as number[]
+    const expectedLen = state.cycleRange.end - state.cycleRange.start + 1
+    if (Array.isArray(order) && order.length === expectedLen) {
+      return { ...state, cycleOrderedIds: order }
+    }
+  } catch { /* ignore */ }
+  return state
+}
+
 function enrichFromSessionStorage(state: CycleState | null): CycleState | null {
   if (!state?.cycleRange || typeof window === 'undefined') return state
+  let next = enrichOrderFromSessionStorage(state)
+  if (!next) return state
   try {
     const raw = sessionStorage.getItem('lm_learn_cycle_accepted')
-    if (!raw) return state
+    if (!raw) return next
     const sess = JSON.parse(raw) as number[]
-    if (!Array.isArray(sess)) return state
-    const merged = mergeCycleAcceptedIds(state.cycleAccepted, sess)
-    if (merged.length <= (state.cycleAccepted?.length ?? 0)) return state
+    if (!Array.isArray(sess)) return next
+    const merged = mergeCycleAcceptedIds(next.cycleAccepted, sess)
+    if (merged.length <= (next.cycleAccepted?.length ?? 0)) return next
     // Guard: same as enrichCycleStateFromSavedCycles — don't let stale session IDs
     // from a completed lap inflate the accepted count enough to fire lap completion.
-    const cycleLen = state.cycleRange.end - state.cycleRange.start + 1
-    if (merged.length >= cycleLen) return state
-    return { ...state, cycleAccepted: merged }
+    const cycleLen = next.cycleRange!.end - next.cycleRange!.start + 1
+    if (merged.length >= cycleLen) return next
+    return { ...next, cycleAccepted: merged }
   } catch {
-    return state
+    return next
   }
 }
 

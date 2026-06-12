@@ -1,5 +1,5 @@
 'use client'
-import { Play, X } from 'lucide-react'
+import { Play, RotateCcw, X } from 'lucide-react'
 import { cycleLapMotivation, currentCycleLap, isCycleFullyComplete } from '@/lib/cycleLapMessages'
 
 interface Props {
@@ -13,6 +13,8 @@ interface Props {
   resumeQuestionNum?: number
   onNextTodo?: () => void
   onOpenList?: () => void
+  showResetToLapOne?: boolean
+  onResetToLapOne?: () => void
 }
 
 export default function CycleProgressBanner({
@@ -26,6 +28,8 @@ export default function CycleProgressBanner({
   resumeQuestionNum,
   onNextTodo,
   onOpenList,
+  showResetToLapOne,
+  onResetToLapOne,
 }: Props) {
   const pct = rangeSize > 0 ? Math.round((acceptedCount / rangeSize) * 100) : 0
   const remaining = Math.max(0, rangeSize - acceptedCount)
@@ -70,9 +74,19 @@ export default function CycleProgressBanner({
           </p>
         )}
 
-        {!allLapsDone && remaining > 0 && (onNextTodo || onOpenList) && (
+        {!allLapsDone && (onNextTodo || onOpenList || (showResetToLapOne && onResetToLapOne)) && (
           <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-            {onNextTodo && (
+            {showResetToLapOne && onResetToLapOne && (
+              <button
+                type="button"
+                onClick={onResetToLapOne}
+                className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border-2 border-amber-400 bg-amber-50 text-amber-900 text-xs font-bold hover:bg-amber-100 transition-colors"
+                title="Same questions, restart from Lap 1"
+              >
+                <RotateCcw size={12} /> Reset to Lap 1
+              </button>
+            )}
+            {onNextTodo && remaining > 0 && (
               <button
                 type="button"
                 onClick={onNextTodo}

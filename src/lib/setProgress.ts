@@ -16,6 +16,7 @@ export interface SetSavedCycle {
   cyclePos?: number
   cycleIdx?: number
   cycleAccepted?: number[]
+  cycleOrderedIds?: number[]
   createdAt: string
 }
 

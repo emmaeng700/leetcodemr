@@ -1,10 +1,11 @@
 'use client'
 import { useState, useEffect, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { RefreshCw, Plus, Trash2, Play, ChevronRight, X } from 'lucide-react'
+import { RefreshCw, Plus, Trash2, Play, ChevronRight, X, RotateCcw } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { getSavedCycles, setSavedCycles, saveCycleState, getCycleState, clampCycleIdx, type SavedCycle } from '@/lib/db'
+import { getSavedCycles, setSavedCycles, saveCycleState, getCycleState, clampCycleIdx, type SavedCycle, type CycleState } from '@/lib/db'
 import { defaultStudyQuestionOrder } from '@/lib/studyPlanOrder'
+import { canonicalCycleBaseIds } from '@/lib/cycleLapReset'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { PATTERN_PRIORITY, QUICK_PATTERNS } from '@/lib/constants'
 import SetCyclesPage from '@/components/SetCyclesPage'
@@ -22,6 +23,7 @@ function CyclesInner() {
   const [planOrder, setPlanOrder] = useState<number[]>([])
   const [loading,   setLoading]   = useState(true)
   const [showForm,  setShowForm]  = useState(false)
+  const [activeCycle, setActiveCycle] = useState<CycleState | null>(null)
 
   // Form state
   const [formName,   setFormName]   = useState('')
@@ -33,9 +35,11 @@ function CyclesInner() {
   useEffect(() => {
     Promise.all([
       getSavedCycles(),
+      getCycleState(),
       fetch('/questions_full.json').then(r => r.json()),
-    ]).then(([saved, qs]) => {
+    ]).then(([saved, active, qs]) => {
       setCycles(saved)
+      setActiveCycle(active)
       setQuestions(qs)
       setPlanOrder(defaultStudyQuestionOrder(qs as Question[]))
     }).finally(() => setLoading(false))
@@ -139,6 +143,7 @@ function CyclesInner() {
     let cyclePos = cycle.cyclePos ?? 0
     let cycleIdx = cycle.cycleIdx
     let cycleAccepted = Array.isArray(cycle.cycleAccepted) ? cycle.cycleAccepted : []
+    let cycleOrderedIds: number[] | undefined = cycle.cycleOrderedIds
 
     // Only merge active Supabase state if the saved cycle itself has progress —
     // a freshly-created cycle (reps=0, nothing accepted) must never inherit stale state.
@@ -148,6 +153,19 @@ function CyclesInner() {
       cyclePos = active.cyclePos ?? 0
       cycleIdx = active.cycleIdx ?? cycle.cycleIdx
       cycleAccepted = Array.isArray(active.cycleAccepted) ? active.cycleAccepted : []
+      cycleOrderedIds = active.cycleOrderedIds ?? cycleOrderedIds
+    }
+
+    if (!cycleOrderedIds || cycleOrderedIds.length === 0) {
+      const { start, end } = cycle.range
+      try {
+        const qs = await fetch('/questions_full.json').then(r => r.json()) as { id: number }[]
+        const ordered = defaultStudyQuestionOrder(qs as Parameters<typeof defaultStudyQuestionOrder>[0])
+        const qMap = Object.fromEntries((qs as { id: number }[]).map(q => [q.id, q]))
+        const studyList = ordered.map(id => qMap[id]).filter(Boolean) as { id: number }[]
+        const baseIds = studyList.slice(start, end + 1).map(q => q.id)
+        if (baseIds.length > 0) cycleOrderedIds = baseIds
+      } catch { /* fallback below */ }
     }
 
     let fallbackIdx: number | undefined
@@ -155,8 +173,7 @@ function CyclesInner() {
       const stored = parseInt(localStorage.getItem('lm_learn_idx') ?? '', 10)
       if (Number.isFinite(stored)) fallbackIdx = stored
     } catch {}
-    // For a fresh cycle (pos=0, reps=0, nothing accepted) always start at the
-    // range start — avoids a stale cycleIdx (from a previous race condition) corrupting entry.
+
     const isFresh = cycleReps === 0 && cyclePos === 0 && cycleAccepted.length === 0
     const idx = isFresh
       ? cycle.range.start
@@ -168,6 +185,7 @@ function CyclesInner() {
       cyclePos,
       cycleIdx: idx,
       cycleAccepted,
+      cycleOrderedIds,
     }
 
     await saveCycleState(state)
@@ -177,10 +195,69 @@ function CyclesInner() {
       sessionStorage.setItem('lm_learn_cycle_pos', String(cyclePos))
       sessionStorage.setItem('lm_learn_cycle_idx', String(idx))
       sessionStorage.setItem('lm_learn_cycle_accepted', JSON.stringify(cycleAccepted))
+      if (cycleOrderedIds?.length) {
+        sessionStorage.setItem('lm_learn_cycle_order', JSON.stringify(cycleOrderedIds))
+      }
       localStorage.setItem('lm_learn_idx', String(idx))
     } catch {}
     toast.success(`"${cycle.name}" activated — opening Learn`)
     router.push(`/learn/${idx}`)
+  }
+
+  const handleResetToLapOne = async (cycle: SavedCycle) => {
+    if (!window.confirm(
+      `Reset "${cycle.name}" to Lap 1? Same questions, but lap counter and accepted list start over.`,
+    )) return
+
+    const active = await getCycleState()
+    const sameAsActive = !!active?.cycleRange &&
+      active.cycleRange.start === cycle.range.start &&
+      active.cycleRange.end === cycle.range.end
+
+    let orderedIds = (sameAsActive ? active?.cycleOrderedIds : undefined) ?? cycle.cycleOrderedIds
+    if (!orderedIds?.length) {
+      const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
+      const studyList = (planOrder.length ? planOrder.map(id => qMap[id]) : questions).filter(Boolean) as Question[]
+      orderedIds = studyList.slice(cycle.range.start, cycle.range.end + 1).map(q => q.id)
+    }
+    if (!orderedIds.length) {
+      toast.error('Could not resolve cycle questions.')
+      return
+    }
+
+    const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
+    const studyList = (planOrder.length ? planOrder.map(id => qMap[id]) : questions).filter(Boolean) as Question[]
+    const lapOneOrder = canonicalCycleBaseIds(orderedIds, studyList)
+
+    const state = {
+      cycleRange: cycle.range,
+      cycleReps: 0,
+      cyclePos: 0,
+      cycleIdx: cycle.range.start,
+      cycleAccepted: [] as number[],
+      cycleOrderedIds: lapOneOrder,
+    }
+
+    await saveCycleState(state)
+    const nextCycles = cycles.map(c =>
+      c.id === cycle.id
+        ? { ...c, reps: 0, cyclePos: 0, cycleAccepted: [], cycleOrderedIds: lapOneOrder }
+        : c,
+    )
+    await setSavedCycles(nextCycles)
+    setCycles(nextCycles)
+    setActiveCycle(state)
+
+    try {
+      sessionStorage.setItem('lm_learn_cycle', JSON.stringify(cycle.range))
+      sessionStorage.setItem('lm_learn_cycle_reps', '0')
+      sessionStorage.setItem('lm_learn_cycle_pos', '0')
+      sessionStorage.setItem('lm_learn_cycle_idx', String(cycle.range.start))
+      sessionStorage.setItem('lm_learn_cycle_accepted', '[]')
+      sessionStorage.setItem('lm_learn_cycle_order', JSON.stringify(lapOneOrder))
+    } catch {}
+
+    toast.success(`"${cycle.name}" reset to Lap 1`)
   }
 
   const lapBar = (reps: number) => {
@@ -321,7 +398,15 @@ function CyclesInner() {
         </div>
       ) : (
         <div className="space-y-3">
-          {cycles.map(cycle => (
+          {cycles.map(cycle => {
+            const isActiveRange = !!activeCycle?.cycleRange &&
+              activeCycle.cycleRange.start === cycle.range.start &&
+              activeCycle.cycleRange.end === cycle.range.end
+            const activeReps = isActiveRange ? (activeCycle?.cycleReps ?? 0) : 0
+            const showReset = cycle.reps > 0 || activeReps > 0 ||
+              (Array.isArray(cycle.cycleAccepted) && cycle.cycleAccepted.length > 0) ||
+              (isActiveRange && (activeCycle?.cycleAccepted?.length ?? 0) > 0)
+            return (
             <div key={cycle.id} className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100">
                 <div className="flex items-center justify-between mb-0.5">
@@ -351,6 +436,15 @@ function CyclesInner() {
                     </p>
                   )}
                 </div>
+                {showReset && (
+                  <button
+                    type="button"
+                    onClick={() => handleResetToLapOne(cycle)}
+                    className="w-full mb-2 flex items-center justify-center gap-1.5 py-2 rounded-xl border-2 border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold transition-colors"
+                  >
+                    <RotateCcw size={12} /> Reset to Lap 1
+                  </button>
+                )}
                 <button
                   onClick={() => handleActivate(cycle)}
                   className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold transition-colors"
@@ -360,7 +454,8 @@ function CyclesInner() {
                 </button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

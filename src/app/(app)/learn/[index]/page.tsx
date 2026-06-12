@@ -6,7 +6,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Brain, CheckCircle, Circle, Star,
   BookOpen, List, ExternalLink, Loader2,
-  Sparkles, RefreshCw, X, Play,
+  Sparkles, RefreshCw, X, Play, RotateCcw,
 } from 'lucide-react'
 import { getProgress, updateProgress, completeReview, failReview, getCycleState, saveCycleState, clampCycleIdx, getWrongSubmitCounts } from '@/lib/db'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
@@ -25,6 +25,7 @@ import MobileSplitPanelTabs, { type MobileSplitPanel } from '@/components/Mobile
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import LearnSetTabs from '@/components/LearnSetTabs'
 import CycleProgressBanner from '@/components/CycleProgressBanner'
+import { canonicalCycleBaseIds, readSessionCycleOrder } from '@/lib/cycleLapReset'
 
 interface Question {
   id: number
@@ -148,6 +149,7 @@ function LearnInner() {
         sessionStorage.removeItem('lm_learn_cycle_pos')
         sessionStorage.removeItem('lm_learn_cycle_idx')
         sessionStorage.removeItem('lm_learn_cycle_accepted')
+        sessionStorage.removeItem('lm_learn_cycle_order')
       }
     } catch {}
   }
@@ -530,6 +532,7 @@ function LearnInner() {
   const cycleRangeRef    = useRef(cycleRange)
   const filteredLenRef   = useRef(filtered.length)
   const filteredRef      = useRef(filtered)
+  const orderedRef       = useRef(ordered)
   const learnQsRef       = useRef(learnQs)
   const wrongCountsRef   = useRef(wrongCounts)
   useEffect(() => { gatedIdxRef.current    = gatedIdx },        [gatedIdx])
@@ -537,6 +540,7 @@ function LearnInner() {
   useEffect(() => { wrongCountsRef.current = wrongCounts },     [wrongCounts])
   useEffect(() => { filteredLenRef.current = filtered.length }, [filtered.length])
   useEffect(() => { filteredRef.current    = filtered },        [filtered])
+  useEffect(() => { orderedRef.current     = ordered },         [ordered])
   useEffect(() => { learnQsRef.current     = learnQs },         [learnQs])
 
   // Restore full cycle progress on mount (survives tab close / navigation away).
@@ -571,10 +575,18 @@ function LearnInner() {
       // Rebuild orderedIds if missing or wrong length (filteredRef is guaranteed non-empty here).
       let orderedIds = Array.isArray(state.cycleOrderedIds) ? state.cycleOrderedIds : []
       const expectedLen = rng.end - rng.start + 1
-      const hadStoredOrder = orderedIds.length === expectedLen
-      if (!hadStoredOrder) {
-        const baseIds = filteredRef.current.slice(rng.start, rng.end + 1).map(q => q.id)
-        orderedIds = buildCycleOrder(baseIds, reps, wrongCountsRef.current)
+      let trustedOrder = orderedIds.length === expectedLen
+      if (!trustedOrder) {
+        const fromSession = readSessionCycleOrder()
+        if (fromSession && fromSession.length === expectedLen) {
+          orderedIds = fromSession
+          trustedOrder = true
+        } else {
+          const baseIds = filteredRef.current.slice(rng.start, rng.end + 1).map(q => q.id)
+          if (baseIds.length === expectedLen) {
+            orderedIds = buildCycleOrder(baseIds, reps, wrongCountsRef.current)
+          }
+        }
       }
 
       // Derive cycleIdx from orderedIds[pos] only when we had the ORIGINAL stored order.
@@ -583,7 +595,7 @@ function LearnInner() {
       // router.replace loop (component remounts → guard resets → new shuffle → new replace…).
       // Instead, trust the stored cycleIdx directly when the order had to be rebuilt.
       let cycleIdx = rng.start
-      if (hadStoredOrder && orderedIds.length > 0 && pos < orderedIds.length) {
+      if (trustedOrder && orderedIds.length > 0 && pos < orderedIds.length) {
         const targetId  = orderedIds[pos]
         const targetIdx = filteredRef.current.findIndex(q => q.id === targetId)
         cycleIdx = targetIdx >= 0 ? targetIdx : rng.start
@@ -597,7 +609,7 @@ function LearnInner() {
 
       applyCycleState({ cycleRange: rng, cycleReps: reps, cyclePos: pos, cycleIdx, cycleAccepted: accepted, cycleOrderedIds: orderedIds })
       cycleHydratedRef.current = true
-      if (accepted.length > 0) {
+      if (accepted.length > 0 || orderedIds.length === expectedLen) {
         persistCycleState({
           cycleRange: rng,
           cycleReps: reps,
@@ -625,6 +637,47 @@ function LearnInner() {
     const qs = learnQsRef.current
     router.push(`/learn/${idx}${qs ? `?${qs}` : ''}`, { scroll: false })
     toast.success(`Resumed cycle at question ${idx + 1}`)
+  }, [router])
+
+  const resetToLapOne = useCallback(() => {
+    const rng = cycleRangeRef.current
+    if (!rng) return
+    const ids = cycleOrderedIdsRef.current
+    const membership = ids.length > 0
+      ? canonicalCycleBaseIds(ids, orderedRef.current)
+      : filteredRef.current.slice(rng.start, rng.end + 1).map(q => q.id)
+    if (membership.length === 0) {
+      toast.error('Could not restore cycle questions — try re-activating from Cycles.')
+      return
+    }
+    const newOrder = buildCycleOrder(membership, 0, wrongCountsRef.current)
+    cycleOrderedIdsRef.current = newOrder
+    cycleAcceptedRef.current = new Set()
+    setCycleAcceptedCount(0)
+    setCycleRepsRaw(0)
+    cycleRepsRef.current = 0
+    setCyclePosRaw(0)
+    cyclePosRef.current = 0
+
+    const firstId = newOrder[0]
+    const firstIdx = filteredRef.current.findIndex(q => q.id === firstId)
+    const startIdx = firstIdx >= 0 ? firstIdx : rng.start
+    cycleIdxRef.current = startIdx
+
+    const patch = {
+      cycleRange: rng,
+      cycleReps: 0,
+      cyclePos: 0,
+      cycleIdx: startIdx,
+      cycleAccepted: [] as number[],
+      cycleOrderedIds: newOrder,
+    }
+    applyCycleState(patch)
+    persistCycleState(patch)
+
+    const qs = learnQsRef.current
+    router.push(`/learn/${startIdx}${qs ? `?${qs}` : ''}`, { scroll: false })
+    toast.success('Back on Lap 1 — same questions, fresh accepted list.')
   }, [router])
 
   const fireConfetti = useCallback((big = false) => {
@@ -671,9 +724,9 @@ function LearnInner() {
     const newReps = Math.min(cycleRepsRef.current + 1, CYCLE_REP_TARGET)
     setCycleReps(newReps)
 
-    // Build the new traversal order for this lap
-    const baseIds = filteredRef.current.slice(rng.start, rng.end + 1).map(q => q.id)
-    const newOrderedIds = buildCycleOrder(baseIds, newReps, wrongCountsRef.current)
+    // Rebuild next-lap order from the same question IDs (not from filteredRef which
+    // may have changed due to an active filter).
+    const newOrderedIds = buildCycleOrder(cycleIds, newReps, wrongCountsRef.current)
     cycleOrderedIdsRef.current = newOrderedIds
 
     // Navigate to the first question in the new order
@@ -926,7 +979,22 @@ function LearnInner() {
               <Circle size={10} className="inline text-amber-500 mx-1 -mt-px" /> skip &amp; return later
             </span>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {cycleReps > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!window.confirm(
+                    'Reset to Lap 1? Same question set, but lap counter and accepted list start over.',
+                  )) return
+                  resetToLapOne()
+                  setShowList(false)
+                }}
+                className="flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-300 hover:bg-amber-100 px-2 py-1 rounded-lg transition-colors"
+              >
+                <RotateCcw size={10} /> Reset Lap 1
+              </button>
+            )}
             {needsCycleResume && (
               <button
                 type="button"
@@ -1267,6 +1335,13 @@ function LearnInner() {
           resumeQuestionNum={cycleResumeIdx != null ? cycleResumeIdx + 1 : undefined}
           onNextTodo={goNextUnaccepted}
           onOpenList={() => setShowList(true)}
+          showResetToLapOne={!!cycleRange}
+          onResetToLapOne={() => {
+            if (!window.confirm(
+              'Reset to Lap 1? Same question set, but lap counter and accepted list start over. Use this if the lap advanced too early.',
+            )) return
+            resetToLapOne()
+          }}
         />
       )}
 

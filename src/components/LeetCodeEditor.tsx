@@ -841,24 +841,19 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
   /* ══ RENDER ══════════════════════════════════════════════ */
   return (
-    <div className="relative flex flex-col overflow-x-hidden rounded-none sm:rounded-xl border-0 sm:border border-gray-700/50 bg-[#1a1a2e] flex-1 min-h-[38rem] sm:min-h-0 w-full">
+    <div className="lc-editor-root relative flex flex-col overflow-x-hidden rounded-none sm:rounded-xl border-0 sm:border border-gray-700/50 bg-[#1a1a2e] flex-1 min-h-0 sm:min-h-0 w-full">
       <style>{`
-        /* Responsive CodeMirror font sizing (phone → desktop) */
-        .cm-editor { font-size: clamp(10.5px, 2.4vw, 12.5px); line-height: 1.55; }
-        /* Indentation markers: slightly higher contrast on dark theme */
-        .cm-editor {
+        /* Desktop CodeMirror sizing — mobile uses globals.css (16px anti-zoom) */
+        @media (min-width: 768px) {
+          .lc-editor-root .cm-editor { font-size: 12px; line-height: 1.55; }
+        }
+        .lc-editor-root .cm-editor {
           --indent-marker-bg-color: rgba(120, 140, 190, 0.35);
           --indent-marker-active-bg-color: rgba(150, 175, 255, 0.55);
         }
-        .cm-scroller { overflow-x: hidden !important; overflow-y: auto !important; overscroll-behavior: contain; touch-action: pan-y; }
-        .cm-editor { touch-action: none; }
-        .cm-editor, .cm-content { max-width: 100%; }
-        @media (max-width: 639px) {
-          .cm-editor { font-size: 11.5px !important; line-height: 1.6; }
-        }
-        /* Fullscreen portal: same small font, wrap enabled */
-        .lc-fs-portal .cm-editor { font-size: 11.5px !important; line-height: 1.6 !important; }
-        .lc-fs-portal .cm-scroller { overflow-x: hidden !important; }
+        .lc-editor-root .cm-scroller { overflow-x: hidden !important; overflow-y: auto !important; overscroll-behavior: contain; touch-action: pan-y; }
+        .lc-editor-root .cm-editor { touch-action: manipulation; }
+        .lc-editor-root .cm-editor, .lc-editor-root .cm-content { max-width: 100%; }
       `}</style>
 
       {/* ── Toolbar ── */}

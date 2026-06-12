@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { RefreshCw, Plus, Trash2, Play, ChevronRight, X } from 'lucide-react'
+import { RefreshCw, Plus, Trash2, Play, ChevronRight, X, RotateCcw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
   getSetCycles, saveSetCycles, getSetCycleState, saveSetCycleState,
@@ -12,6 +12,7 @@ import {
   buildPriorityDifficultyPresets, type SetQuestion,
 } from '@/lib/questionSets'
 import { QuestionCountHighlight, SetExclusiveCountLabel } from '@/components/QuestionCountHighlight'
+import { canonicalCycleBaseIds } from '@/lib/cycleLapReset'
 
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
@@ -145,6 +146,46 @@ export default function SetCyclesPage({ set }: Props) {
     try { localStorage.setItem(idxKey, String(idx)) } catch {}
     toast.success(`"${cycle.name}" activated — opening Learn`)
     router.push(`${learnBase}/${idx}`)
+  }
+
+  const handleResetToLapOne = (cycle: SetSavedCycle) => {
+    if (!window.confirm(
+      `Reset "${cycle.name}" to Lap 1? Same questions, but lap counter and accepted list start over.`,
+    )) return
+
+    const active = getSetCycleState(set)
+    const sameAsActive = !!active?.cycleRange &&
+      active.cycleRange.start === cycle.range.start &&
+      active.cycleRange.end === cycle.range.end
+
+    let orderedIds = (sameAsActive ? active?.cycleOrderedIds : undefined) ?? cycle.cycleOrderedIds
+    if (!orderedIds?.length) {
+      orderedIds = questions.slice(cycle.range.start, cycle.range.end + 1).map(q => q.id)
+    }
+    if (!orderedIds.length) {
+      toast.error('Could not resolve cycle questions.')
+      return
+    }
+
+    const lapOneOrder = canonicalCycleBaseIds(orderedIds, questions)
+    saveSetCycleState(set, {
+      cycleRange: cycle.range,
+      cycleReps: 0,
+      cyclePos: 0,
+      cycleIdx: cycle.range.start,
+      cycleAccepted: [],
+      cycleOrderedIds: lapOneOrder,
+    })
+
+    const nextCycles = cycles.map(c =>
+      c.id === cycle.id
+        ? { ...c, reps: 0, cyclePos: 0, cycleAccepted: [], cycleOrderedIds: lapOneOrder }
+        : c,
+    )
+    saveSetCycles(set, nextCycles)
+    setCycles(nextCycles)
+    try { localStorage.setItem(idxKey, String(cycle.range.start)) } catch {}
+    toast.success(`"${cycle.name}" reset to Lap 1`)
   }
 
   const lapBar = (reps: number) => {
@@ -297,6 +338,15 @@ export default function SetCyclesPage({ set }: Props) {
                     </p>
                   )}
                 </div>
+                {(cycle.reps > 0 || (Array.isArray(cycle.cycleAccepted) && cycle.cycleAccepted.length > 0)) && (
+                  <button
+                    type="button"
+                    onClick={() => handleResetToLapOne(cycle)}
+                    className="w-full mb-2 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold transition-colors"
+                  >
+                    <RotateCcw size={12} /> Reset to Lap 1
+                  </button>
+                )}
                 <button onClick={() => handleActivate(cycle)}
                   className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold transition-colors">
                   <Play size={12} /> Activate &amp; Go to Learn {set}
