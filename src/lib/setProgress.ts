@@ -25,6 +25,7 @@ export interface SetCycleState {
   cyclePos: number
   cycleIdx?: number
   cycleAccepted: number[]
+  cycleOrderedIds?: number[]
 }
 
 function key(set: 2 | 3, suffix: string) {

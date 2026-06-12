@@ -1660,6 +1660,10 @@ function enrichFromSessionStorage(state: CycleState | null): CycleState | null {
     if (!Array.isArray(sess)) return state
     const merged = mergeCycleAcceptedIds(state.cycleAccepted, sess)
     if (merged.length <= (state.cycleAccepted?.length ?? 0)) return state
+    // Guard: same as enrichCycleStateFromSavedCycles — don't let stale session IDs
+    // from a completed lap inflate the accepted count enough to fire lap completion.
+    const cycleLen = state.cycleRange.end - state.cycleRange.start + 1
+    if (merged.length >= cycleLen) return state
     return { ...state, cycleAccepted: merged }
   } catch {
     return state

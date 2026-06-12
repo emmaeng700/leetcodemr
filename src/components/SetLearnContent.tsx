@@ -406,16 +406,18 @@ export default function SetLearnContent({ set, index }: Props) {
     const newReps = Math.min(cycleRepsRef.current + 1, CYCLE_REP_TARGET)
     setCycleRepsState(newReps)
     cycleRepsRef.current = newReps
-    const baseIds      = filteredRef.current.slice(rng.start, rng.end + 1).map(q => q.id)
-    const newOrderedIds = buildCycleOrder(baseIds, newReps)
+    // Rebuild next-lap order from the same question IDs (not from filteredRef which
+    // may have changed due to an active filter).
+    const newOrderedIds = buildCycleOrder(cycleIds, newReps)
     cycleOrderedIdsRef.current = newOrderedIds
     const firstId  = newOrderedIds[0]
     const firstIdx = filteredRef.current.findIndex(q => q.id === firstId)
     const startIdx = firstIdx >= 0 ? firstIdx : rng.start
     cycleIdxRef.current = startIdx
     saveSetCycleState(set, {
-      cycleRange: rng, cycleReps: newReps, cyclePos: 0, cycleIdx: startIdx, cycleAccepted: [],
-    } as any)
+      cycleRange: rng, cycleReps: newReps, cyclePos: 0, cycleIdx: startIdx,
+      cycleAccepted: [], cycleOrderedIds: newOrderedIds,
+    })
     const isFinal = newReps >= CYCLE_REP_TARGET
     fireConfetti(isFinal)
     toast(LAP_MESSAGES[newReps - 1] ?? `Lap ${newReps} done! 🔥`, {
@@ -438,7 +440,8 @@ export default function SetLearnContent({ set, index }: Props) {
       saveSetCycleState(set, {
         cycleRange: rng, cycleReps: cycleRepsRef.current,
         cyclePos: cyclePosRef.current, cycleIdx: cycleIdxRef.current, cycleAccepted: arr,
-      } as any)
+        cycleOrderedIds: cycleOrderedIdsRef.current,
+      })
     }
     return true
   }, [set])
@@ -459,7 +462,7 @@ export default function SetLearnContent({ set, index }: Props) {
     cycleRepsRef.current = 0
     cyclePosRef.current  = 0
     setShowCyclePanel(false)
-    saveSetCycleState(set, { cycleRange: { start: s, end: e }, cycleReps: 0, cyclePos: 0, cycleIdx: s, cycleAccepted: [] } as any)
+    saveSetCycleState(set, { cycleRange: { start: s, end: e }, cycleReps: 0, cyclePos: 0, cycleIdx: s, cycleAccepted: [], cycleOrderedIds: orderedIds })
     cycleIdxRef.current = s
     const qs = learnQsRef.current
     router.push(`${learnBase}/${s}${qs ? `?${qs}` : ''}`, { scroll: false })

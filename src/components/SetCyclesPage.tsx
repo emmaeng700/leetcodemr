@@ -114,16 +114,26 @@ export default function SetCyclesPage({ set }: Props) {
       active.cycleRange.start === cycle.range.start &&
       active.cycleRange.end   === cycle.range.end
 
-    let cycleReps     = cycle.reps
-    let cyclePos      = cycle.cyclePos ?? 0
-    let cycleIdx      = cycle.cycleIdx
-    let cycleAccepted = Array.isArray(cycle.cycleAccepted) ? cycle.cycleAccepted : []
+    let cycleReps      = cycle.reps
+    let cyclePos       = cycle.cyclePos ?? 0
+    let cycleIdx       = cycle.cycleIdx
+    let cycleAccepted  = Array.isArray(cycle.cycleAccepted) ? cycle.cycleAccepted : []
+    let cycleOrderedIds: number[] | undefined = undefined
 
     if (sameAsActive && active) {
-      cycleReps     = active.cycleReps ?? cycle.reps
-      cyclePos      = active.cyclePos  ?? 0
-      cycleIdx      = active.cycleIdx  ?? cycle.cycleIdx
-      cycleAccepted = Array.isArray(active.cycleAccepted) ? active.cycleAccepted : []
+      cycleReps      = active.cycleReps ?? cycle.reps
+      cyclePos       = active.cyclePos  ?? 0
+      cycleIdx       = active.cycleIdx  ?? cycle.cycleIdx
+      cycleAccepted  = Array.isArray(active.cycleAccepted) ? active.cycleAccepted : []
+      cycleOrderedIds = active.cycleOrderedIds
+    }
+
+    // If no persisted ordered IDs, build from the full (unfiltered) question list so
+    // a filter active on the Learn page can't shrink the cycle on first restore.
+    if (!cycleOrderedIds || cycleOrderedIds.length === 0) {
+      const { start, end } = cycle.range
+      const baseIds = questions.slice(start, end + 1).map(q => q.id)
+      if (baseIds.length > 0) cycleOrderedIds = baseIds
     }
 
     const isFresh = cycleReps === 0 && cyclePos === 0 && cycleAccepted.length === 0
@@ -131,7 +141,7 @@ export default function SetCyclesPage({ set }: Props) {
       ? cycle.range.start
       : clampSetCycleIdx(cycleIdx, cycle.range)
 
-    saveSetCycleState(set, { cycleRange: cycle.range, cycleReps, cyclePos, cycleIdx: idx, cycleAccepted })
+    saveSetCycleState(set, { cycleRange: cycle.range, cycleReps, cyclePos, cycleIdx: idx, cycleAccepted, cycleOrderedIds })
     try { localStorage.setItem(idxKey, String(idx)) } catch {}
     toast.success(`"${cycle.name}" activated — opening Learn`)
     router.push(`${learnBase}/${idx}`)
