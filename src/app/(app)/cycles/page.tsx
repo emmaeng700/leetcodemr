@@ -103,12 +103,16 @@ function CyclesInner() {
     await setSavedCycles(next)
     setCycles(next)
 
-    // If this was the active cycle in Learn, clear it too
+    // If this was the active cycle in Learn, clear it too.
+    // Check BOTH Supabase and localStorage — either can hold a matching stale state.
     const active = await getCycleState()
-    const isActive = active?.cycleRange &&
-      active.cycleRange.start === cycle.range.start &&
-      active.cycleRange.end   === cycle.range.end
-    if (isActive) {
+    const rangeMatches = (r: { start: number; end: number } | null | undefined) =>
+      !!r && r.start === cycle.range.start && r.end === cycle.range.end
+    const isActive = rangeMatches(active?.cycleRange)
+    const localRaw = (() => { try { return localStorage.getItem('lm_cycle_state_v1') } catch { return null } })()
+    const localState = localRaw ? (() => { try { return JSON.parse(localRaw) } catch { return null } })() : null
+    const localMatches = rangeMatches(localState?.cycleRange)
+    if (isActive || localMatches) {
       await saveCycleState(null)
       // Clear Learn page sessionStorage so the badge disappears immediately
       try {
@@ -117,6 +121,7 @@ function CyclesInner() {
         sessionStorage.removeItem('lm_learn_cycle_pos')
         sessionStorage.removeItem('lm_learn_cycle_idx')
         sessionStorage.removeItem('lm_learn_cycle_accepted')
+        sessionStorage.removeItem('lm_learn_cycle_order')
       } catch {}
       toast.success(`"${cycle.name}" deleted and deactivated from Learn`)
     } else {

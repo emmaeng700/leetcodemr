@@ -1522,6 +1522,7 @@ export interface CycleState {
   cycleIdx?:       number      // last visited index within filtered list
   cycleAccepted:   number[]    // question IDs accepted in current lap
   cycleOrderedIds?: number[]   // question IDs in the current lap's traversal order
+  writtenAt?:      number      // unix ms — last-write-wins when picking between local/remote
 }
 
 export function clampCycleIdx(
@@ -1600,6 +1601,14 @@ function pickBestCycleState(local: CycleState | null, remote: CycleState | null)
   if (!cycleRangesEqual(local.cycleRange, remote.cycleRange)) {
     return cycleStateScore(local) >= cycleStateScore(remote) ? local : remote
   }
+  // Same range — last write wins. writtenAt is stamped on every saveCycleState call.
+  // This prevents a stale Supabase read (higher reps) from beating a fresh local reset (lower reps).
+  const localAt  = local.writtenAt  ?? 0
+  const remoteAt = remote.writtenAt ?? 0
+  if (localAt !== remoteAt) {
+    return localAt > remoteAt ? local : remote
+  }
+  // No timestamps (legacy state) — fall back to higher score
   const localReps = local.cycleReps ?? 0
   const remoteReps = remote.cycleReps ?? 0
   if (localReps !== remoteReps) {
@@ -1626,6 +1635,11 @@ async function enrichCycleStateFromSavedCycles(state: CycleState): Promise<Cycle
     if ((match.reps ?? 0) !== (state.cycleReps ?? 0)) return state
     const merged = mergeCycleAcceptedIds(state.cycleAccepted, match.cycleAccepted)
     if (merged.length <= (state.cycleAccepted?.length ?? 0)) return state
+    // Guard: if the merge would reach or exceed the cycle's total question count, the
+    // SavedCycle is holding a prior lap's completed-list — don't import it into what is
+    // supposed to be a fresh lap (would cause checkCycleLapComplete to fire immediately).
+    const cycleLen = match.range.end - match.range.start + 1
+    if (merged.length >= cycleLen) return state
     return {
       ...state,
       cycleAccepted: merged,
@@ -1696,6 +1710,7 @@ export async function getCycleState(): Promise<CycleState | null> {
 }
 
 export async function saveCycleState(state: CycleState | null): Promise<void> {
+  if (state) state = { ...state, writtenAt: Date.now() }
   writeLocalCycleState(state)
 
   const payload: Record<string, unknown> = {
