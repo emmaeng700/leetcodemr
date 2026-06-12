@@ -136,7 +136,7 @@ export default function ReviewPage() {
       </p>
 
       {/* SR stats */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-7">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-7">
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 text-center">
           <Flame size={20} className="text-orange-400 mx-auto mb-1" />
           <div className="text-2xl font-black text-orange-500">{due.length}</div>

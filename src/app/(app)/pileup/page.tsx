@@ -65,7 +65,7 @@ export default function PileupPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 pb-16">
-      <div className="flex items-center gap-3 mb-5">
+      <div className="flex flex-wrap items-center gap-3 mb-5">
         <div className="w-9 h-9 rounded-xl bg-indigo-50  border border-indigo-200  flex items-center justify-center shrink-0">
           <Brain size={18} className="text-indigo-600 " />
         </div>

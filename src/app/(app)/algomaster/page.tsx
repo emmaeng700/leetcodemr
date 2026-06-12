@@ -124,7 +124,7 @@ export default function AlgoMaster600Page() {
     })
 
   return (
-    <div className="min-h-screen bg-[#0b1020] text-gray-100 pb-24">
+    <div className="bg-[#0b1020] text-gray-100 pb-6">
       <div className="max-w-4xl mx-auto px-4 py-6">
 
         {/* Header */}
@@ -173,7 +173,7 @@ export default function AlgoMaster600Page() {
               style={{ width: `${(totalSolved / TOTAL) * 100}%` }}
             />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               { label: 'Easy',   solved: easySolved, total: easyTotal,  cls: 'text-green-400',  bg: 'bg-green-500/10' },
               { label: 'Medium', solved: medSolved,  total: medTotal,   cls: 'text-yellow-400', bg: 'bg-yellow-500/10' },
@@ -189,7 +189,7 @@ export default function AlgoMaster600Page() {
 
         {/* Filters */}
         <div className="flex gap-2 mb-5 flex-wrap">
-          <div className="relative flex-1 min-w-[180px]">
+          <div className="relative flex-1 min-w-0 sm:min-w-[180px]">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
               value={search}
@@ -231,7 +231,7 @@ export default function AlgoMaster600Page() {
                 {/* Category header */}
                 <button
                   onClick={() => toggleCollapse(cat.name)}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition"
+                  className="w-full flex flex-wrap items-center gap-2 sm:gap-3 px-4 py-3 hover:bg-white/[0.02] transition"
                 >
                   <span className="text-base">{cat.emoji}</span>
                   <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${CAT_COLOR[cat.color]}`}>
@@ -257,7 +257,7 @@ export default function AlgoMaster600Page() {
                       return (
                         <div
                           key={q.id}
-                          className={`flex items-center gap-3 px-4 py-2.5 text-sm border-b border-gray-800/60 last:border-b-0 hover:bg-white/[0.02] transition group ${i % 2 === 0 ? '' : 'bg-white/[0.01]'}`}
+                          className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5 text-sm border-b border-gray-800/60 last:border-b-0 hover:bg-white/[0.02] transition group ${i % 2 === 0 ? '' : 'bg-white/[0.01]'}`}
                         >
                           {/* Solved icon */}
                           <span className="shrink-0">

@@ -11,6 +11,7 @@ import CodePanel from '@/components/CodePanel'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import QuestionImage from '@/components/QuestionImage'
+import MobileSplitPanelTabs, { type MobileSplitPanel } from '@/components/MobileSplitPanelTabs'
 import toast from 'react-hot-toast'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import { getPatternForQuestion } from '@/lib/patternUtils'
@@ -49,6 +50,7 @@ export default function QuestionPage() {
   const [loading, setLoading] = useState(true)
   const [imageError, setImageError] = useState(false)
   const [showSolution, setShowSolution] = useState(false)
+  const [mobilePanel, setMobilePanel] = useState<MobileSplitPanel>('content')
   const allQuestionsRef = useRef<Array<{ id: number; tags: string[] }>>([])
   const fullProgressRef = useRef<Record<string, { solved?: boolean }>>({})
 
@@ -91,115 +93,48 @@ export default function QuestionPage() {
   if (loading) return <div className="text-center py-32 text-gray-400 animate-pulse text-sm">Loading...</div>
   if (!question) return <div className="text-center py-32 text-red-400 text-sm">Question not found.</div>
 
-  return (
-    <div className="w-full px-4 py-6">
-      {/* Back */}
-      <button
-        onClick={() => router.back()}
-        className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-700 mb-4 transition-colors"
-      >
-        <ArrowLeft size={15} /> Back
-      </button>
+  const topic = getPatternForQuestion(question.tags || []) ?? 'Other'
 
-      {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-5 mb-5">
-        <div className="flex items-start justify-between flex-wrap gap-3">
-          <div>
-            <div className="flex flex-wrap items-center gap-1.5 mb-1">
-              <span className="text-xs text-gray-400 font-mono">#{question.id}</span>
-              <DifficultyBadge difficulty={question.difficulty} />
-              {(() => {
-                const topic = getPatternForQuestion(question.tags || []) ?? 'Other'
-                return (
-                  <span className="text-xs bg-gray-50 text-gray-600 px-2 py-0.5 rounded-full border border-gray-200">
-                    🧩 {topic}
-                  </span>
-                )
-              })()}
-              {(question.source || []).map(s => (
-                <span key={s} className="text-xs bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100">
-                  {s}
-                </span>
-              ))}
-            </div>
-            <h1 className="text-xl font-bold text-gray-800">{question.title}</h1>
-
-            {/* Tags */}
-            <div className="flex flex-wrap gap-1 mt-2">
-              {(question.tags || []).map(tag => (
-                <span key={tag} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => save({ starred: !progress.starred })}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border ${
-                progress.starred
-                  ? 'bg-yellow-50 text-yellow-600 border-yellow-200'
-                  : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-yellow-300'
-              }`}
-            >
-              <Star size={13} className={progress.starred ? 'fill-yellow-400' : ''} />
-              {progress.starred ? 'Starred' : 'Star'}
-            </button>
-
-            <button
-              onClick={() => save({ solved: !progress.solved })}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border ${
-                progress.solved
-                  ? 'bg-green-50 text-green-600 border-green-200'
-                  : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-green-300'
-              }`}
-            >
-              <CheckCircle size={13} className={progress.solved ? 'fill-green-500 text-white' : ''} />
-              {progress.solved ? 'Solved ✓' : 'Mark Solved'}
-            </button>
-
-            <Link
-              href={`/practice/${question.id}`}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors border border-indigo-600"
-            >
-              <Terminal size={13} /> Practice
-            </Link>
-
-            {question.slug && (
-              <a
-                href={leetCodeUrl(resolveLeetCodeSlug(question.id, question.slug))}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-orange-50 text-orange-500 border border-orange-200 hover:bg-orange-100 transition-colors"
-              >
-                <ExternalLink size={13} /> LeetCode
-              </a>
-            )}
-          </div>
+  const contentPanel = (
+    <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 space-y-4">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-5">
+        <div className="flex flex-wrap items-center gap-1.5 mb-1">
+          <span className="text-xs text-gray-400 font-mono">#{question.id}</span>
+          <DifficultyBadge difficulty={question.difficulty} />
+          <span className="text-xs bg-gray-50 text-gray-600 px-2 py-0.5 rounded-full border border-gray-200">
+            🧩 {topic}
+          </span>
+          {(question.source || []).map(s => (
+            <span key={s} className="text-xs bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100">
+              {s}
+            </span>
+          ))}
+        </div>
+        <h1 className="text-lg sm:text-xl font-bold text-gray-800 leading-snug">{question.title}</h1>
+        <div className="flex flex-wrap gap-1 mt-2">
+          {(question.tags || []).map(tag => (
+            <span key={tag} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+              {tag}
+            </span>
+          ))}
         </div>
       </div>
 
-      {/* Question Image */}
       {!imageError && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-5">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-3">
             <BookOpen size={14} /> Problem
           </h2>
-          <div className="p-1 sm:p-2">
-            <QuestionImage
-              questionId={question.id}
-              alt={question.title}
-              onError={() => setImageError(true)}
-            />
-          </div>
+          <QuestionImage
+            questionId={question.id}
+            alt={question.title}
+            onError={() => setImageError(true)}
+          />
         </div>
       )}
 
-      {/* Description */}
       {question.description && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
           <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-3">
             <BookOpen size={14} /> Description
           </h2>
@@ -207,18 +142,17 @@ export default function QuestionPage() {
         </div>
       )}
 
-      {/* Explanation / Approach */}
       {question.explanation && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
           <h2 className="text-sm font-bold text-gray-700 mb-3">Approach</h2>
           <DescriptionRenderer explanation={question.explanation} />
         </div>
       )}
 
-      {/* Solution Code — hidden until revealed */}
       {(question.python_solution || question.cpp_solution) && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-5">
           <button
+            type="button"
             onClick={() => setShowSolution(v => !v)}
             className="w-full flex items-center justify-between gap-2 group"
           >
@@ -243,21 +177,87 @@ export default function QuestionPage() {
           )}
         </div>
       )}
+    </div>
+  )
 
-      {/* Practice Editor */}
-      <div className="mb-5">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="h-px flex-1 bg-gray-200" />
-          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest px-2">🧠 Practice</span>
-          <div className="h-px flex-1 bg-gray-200" />
+  return (
+    <div className="flex flex-col md:h-[calc(100dvh-56px)] min-h-0">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-gray-100 bg-white shrink-0">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+          title="Back"
+        >
+          <ArrowLeft size={16} />
+        </button>
+
+        <h1 className="hidden sm:block min-w-0 flex-1 text-sm font-bold text-gray-800 truncate">{question.title}</h1>
+
+        <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+          <button
+            type="button"
+            onClick={() => save({ starred: !progress.starred })}
+            className={`flex min-h-11 items-center gap-1 px-3 rounded-lg text-xs font-semibold transition-colors border ${
+              progress.starred
+                ? 'bg-yellow-50 text-yellow-600 border-yellow-200'
+                : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-yellow-300'
+            }`}
+          >
+            <Star size={13} className={progress.starred ? 'fill-yellow-400' : ''} />
+            <span className="hidden sm:inline">{progress.starred ? 'Starred' : 'Star'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => save({ solved: !progress.solved })}
+            className={`flex min-h-11 items-center gap-1 px-3 rounded-lg text-xs font-semibold transition-colors border ${
+              progress.solved
+                ? 'bg-green-50 text-green-600 border-green-200'
+                : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-green-300'
+            }`}
+          >
+            <CheckCircle size={13} className={progress.solved ? 'fill-green-500 text-white' : ''} />
+            <span className="hidden sm:inline">{progress.solved ? 'Solved' : 'Mark Solved'}</span>
+          </button>
+
+          <Link
+            href={`/practice/${question.id}`}
+            className="flex min-h-11 items-center gap-1 px-3 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors border border-indigo-600"
+          >
+            <Terminal size={13} />
+            <span className="hidden sm:inline">Practice</span>
+          </Link>
+
+          {question.slug && (
+            <a
+              href={leetCodeUrl(resolveLeetCodeSlug(question.id, question.slug))}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-h-11 items-center gap-1 px-3 rounded-lg text-xs font-semibold bg-orange-50 text-orange-500 border border-orange-200 hover:bg-orange-100 transition-colors"
+            >
+              <ExternalLink size={13} />
+              <span className="hidden sm:inline">LeetCode</span>
+            </a>
+          )}
         </div>
-        <LeetCodeEditor
-          appQuestionId={question.id}
-          slug={question.slug}
-          preferredLangs={question.tags?.includes('JavaScript') ? ['javascript', 'python3', 'cpp'] : undefined}
-        />
       </div>
 
+      <MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} />
+
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-visible md:overflow-hidden">
+        <div className={`${mobilePanel === 'content' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg)] border-r border-gray-100 overflow-visible md:overflow-hidden`}>
+          {contentPanel}
+        </div>
+
+        <div className={`${mobilePanel === 'editor' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[58%] flex-1 min-h-[50dvh] md:min-h-0 overflow-x-hidden border-t border-gray-100 md:border-t-0`}>
+          <LeetCodeEditor
+            appQuestionId={question.id}
+            slug={question.slug}
+            preferredLangs={question.tags?.includes('JavaScript') ? ['javascript', 'python3', 'cpp'] : undefined}
+          />
+        </div>
+      </div>
     </div>
   )
 }

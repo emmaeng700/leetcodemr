@@ -602,7 +602,7 @@ export default function BestSolutionsPage() {
   }, [exportProgress, solutions, sortedQuestions, patternMap])
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] pb-20">
+    <div className="min-h-0 bg-[var(--bg)] pb-20">
       <div className="max-w-3xl mx-auto px-4 pt-8">
 
         {/* Header */}

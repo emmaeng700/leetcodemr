@@ -218,7 +218,7 @@ export default function SettingsPage() {
             Max spaced-repetition reviews per day. Once you hit this, the review quota is done for the day.
           </p>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {[1, 2, 3].map(n => (
               <button
                 key={n}
@@ -252,7 +252,7 @@ export default function SettingsPage() {
             How many accepted solves a Daily question needs before it counts as done and moves to the next.
           </p>
 
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[1, 2, 3, 5].map(n => (
               <button
                 key={n}
@@ -282,7 +282,7 @@ export default function SettingsPage() {
             How long after solving a question before your first spaced-repetition review is scheduled.
           </p>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {REVIEW_DELAYS.map(opt => (
               <button
                 key={opt.days}

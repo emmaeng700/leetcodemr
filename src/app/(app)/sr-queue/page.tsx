@@ -31,7 +31,7 @@ function QuestionRow({ q, p, urgency, completing, onDone }: {
   const days = p.next_review ? daysUntil(p.next_review) : null
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-3 border-b border-[var(--border-soft)] last:border-b-0 hover:bg-[var(--bg-muted)] transition-colors ${completing === q.id ? 'opacity-50' : ''}`}>
+    <div className={`flex flex-col gap-2 px-4 py-3 border-b border-[var(--border-soft)] last:border-b-0 hover:bg-[var(--bg-muted)] transition-colors sm:flex-row sm:items-center sm:gap-3 ${completing === q.id ? 'opacity-50' : ''}`}>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
@@ -53,7 +53,7 @@ function QuestionRow({ q, p, urgency, completing, onDone }: {
           )}
         </div>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:shrink-0">
         <Link href={`/practice/${q.id}`}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50  text-indigo-600  border border-indigo-200  text-xs font-semibold hover:bg-indigo-100  transition-colors">
           Practice <ArrowRight size={11} />

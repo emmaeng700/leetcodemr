@@ -182,7 +182,14 @@ export default function PatternReviewContent() {
           <div className="fixed inset-y-0 left-0 w-56 bg-[var(--bg-card)] z-50 flex flex-col md:hidden shadow-xl">
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
               <span className="text-xs font-bold text-[var(--text)]">Rounds</span>
-              <button onClick={() => setMobileDrawer(false)}><X size={16} /></button>
+              <button
+                type="button"
+                onClick={() => setMobileDrawer(false)}
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg hover:bg-[var(--bg-muted)] text-[var(--text-muted)]"
+                aria-label="Close rounds menu"
+              >
+                <X size={16} />
+              </button>
             </div>
             <div className="flex-1 overflow-y-auto py-2">
               <SidebarContent />
@@ -197,8 +204,9 @@ export default function PatternReviewContent() {
         {/* Mobile drawer toggle */}
         <div className="md:hidden flex items-center gap-2 px-4 py-2 border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
           <button
+            type="button"
             onClick={() => setMobileDrawer(true)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] border border-[var(--border)] rounded-lg px-3 py-1.5 hover:bg-[var(--bg-muted)]"
+            className="flex min-h-11 items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] border border-[var(--border)] rounded-lg px-3 py-2 hover:bg-[var(--bg-muted)]"
           >
             <Layers size={12} />
             {rounds.find(r => r.key === activeRound)?.dot}{' '}
@@ -214,7 +222,7 @@ export default function PatternReviewContent() {
               className="mb-12"
             >
               {/* Round heading */}
-              <div className="sticky top-0 z-10 bg-[var(--bg)] -mx-3 sm:-mx-6 px-3 sm:px-6 py-2.5 mb-4 border-b border-[var(--border)] flex items-center gap-2">
+              <div className="sticky top-0 z-10 bg-[var(--bg)] -mx-3 sm:-mx-6 px-3 sm:px-6 py-2.5 mb-4 border-b border-[var(--border)] flex flex-wrap items-center gap-2">
                 <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${PRIORITY_PILL[r.priority]}`}>
                   {r.dot} {r.priority}
                 </span>

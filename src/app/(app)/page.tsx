@@ -1155,7 +1155,7 @@ function SetExternalQuestions({
             {showSolved === false ? 'Unsolved' : showSolved === true ? 'Solved' : 'All'}
           </button>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
-            className="px-3 py-1.5 rounded-full text-xs bg-[var(--bg-muted)] border border-[var(--border-soft)] text-[var(--text)] outline-none focus:border-indigo-400 w-36 ml-auto" />
+            className="w-full sm:w-36 px-3 py-1.5 rounded-full text-xs bg-[var(--bg-muted)] border border-[var(--border-soft)] text-[var(--text)] outline-none focus:border-indigo-400 sm:ml-auto" />
         </div>
 
         <div className="flex flex-wrap gap-1 pt-2 border-t border-[var(--border-soft)] mt-2">
@@ -1405,12 +1405,12 @@ function HomeInner() {
           </span>
         </div>
       )}
-      <div className="flex items-center gap-4 mb-5 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg px-5 py-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3 mb-5 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg px-4 sm:px-5 py-3">
+        <div className="flex items-center gap-2 shrink-0">
           <CheckCircle size={16} className="text-green-400" />
           <span className="text-sm font-bold text-[var(--text)]">{solved} / {questions.length} solved</span>
         </div>
-        <div className="flex-1 h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+        <div className="flex-1 min-w-[120px] h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
           <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
             style={{ width: (questions.length ? Math.round((solved / questions.length) * 100) : 0) + '%' }} />
         </div>
@@ -1423,19 +1423,30 @@ function HomeInner() {
       {!loading && <PatternCoverageGrid questions={questions} progress={progress} />}
 
       {/* Question Set Switcher */}
-      <div className="flex items-center gap-1 mb-3">
+      <div className="flex items-center gap-1 mb-3 overflow-x-auto scrollbar-none pb-1">
         {([1, 2, 3] as const).map(s => (
           <button key={s} onClick={() => setQuestionSet(s)}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors border ${
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors border whitespace-nowrap shrink-0 ${
               questionSet === s
                 ? 'bg-indigo-600 text-white border-indigo-600 shadow-[0_0_8px_rgba(99,102,241,0.3)]'
                 : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:brightness-110'
             }`}>
-            {s === 1
-              ? `Questions Set 1 (${questions.length})`
-              : s === 2
-                ? `Questions Set 2 (${set2Questions.length})`
-                : `Questions Set 3 (${set3Questions.length})`}
+            {s === 1 ? (
+              <>
+                <span className="sm:hidden">Set 1 ({questions.length})</span>
+                <span className="hidden sm:inline">Questions Set 1 ({questions.length})</span>
+              </>
+            ) : s === 2 ? (
+              <>
+                <span className="sm:hidden">Set 2 ({set2Questions.length})</span>
+                <span className="hidden sm:inline">Questions Set 2 ({set2Questions.length})</span>
+              </>
+            ) : (
+              <>
+                <span className="sm:hidden">Set 3 ({set3Questions.length})</span>
+                <span className="hidden sm:inline">Questions Set 3 ({set3Questions.length})</span>
+              </>
+            )}
           </button>
         ))}
       </div>

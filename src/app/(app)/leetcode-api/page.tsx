@@ -25,6 +25,7 @@ hljs.registerLanguage('cpp', cppLang)
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import CompanyBrowser from '@/components/CompanyBrowser'
+import MobileSplitPanelTabs, { type MobileSplitPanel } from '@/components/MobileSplitPanelTabs'
 function EditorialCodeBlock({ code, lang }: { code: string; lang: string }) {
   const codeRef = useRef<HTMLElement>(null)
   const [copied, setCopied] = useState(false)
@@ -253,7 +254,7 @@ export default function LeetCodePage() {
   const editorialSlugRef = useRef<string | null>(null)
 
   /* Mobile panel toggle */
-  const [mobilePanel, setMobilePanel] = useState<'desc' | 'code'>('desc')
+  const [mobilePanel, setMobilePanel] = useState<MobileSplitPanel>('content')
 
   /* Daily */
   const [daily,     setDaily]       = useState<DailyChallenge | null>(null)
@@ -661,20 +662,12 @@ export default function LeetCodePage() {
         </div>
       ) : question && (
         /* ── Split layout ── */
-        <div className="relative z-0 flex-1 flex flex-col sm:flex-row overflow-visible sm:overflow-hidden">
+        <div className="relative z-0 flex-1 flex flex-col md:flex-row overflow-visible md:overflow-hidden">
 
-          {/* Mobile tab switcher */}
-          <div className="sm:hidden flex border-b border-gray-700/50 bg-[#16213e] shrink-0">
-            {(['desc', 'code'] as const).map(p => (
-              <button key={p} onClick={() => setMobilePanel(p)}
-                className={`flex-1 py-2 text-xs font-semibold transition ${mobilePanel === p ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-500'}`}>
-                {p === 'desc' ? 'Description' : 'Code'}
-              </button>
-            ))}
-          </div>
+          <MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} editorLabel="Code" />
 
           {/* LEFT PANEL — Description */}
-          <div className={`${mobilePanel === 'desc' ? 'flex' : 'hidden'} sm:flex w-full sm:w-[42%] flex-col border-r border-gray-700/50 overflow-visible sm:overflow-hidden`}>
+          <div className={`${mobilePanel === 'content' ? 'flex' : 'hidden'} md:flex w-full md:w-[42%] flex-col border-r border-gray-700/50 overflow-visible md:overflow-hidden`}>
             {/* Left tabs */}
             <div className="flex overflow-x-auto border-b border-gray-700/50 shrink-0 bg-[#16213e] scrollbar-none">
               {(['description', 'editorial', 'best', 'profile'] as const).map(tab => (
@@ -908,7 +901,7 @@ export default function LeetCodePage() {
           </div>
 
           {/* RIGHT PANEL — Shared editor */}
-          <div className={`${mobilePanel === 'code' ? 'flex' : 'hidden'} sm:flex flex-1 flex-col min-h-[30rem] sm:min-h-0 overflow-x-hidden`}>
+          <div className={`${mobilePanel === 'editor' ? 'flex' : 'hidden'} md:flex flex-1 flex-col min-h-[50dvh] md:min-h-0 overflow-x-hidden`}>
             <LeetCodeEditor appQuestionId={matchId || 0} slug={question.titleSlug} syncToApp={matchId > 0} />
           </div>
         </div>

@@ -113,7 +113,7 @@ function LearnHub() {
           </button>
         ))}
       </div>
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {set === 1 && tab === 'cycles' && <CyclesPage />}
         {set === 2 && tab === 'cycles' && <SetCyclesPage set={2} />}
         {set === 3 && tab === 'cycles' && <SetCyclesPage set={3} />}

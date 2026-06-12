@@ -12,7 +12,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Navbar />
       </Suspense>
       <QuestionSearchGate />
-      <main className="overflow-x-hidden">{children}</main>
+      <main className="overflow-x-hidden pb-[env(safe-area-inset-bottom)]">{children}</main>
       <Toaster position="bottom-right" />
     </div>
   )

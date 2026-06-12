@@ -5,6 +5,7 @@ import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Sparkle
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { formatTime, stripScripts, leetCodeUrl } from '@/lib/utils'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
+import MobileSplitPanelTabs, { type MobileSplitPanel } from '@/components/MobileSplitPanelTabs'
 import { createClient } from '@supabase/supabase-js'
 import { NEETCODE_150 } from '@/lib/neetcode150'
 
@@ -36,6 +37,7 @@ export default function NeetCodeQuestionPage() {
   const [isPremium, setIsPremium] = useState(false)
   const [solved, setSolved] = useState(false)
   const [activeTab, setActiveTab] = useState<'description' | 'best' | 'editor'>('description')
+  const [mobilePanel, setMobilePanel] = useState<MobileSplitPanel>('content')
   const leftPanelTab = activeTab === 'editor' ? 'description' : activeTab
   const [timer, setTimer] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -128,7 +130,7 @@ export default function NeetCodeQuestionPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-56px)] flex-col md:h-[calc(100dvh-56px)]">
+    <div className="flex min-h-0 flex-col md:h-[calc(100dvh-56px)]">
 
       {/* Top bar */}
       <div className="flex flex-wrap items-center px-3 sm:px-4 py-2 sm:py-2.5 border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 gap-x-2 gap-y-1">
@@ -185,11 +187,13 @@ export default function NeetCodeQuestionPage() {
         </button>
       </div>
 
+      <MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} />
+
       {/* Content area */}
-      <div className="flex flex-col md:flex-row flex-1 overflow-visible md:overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-visible md:overflow-hidden">
 
         {/* Non-editor tabs */}
-        <div className="relative z-10 flex flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-visible md:overflow-hidden text-[var(--text)] border-r border-[var(--border)]">
+        <div className={`${mobilePanel === 'content' ? 'flex' : 'hidden'} md:flex relative z-10 flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-visible md:overflow-hidden text-[var(--text)] border-r border-[var(--border)]`}>
           <div className="flex-1 overflow-visible p-4 md:overflow-y-auto">
 
             {leftPanelTab === 'description' && (
@@ -250,7 +254,7 @@ export default function NeetCodeQuestionPage() {
         </div>
 
         {/* Editor panel */}
-        <div className="relative z-0 flex flex-col w-full md:w-[58%] flex-1 min-h-[30rem] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
+        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex relative z-0 flex-col w-full md:w-[58%] flex-1 min-h-[50dvh] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0`}>
           <LeetCodeEditor
             appQuestionId={q?.id ?? 0}
             slug={slug}

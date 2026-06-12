@@ -394,10 +394,10 @@ function StatsPage() {
         return (
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-5 mb-6">
             <h2 className="font-bold text-[var(--text-muted)] text-sm mb-1 flex items-center gap-2">🚔 Daily Plan Heatmap</h2>
-            <p className="text-xs text-[var(--text-subtle)] mb-4">
-              <span className="inline-flex items-center gap-1 mr-3"><span className="w-2.5 h-2.5 rounded-sm bg-green-500 inline-block" /> {policeTarget} solved — full day ✅</span>
-              <span className="inline-flex items-center gap-1 mr-3"><span className="w-2.5 h-2.5 rounded-sm bg-yellow-400 inline-block" /> {policeTarget - 1} solved — partial</span>
-              <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-red-400 inline-block" /> less — behind</span>
+            <p className="text-xs text-[var(--text-subtle)] mb-4 flex flex-wrap gap-x-3 gap-y-1">
+              <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-green-500 inline-block" /> {policeTarget} solved - full day</span>
+              <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-yellow-400 inline-block" /> {policeTarget - 1} solved - partial</span>
+              <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-red-400 inline-block" /> less - behind</span>
             </p>
             <StreakCalendar log={planLog} target={policeTarget} />
           </div>

@@ -267,7 +267,8 @@ export default function SetCyclesPage({ set }: Props) {
                 <div className="flex items-center justify-between mb-0.5">
                   <h3 className="font-bold text-gray-800 text-sm">{cycle.name}</h3>
                   <button onClick={() => handleDelete(cycle.id)}
-                    className="p-1 text-gray-300 hover:text-red-400 transition-colors">
+                    className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+                    aria-label="Delete cycle">
                     <Trash2 size={13} />
                   </button>
                 </div>

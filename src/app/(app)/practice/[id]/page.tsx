@@ -14,6 +14,7 @@ import { checkAndRecordBreather } from '@/lib/breatherUtils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
+import MobileSplitPanelTabs, { type MobileSplitPanel } from '@/components/MobileSplitPanelTabs'
 import toast from 'react-hot-toast'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
@@ -83,6 +84,7 @@ export default function PracticePage() {
   const [reviewDone, setReviewDone] = useState(false)
   const [queuedNextId, setQueuedNextId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<'description' | 'best' | 'editor'>('description')
+  const [mobilePanel, setMobilePanel] = useState<MobileSplitPanel>('content')
   const [modeRuns, setModeRuns] = useState<Record<string, number>>({})
   const [dailyRepTarget, setDailyRepTarget] = useState(2)
 
@@ -99,6 +101,10 @@ export default function PracticePage() {
   const [lcFromCache, setLcFromCache] = useState(false)
   const [isPremium, setIsPremium] = useState(false)
   const leftPanelTab = activeTab === 'editor' ? 'description' : activeTab
+
+  useEffect(() => {
+    if (activeTab === 'editor') setMobilePanel('editor')
+  }, [activeTab])
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startRef = useRef(Date.now())
@@ -465,7 +471,7 @@ export default function PracticePage() {
 
   // Show skeleton top bar immediately, fill in once question loads
   return (
-    <div className="flex min-h-[calc(100dvh-56px)] flex-col md:h-[calc(100dvh-56px)]">
+    <div className="flex min-h-0 flex-col md:h-[calc(100dvh-56px)]">
 
       {/* Top bar */}
       <div className="flex flex-wrap items-start sm:items-center px-3 sm:px-4 py-2 sm:py-2.5 border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 gap-x-2 gap-y-1.5">
@@ -556,7 +562,7 @@ export default function PracticePage() {
                   </span>
                 )}
                 <button onClick={() => prevId && router.push(`/practice/${prevId}${navSuffix}`)} disabled={!prevId}
-                  className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-500/50 hover:text-indigo-300 disabled:opacity-30 transition-colors bg-[var(--bg-muted)]">
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-500/50 hover:text-indigo-300 disabled:opacity-30 transition-colors bg-[var(--bg-muted)]">
                   <ArrowLeft size={13} />
                 </button>
                 <div ref={listWrapRef} className="relative z-10">
@@ -573,7 +579,7 @@ export default function PracticePage() {
                   )}
                 </div>
                 <button onClick={() => nextId && router.push(`/practice/${nextId}${navSuffix}`)} disabled={!nextId}
-                  className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-500/50 hover:text-indigo-300 disabled:opacity-30 transition-colors bg-[var(--bg-muted)]">
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-500/50 hover:text-indigo-300 disabled:opacity-30 transition-colors bg-[var(--bg-muted)]">
                   <ArrowLeft size={13} className="rotate-180" />
                 </button>
               </div>
@@ -585,14 +591,15 @@ export default function PracticePage() {
               <span>{Math.min(modeRuns[String(question.id)] ?? 0, targetReps)}/{targetReps}</span>
             </div>
           )}
-          <div className="hidden sm:flex items-center gap-1.5 bg-[var(--bg-muted)] border border-[var(--border)] px-3 py-1.5 rounded-lg text-sm font-mono font-semibold text-[var(--text-muted)]">
-            <Clock size={13} />
+          <div className="flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-lg bg-[var(--bg-muted)] border border-[var(--border)] text-xs sm:text-sm font-mono font-semibold text-[var(--text-muted)] shrink-0">
+            <Clock size={12} className="sm:hidden" />
+            <Clock size={13} className="hidden sm:block" />
             {formatTime(timer)}
           </div>
           <button
             onClick={() => { const n = !starred; setStarred(n); updateProgress(id, { starred: n }) }}
             disabled={!question}
-            className={`p-1.5 rounded-lg border transition-colors disabled:opacity-40 ${starred ? 'bg-yellow-50 border-yellow-200' : 'bg-[var(--bg-muted)] border-[var(--border)] hover:border-yellow-300'}`}
+            className={`flex min-h-11 min-w-11 items-center justify-center rounded-lg border transition-colors disabled:opacity-40 ${starred ? 'bg-yellow-50 border-yellow-200' : 'bg-[var(--bg-muted)] border-[var(--border)] hover:border-yellow-300'}`}
             aria-label={starred ? 'Unstar' : 'Star'}
           >
             <Star size={13} className={starred ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'} />
@@ -676,11 +683,13 @@ export default function PracticePage() {
         )}
       </div>
 
+      <MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} />
+
       {/* Content area */}
-      <div className="flex flex-col md:flex-row flex-1 overflow-visible md:overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-visible md:overflow-hidden">
 
         {/* Description panel (all non-editor tabs) */}
-        <div className="relative z-10 flex flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-visible md:overflow-hidden text-[var(--text)] border-r border-[var(--border)]">
+        <div className={`${mobilePanel === 'content' ? 'flex' : 'hidden'} md:flex relative z-10 flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-visible md:overflow-hidden text-[var(--text)] border-r border-[var(--border)]`}>
           <div className="flex-1 overflow-visible p-4 md:overflow-y-auto">
             {leftPanelTab === 'description' && (
               <>
@@ -747,7 +756,7 @@ export default function PracticePage() {
         </div>
 
         {/* Editor panel */}
-        <div className="relative z-0 flex flex-col w-full md:w-[58%] flex-1 min-h-[30rem] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
+        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex relative z-0 flex-col w-full md:w-[58%] flex-1 min-h-[50dvh] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0`}>
           {question ? (
             <LeetCodeEditor
               appQuestionId={question.id}

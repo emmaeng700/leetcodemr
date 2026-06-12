@@ -809,7 +809,7 @@ export default function DailyPage() {
                 <BookOpen size={11} /> When do reviews start?
               </label>
               <p className="text-[11px] text-[var(--text-subtle)] mb-2">After solving a question, when should your first review be scheduled?</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[{ days: 14, label: '2 weeks' }, { days: 21, label: '3 weeks' }, { days: 30, label: '1 month' }].map(opt => (
                   <button
                     key={opt.days}
@@ -833,7 +833,7 @@ export default function DailyPage() {
                 <RotateCcw size={11} /> Daily revision limit
               </label>
               <p className="text-[11px] text-[var(--text-subtle)] mb-2">Max spaced-repetition reviews per day (separate from new questions).</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[1, 2, 3].map(n => (
                   <button
                     key={n}
@@ -1081,9 +1081,9 @@ export default function DailyPage() {
     <div className="max-w-xl mx-auto px-4 py-8">
       {!online && <OfflineBanner feature="Daily plan (Supabase)" />}
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-black text-[var(--text)] flex items-center gap-2">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
+        <div className="min-w-0">
+          <h1 className="text-xl font-black text-[var(--text)] flex flex-wrap items-center gap-2">
             Study Plan
             {isRandomMode && (
               <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">🎲 Random</span>
@@ -1108,7 +1108,7 @@ export default function DailyPage() {
             <p className="text-xs text-green-500 font-semibold mt-0.5">All sets complete!</p>
           )}
         </div>
-        <div className="flex items-center gap-2 overflow-visible">
+        <div className="flex flex-wrap items-center gap-2 overflow-visible">
           {todayQs.length > 0 && (
             <div ref={listWrapRef} className="relative z-10">
               <button type="button"
@@ -1420,7 +1420,7 @@ export default function DailyPage() {
                   return (
                     <div
                       key={q.id}
-                      className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                      className={`flex flex-col items-start gap-3 p-3 rounded-xl border transition-colors sm:flex-row sm:items-center ${
                         repDone ? 'bg-green-50 border-green-200' : solved ? 'bg-green-50 border-green-200 opacity-70' : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-purple-400/60'
                       }`}
                     >
@@ -1449,7 +1449,7 @@ export default function DailyPage() {
                       <button
                         type="button"
                         onClick={() => launchDailyQuestion(q.id)}
-                        className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                        className={`w-full sm:w-auto shrink-0 flex items-center justify-center gap-1 px-3 py-2.5 text-xs font-bold rounded-lg transition-colors ${
                           repDone
                             ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
                             : 'bg-purple-600 text-white hover:bg-purple-700'
@@ -1464,7 +1464,7 @@ export default function DailyPage() {
             </div>
           ) : (
             <p className="text-xs text-[var(--text-subtle)] text-center py-6">
-              👆 Pick a pattern above to see its questions
+              Pick a pattern above to see its questions
             </p>
           )}
         </div>
@@ -1829,31 +1829,33 @@ export default function DailyPage() {
               return (
                 <div key={q.id}>
                   {showRound && <StudyRoundHeader priority={curPri!} difficulty={q.difficulty} className="py-1" />}
-                  <div className="flex items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-[var(--bg-muted)] transition-colors">
+                  <div className="flex flex-wrap items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-[var(--bg-muted)] transition-colors">
                     {learned
                       ? <CheckCircle2 size={14} className="text-indigo-400 shrink-0" />
                       : <Circle size={14} className="text-[var(--text-subtle)] shrink-0" />
                     }
                     <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
                     <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-                      <Link href={learnHref} className="text-sm text-[var(--text)] hover:text-indigo-500 truncate">
+                      <Link href={learnHref} className="text-sm text-[var(--text)] hover:text-indigo-500 break-words">
                         {q.title}
                       </Link>
                       {learned && (
-                        <span className="text-[10px] font-semibold text-indigo-500 shrink-0">Solved ✓</span>
+                        <span className="text-[10px] font-semibold text-indigo-500 shrink-0">Solved</span>
                       )}
                     </div>
-                    <a
-                      href={leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="shrink-0 text-[var(--text-subtle)] hover:text-orange-400 transition-colors"
-                      title="Open on LeetCode"
-                    >
-                      <ExternalLink size={11} />
-                    </a>
-                    <DifficultyBadge difficulty={q.difficulty} />
-                    {pTopic && curPri && <PriorityBadge pattern={pTopic} />}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <a
+                        href={leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[var(--text-subtle)] hover:text-orange-400 transition-colors"
+                        title="Open on LeetCode"
+                      >
+                        <ExternalLink size={11} />
+                      </a>
+                      <DifficultyBadge difficulty={q.difficulty} />
+                      {pTopic && curPri && <PriorityBadge pattern={pTopic} />}
+                    </div>
                   </div>
                 </div>
               )
@@ -1910,7 +1912,7 @@ export default function DailyPage() {
                         const learned = isLearned(q.id)
                         const dailyDone = isDailyDoneForPlanDay(dayIdx, q.id)
                         return (
-                        <div key={q.id} className="flex items-center gap-2 text-sm py-1">
+                        <div key={q.id} className="flex flex-wrap items-center gap-2 text-sm py-1">
                           {dailyDone
                             ? <CheckCircle2 size={14} className="text-green-400 shrink-0" aria-label="Daily done" />
                             : learned
@@ -1921,19 +1923,21 @@ export default function DailyPage() {
                             {dailyDone && <span className="text-[9px] font-bold text-green-600">Daily</span>}
                             {learned && <span className="text-[9px] font-bold text-indigo-500">Learn</span>}
                           </span>
-                          <Link href={`/practice/${q.id}`} className="text-[var(--text)] hover:text-indigo-500 truncate flex-1 min-w-0">
+                          <Link href={`/practice/${q.id}`} className="text-[var(--text)] hover:text-indigo-500 break-words flex-1 min-w-[8rem]">
                             {q.title}
                           </Link>
-                          <a
-                            href={leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="shrink-0 text-[var(--text-subtle)] hover:text-orange-400 transition-colors"
-                            title="Open on LeetCode"
-                          >
-                            <ExternalLink size={11} />
-                          </a>
-                          <DifficultyBadge difficulty={q.difficulty} />
+                          <div className="flex items-center gap-2 shrink-0">
+                            <a
+                              href={leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[var(--text-subtle)] hover:text-orange-400 transition-colors"
+                              title="Open on LeetCode"
+                            >
+                              <ExternalLink size={11} />
+                            </a>
+                            <DifficultyBadge difficulty={q.difficulty} />
+                          </div>
                         </div>
                         )
                       })}

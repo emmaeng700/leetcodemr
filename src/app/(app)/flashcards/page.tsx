@@ -12,6 +12,7 @@ import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import QuestionImage from '@/components/QuestionImage'
 import BestAnswersDeck from '@/components/BestAnswersDeck'
+import SetFlashcardsTab from '@/components/SetFlashcardsTab'
 
 interface Question {
   id: number
@@ -47,6 +48,7 @@ function FlashcardsInner() {
   const [loading, setLoading] = useState(true)
   const [filterDiff, setFilterDiff] = useState(initDiff)
   const [filterSource, setFilterSource] = useState(initSource)
+  const [showFilters, setShowFilters] = useState(false)
   const [filterPattern, setFilterPattern] = useState<string | null>(
     initTags.length > 0 ? (QUICK_PATTERNS.find(p => p.tags.some(t => initTags.includes(t)))?.name ?? null) : null
   )
@@ -295,8 +297,17 @@ function FlashcardsInner() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="mb-5 space-y-2">
+      {/* Filters — collapsible on mobile */}
+      <div className="mb-5">
+        <button
+          type="button"
+          onClick={() => setShowFilters(v => !v)}
+          className="sm:hidden mb-3 w-full flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--bg-muted)] px-3 py-2.5 text-xs font-semibold text-[var(--text-muted)]"
+        >
+          Filters
+          <span className="text-[var(--text-subtle)]">{showFilters ? 'Hide' : 'Show'}</span>
+        </button>
+      <div className={`space-y-2 ${showFilters ? 'block' : 'hidden'} sm:block`}>
         {/* Solved status */}
         <div className="flex flex-wrap gap-2">
           <button
@@ -380,6 +391,7 @@ function FlashcardsInner() {
           ))}
         </div>
       </div>
+      </div>
 
       {deck.length === 0 && (
         <div className="text-center py-20 text-[var(--text-subtle)] text-sm">No questions match this filter.</div>
@@ -398,19 +410,24 @@ function FlashcardsInner() {
             </button>
 
             {/* Progress dots / counter */}
-            <div className="flex items-center gap-1.5 overflow-x-auto max-w-[160px] sm:max-w-none">
-              {deck.length <= 15 ? (
-                deck.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => { setIdx(i); setFlipped(false) }}
-                    className={`rounded-full transition-all ${
-                      i === idx ? 'w-4 h-4 bg-indigo-500' : 'w-3 h-3 bg-[var(--bg-muted)] hover:brightness-125'
-                    }`}
-                  />
-                ))
-              ) : (
-                <span className="text-xs text-[var(--text-subtle)] font-mono">{idx + 1} / {deck.length}</span>
+            <div className="flex items-center gap-1.5 overflow-x-auto max-w-[min(60vw,12rem)] sm:max-w-none">
+              <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">{idx + 1}/{deck.length}</span>
+              {deck.length <= 15 && (
+                <div className="hidden sm:flex items-center gap-1.5">
+                  {deck.map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => { setIdx(i); setFlipped(false) }}
+                      aria-label={`Go to card ${i + 1}`}
+                      className={`rounded-full transition-all min-w-8 min-h-8 flex items-center justify-center ${
+                        i === idx ? 'bg-indigo-500 ring-2 ring-indigo-300' : 'bg-[var(--bg-muted)] hover:brightness-125'
+                      }`}
+                    >
+                      <span className={`rounded-full ${i === idx ? 'w-2.5 h-2.5 bg-white' : 'w-2 h-2 bg-[var(--text-subtle)]'}`} />
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
 
@@ -555,8 +572,6 @@ function FlashcardsInner() {
     </div>
   )
 }
-
-import SetFlashcardsTab from '@/components/SetFlashcardsTab'
 
 function FlashcardsHub() {
   const searchParams = useSearchParams()

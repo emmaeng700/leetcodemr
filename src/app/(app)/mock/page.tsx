@@ -17,6 +17,7 @@ import CodePanel from '@/components/CodePanel'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
+import MobileSplitPanelTabs, { type MobileSplitPanel } from '@/components/MobileSplitPanelTabs'
 
 interface Question {
   id: number
@@ -119,7 +120,7 @@ function MockInterviewPage() {
   const [loading, setLoading] = useState(true)
   const [sessions, setSessions] = useState<SessionRecord[]>([])
   const [leftTab, setLeftTab] = useState<'description' | 'solution'>('description')
-  const [mobilePanel, setMobilePanel] = useState<'description' | 'editor'>('description')
+  const [mobilePanel, setMobilePanel] = useState<MobileSplitPanel>('content')
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef<number | null>(null)
   const endingRef = useRef(false)
@@ -386,7 +387,7 @@ function MockInterviewPage() {
   if (phase === 'active' && question) return (
     <div className="flex min-h-[calc(100dvh-56px)] flex-col md:h-[calc(100dvh-56px)]">
       {/* Timer top bar */}
-      <div className={`relative z-[80] flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 md:pr-44 lg:pr-48 border-b shrink-0 ${urgent ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-200'}`}>
+      <div className={`relative z-[80] flex flex-wrap items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 md:pr-44 lg:pr-48 border-b shrink-0 ${urgent ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-200'}`}>
         {/* Countdown */}
         <div className={`text-lg sm:text-2xl font-black font-mono shrink-0 tabular-nums ${urgent ? 'text-red-600 animate-pulse' : 'text-indigo-600 '}`}>
           {formatTime(timeLeft)}
@@ -449,23 +450,13 @@ function MockInterviewPage() {
         </button>
       </div>
 
-      {/* Mobile panel tabs */}
-      <div className="flex md:hidden border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
-        <button onClick={() => setMobilePanel('description')}
-          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)]'}`}>
-          📖 Description
-        </button>
-        <button onClick={() => setMobilePanel('editor')}
-          className={`flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors ${mobilePanel === 'editor' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)]'}`}>
-          💻 Editor
-        </button>
-      </div>
+      <MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} />
 
       {/* Split layout */}
       <div className="flex flex-1 overflow-visible md:overflow-hidden">
 
         {/* LEFT — question */}
-        <div className={`${mobilePanel === 'description' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-[var(--border)] overflow-visible md:overflow-hidden bg-[var(--bg-card)]`}>
+        <div className={`${mobilePanel === 'content' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-[var(--border)] overflow-visible md:overflow-hidden bg-[var(--bg-card)]`}>
           <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
             <button onClick={() => setLeftTab('description')}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
@@ -540,7 +531,7 @@ function MockInterviewPage() {
         </div>
 
         {/* RIGHT — editor */}
-        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-1 min-h-0 overflow-x-hidden`}>
+        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-1 min-h-[50dvh] md:min-h-0 overflow-x-hidden`}>
           <LeetCodeEditor appQuestionId={question.id} slug={question.slug} />
         </div>
       </div>

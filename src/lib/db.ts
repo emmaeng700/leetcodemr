@@ -1583,11 +1583,73 @@ function cycleStateScore(state: CycleState | null | undefined): number {
   return (state.cycleReps ?? 0) * 10_000 + (state.cycleAccepted?.length ?? 0)
 }
 
+function mergeCycleAcceptedIds(...lists: (number[] | undefined)[]): number[] {
+  const ids = new Set<number>()
+  for (const list of lists) {
+    if (!Array.isArray(list)) continue
+    for (const id of list) {
+      if (typeof id === 'number' && Number.isFinite(id)) ids.add(id)
+    }
+  }
+  return [...ids]
+}
+
 function pickBestCycleState(local: CycleState | null, remote: CycleState | null): CycleState | null {
   if (!local?.cycleRange) return remote
   if (!remote?.cycleRange) return local
-  if (!cycleRangesEqual(local.cycleRange, remote.cycleRange)) return remote
-  return cycleStateScore(local) >= cycleStateScore(remote) ? local : remote
+  if (!cycleRangesEqual(local.cycleRange, remote.cycleRange)) {
+    return cycleStateScore(local) >= cycleStateScore(remote) ? local : remote
+  }
+  const localReps = local.cycleReps ?? 0
+  const remoteReps = remote.cycleReps ?? 0
+  if (localReps !== remoteReps) {
+    return localReps > remoteReps ? local : remote
+  }
+  const winner = cycleStateScore(local) >= cycleStateScore(remote) ? local : remote
+  const other = winner === local ? remote : local
+  const mergedAccepted = mergeCycleAcceptedIds(winner.cycleAccepted, other.cycleAccepted)
+  const richer = (local.cycleAccepted?.length ?? 0) >= (remote.cycleAccepted?.length ?? 0) ? local : remote
+  return {
+    ...winner,
+    cycleAccepted: mergedAccepted,
+    cyclePos: richer.cyclePos ?? winner.cyclePos,
+    cycleIdx: richer.cycleIdx ?? winner.cycleIdx,
+    cycleOrderedIds: winner.cycleOrderedIds ?? richer.cycleOrderedIds,
+  }
+}
+
+async function enrichCycleStateFromSavedCycles(state: CycleState): Promise<CycleState> {
+  try {
+    const cycles = await getSavedCycles()
+    const match = cycles.find(c => cycleRangesEqual(c.range, state.cycleRange))
+    if (!match) return state
+    if ((match.reps ?? 0) !== (state.cycleReps ?? 0)) return state
+    const merged = mergeCycleAcceptedIds(state.cycleAccepted, match.cycleAccepted)
+    if (merged.length <= (state.cycleAccepted?.length ?? 0)) return state
+    return {
+      ...state,
+      cycleAccepted: merged,
+      cyclePos: match.cyclePos ?? state.cyclePos,
+      cycleIdx: match.cycleIdx ?? state.cycleIdx,
+    }
+  } catch {
+    return state
+  }
+}
+
+function enrichFromSessionStorage(state: CycleState | null): CycleState | null {
+  if (!state?.cycleRange || typeof window === 'undefined') return state
+  try {
+    const raw = sessionStorage.getItem('lm_learn_cycle_accepted')
+    if (!raw) return state
+    const sess = JSON.parse(raw) as number[]
+    if (!Array.isArray(sess)) return state
+    const merged = mergeCycleAcceptedIds(state.cycleAccepted, sess)
+    if (merged.length <= (state.cycleAccepted?.length ?? 0)) return state
+    return { ...state, cycleAccepted: merged }
+  } catch {
+    return state
+  }
 }
 
 export async function getCycleState(): Promise<CycleState | null> {
@@ -1602,20 +1664,34 @@ export async function getCycleState(): Promise<CycleState | null> {
       if (!isMissingTableError(error.message) && !isMissingColumnError(error.message)) {
         console.error('[db] getCycleState:', error.message)
       }
-      return local
+      let fallback = enrichFromSessionStorage(local)
+      if (fallback?.cycleRange) fallback = await enrichCycleStateFromSavedCycles(fallback)
+      return fallback
     }
-    if (!data) return local
+    if (!data) {
+      let fallback = enrichFromSessionStorage(local)
+      if (fallback?.cycleRange) fallback = await enrichCycleStateFromSavedCycles(fallback)
+      return fallback
+    }
     const raw = (data as Record<string, unknown>).cycle_state as string | null
-    if (!raw) return local
+    if (!raw) {
+      let fallback = enrichFromSessionStorage(local)
+      if (fallback?.cycleRange) fallback = await enrichCycleStateFromSavedCycles(fallback)
+      return fallback
+    }
     const remote = JSON.parse(raw) as CycleState
-    const best = pickBestCycleState(local, remote)
+    let best = pickBestCycleState(local, remote)
+    best = enrichFromSessionStorage(best)
+    if (best?.cycleRange) best = await enrichCycleStateFromSavedCycles(best)
     writeLocalCycleState(best)
-    if (best && cycleStateScore(local) > cycleStateScore(remote)) {
+    if (best && cycleStateScore(best) > cycleStateScore(remote)) {
       saveCycleState(best).catch(() => {})
     }
     return best
   } catch {
-    return local
+    let fallback = enrichFromSessionStorage(local)
+    if (fallback?.cycleRange) fallback = await enrichCycleStateFromSavedCycles(fallback)
+    return fallback
   }
 }
 

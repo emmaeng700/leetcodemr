@@ -227,7 +227,7 @@ export default function Navbar() {
               type="button"
               onClick={checkForUpdate}
               disabled={updateStatus === 'checking'}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors disabled:opacity-60 ${
+              className={`flex min-h-11 items-center gap-1 px-2.5 rounded-lg border text-[11px] font-semibold transition-colors disabled:opacity-60 ${
                 updateStatus === 'uptodate'
                   ? 'border-green-400 bg-green-50 text-green-700'
                   : 'border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100'
@@ -244,7 +244,7 @@ export default function Navbar() {
             {/* Mobile hamburger */}
             <button
               onClick={() => setOpen(o => !o)}
-              className="md:hidden p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-muted)] rounded-xl transition-colors"
+              className="md:hidden flex min-h-11 min-w-11 items-center justify-center text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-muted)] rounded-xl transition-colors"
             >
               {open ? <X size={20} /> : <Menu size={20} />}
             </button>

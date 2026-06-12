@@ -166,7 +166,7 @@ function AnswersPageInner() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b1020] text-gray-100 pb-20">
+    <div className="bg-[#0b1020] text-gray-100 pb-6">
       <div className="max-w-6xl mx-auto px-4 py-6">
         <div className="mb-5">
           <h1 className="text-xl font-bold text-gray-100">Answers</h1>

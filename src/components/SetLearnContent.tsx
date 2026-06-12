@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  ChevronLeft, ChevronRight, Star, CheckCircle, ExternalLink,
+  ChevronLeft, ChevronRight, Star, CheckCircle, Circle, ExternalLink,
   RefreshCw, List, BookOpen, Brain, Loader2, X, Play, Sparkles,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -21,6 +21,7 @@ import StudyRoundHeader, { isNewRound } from '@/components/StudyRoundHeader'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { QuestionCountHighlight, SetExclusiveCountLabel } from '@/components/QuestionCountHighlight'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
+import MobileSplitPanelTabs, { type MobileSplitPanel } from '@/components/MobileSplitPanelTabs'
 import { stripScripts, resolveLeetCodeSlug, leetCodeUrl, formatLocalDate } from '@/lib/utils'
 import { setOpenQuestionContext } from '@/lib/openQuestionContext'
 import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/lib/listDropdownUi'
@@ -95,6 +96,7 @@ export default function SetLearnContent({ set, index }: Props) {
   const [progress,     setProgress]     = useState<Record<string, SetQProgress>>({})
   const [loading,      setLoading]      = useState(true)
   const [activeTab,    setActiveTab]    = useState<'description' | 'best' | 'editor'>('description')
+  const [mobilePanel,  setMobilePanel]  = useState<MobileSplitPanel>('content')
   const [studyMode,    setStudyMode]    = useState<'show' | 'hide' | null>(null)
   const leftPanelTab = activeTab === 'editor' ? 'description' : activeTab
   const [showList,     setShowList]     = useState(false)
@@ -338,6 +340,10 @@ export default function SetLearnContent({ set, index }: Props) {
   }, [studyMode, activeTab])
 
   useEffect(() => {
+    if (activeTab === 'editor') setMobilePanel('editor')
+  }, [activeTab])
+
+  useEffect(() => {
     if (!q) return
     setOpenQuestionContext({ id: q.id, slug: q.slug, title: q.title })
     return () => setOpenQuestionContext(null)
@@ -502,6 +508,32 @@ export default function SetLearnContent({ set, index }: Props) {
     router.push(`${learnBase}/${next}${qs ? `?${qs}` : ''}`, { scroll: false })
   }, [router, learnBase])
 
+  const goNextUnaccepted = useCallback(() => {
+    const rng = cycleRangeForSave.current
+    const orderedIds = cycleOrderedIdsRef.current
+    const qs = learnQsRef.current
+    if (!rng || orderedIds.length === 0) {
+      goNext()
+      return
+    }
+    const idx = gatedIdxRef.current
+    const currentId = filteredRef.current[idx]?.id
+    const startPos = currentId != null ? orderedIds.indexOf(currentId) : -1
+    for (let step = 1; step <= orderedIds.length; step++) {
+      const pos = (startPos + step) % orderedIds.length
+      const id = orderedIds[pos]
+      if (cycleAcceptedRef.current.has(id)) continue
+      const nextIdx = filteredRef.current.findIndex(q => q.id === id)
+      if (nextIdx < 0) continue
+      cycleIdxRef.current = nextIdx
+      setCyclePosState(pos)
+      cyclePosRef.current = pos
+      router.push(`${learnBase}/${nextIdx}${qs ? `?${qs}` : ''}`, { scroll: false })
+      return
+    }
+    toast.success('All questions accepted this lap!')
+  }, [router, learnBase, goNext])
+
   const goPrev = useCallback(() => {
     const n   = filteredLenRef.current
     if (n === 0) return
@@ -533,6 +565,15 @@ export default function SetLearnContent({ set, index }: Props) {
 
   const goTo = (i: number) => {
     cycleIdxRef.current = i
+    const rng = cycleRangeForSave.current
+    const orderedIds = cycleOrderedIdsRef.current
+    if (rng && orderedIds.length > 0) {
+      const qid = filteredRef.current[i]?.id
+      if (qid != null) {
+        const pos = orderedIds.indexOf(qid)
+        if (pos >= 0) setCyclePosState(pos)
+      }
+    }
     router.push(`${learnBase}/${i}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
     setShowList(false)
   }
@@ -611,6 +652,8 @@ export default function SetLearnContent({ set, index }: Props) {
 
   const lcTitleSlug        = q ? resolveLeetCodeSlug(q.id, q.slug) : ''
   const rangeSize          = cycleRange ? cycleRange.end - cycleRange.start + 1 : filtered.length
+  const inActiveCycleRange = !!(cycleRange && safeIdx >= cycleRange.start && safeIdx <= cycleRange.end)
+  const currentAcceptedThisLap = inActiveCycleRange && q != null && cycleAcceptedRef.current.has(q.id)
   const displaySolvedCount = cycleRange
     ? filtered.slice(cycleRange.start, cycleRange.end + 1).filter(fq => progress[String(fq.id)]?.solved).length
     : filtered.filter(fq => progress[String(fq.id)]?.solved).length
@@ -619,11 +662,16 @@ export default function SetLearnContent({ set, index }: Props) {
   const questionListItems = (
     <div>
       {cycleRange && (
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 py-2 bg-indigo-50 border-b border-indigo-100">
-          <span className="text-[11px] font-semibold text-indigo-600">
-            🔄 Cycle: {cycleRange.start + 1}–{cycleRange.end + 1}
-            <span className="text-indigo-400 font-normal ml-1">· dimmed = outside</span>
-          </span>
+        <div className="sticky top-0 z-10 flex flex-col gap-1.5 px-3 py-2 bg-indigo-50 border-b border-indigo-100 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+          <div className="min-w-0">
+            <span className="text-[11px] font-semibold text-indigo-600 text-wrap block">
+              Lap list · {cycleAcceptedCount}/{rangeSize} accepted · {rangeSize - cycleAcceptedCount} todo
+            </span>
+            <span className="text-[10px] text-indigo-500/90 mt-0.5 block">
+              <CheckCircle size={10} className="inline text-green-600 mr-0.5 -mt-px" /> accepted
+              <Circle size={10} className="inline text-amber-500 mx-1 -mt-px" /> skip &amp; return later
+            </span>
+          </div>
           <button type="button" onClick={() => { cancelCycle(); setShowList(false) }}
             className="flex items-center gap-1 text-[11px] font-bold text-rose-500 hover:text-rose-700">
             <X size={11} /> Cancel
@@ -639,6 +687,8 @@ export default function SetLearnContent({ set, index }: Props) {
         const prevPat  = prev ? (exclusiveMap[prev.id] ?? null) : null
         const prevPri  = prevPat ? (PATTERN_PRIORITY[prevPat] ?? null) : null
         const showRound = curPri && isNewRound(curPri, fq.difficulty, prevPri, prev?.difficulty)
+        const acceptedLap = cycleRange && inRange && cycleAcceptedRef.current.has(fq.id)
+        const todoLap = cycleRange && inRange && !acceptedLap
         return (
           <div key={fq.id}>
             {showRound && <StudyRoundHeader priority={curPri!} difficulty={fq.difficulty} />}
@@ -660,19 +710,22 @@ export default function SetLearnContent({ set, index }: Props) {
                 goTo(i)
               }}
               className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm border-b border-gray-50 last:border-0 transition-colors ${
-                i === safeIdx ? 'bg-indigo-50' :
+                i === safeIdx ? 'bg-indigo-100 ring-1 ring-inset ring-indigo-200' :
                 (!inRange && cycleRange) ? 'opacity-30 cursor-not-allowed' :
                 'hover:bg-indigo-50/40'
-              }`}>
+              } ${acceptedLap ? 'bg-green-50/60' : ''}`}>
+              {cycleRange && inRange ? (
+                acceptedLap
+                  ? <CheckCircle size={14} className="text-green-600 shrink-0" aria-label="Accepted this lap" />
+                  : <Circle size={14} className="text-amber-500 shrink-0" aria-label="Not accepted this lap" />
+              ) : null}
               <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{fq.id}</span>
-              <span className="min-w-0 flex-1 truncate text-gray-700">{fq.title}</span>
+              <span className={`min-w-0 flex-1 truncate ${acceptedLap ? 'text-green-800' : 'text-gray-700'}`}>{fq.title}</span>
               {!inRange && cycleRange
                 ? <span className="shrink-0 text-[10px] text-gray-400">outside</span>
-                : inRange && cycleRange
-                  ? <span className="shrink-0 text-[10px] text-indigo-400">●</span>
-                  : null
+                : null
               }
-              {fp.solved  && <CheckCircle size={11} className="text-green-500 shrink-0" />}
+              {!cycleRange && fp.solved && <CheckCircle size={11} className="text-green-500 shrink-0" />}
               {fp.starred && <Star size={11} className="text-yellow-400 fill-yellow-400 shrink-0" />}
               <span className={`text-xs font-semibold shrink-0 ${
                 fq.difficulty === 'Easy' ? 'text-green-600' :
@@ -695,7 +748,7 @@ export default function SetLearnContent({ set, index }: Props) {
   )
 
   return (
-    <div className="flex min-h-[calc(100dvh-56px)] flex-col md:h-[calc(100dvh-56px)]">
+    <div className="flex min-h-0 flex-col md:h-[calc(100dvh-56px)]">
       <LearnSetTabs activeSet={set} />
 
       {/* ── Study mode modal ── */}
@@ -741,7 +794,7 @@ export default function SetLearnContent({ set, index }: Props) {
 
         {/* Back */}
         <button onClick={() => router.push(learnBase)}
-          className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
           title={`Back to Learn ${set}`}>
           <ChevronLeft size={15} />
         </button>
@@ -749,9 +802,10 @@ export default function SetLearnContent({ set, index }: Props) {
         <span className="text-xs text-gray-300 font-medium hidden sm:inline">Learn {set}</span>
         <span className="w-px h-4 bg-gray-200 hidden sm:inline-block" />
 
+        <div className="flex items-center gap-1.5">
         {/* Prev */}
         <button onClick={goPrev}
-          className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
           style={{ opacity: safeIdx === 0 && !cycleRange ? 0.3 : 1 }}>
           <ChevronLeft size={15} />
         </button>
@@ -763,34 +817,50 @@ export default function SetLearnContent({ set, index }: Props) {
             <List size={12} />
             <span className="font-mono">
               {cycleRange
-                ? `${cyclePos + 1}/${rangeSize}`
+                ? `${cycleAcceptedCount}/${rangeSize}`
                 : `${safeIdx + 1}/${filtered.length}`}
             </span>
-            <span className="hidden sm:inline text-gray-400">·</span>
-            {cycleRange
-              ? <span className="hidden sm:inline text-indigo-600">{cycleAcceptedCount} accepted</span>
-              : <span className="hidden sm:inline text-green-600">{displaySolvedCount} solved</span>}
+            {cycleRange ? (
+              <span className="text-indigo-600 text-[10px] sm:text-xs">accepted</span>
+            ) : (
+              <>
+                <span className="hidden sm:inline text-gray-400">·</span>
+                <span className="hidden sm:inline text-green-600">{displaySolvedCount} solved</span>
+              </>
+            )}
           </button>
           {showList && (
             <>
               <div className={listDropdownMobileBackdrop} aria-hidden onClick={() => setShowList(false)} />
-              <div className={listDropdownMobilePanelClasses('left')}>{questionListItems}</div>
+              <div className={listDropdownMobilePanelClasses('left', 'learn')}>{questionListItems}</div>
             </>
           )}
         </div>
 
         {/* Next */}
+        {cycleRange && (
+          <button
+            type="button"
+            onClick={goNextUnaccepted}
+            title="Next question not accepted this lap"
+            className="flex min-h-11 items-center px-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-[10px] font-bold hover:bg-amber-100 transition-colors"
+          >
+            Todo
+          </button>
+        )}
+
         <button onClick={() => goNext()}
-          className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
           style={{ opacity: safeIdx >= filtered.length - 1 && !cycleRange ? 0.3 : 1 }}>
           <ChevronRight size={15} />
         </button>
+        </div>
 
-        {/* Progress bar */}
-        <div className="flex-1 bg-gray-100 rounded-full h-1.5 min-w-[60px]">
+        {/* Progress bar — desktop inline */}
+        <div className="hidden sm:block flex-1 bg-gray-100 rounded-full h-1.5 min-w-[60px]">
           <div className="bg-indigo-500 h-1.5 rounded-full transition-all"
             style={{ width: cycleRange
-              ? `${((cyclePos + 1) / rangeSize) * 100}%`
+              ? `${rangeSize > 0 ? (cycleAcceptedCount / rangeSize) * 100 : 0}%`
               : filtered.length ? `${((safeIdx + 1) / filtered.length) * 100}%` : '0%' }} />
         </div>
 
@@ -867,12 +937,12 @@ export default function SetLearnContent({ set, index }: Props) {
         {q && (
           <>
             <button onClick={toggleStar}
-              className={`p-1.5 rounded-lg border transition-colors ${prog.starred ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-200 hover:border-yellow-300'}`}>
+              className={`flex min-h-11 min-w-11 items-center justify-center rounded-lg border transition-colors ${prog.starred ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-200 hover:border-yellow-300'}`}>
               <Star size={13} className={prog.starred ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'} />
             </button>
 
             <button onClick={toggleSolved}
-              className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+              className={`flex min-h-11 items-center gap-1.5 px-2 sm:px-3 rounded-lg text-xs font-semibold border transition-colors ${
                 prog.solved ? 'bg-green-50 text-green-600 border-green-200' :
                 'bg-white text-gray-500 border-gray-200 hover:border-green-300'
               }`}>
@@ -882,11 +952,19 @@ export default function SetLearnContent({ set, index }: Props) {
             </button>
 
             <a href={leetCodeUrl(lcTitleSlug)} target="_blank" rel="noopener noreferrer"
-              className="p-1.5 text-gray-300 hover:text-orange-400 transition-colors" title="Open on LeetCode">
+              className="flex min-h-11 min-w-11 items-center justify-center text-gray-300 hover:text-orange-400 transition-colors" title="Open on LeetCode">
               <ExternalLink size={14} />
             </a>
           </>
         )}
+
+        {/* Progress bar — mobile full width */}
+        <div className="w-full sm:hidden bg-gray-100 rounded-full h-1.5">
+          <div className="bg-indigo-500 h-1.5 rounded-full transition-all"
+            style={{ width: cycleRange
+              ? `${rangeSize > 0 ? (cycleAcceptedCount / rangeSize) * 100 : 0}%`
+              : filtered.length ? `${((safeIdx + 1) / filtered.length) * 100}%` : '0%' }} />
+        </div>
       </div>
 
       {cycleRange && (
@@ -896,12 +974,27 @@ export default function SetLearnContent({ set, index }: Props) {
           cycleReps={cycleReps}
           repTarget={CYCLE_REP_TARGET}
           onCancel={cancelCycle}
+          onNextTodo={goNextUnaccepted}
+          onOpenList={() => setShowList(true)}
         />
       )}
 
       {q && (
-        <div className="px-3 py-2.5 border-b border-gray-100 bg-white shrink-0">
-          <h1 className="text-sm sm:text-base font-bold text-gray-800 leading-snug text-center">{q.title}</h1>
+        <div className="hidden md:block px-3 py-2.5 border-b border-gray-100 bg-white shrink-0">
+          <div className="flex flex-col items-center gap-1">
+            {inActiveCycleRange && (
+              currentAcceptedThisLap ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                  <CheckCircle size={10} /> Accepted this lap
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                  <Circle size={10} /> Todo this lap — Accept when solved
+                </span>
+              )
+            )}
+            <h1 className="text-sm sm:text-base font-bold text-gray-800 leading-snug text-center">{q.title}</h1>
+          </div>
         </div>
       )}
 
@@ -1033,19 +1126,19 @@ export default function SetLearnContent({ set, index }: Props) {
 
       {/* Pattern / priority context strip (matches Learn 1) */}
       {q && currentPattern && (
-        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
-          <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🧩</span>
+        <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
+          <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">Pattern</span>
           <span className="text-xs font-semibold text-[var(--text)] truncate">{currentPattern.name}</span>
           <PriorityBadge pattern={currentPattern.name} />
-          <span className="text-[10px] text-[var(--text-subtle)] truncate hidden sm:inline">· {q.category}</span>
-          {q.difficulty === 'Easy'   && filterDiff === 'All' && <span className="text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full shrink-0">🟢 Round · Easy</span>}
-          {q.difficulty === 'Medium' && filterDiff === 'All' && <span className="text-[10px] font-bold text-yellow-600 bg-yellow-50 border border-yellow-200 px-1.5 py-0.5 rounded-full shrink-0">🟡 Round · Medium</span>}
-          {q.difficulty === 'Hard'   && filterDiff === 'All' && <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full shrink-0">🔴 Round · Hard</span>}
-          {patternPct >= 80 && <span className="text-[10px] font-bold text-green-600 shrink-0">🔥 Crushing it!</span>}
-          {patternPct >= 50 && patternPct < 80 && <span className="text-[10px] font-bold text-indigo-500 shrink-0">💪 Solid progress</span>}
-          {patternPct > 0 && patternPct < 50 && <span className="text-[10px] font-semibold text-amber-500 shrink-0">📈 Building momentum</span>}
-          {patternPct === 0 && <span className="text-[10px] font-semibold text-[var(--text-subtle)] shrink-0">🧩 Fresh territory</span>}
-          <div className="flex items-center gap-1.5 ml-auto shrink-0">
+          <span className="text-[10px] text-[var(--text-subtle)] truncate hidden sm:inline">- {q.category}</span>
+          {q.difficulty === 'Easy'   && filterDiff === 'All' && <span className="text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full shrink-0">Round - Easy</span>}
+          {q.difficulty === 'Medium' && filterDiff === 'All' && <span className="text-[10px] font-bold text-yellow-600 bg-yellow-50 border border-yellow-200 px-1.5 py-0.5 rounded-full shrink-0">Round - Medium</span>}
+          {q.difficulty === 'Hard'   && filterDiff === 'All' && <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full shrink-0">Round - Hard</span>}
+          {patternPct >= 80 && <span className="hidden sm:inline text-[10px] font-bold text-green-600 shrink-0">Crushing it!</span>}
+          {patternPct >= 50 && patternPct < 80 && <span className="hidden sm:inline text-[10px] font-bold text-indigo-500 shrink-0">Solid progress</span>}
+          {patternPct > 0 && patternPct < 50 && <span className="hidden sm:inline text-[10px] font-semibold text-amber-500 shrink-0">Building momentum</span>}
+          {patternPct === 0 && <span className="hidden sm:inline text-[10px] font-semibold text-[var(--text-subtle)] shrink-0">Fresh territory</span>}
+          <div className="flex items-center gap-1.5 w-full sm:w-auto sm:ml-auto shrink-0">
             <div className="w-16 sm:w-24 h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${patternPct === 100 ? 'bg-green-500' : patternPct >= 50 ? 'bg-indigo-500' : 'bg-amber-500'}`}
@@ -1088,15 +1181,16 @@ export default function SetLearnContent({ set, index }: Props) {
               </button>
             )}
             <button onClick={() => setStudyMode(prev => prev === 'hide' ? 'show' : 'hide')}
-              className={`ml-auto flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors shrink-0 ${studyMode === 'hide' ? 'text-orange-500 hover:text-orange-600' : 'text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-              🧠 {studyMode === 'hide' ? 'Challenge Mode' : 'Review Mode'}
+              className={`md:ml-auto flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors shrink-0 ${studyMode === 'hide' ? 'text-orange-500 hover:text-orange-600' : 'text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+              {studyMode === 'hide' ? 'Challenge' : 'Review'}
             </button>
           </div>
 
+          <MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} />
           <div className="relative z-0 flex flex-col md:flex-row min-h-0 flex-1 overflow-visible md:overflow-hidden">
 
             {/* ── Content panel (description / best answers) ── */}
-            <div className="relative z-10 flex flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-visible md:overflow-hidden text-[var(--text)] border-r border-[var(--border)]">
+            <div className={`${mobilePanel === 'content' ? 'flex' : 'hidden'} md:flex relative z-10 flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-visible md:overflow-hidden text-[var(--text)] border-r border-[var(--border)]`}>
               <div className="flex-1 overflow-visible md:overflow-y-auto">
 
                 {leftPanelTab === 'description' && (
@@ -1109,6 +1203,17 @@ export default function SetLearnContent({ set, index }: Props) {
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--bg-muted)] text-[var(--text-subtle)] border border-[var(--border)]">
                           {q.category}
                         </span>
+                        {inActiveCycleRange && (
+                          currentAcceptedThisLap ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                              <CheckCircle size={10} /> Accepted this lap
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                              <Circle size={10} /> Todo this lap
+                            </span>
+                          )
+                        )}
                       </div>
                       <h1 className="font-bold text-gray-800 text-base leading-snug">{q.title}</h1>
                       {prog.solved && prog.next_review && !reviewDue && (
@@ -1183,8 +1288,8 @@ export default function SetLearnContent({ set, index }: Props) {
               </div>
             </div>
 
-            {/* ── Editor panel (always visible — stacked below on mobile) ── */}
-            <div className="flex flex-col w-full md:w-[58%] flex-1 min-h-[30rem] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
+            {/* ── Editor panel ── */}
+            <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-col w-full md:w-[58%] flex-1 min-h-[50dvh] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0`}>
               <LeetCodeEditor
                 appQuestionId={q.id}
                 slug={q.slug}

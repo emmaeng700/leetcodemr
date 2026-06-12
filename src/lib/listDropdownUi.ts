@@ -9,11 +9,18 @@ export const listDropdownMobileBackdrop =
 /** Mobile-only tree (e.g. section already hidden on md+) — no sm:hidden on backdrop. */
 export const listDropdownMobileBackdropDense = 'fixed inset-0 top-14 z-[99] bg-black/25'
 
-export function listDropdownMobilePanelClasses(smAlign: 'left' | 'right') {
+export function listDropdownMobilePanelClasses(
+  smAlign: 'left' | 'right',
+  density: 'default' | 'learn' = 'default',
+) {
   const sm =
     smAlign === 'left' ? 'sm:left-0 sm:right-auto' : 'sm:right-0 sm:left-auto'
+  const topMobile =
+    density === 'learn'
+      ? 'top-[calc(56px+5.5rem)]'
+      : 'top-[calc(56px+3.25rem)]'
   return [
-    'fixed left-1/2 top-[calc(56px+3.25rem)] z-[120] isolate opacity-100',
+    `fixed left-1/2 ${topMobile} z-[120] isolate opacity-100`,
     'max-h-[min(70vh,22rem)] w-[min(calc(100vw-2rem),20rem)] -translate-x-1/2',
     'overflow-y-auto overscroll-contain rounded-xl border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5',
     'sm:absolute sm:top-full sm:mt-1 sm:max-h-[min(70vh,20rem)] sm:translate-x-0',

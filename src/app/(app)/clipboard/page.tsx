@@ -83,11 +83,11 @@ function TokenCleaner({ onSaved }: { onSaved: (item: ClipItem) => void }) {
   return (
     <div className="rounded-2xl border border-orange-500/30 bg-orange-500/5 p-4 space-y-3 mb-6">
       {/* Header */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <Key size={14} className="text-orange-400 shrink-0" />
         <span className="text-sm font-bold text-orange-300">Token / Session Cleaner</span>
         <span className="text-[10px] text-orange-400/60 font-normal">
-          — paste messy, get clean
+          paste messy, get clean
         </span>
       </div>
 
@@ -267,7 +267,7 @@ export default function ClipboardPage() {
   const handleDelete = (id: number) => setItems(prev => prev.filter(i => i.id !== id))
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] pb-20">
+    <div className="min-h-0 bg-[var(--bg)] pb-20">
       <div className="max-w-2xl mx-auto px-4 pt-8">
 
         {/* Header */}

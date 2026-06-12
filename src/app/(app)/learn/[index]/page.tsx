@@ -4,7 +4,7 @@ import { useClickOutside } from '@/hooks/useClickOutside'
 import toast from 'react-hot-toast'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
-  ChevronLeft, ChevronRight, Brain, CheckCircle, Star,
+  ChevronLeft, ChevronRight, Brain, CheckCircle, Circle, Star,
   BookOpen, List, ExternalLink, Loader2,
   Sparkles, RefreshCw, X, Play,
 } from 'lucide-react'
@@ -21,6 +21,7 @@ import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
+import MobileSplitPanelTabs, { type MobileSplitPanel } from '@/components/MobileSplitPanelTabs'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import LearnSetTabs from '@/components/LearnSetTabs'
 import CycleProgressBanner from '@/components/CycleProgressBanner'
@@ -80,6 +81,7 @@ function LearnInner() {
   const [showList, setShowList]     = useState(false)
   const [reviewDone, setReviewDone] = useState(false)
   const [activeTab, setActiveTab]   = useState<'description' | 'best' | 'editor'>('description')
+  const [mobilePanel, setMobilePanel] = useState<MobileSplitPanel>('content')
   // IMPORTANT: don't read localStorage during render (causes hydration mismatch).
   const [studyMode, setStudyMode]   = useState<'show' | 'hide' | null>(null)
 
@@ -94,6 +96,7 @@ function LearnInner() {
   const cyclePosRef         = useRef(cyclePos)
   const cycleIdxRef         = useRef(0)
   const cycleOrderedIdsRef  = useRef<number[]>([])
+  const cycleHydratedRef    = useRef(false)
 
   // ── Determines traversal order for a given lap rep count ──────────────────
   // Lap 0 → normal study order. Every subsequent lap → weighted shuffle:
@@ -180,6 +183,8 @@ function LearnInner() {
     cycleAccepted: number[]
     cycleOrderedIds?: number[]
   } | null) => {
+    // Avoid overwriting Supabase with empty accepts before async restore finishes
+    if (!cycleHydratedRef.current && state?.cycleRange) return
     const withOrder = state ? { ...state, cycleOrderedIds: state.cycleOrderedIds ?? cycleOrderedIdsRef.current } : null
     syncCycleToSession(withOrder ?? { cycleRange: null, cycleReps: 0, cyclePos: 0, cycleAccepted: [] })
     saveCycleState(withOrder).catch(() => {})
@@ -459,6 +464,10 @@ function LearnInner() {
     }
   }, [studyMode, activeTab])
 
+  useEffect(() => {
+    if (activeTab === 'editor') setMobilePanel('editor')
+  }, [activeTab])
+
   // Reset per question
   useEffect(() => {
     setReviewDone(false)
@@ -545,7 +554,15 @@ function LearnInner() {
 
     let cancelled = false
     getCycleState().then(state => {
-      if (cancelled || !state?.cycleRange) return
+      if (cancelled) return
+      if (cycleRangeForSave.current !== null) {
+        cycleHydratedRef.current = true
+        return
+      }
+      if (!state?.cycleRange) {
+        cycleHydratedRef.current = true
+        return
+      }
       const rng      = state.cycleRange
       const reps     = state.cycleReps ?? 0
       const pos      = state.cyclePos  ?? 0
@@ -579,13 +596,24 @@ function LearnInner() {
       }
 
       applyCycleState({ cycleRange: rng, cycleReps: reps, cyclePos: pos, cycleIdx, cycleAccepted: accepted, cycleOrderedIds: orderedIds })
+      cycleHydratedRef.current = true
+      if (accepted.length > 0) {
+        persistCycleState({
+          cycleRange: rng,
+          cycleReps: reps,
+          cyclePos: pos,
+          cycleIdx,
+          cycleAccepted: accepted,
+          cycleOrderedIds: orderedIds,
+        })
+      }
 
       // Auto-correct URL if we landed on the wrong question.
       if (cycleIdx !== gatedIdxRef.current) {
         const qs = learnQsRef.current
         router.replace(`/learn/${cycleIdx}${qs ? `?${qs}` : ''}`, { scroll: false })
       }
-    }).catch(() => {})
+    }).catch(() => { cycleHydratedRef.current = true })
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered.length])
@@ -711,6 +739,31 @@ function LearnInner() {
     router.push(`/learn/${next}${qs ? `?${qs}` : ''}`, { scroll: false })
   }, [router, setCyclePos])
 
+  const goNextUnaccepted = useCallback(() => {
+    const rng = cycleRangeRef.current
+    const orderedIds = cycleOrderedIdsRef.current
+    const qs = learnQsRef.current
+    if (!rng || orderedIds.length === 0) {
+      goNext()
+      return
+    }
+    const idx = gatedIdxRef.current
+    const currentId = filteredRef.current[idx]?.id
+    const startPos = currentId != null ? orderedIds.indexOf(currentId) : -1
+    for (let step = 1; step <= orderedIds.length; step++) {
+      const pos = (startPos + step) % orderedIds.length
+      const id = orderedIds[pos]
+      if (cycleAcceptedRef.current.has(id)) continue
+      const nextIdx = filteredRef.current.findIndex(q => q.id === id)
+      if (nextIdx < 0) continue
+      cycleIdxRef.current = nextIdx
+      setCyclePos(pos)
+      router.push(`/learn/${nextIdx}${qs ? `?${qs}` : ''}`, { scroll: false })
+      return
+    }
+    toast.success('All questions accepted this lap!')
+  }, [router, setCyclePos, goNext])
+
   const goPrev = useCallback(() => {
     const n   = filteredLenRef.current
     if (n === 0) return
@@ -748,6 +801,15 @@ function LearnInner() {
 
   const goTo = (i: number) => {
     cycleIdxRef.current = i   // set eagerly so position-persist guard passes
+    const rng = cycleRangeRef.current
+    const orderedIds = cycleOrderedIdsRef.current
+    if (rng && orderedIds.length > 0) {
+      const qid = filteredRef.current[i]?.id
+      if (qid != null) {
+        const pos = orderedIds.indexOf(qid)
+        if (pos >= 0) setCyclePos(pos)
+      }
+    }
     router.push(`/learn/${i}${learnQs ? `?${learnQs}` : ''}`, { scroll: false })
     setShowList(false)
   }
@@ -775,6 +837,7 @@ function LearnInner() {
     const e = Math.max(s, Math.min(end, filtered.length - 1))
     // Clear any stale order so setCycleRange always recomputes it fresh (lap 0, normal order).
     cycleOrderedIdsRef.current = []
+    cycleHydratedRef.current = true
     setCycleRange({ start: s, end: e })  // resets cyclePos → 0 and cycleIdx → s internally
     setShowCyclePanel(false)
     // Set eagerly so position-persist guard passes when gatedIdx lands at s.
@@ -834,6 +897,9 @@ function LearnInner() {
   const displaySolvedCount = cycleRange
     ? filtered.slice(cycleRange.start, cycleRange.end + 1).filter(fq => progress[String(fq.id)]?.solved).length
     : solvedCount
+  const cycleRangeSize = cycleRange ? cycleRange.end - cycleRange.start + 1 : 0
+  const inActiveCycleRange = !!(cycleRange && gatedIdx >= cycleRange.start && gatedIdx <= cycleRange.end)
+  const currentAcceptedThisLap = inActiveCycleRange && q != null && cycleAcceptedRef.current.has(q.id)
 
   // Pattern context for current question — uses exclusive map (no repetition)
   const currentPatternName = q ? (exclusiveMap[q.id] ?? null) : null
@@ -848,11 +914,16 @@ function LearnInner() {
     <>
       {/* Cycle banner — shown at top of list when a cycle is active */}
       {cycleRange && (
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 py-2 bg-indigo-50 border-b border-indigo-100">
-          <span className="text-[11px] font-semibold text-indigo-600">
-            🔄 Cycle active: questions {cycleRange.start + 1}–{cycleRange.end + 1}
-            <span className="text-indigo-400 font-normal ml-1">· dimmed = outside cycle</span>
-          </span>
+        <div className="sticky top-0 z-10 flex flex-col gap-1.5 px-3 py-2 bg-indigo-50 border-b border-indigo-100 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+          <div className="min-w-0">
+            <span className="text-[11px] font-semibold text-indigo-600 text-wrap block">
+              Lap list · {cycleAcceptedCount}/{cycleRangeSize} accepted · {cycleRangeSize - cycleAcceptedCount} todo
+            </span>
+            <span className="text-[10px] text-indigo-500/90 mt-0.5 block">
+              <CheckCircle size={10} className="inline text-green-600 mr-0.5 -mt-px" /> accepted
+              <Circle size={10} className="inline text-amber-500 mx-1 -mt-px" /> skip &amp; return later
+            </span>
+          </div>
           <div className="flex items-center gap-2 shrink-0">
             {needsCycleResume && (
               <button
@@ -883,6 +954,8 @@ function LearnInner() {
         const prevPat = prev ? (exclusiveMap[prev.id] ?? null) : null
         const prevPri = prevPat ? (PATTERN_PRIORITY[prevPat] ?? null) : null
         const showRound = curPri && isNewRound(curPri, fq.difficulty, prevPri, prev?.difficulty)
+        const acceptedLap = cycleRange && inRange && cycleAcceptedRef.current.has(fq.id)
+        const todoLap = cycleRange && inRange && !acceptedLap
         return (
           <div key={fq.id}>
             {showRound && <StudyRoundHeader priority={curPri!} difficulty={fq.difficulty} />}
@@ -912,15 +985,22 @@ function LearnInner() {
                 }
                 goTo(i)
               }}
-              className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm border-b border-gray-50 transition-colors ${!inRange && cycleRange ? 'opacity-30 cursor-not-allowed' : 'hover:bg-indigo-50'} ${i === gatedIdx ? 'bg-indigo-50' : ''}`}
+              className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm border-b border-gray-50 transition-colors ${
+                !inRange && cycleRange ? 'opacity-30 cursor-not-allowed' : 'hover:bg-indigo-50'
+              } ${i === gatedIdx ? 'bg-indigo-100 ring-1 ring-inset ring-indigo-200' : ''} ${
+                acceptedLap ? 'bg-green-50/60' : todoLap ? '' : ''
+              }`}
             >
+              {cycleRange && inRange ? (
+                acceptedLap
+                  ? <CheckCircle size={14} className="text-green-600 shrink-0" aria-label="Accepted this lap" />
+                  : <Circle size={14} className="text-amber-500 shrink-0" aria-label="Not accepted this lap" />
+              ) : null}
               <span className="shrink-0 tabular-nums text-xs font-mono text-gray-500">#{fq.id}</span>
-              <span className="min-w-0 flex-1 truncate text-gray-700">{fq.title}</span>
+              <span className={`min-w-0 flex-1 truncate ${acceptedLap ? 'text-green-800' : 'text-gray-700'}`}>{fq.title}</span>
               {!inRange && cycleRange
-                ? <span className="shrink-0 text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">outside cycle</span>
-                : inRange && cycleRange
-                  ? <span className="shrink-0 text-[10px] text-indigo-400">●</span>
-                  : null
+                ? <span className="shrink-0 text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">outside</span>
+                : null
               }
               <span className={`text-xs font-semibold shrink-0 ${fq.difficulty === 'Easy' ? 'text-green-600' : fq.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-500'}`}>
                 {fq.difficulty[0]}
@@ -937,7 +1017,7 @@ function LearnInner() {
   return (
     <>
     <LearnSetTabs activeSet={1} />
-    <div className="flex min-h-[calc(100dvh-56px)] flex-col md:h-[calc(100dvh-56px)]">
+    <div className="flex min-h-0 flex-col md:h-[calc(100dvh-56px)]">
 
       {/* ── Study mode modal ── */}
       {studyMode === null && (
@@ -982,7 +1062,7 @@ function LearnInner() {
 
         {/* Back to home */}
         <button onClick={() => router.push('/')}
-          className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
           title="Back to questions">
           <ChevronLeft size={15} />
         </button>
@@ -1000,9 +1080,10 @@ function LearnInner() {
         <span className="text-xs text-gray-300 font-medium hidden sm:inline">Learn</span>
         <span className="w-px h-4 bg-gray-200 hidden sm:inline-block" />
 
+        <div className="flex items-center gap-1.5">
         {/* Prev / counter / Next */}
         <button onClick={goPrev} disabled={gatedIdx === 0}
-          className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 transition-colors">
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 transition-colors">
           <ChevronLeft size={15} />
         </button>
 
@@ -1015,14 +1096,17 @@ function LearnInner() {
             <List size={12} />
             <span className="font-mono">
               {cycleRange
-                ? `${cyclePos + 1}/${cycleRange.end - cycleRange.start + 1}`
+                ? `${cycleAcceptedCount}/${cycleRangeSize}`
                 : `${gatedIdx + 1}/${filtered.length}`}
             </span>
-            <span className="hidden sm:inline text-gray-400">·</span>
-            {cycleRange
-              ? <span className="hidden sm:inline text-indigo-600">{cycleAcceptedCount} accepted</span>
-              : <span className="hidden sm:inline text-green-600">{displaySolvedCount} solved</span>
-            }
+            {cycleRange ? (
+              <span className="text-indigo-600 text-[10px] sm:text-xs">accepted</span>
+            ) : (
+              <>
+                <span className="hidden sm:inline text-gray-400">·</span>
+                <span className="hidden sm:inline text-green-600">{displaySolvedCount} solved</span>
+              </>
+            )}
           </button>
 
           {/* Question list: mobile = fixed, centered on viewport; sm+ = under button */}
@@ -1033,21 +1117,33 @@ function LearnInner() {
                 aria-hidden
                 onClick={() => setShowList(false)}
               />
-              <div className={listDropdownMobilePanelClasses('left')}>{questionListItems}</div>
+              <div className={listDropdownMobilePanelClasses('left', 'learn')}>{questionListItems}</div>
             </>
           )}
         </div>
 
+        {cycleRange && (
+          <button
+            type="button"
+            onClick={goNextUnaccepted}
+            title="Next question not accepted this lap"
+            className="flex min-h-11 items-center px-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-[10px] font-bold hover:bg-amber-100 transition-colors"
+          >
+            Todo
+          </button>
+        )}
+
         <button onClick={() => goNext()}
-          className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors">
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors">
           <ChevronRight size={15} />
         </button>
+        </div>
 
-        {/* Progress bar */}
-        <div className="flex-1 bg-gray-100 rounded-full h-1.5 min-w-[60px]">
+        {/* Progress bar — desktop inline */}
+        <div className="hidden sm:block flex-1 bg-gray-100 rounded-full h-1.5 min-w-[60px]">
           <div className="bg-indigo-500 h-1.5 rounded-full transition-all"
             style={{ width: cycleRange
-              ? `${((cyclePos + 1) / (cycleRange.end - cycleRange.start + 1)) * 100}%`
+              ? `${cycleRangeSize > 0 ? (cycleAcceptedCount / cycleRangeSize) * 100 : 0}%`
               : filtered.length ? `${((gatedIdx + 1) / filtered.length) * 100}%` : '0%' }} />
         </div>
 
@@ -1075,8 +1171,7 @@ function LearnInner() {
             <div className="
               fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50
               w-[min(92vw,18rem)]
-              sm:absolute sm:fixed-none sm:left-auto sm:top-full sm:translate-x-0 sm:translate-y-0
-              sm:right-0 sm:mt-1 sm:w-72
+              sm:absolute sm:left-auto sm:top-full sm:right-0 sm:translate-x-0 sm:translate-y-0 sm:mt-1 sm:w-72
               bg-white border border-gray-200 rounded-xl shadow-xl p-4">
               <p className="text-xs font-bold text-gray-700 mb-2">🔄 Set Cycle Range</p>
               <p className="text-[11px] text-gray-400 mb-3">Cycle within a range — → wraps back to start automatically.</p>
@@ -1131,47 +1226,70 @@ function LearnInner() {
         {q && (
           <>
             <button onClick={() => save({ starred: !starred })}
-              className={`p-1.5 rounded-lg border transition-colors ${starred ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-200 hover:border-yellow-300'}`}>
+              className={`flex min-h-11 min-w-11 items-center justify-center rounded-lg border transition-colors ${starred ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-200 hover:border-yellow-300'}`}>
               <Star size={13} className={starred ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'} />
             </button>
 
             <button onClick={() => save({ solved: !solved })}
-              className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${solved ? 'bg-green-50 text-green-600 border-green-200' : 'bg-white text-gray-500 border-gray-200 hover:border-green-300'}`}>
+              className={`flex min-h-11 items-center gap-1.5 px-2 sm:px-3 rounded-lg text-xs font-semibold border transition-colors ${solved ? 'bg-green-50 text-green-600 border-green-200' : 'bg-white text-gray-500 border-gray-200 hover:border-green-300'}`}>
               <CheckCircle size={12} className={solved ? 'fill-green-500 text-white' : ''} />
               <span className="hidden sm:inline">{solved ? 'Solved ✓' : 'Mark Solved'}</span>
               <span className="sm:hidden">{solved ? '✓' : '+'}</span>
             </button>
 
             <a href={leetCodeUrl(lcTitleSlug)} target="_blank" rel="noopener noreferrer"
-              className="p-1.5 text-gray-300 hover:text-orange-400 transition-colors" title="Open on LeetCode">
+              className="flex min-h-11 min-w-11 items-center justify-center text-gray-300 hover:text-orange-400 transition-colors" title="Open on LeetCode">
               <ExternalLink size={14} />
             </a>
           </>
         )}
+
+        {/* Progress bar — mobile full width */}
+        <div className="w-full sm:hidden bg-gray-100 rounded-full h-1.5">
+          <div className="bg-indigo-500 h-1.5 rounded-full transition-all"
+            style={{ width: cycleRange
+              ? `${cycleRangeSize > 0 ? (cycleAcceptedCount / cycleRangeSize) * 100 : 0}%`
+              : filtered.length ? `${((gatedIdx + 1) / filtered.length) * 100}%` : '0%' }} />
+        </div>
       </div>
 
       {cycleRange && (
         <CycleProgressBanner
           acceptedCount={cycleAcceptedCount}
-          rangeSize={cycleRange.end - cycleRange.start + 1}
+          rangeSize={cycleRangeSize}
           cycleReps={cycleReps}
           repTarget={CYCLE_REP_TARGET}
           onCancel={() => setCycleRange(null)}
           needsResume={needsCycleResume}
           onResume={resumeCycle}
           resumeQuestionNum={cycleResumeIdx != null ? cycleResumeIdx + 1 : undefined}
+          onNextTodo={goNextUnaccepted}
+          onOpenList={() => setShowList(true)}
         />
       )}
 
       {q && (
-        <div className="px-3 py-2.5 border-b border-gray-100 bg-white shrink-0">
-          <h1 className="text-sm sm:text-base font-bold text-gray-800 leading-snug text-center">{q.title}</h1>
+        <div className="hidden md:block px-3 py-2.5 border-b border-gray-100 bg-white shrink-0">
+          <div className="flex flex-col items-center gap-1">
+            {inActiveCycleRange && (
+              currentAcceptedThisLap ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                  <CheckCircle size={10} /> Accepted this lap
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                  <Circle size={10} /> Todo this lap — Accept when solved
+                </span>
+              )
+            )}
+            <h1 className="text-sm sm:text-base font-bold text-gray-800 leading-snug text-center">{q.title}</h1>
+          </div>
         </div>
       )}
 
       {/* Pattern context strip */}
       {currentPattern && (
-        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-muted)]/60 shrink-0">
           <span className="text-[11px] font-bold text-[var(--text-subtle)] uppercase tracking-wide shrink-0">🧩</span>
           <span className="text-xs font-semibold text-[var(--text)] truncate">{currentPattern.name}</span>
           <PriorityBadge pattern={currentPattern.name} />
@@ -1179,11 +1297,11 @@ function LearnInner() {
           {q?.difficulty === 'Easy'   && filterDiff === 'All' && <span className="text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full shrink-0">🟢 Round 1 · Easy</span>}
           {q?.difficulty === 'Medium' && filterDiff === 'All' && <span className="text-[10px] font-bold text-yellow-600 bg-yellow-50 border border-yellow-200 px-1.5 py-0.5 rounded-full shrink-0">🟡 Round 2 · Medium</span>}
           {q?.difficulty === 'Hard'   && filterDiff === 'All' && <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full shrink-0">🔴 Round 3 · Hard</span>}
-          {patternPct >= 80 && <span className="text-[10px] font-bold text-green-600  shrink-0">🔥 Crushing it!</span>}
-          {patternPct >= 50 && patternPct < 80 && <span className="text-[10px] font-bold text-indigo-500  shrink-0">💪 Solid progress</span>}
-          {patternPct > 0 && patternPct < 50 && <span className="text-[10px] font-semibold text-amber-500 shrink-0">📈 Building momentum</span>}
-          {patternPct === 0 && <span className="text-[10px] font-semibold text-[var(--text-subtle)] shrink-0">🧩 Fresh territory</span>}
-          <div className="flex items-center gap-1.5 ml-auto shrink-0">
+          {patternPct >= 80 && <span className="hidden sm:inline text-[10px] font-bold text-green-600 shrink-0">Crushing it!</span>}
+          {patternPct >= 50 && patternPct < 80 && <span className="hidden sm:inline text-[10px] font-bold text-indigo-500 shrink-0">Solid progress</span>}
+          {patternPct > 0 && patternPct < 50 && <span className="hidden sm:inline text-[10px] font-semibold text-amber-500 shrink-0">Building momentum</span>}
+          {patternPct === 0 && <span className="hidden sm:inline text-[10px] font-semibold text-[var(--text-subtle)] shrink-0">Fresh territory</span>}
+          <div className="flex items-center gap-1.5 w-full sm:w-auto sm:ml-auto shrink-0">
             <div className="w-16 sm:w-24 h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${patternPct === 100 ? 'bg-green-500' : patternPct >= 50 ? 'bg-indigo-500' : 'bg-amber-500'}`}
@@ -1300,14 +1418,15 @@ function LearnInner() {
             </button>
           )}
           <button onClick={() => setStudyMode(prev => prev === 'hide' ? 'show' : 'hide')}
-            className={`ml-auto flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors shrink-0 ${studyMode === 'hide' ? 'text-orange-500 hover:text-orange-600' : 'text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
-            🧠 {studyMode === 'hide' ? 'Challenge Mode' : 'Review Mode'}
+            className={`md:ml-auto flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors shrink-0 ${studyMode === 'hide' ? 'text-orange-500 hover:text-orange-600' : 'text-[var(--text-subtle)] hover:text-[var(--text)]'}`}>
+            {studyMode === 'hide' ? 'Challenge' : 'Review'}
           </button>
         </div>
+        <MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} />
         <div className="relative z-0 flex flex-col md:flex-row min-h-0 flex-1 overflow-visible md:overflow-hidden">
 
           {/* ── Content panel (all non-editor tabs) ── */}
-          <div className="relative z-10 flex flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-visible md:overflow-hidden text-[var(--text)] border-r border-[var(--border)]">
+          <div className={`${mobilePanel === 'content' ? 'flex' : 'hidden'} md:flex relative z-10 flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-visible md:overflow-hidden text-[var(--text)] border-r border-[var(--border)]`}>
 
             {/* Panel content */}
             <div className="flex-1 overflow-visible md:overflow-y-auto">
@@ -1322,6 +1441,17 @@ function LearnInner() {
                       <span className="text-xs text-gray-400 font-mono">#{q.id}</span>
                       <DifficultyBadge difficulty={q.difficulty} />
                       {(() => { const p = currentPatternName ?? getPatternForQuestion(q.tags ?? []); return p ? <PriorityBadge pattern={p} /> : null })()}
+                      {inActiveCycleRange && (
+                        currentAcceptedThisLap ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                            <CheckCircle size={10} /> Accepted this lap
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                            <Circle size={10} /> Todo this lap
+                          </span>
+                        )
+                      )}
                     </div>
                     <h1 className="font-bold text-gray-800 text-base leading-snug">{q.title}</h1>
                     {solved && nextReview && !due && (
@@ -1433,7 +1563,7 @@ function LearnInner() {
           </div>
 
           {/* ── Editor panel ── */}
-          <div className="flex flex-col w-full md:w-[58%] flex-1 min-h-[30rem] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0">
+          <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-col w-full md:w-[58%] flex-1 min-h-[50dvh] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0`}>
             <LeetCodeEditor
               appQuestionId={q.id}
               slug={q.slug}

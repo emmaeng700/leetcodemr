@@ -5,9 +5,12 @@ import QuestionSearch from '@/components/QuestionSearch'
 
 export default function QuestionSearchGate() {
   const pathname = usePathname()
-  const show = pathname === '/' || pathname === '/flashcards' || pathname === '/sr-queue'
+  const isLearnDetail = /^\/learn\/\d+/.test(pathname)
+  const show = !isLearnDetail && (
+    pathname === '/' || pathname === '/flashcards' || pathname === '/sr-queue'
     || pathname === '/learn' || pathname.startsWith('/learn/')
     || pathname.startsWith('/learn2') || pathname.startsWith('/learn3')
+  )
   if (!show) return null
   return (
     <div className="relative z-20 isolate border-b border-[var(--border)] bg-[var(--bg-card)]/80 backdrop-blur-sm">
