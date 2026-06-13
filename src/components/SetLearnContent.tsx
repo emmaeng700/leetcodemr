@@ -711,6 +711,18 @@ export default function SetLearnContent({ set, index }: Props) {
     : filtered.filter(fq => progress[String(fq.id)]?.solved).length
 
   // ── Question list dropdown ───────────────────────────────────────────────────
+  const listPatternCounts = useMemo(() => {
+    const visibleQs = cycleRange
+      ? filtered.filter((_, i) => i >= cycleRange.start && i <= cycleRange.end)
+      : filtered
+    const counts = new Map<string, number>()
+    for (const q of visibleQs) {
+      const pat = exclusiveMap[q.id] ?? null
+      if (pat) counts.set(pat, (counts.get(pat) ?? 0) + 1)
+    }
+    return counts
+  }, [filtered, cycleRange, exclusiveMap])
+
   const questionListItems = (
     <div>
       {cycleRange && (
@@ -739,11 +751,18 @@ export default function SetLearnContent({ set, index }: Props) {
         const prevPat  = prev ? (exclusiveMap[prev.id] ?? null) : null
         const prevPri  = prevPat ? (PATTERN_PRIORITY[prevPat] ?? null) : null
         const showRound = curPri && isNewRound(curPri, fq.difficulty, prevPri, prev?.difficulty)
+        const showPattern = curPat && curPat !== prevPat
         const acceptedLap = cycleRange && inRange && cycleAcceptedRef.current.has(fq.id)
         const todoLap = cycleRange && inRange && !acceptedLap
         return (
           <div key={fq.id}>
             {showRound && <StudyRoundHeader priority={curPri!} difficulty={fq.difficulty} />}
+            {showPattern && (
+              <div className="px-3 py-1 flex items-center gap-1.5 border-b border-gray-100 bg-gray-50/70">
+                <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wide">{curPat}</span>
+                <span className="text-[10px] font-semibold text-gray-400">· {listPatternCounts.get(curPat!) ?? 0}</span>
+              </div>
+            )}
             <button type="button"
               onClick={() => {
                 if (!inRange && cycleRange) {

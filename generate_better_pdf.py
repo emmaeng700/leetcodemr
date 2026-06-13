@@ -21,9 +21,11 @@ GRID_4X4     = False
 GRID_2X2     = False
 GRID_2X1     = True   # always 2×1
 GRID_6X4     = False
-CHAPTER2_PDF = '--chapter2' in sys.argv
-MODE_NC150   = '--neetcode' in sys.argv
-MODE_AM600   = '--am600'    in sys.argv
+CHAPTER2_PDF   = '--chapter2'   in sys.argv
+MODE_NC150     = '--neetcode'   in sys.argv
+MODE_AM600     = '--am600'      in sys.argv
+MODE_NC_EXTRA  = '--nc-extra'   in sys.argv   # 32 NC150 questions not in Set 1
+MODE_AM_EXTRA  = '--am-extra'   in sys.argv   # 344 AM600 questions not in Set 1 or NC150
 
 # ─── Font registration ────────────────────────────────────────────────────────
 from reportlab.pdfbase import pdfmetrics
@@ -75,7 +77,19 @@ SCRIPT_DIR  = Path(__file__).parent
 QUESTIONS   = SCRIPT_DIR / "public" / "questions_full.json"
 SITES_CACHE = SCRIPT_DIR / ".full_langs_cache.json"
 DOOCS_CACHE = SCRIPT_DIR / ".doocs_cache.json"
-if MODE_NC150:
+if MODE_NC_EXTRA:
+    INNER_PDF       = SCRIPT_DIR / '_nc_extra_inner.pdf'
+    OUTPUT_PDF      = SCRIPT_DIR / 'neetcode_extra.pdf'
+    OUTPUT_1UP      = SCRIPT_DIR / 'neetcode_extra_1up.pdf'
+    _COVER_TITLE    = 'NeetCode Exclusives'
+    _COVER_SUBTITLE = '32 questions not in Set 1 · Priority-Grouped · 2×1 Landscape'
+elif MODE_AM_EXTRA:
+    INNER_PDF       = SCRIPT_DIR / '_am_extra_inner.pdf'
+    OUTPUT_PDF      = SCRIPT_DIR / 'am600_extra.pdf'
+    OUTPUT_1UP      = SCRIPT_DIR / 'am600_extra_1up.pdf'
+    _COVER_TITLE    = 'AlgoMaster Exclusives'
+    _COVER_SUBTITLE = '344 questions not in Set 1 or NeetCode · Priority-Grouped · 2×1 Landscape'
+elif MODE_NC150:
     INNER_PDF       = SCRIPT_DIR / '_neetcode_inner.pdf'
     OUTPUT_PDF      = SCRIPT_DIR / 'neetcode.pdf'
     OUTPUT_1UP      = SCRIPT_DIR / 'neetcode_1up.pdf'
@@ -2618,7 +2632,24 @@ def _load_mode_data() -> tuple[list, dict, dict, list]:
         DOOCS_CACHE.write_text(json.dumps(doocs, ensure_ascii=False, indent=2))
         print(f'  Repaired {n_rep} doocs description(s)')
 
-    if MODE_NC150:
+    if MODE_NC_EXTRA:
+        # Only the 32 NC150 questions that are NOT in Set 1
+        cat_map   = _parse_ts_category_map(SCRIPT_DIR / 'src' / 'lib' / 'neetcode150.ts')
+        nc150_ids = set(cat_map.keys())
+        extra = json.loads((SCRIPT_DIR / 'neetcode_extra_questions.json').read_text()) \
+                if (SCRIPT_DIR / 'neetcode_extra_questions.json').exists() else []
+        questions = [q for q in extra if q['id'] in nc150_ids]
+        rounds = build_rounds_from_categories(questions, cat_map, _NC150_PRIORITY, _NC150_ORDER)
+    elif MODE_AM_EXTRA:
+        # Only the 344 AM600 questions that are NOT in Set 1 and NOT in NC150
+        cat_map   = _parse_ts_category_map(SCRIPT_DIR / 'src' / 'lib' / 'algomaster600.ts')
+        am600_ids = set(cat_map.keys())
+        nc_ids    = set(_parse_ts_category_map(SCRIPT_DIR / 'src' / 'lib' / 'neetcode150.ts').keys())
+        am_extra  = json.loads((SCRIPT_DIR / 'am600_extra_questions.json').read_text()) \
+                    if (SCRIPT_DIR / 'am600_extra_questions.json').exists() else []
+        questions = [q for q in am_extra if q['id'] in am600_ids and q['id'] not in nc_ids]
+        rounds = build_rounds_from_categories(questions, cat_map, _AM600_PRIORITY, _AM600_ORDER)
+    elif MODE_NC150:
         cat_map   = _parse_ts_category_map(SCRIPT_DIR / 'src' / 'lib' / 'neetcode150.ts')
         nc150_ids = set(cat_map.keys())
         base  = json.loads(QUESTIONS.read_text())
@@ -2653,7 +2684,11 @@ def _load_mode_data() -> tuple[list, dict, dict, list]:
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
-    mode_label = 'NeetCode 150' if MODE_NC150 else 'AlgoMaster 600' if MODE_AM600 else 'LeetMastery 331'
+    mode_label = ('NeetCode Exclusives' if MODE_NC_EXTRA else
+                  'AlgoMaster Exclusives' if MODE_AM_EXTRA else
+                  'NeetCode 150' if MODE_NC150 else
+                  'AlgoMaster 600' if MODE_AM600 else
+                  'LeetMastery 331')
     print(f'Loading data…  [{mode_label}]')
     questions, sites, doocs, rounds = _load_mode_data()
     print(f'  {len(questions)} questions · sites: {len(sites)} · doocs: {len(doocs)}')

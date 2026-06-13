@@ -965,6 +965,18 @@ function LearnInner() {
   const patternSolved = patternQs.filter(qq => progress[String(qq.id)]?.solved).length
   const patternPct = patternQs.length ? Math.round((patternSolved / patternQs.length) * 100) : 0
 
+  const listPatternCounts = useMemo(() => {
+    const visibleQs = cycleRange
+      ? filtered.filter((_, i) => i >= cycleRange.start && i <= cycleRange.end)
+      : filtered
+    const counts = new Map<string, number>()
+    for (const q of visibleQs) {
+      const pat = exclusiveMap[q.id] ?? getPatternForQuestion(q.tags) ?? null
+      if (pat) counts.set(pat, (counts.get(pat) ?? 0) + 1)
+    }
+    return counts
+  }, [filtered, cycleRange, exclusiveMap])
+
   const questionListItems = (
     <>
       {/* Cycle banner — shown at top of list when a cycle is active */}
@@ -1018,17 +1030,24 @@ function LearnInner() {
       {filtered.map((fq, i) => {
         const fp = progress[String(fq.id)] || {}
         const inRange = cycleRange ? i >= cycleRange.start && i <= cycleRange.end : true
-        const curPat = exclusiveMap[fq.id] ?? null
+        const curPat = exclusiveMap[fq.id] ?? getPatternForQuestion(fq.tags) ?? null
         const curPri = curPat ? (PATTERN_PRIORITY[curPat] ?? null) : null
         const prev = i > 0 ? filtered[i - 1] : null
-        const prevPat = prev ? (exclusiveMap[prev.id] ?? null) : null
+        const prevPat = prev ? (exclusiveMap[prev.id] ?? getPatternForQuestion(prev.tags) ?? null) : null
         const prevPri = prevPat ? (PATTERN_PRIORITY[prevPat] ?? null) : null
         const showRound = curPri && isNewRound(curPri, fq.difficulty, prevPri, prev?.difficulty)
+        const showPattern = curPat && curPat !== prevPat
         const acceptedLap = cycleRange && inRange && cycleAcceptedRef.current.has(fq.id)
         const todoLap = cycleRange && inRange && !acceptedLap
         return (
           <div key={fq.id}>
             {showRound && <StudyRoundHeader priority={curPri!} difficulty={fq.difficulty} />}
+            {showPattern && (
+              <div className="px-3 py-1 flex items-center gap-1.5 border-b border-gray-100 bg-gray-50/70">
+                <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wide">{curPat}</span>
+                <span className="text-[10px] font-semibold text-gray-400">· {listPatternCounts.get(curPat!) ?? 0}</span>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => {
