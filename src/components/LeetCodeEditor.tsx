@@ -1288,8 +1288,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
               )}
               {cases[activeCase]?.params.length > 0 ? (
                 <div className="space-y-2">
-                  {cases[activeCase].params.map(p => (
-                    <div key={p.name}>
+                  {cases[activeCase].params.map((p, i) => (
+                    <div key={`${p.name}-${i}`}>
                       <p className="text-xs text-gray-500 mb-1">{p.name} =</p>
                       <div className="bg-gray-800/70 border border-gray-700/50 rounded-lg px-3 py-1.5 text-xs font-mono text-gray-200">{p.value}</div>
                     </div>
