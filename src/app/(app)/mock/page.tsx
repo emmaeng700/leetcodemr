@@ -385,7 +385,7 @@ function MockInterviewPage() {
 
   /* ── ACTIVE ── */
   if (phase === 'active' && question) return (
-    <div className="flex min-h-[calc(100dvh-56px)] flex-col md:h-[calc(100dvh-56px)]">
+    <div className="flex flex-col">
       {/* Timer top bar */}
       <div className={`relative z-[80] flex flex-wrap items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 md:pr-44 lg:pr-48 border-b shrink-0 ${urgent ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-200'}`}>
         {/* Countdown */}
@@ -450,13 +450,13 @@ function MockInterviewPage() {
         </button>
       </div>
 
-      <MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} />
+      <div className="hidden"><MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} /></div>
 
       {/* Split layout */}
-      <div className="flex flex-1 overflow-visible md:overflow-hidden">
+      <div className="flex flex-col">
 
         {/* LEFT — question */}
-        <div className={`${mobilePanel === 'content' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[42%] md:shrink-0 border-r border-[var(--border)] overflow-visible md:overflow-hidden bg-[var(--bg-card)]`}>
+        <div className="flex flex-col w-full overflow-visible bg-[var(--bg-card)] border-b border-[var(--border)]">
           <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
             <button onClick={() => setLeftTab('description')}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
@@ -531,7 +531,7 @@ function MockInterviewPage() {
         </div>
 
         {/* RIGHT — editor */}
-        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex flex-1 min-h-[50dvh] md:min-h-0 overflow-x-hidden`}>
+        <div className="flex flex-col w-full min-h-[50dvh] md:h-[65vh] overflow-hidden border-t border-[var(--border)]">
           <LeetCodeEditor appQuestionId={question.id} slug={question.slug} />
         </div>
       </div>

@@ -471,7 +471,7 @@ export default function PracticePage() {
 
   // Show skeleton top bar immediately, fill in once question loads
   return (
-    <div className="flex min-h-0 flex-col md:h-[calc(100dvh-56px)]">
+    <div className="flex flex-col">
 
       {/* Top bar */}
       <div className="flex flex-wrap items-start sm:items-center px-3 sm:px-4 py-2 sm:py-2.5 border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 gap-x-2 gap-y-1.5">
@@ -683,14 +683,14 @@ export default function PracticePage() {
         )}
       </div>
 
-      <MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} />
+      <div className="hidden"><MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} /></div>
 
       {/* Content area */}
-      <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-visible md:overflow-hidden">
+      <div className="flex flex-col">
 
         {/* Description panel (all non-editor tabs) */}
-        <div className={`${mobilePanel === 'content' ? 'flex' : 'hidden'} md:flex relative z-10 flex-col w-full md:w-[42%] md:shrink-0 bg-[var(--bg-card)] overflow-visible md:overflow-hidden text-[var(--text)] border-r border-[var(--border)]`}>
-          <div className="flex-1 overflow-visible p-4 md:overflow-y-auto">
+        <div className="flex relative z-10 flex-col w-full bg-[var(--bg-card)] overflow-visible text-[var(--text)] border-b border-[var(--border)]">
+          <div className="overflow-visible p-4">
             {leftPanelTab === 'description' && (
               <>
                 {/* Tags */}
@@ -756,7 +756,7 @@ export default function PracticePage() {
         </div>
 
         {/* Editor panel */}
-        <div className={`${mobilePanel === 'editor' ? 'flex flex-col' : 'hidden'} md:flex relative z-0 flex-col w-full md:w-[58%] flex-1 min-h-[50dvh] md:min-h-[28rem] overflow-x-hidden border-t border-[var(--border)] md:border-t-0`}>
+        <div className="flex flex-col w-full min-h-[50dvh] md:h-[65vh] overflow-hidden border-t border-[var(--border)]">
           {question ? (
             <LeetCodeEditor
               appQuestionId={question.id}
