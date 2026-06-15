@@ -121,7 +121,23 @@ export function getSet3Questions(mainIds: Set<number>, mainQuestions?: TaggedRow
 }
 
 export function buildSetExclusiveMap(questions: SetQuestion[]): Record<number, string> {
-  return buildExclusivePatternMap(questions)
+  // Use the authoritative category field (NeetCode / AM600 category) so the
+  // pattern label, round headers, and stats all show the same grouping.
+  // Fall back to tag-based mapping only if category is missing.
+  const map: Record<number, string> = {}
+  const unmatched: SetQuestion[] = []
+  for (const q of questions) {
+    if (q.category) {
+      map[q.id] = q.category
+    } else {
+      unmatched.push(q)
+    }
+  }
+  if (unmatched.length > 0) {
+    const fallback = buildExclusivePatternMap(unmatched)
+    Object.assign(map, fallback)
+  }
+  return map
 }
 
 /** Priority × difficulty round presets (indices into the given question list). */

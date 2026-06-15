@@ -72,6 +72,7 @@ export const DISPLAY_PATTERN_ORDER = [
 export type PatternPriority = 'High' | 'Mid' | 'Low'
 
 export const PATTERN_PRIORITY: Record<string, PatternPriority> = {
+  // ── Set 1 (original) ──────────────────────────────────────────────────────
   // High
   'Arrays & Hashing':    'High',
   'String':              'High',
@@ -96,4 +97,73 @@ export const PATTERN_PRIORITY: Record<string, PatternPriority> = {
   'Bit Manipulation':    'Low',
   'Math':                'Low',
   'JavaScript':          'Low',
+
+  // ── NeetCode 150 category names ───────────────────────────────────────────
+  // High
+  'Trees':                        'High',
+  'Advanced Graphs':              'High',
+  'Intervals':                    'High',
+  // Mid
+  'Heap / Priority Queue':        'Mid',
+  'Tries':                        'Mid',
+  // Low
+  '1-D Dynamic Programming':      'Low',
+  '2-D Dynamic Programming':      'Low',
+  'Math & Geometry':              'Low',
+
+  // ── AlgoMaster 600 category names ─────────────────────────────────────────
+  // High
+  'Arrays':                                   'High',
+  'Strings':                                  'High',
+  'Hash Tables':                              'High',
+  'Prefix Sum':                               'High',
+  'Sliding Window - Fixed Size':              'High',
+  'Sliding Window - Dynamic Size':            'High',
+  'Matrix (2D Array)':                        'High',
+  'Tree Traversal - Level Order':             'High',
+  'Tree Traversal - Pre Order':               'High',
+  'Tree Traversal - In Order':                'High',
+  'Tree Traversal - Post-Order':              'High',
+  'BST / Ordered Set':                        'High',
+  'Depth First Search (DFS)':                 'High',
+  'Breadth First Search (BFS)':              'High',
+  // Mid
+  'Kadane\'s Algorithm':                      'Mid',
+  'LinkedList In-place Reversal':             'Mid',
+  'Fast and Slow Pointers':                   'Mid',
+  'Stacks':                                   'Mid',
+  'Monotonic Stack':                          'Mid',
+  'Queues':                                   'Mid',
+  'Monotonic Queue':                          'Mid',
+  'Bucket Sort':                              'Mid',
+  'Recursion':                                'Mid',
+  'Divide and Conquer':                       'Mid',
+  'Merge Sort':                               'Mid',
+  'QuickSort / QuickSelect':                  'Mid',
+  'Heaps':                                    'Mid',
+  'Two Heaps':                                'Mid',
+  'Top K Elements':                           'Mid',
+  'K-Way Merge':                              'Mid',
+  'Data Structure Design':                    'Mid',
+  'Topological Sort':                         'Mid',
+  'Union Find':                               'Mid',
+  'Minimum Spanning Tree':                    'Mid',
+  'Shortest Path':                            'Mid',
+  // Low
+  'Eulerian Circuit':                         'Low',
+  '1-D DP':                                   'Low',
+  '0/1 Knapsack':                             'Low',
+  'Unbounded Knapsack':                       'Low',
+  'Longest Increasing Subsequence (LIS)':     'Low',
+  '2D Grid DP':                               'Low',
+  'String DP':                                'Low',
+  'Tree / Graph DP':                          'Low',
+  'Bitmask DP':                               'Low',
+  'Digit DP':                                 'Low',
+  'Probability DP':                           'Low',
+  'State Machine DP':                         'Low',
+  'Maths / Geometry':                         'Low',
+  'String Matching':                          'Low',
+  'Binary Indexed Tree / Segment Tree':       'Low',
+  'Line Sweep':                               'Low',
 }
