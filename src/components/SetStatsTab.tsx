@@ -1,9 +1,10 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { Trophy, BarChart2 } from 'lucide-react'
-import { getSetProgress } from '@/lib/setProgress'
+import { useState, useEffect, useCallback } from 'react'
+import { Trophy, BarChart2, X, Trash2 } from 'lucide-react'
+import { getSetProgress, saveSetProgress } from '@/lib/setProgress'
 import { getSet2Questions, getSet3Questions, type SetQuestion } from '@/lib/questionSets'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import toast from 'react-hot-toast'
 
 interface Props { set: 2 | 3 }
 
@@ -11,6 +12,8 @@ export default function SetStatsTab({ set }: Props) {
   const [questions, setQuestions] = useState<SetQuestion[]>([])
   const [progress, setProgress] = useState<ReturnType<typeof getSetProgress>>({})
   const [loading, setLoading] = useState(true)
+
+  const reload = useCallback(() => setProgress(getSetProgress(set)), [set])
 
   useEffect(() => {
     async function load() {
@@ -52,14 +55,38 @@ export default function SetStatsTab({ set }: Props) {
     return { cat, total: qs.length, solved: s, pct: qs.length ? Math.round((s / qs.length) * 100) : 0 }
   }).sort((a, b) => b.pct - a.pct)
 
-  const recentlySolved = questions
-    .filter(q => progress[String(q.id)]?.solved)
-    .slice(0, 10)
+  const solvedQuestions = questions.filter(q => progress[String(q.id)]?.solved)
 
   const DIFF_COLOR: Record<string, string> = {
     Easy: 'bg-green-500',
     Medium: 'bg-yellow-500',
     Hard: 'bg-red-500',
+  }
+
+  function unmarkSolved(qId: number, title: string) {
+    const all = getSetProgress(set)
+    if (all[String(qId)]) {
+      all[String(qId)] = {
+        ...all[String(qId)],
+        solved: false,
+        next_review: null,
+        last_reviewed: null,
+      }
+      saveSetProgress(set, all)
+      reload()
+      toast.success(`#${qId} ${title} marked unsolved`)
+    }
+  }
+
+  function clearAll() {
+    if (!window.confirm(`Clear all Set ${set} progress? This removes all solved marks and review dates. Your notes and stars are kept.`)) return
+    const all = getSetProgress(set)
+    for (const key of Object.keys(all)) {
+      all[key] = { ...all[key], solved: false, next_review: null, last_reviewed: null, review_count: 0 }
+    }
+    saveSetProgress(set, all)
+    reload()
+    toast.success(`Set ${set} progress cleared`)
   }
 
   return (
@@ -129,21 +156,45 @@ export default function SetStatsTab({ set }: Props) {
         </div>
       </div>
 
-      {/* Recently Solved */}
-      {recentlySolved.length > 0 && (
+      {/* Solved Questions — with individual unsolved button */}
+      {solvedQuestions.length > 0 && (
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5">
-          <h3 className="font-bold text-sm text-[var(--text)] mb-4">Solved Questions</h3>
-          <div className="space-y-2">
-            {recentlySolved.map(q => (
-              <div key={q.id} className="flex items-center gap-2">
-                <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-sm text-[var(--text)]">Solved Questions</h3>
+            <span className="text-xs text-[var(--text-subtle)]">{solvedQuestions.length} total</span>
+          </div>
+          <div className="space-y-1">
+            {solvedQuestions.map(q => (
+              <div key={q.id} className="flex items-center gap-2 py-1.5 border-b border-[var(--border)] last:border-0">
+                <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0 w-12">#{q.id}</span>
                 <span className="flex-1 text-sm text-[var(--text)] truncate">{q.title}</span>
                 <DifficultyBadge difficulty={q.difficulty} />
+                <button
+                  type="button"
+                  onClick={() => unmarkSolved(q.id, q.title)}
+                  className="flex items-center justify-center min-w-[32px] min-h-[32px] rounded-lg text-gray-300 hover:text-rose-500 hover:bg-rose-50 transition-colors shrink-0"
+                  title="Mark unsolved"
+                >
+                  <X size={14} />
+                </button>
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {/* Danger zone — clear all */}
+      <div className="bg-[var(--bg-card)] border border-rose-200 rounded-2xl p-5">
+        <h3 className="font-bold text-sm text-rose-600 mb-1">Reset Progress</h3>
+        <p className="text-xs text-[var(--text-subtle)] mb-4">Clears all solved marks and review dates for Set {set}. Stars and notes are kept.</p>
+        <button
+          type="button"
+          onClick={clearAll}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-sm font-bold hover:bg-rose-100 transition-colors"
+        >
+          <Trash2 size={14} /> Clear all Set {set} progress
+        </button>
+      </div>
     </div>
   )
 }
