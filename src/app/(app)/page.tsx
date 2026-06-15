@@ -21,6 +21,7 @@ import {
   dailyRepsFromProgress,
   isActiveDailyBlockComplete,
   isDayComplete,
+  isQuestionDoneForDailyToday,
   normalizeStudyPlanRow,
 } from '@/lib/streakGoals'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -604,7 +605,9 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
     const dayQs = dayIds.map((id: number) => qMap[id]).filter(Boolean)
     if (!dayQs.length) return null
-    const doneCnt = dayIds.filter((id: number) => progress[String(id)]?.solved).length
+    const doneCnt = dayIds.filter((id: number) =>
+      isQuestionDoneForDailyToday(id, progress, today, dailyGoalsOpts.dailyReps)
+    ).length
     const dailyDone = isActiveDailyBlockComplete(planNorm, progress, dailyGoalsOpts)
     const allDone = isDayComplete(studyPlan, progress, dueReviews.length, dailyGoalsOpts)
     const isOverdue = activeDayIndex < diffDays // active day is behind today's scheduled day
@@ -633,20 +636,27 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
             {isOverdue && (
               <p className="text-xs font-semibold text-orange-500 mb-1">⚠️ Day {activeDayIndex + 1} is overdue — finish it to catch up</p>
             )}
-            <p className="text-xs text-[var(--text-subtle)] mb-2">{doneCnt}/{dayIds.length} questions marked solved.</p>
+            <p className="text-xs text-[var(--text-subtle)] mb-2">{doneCnt}/{dayIds.length} done on Daily today.</p>
             <Link href="/daily" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
               Go to Daily <ChevronRight size={12} />
             </Link>
           </>
-        ) : dueReviews.length > 0 ? (
+        ) : dailyDone && dueReviews.length > 0 ? (
           <>
             <p className="text-xs text-[var(--text-subtle)] mb-2">Questions done — clear your reviews to finish the day.</p>
             <Link href="/review" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
               Open reviews <ChevronRight size={12} />
             </Link>
           </>
-        ) : (
+        ) : dailyDone ? (
           <p className="text-sm font-bold text-green-500">Daily done — no reviews due today! 🎉</p>
+        ) : (
+          <>
+            <p className="text-xs text-[var(--text-subtle)] mb-2">{doneCnt}/{dayIds.length} done on Daily today.</p>
+            <Link href="/daily" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
+              Go to Daily <ChevronRight size={12} />
+            </Link>
+          </>
         )}
       </div>
     )
