@@ -282,7 +282,7 @@ body {
   .practice-fs-portal .cm-editor,
   .practice-fs-portal .cm-content,
   .practice-fs-portal .cm-line {
-    font-size: 10px !important;
+    font-size: 9px !important;
     line-height: 1.45 !important;
   }
 }

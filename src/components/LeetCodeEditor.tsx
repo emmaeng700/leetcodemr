@@ -845,7 +845,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       <style>{`
         /* Desktop CodeMirror sizing — mobile uses globals.css (9px, viewport blocks zoom) */
         @media (min-width: 768px) {
-          .lc-editor-root .cm-editor { font-size: 10px; line-height: 1.55; }
+          .lc-editor-root .cm-editor { font-size: 9px; line-height: 1.55; }
         }
         @media (max-width: 767px) {
           .lc-editor-root .cm-editor { font-size: 9px !important; line-height: 1.4; }
