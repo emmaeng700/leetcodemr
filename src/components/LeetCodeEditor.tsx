@@ -129,6 +129,12 @@ function langComment(lang: SupportedLang, title: string): string {
   return `${prefix} ${title}`
 }
 
+function ensureTitleComment(code: string, lang: SupportedLang, title: string): string {
+  const comment = langComment(lang, title)
+  if (code.startsWith(comment + '\n') || code === comment) return code
+  return comment + '\n' + code
+}
+
 /* ── Mobile keyboard toolbar ───────────────────────────── */
 function MobileKeybar({
   editorViewRef,
@@ -600,10 +606,10 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         if (nextLang !== lang) setLang(nextLang)
         const raw = q.codeSnippets?.find(s => s.langSlug === nextLang)?.code ?? ''
         const starter = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\t/g, '    ')
-        const starterWithTitle = questionTitle ? langComment(nextLang, questionTitle) + '\n' + starter : starter
         // Restore in-progress draft if the user had one; fall back to LeetCode starter code
         const savedDraft = typeof window !== 'undefined' ? localStorage.getItem(`lm_draft_${appQuestionId}_${nextLang}`) : null
-        setCode(savedDraft ?? starterWithTitle)
+        const initialCode = savedDraft ?? starter
+        setCode(questionTitle ? ensureTitleComment(initialCode, nextLang, questionTitle) : initialCode)
       })
       .catch(e => setLcErr(String(e)))
       .finally(() => setLcLoad(false))
@@ -630,7 +636,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     if (!lcQ) return
     const raw = lcQ.codeSnippets?.find(s => s.langSlug === lang)?.code ?? ''
     const starter = normalizeCode(raw)
-    const starterWithTitle = questionTitle ? langComment(lang, questionTitle) + '\n' + starter : starter
+    const starterWithTitle = questionTitle ? ensureTitleComment(starter, lang, questionTitle) : starter
     // Clear the saved draft — user explicitly reset or got Accepted (they like the clean slate)
     try { localStorage.removeItem(`lm_draft_${appQuestionId}_${lang}`) } catch { /* ignore */ }
     setCode(starterWithTitle)
@@ -654,9 +660,9 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     setLang(l)
     if (lcQ) {
       const starter = normalizeCode(lcQ.codeSnippets?.find(s => s.langSlug === l)?.code ?? '')
-      const starterWithTitle = questionTitle ? langComment(l, questionTitle) + '\n' + starter : starter
       const savedDraft = typeof window !== 'undefined' ? localStorage.getItem(`lm_draft_${appQuestionId}_${l}`) : null
-      setCode(savedDraft ?? starterWithTitle)
+      const initialCode = savedDraft ?? starter
+      setCode(questionTitle ? ensureTitleComment(initialCode, l, questionTitle) : initialCode)
     }
     setResult(null)
   }
