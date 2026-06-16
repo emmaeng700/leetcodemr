@@ -1371,6 +1371,7 @@ export default function SetLearnContent({ set, index }: Props) {
               <LeetCodeEditor
                 appQuestionId={q.id}
                 slug={q.slug}
+                questionTitle={q.title}
                 syncToApp={false}
                 onAccepted={() => {
                   const newCount = (prog.review_count ?? 0) + 1

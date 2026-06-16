@@ -1663,6 +1663,7 @@ function LearnInner() {
             <LeetCodeEditor
               appQuestionId={q.id}
               slug={q.slug}
+              questionTitle={q.title}
               preferredLangs={q.tags?.includes('JavaScript') ? ['javascript', 'python3', 'cpp'] : undefined}
               onAccepted={() => {
                 toast.success('Accepted! Moving to next question.', { duration: 2000 })

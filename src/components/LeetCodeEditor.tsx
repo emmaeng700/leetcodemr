@@ -120,6 +120,13 @@ interface Props {
   /** If false, runs/submits to LeetCode but won't sync progress or AC counts to the app DB. */
   syncToApp?: boolean
   preferredLangs?: SupportedLang[]
+  /** When provided, prepended as a comment on fresh/reset starter code. */
+  questionTitle?: string
+}
+
+function langComment(lang: SupportedLang, title: string): string {
+  const prefix = lang === 'python3' ? '#' : '//'
+  return `${prefix} ${title}`
 }
 
 /* ── Mobile keyboard toolbar ───────────────────────────── */
@@ -331,7 +338,7 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
 }
 
 /* ══════════════════════════════════════════════════════════ */
-export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncToApp = true, preferredLangs }: Props) {
+export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncToApp = true, preferredLangs, questionTitle }: Props) {
   const lcSlug = resolveLeetCodeSlug(appQuestionId, slug)
   const onAcceptedRef = useRef(onAccepted)
   useEffect(() => { onAcceptedRef.current = onAccepted }, [onAccepted])
@@ -593,9 +600,10 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         if (nextLang !== lang) setLang(nextLang)
         const raw = q.codeSnippets?.find(s => s.langSlug === nextLang)?.code ?? ''
         const starter = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\t/g, '    ')
+        const starterWithTitle = questionTitle ? langComment(nextLang, questionTitle) + '\n' + starter : starter
         // Restore in-progress draft if the user had one; fall back to LeetCode starter code
         const savedDraft = typeof window !== 'undefined' ? localStorage.getItem(`lm_draft_${appQuestionId}_${nextLang}`) : null
-        setCode(savedDraft ?? starter)
+        setCode(savedDraft ?? starterWithTitle)
       })
       .catch(e => setLcErr(String(e)))
       .finally(() => setLcLoad(false))
@@ -622,14 +630,15 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     if (!lcQ) return
     const raw = lcQ.codeSnippets?.find(s => s.langSlug === lang)?.code ?? ''
     const starter = normalizeCode(raw)
+    const starterWithTitle = questionTitle ? langComment(lang, questionTitle) + '\n' + starter : starter
     // Clear the saved draft — user explicitly reset or got Accepted (they like the clean slate)
     try { localStorage.removeItem(`lm_draft_${appQuestionId}_${lang}`) } catch { /* ignore */ }
-    setCode(starter)
+    setCode(starterWithTitle)
     setEditorResetKey(k => k + 1)
     const view = editorViewRef.current
     if (view) {
       view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: starter },
+        changes: { from: 0, to: view.state.doc.length, insert: starterWithTitle },
         selection: { anchor: 0 },
       })
       cursorPosRef.current = { from: 0, to: 0 }
@@ -639,14 +648,15 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       setResult(null)
       setResultErr('')
     }
-  }, [lcQ, lang])
+  }, [lcQ, lang, questionTitle])
 
   const switchLang = (l: SupportedLang) => {
     setLang(l)
     if (lcQ) {
       const starter = normalizeCode(lcQ.codeSnippets?.find(s => s.langSlug === l)?.code ?? '')
+      const starterWithTitle = questionTitle ? langComment(l, questionTitle) + '\n' + starter : starter
       const savedDraft = typeof window !== 'undefined' ? localStorage.getItem(`lm_draft_${appQuestionId}_${l}`) : null
-      setCode(savedDraft ?? starter)
+      setCode(savedDraft ?? starterWithTitle)
     }
     setResult(null)
   }

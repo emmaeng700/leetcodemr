@@ -254,6 +254,7 @@ export default function QuestionPage() {
           <LeetCodeEditor
             appQuestionId={question.id}
             slug={question.slug}
+            questionTitle={question.title}
             preferredLangs={question.tags?.includes('JavaScript') ? ['javascript', 'python3', 'cpp'] : undefined}
           />
         </div>

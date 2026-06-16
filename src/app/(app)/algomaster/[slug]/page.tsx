@@ -258,6 +258,7 @@ export default function AlgoMasterQuestionPage() {
           <LeetCodeEditor
             appQuestionId={q?.id ?? 0}
             slug={slug}
+            questionTitle={q?.title}
             syncToApp={false}
           />
         </div>
