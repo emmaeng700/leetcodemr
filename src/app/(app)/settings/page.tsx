@@ -39,7 +39,7 @@ export default function SettingsPage() {
   const [emailEnabled,    setEmailEnabled]    = useState(true)
   const [timezone,        setTimezone]        = useState('America/Chicago')
   const [reviewStartDays, setReviewStartDays] = useState(14)
-  const [revisionCap,     setRevisionCap]     = useState(2)
+  const [revisionCap,     setRevisionCap]     = useState(3)
   const [repsPerQ,        setRepsPerQ]        = useState(2)
   // per_day from study_plan (null = no plan set)
   const [perDay,          setPerDay]          = useState<number | null>(null)
@@ -123,6 +123,10 @@ export default function SettingsPage() {
       if (results.some(r => !(r as Response).ok)) throw new Error('Save failed')
 
       localStorage.setItem(REPS_PER_Q_KEY, String(repsPerQ))
+      // Clear rebalance cache so the next SR Queue / Review visit re-spreads reviews under the new cap.
+      for (const k of Object.keys(localStorage)) {
+        if (k.startsWith('lm_rebalanced_')) localStorage.removeItem(k)
+      }
       setSaved(true)
       toast.success('Settings saved!')
       setTimeout(() => setSaved(false), 2500)
