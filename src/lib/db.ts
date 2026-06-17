@@ -1111,7 +1111,8 @@ export async function fixFirstReviewDates(): Promise<void> {
 
 export async function getDueReviews(): Promise<Array<{ id: number; review_count: number; next_review: string }>> {
   await fixFirstReviewDates()   // correct any review_count=0 rows set too soon
-  await recalibrateSRDates()
+  // recalibrateSRDates() intentionally NOT called here — it resets dates to last_reviewed+interval
+  // which undoes the spreads that rebalanceReviews() set. Calibration runs before rebalance instead.
   const cap = await getUserRevisionCap()
   await spreadOverdueReviews({ maxPerDay: cap })
   const today = todayISOChicago()
@@ -1295,6 +1296,9 @@ export async function spreadOverdueReviews(opts?: { maxPerDay?: number; horizonD
  * sitting far in the future even though today has spare capacity.
  */
 export async function rebalanceReviews(horizonDays = 60): Promise<void> {
+  // Calibrate SR dates BEFORE spreading so we spread the correct base dates,
+  // not dates that were already moved by a previous rebalance.
+  await recalibrateSRDates()
   const userCap = await getUserRevisionCap()
   const today = todayISOChicago()
   const horizonDate = addDaysISO(today, horizonDays)
