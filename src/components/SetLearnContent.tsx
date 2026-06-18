@@ -28,6 +28,7 @@ import { listDropdownMobileBackdrop, listDropdownMobilePanelClasses } from '@/li
 import LearnSetTabs from '@/components/LearnSetTabs'
 import CycleProgressBanner from '@/components/CycleProgressBanner'
 import { canonicalCycleBaseIds } from '@/lib/cycleLapReset'
+import BestSolutionsContent from '@/components/BestSolutionsContent'
 
 interface Props { set: 2 | 3; index: number }
 
@@ -1405,6 +1406,11 @@ export default function SetLearnContent({ set, index }: Props) {
           </div>
         </>
       )}
+
+      {/* ── My Best — full section, same as Reviews page, tailored to this set ── */}
+      <div className="border-t-4 border-amber-400/30 mt-2">
+        <BestSolutionsContent set={set} lockedLayout="horizontal" />
+      </div>
     </div>
   )
 }

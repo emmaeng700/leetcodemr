@@ -13,7 +13,7 @@ Usage:
   python3 generate_better_pdf.py
 """
 
-import json, re, sys
+import json, re, sys, time, requests
 from pathlib import Path
 
 LANDSCAPE    = False
@@ -77,6 +77,120 @@ SCRIPT_DIR  = Path(__file__).parent
 QUESTIONS   = SCRIPT_DIR / "public" / "questions_full.json"
 SITES_CACHE = SCRIPT_DIR / ".full_langs_cache.json"
 DOOCS_CACHE = SCRIPT_DIR / ".doocs_cache.json"
+
+# ─── My LeetCode Solution loader ─────────────────────────────────────────────
+_SB_URL  = "https://azrokoorufejfoeddzrw.supabase.co"
+_SB_KEY  = (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6cm9rb29ydWZlamZvZWRkenJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMjcyMjIsImV4cCI6MjA4OTkwMzIyMn0."
+    "AlmIGVNfPs7Cl482eLpl_hkkhFmMKPj63QNVXbvEDvw"
+)
+_SB_HDRS = {"apikey": _SB_KEY, "Authorization": f"Bearer {_SB_KEY}"}
+_LC_GQL  = "https://leetcode.com/graphql"
+_USER_ID = "emmanuel"
+
+
+def _sb_get(table, params=""):
+    r = requests.get(f"{_SB_URL}/rest/v1/{table}?user_id=eq.{_USER_ID}{params}",
+                     headers=_SB_HDRS, timeout=15)
+    r.raise_for_status()
+    return r.json()
+
+
+def _lc_headers(session, csrf):
+    return {
+        "Content-Type": "application/json",
+        "Cookie":       f"LEETCODE_SESSION={session}; csrftoken={csrf}",
+        "Referer":      "https://leetcode.com/",
+        "x-csrftoken":  csrf,
+    }
+
+
+def _fetch_ac_submission(slug, session, csrf):
+    """Return (lang, code) of the most recent accepted LC submission, or (None, None)."""
+    q1 = """query($slug:String!,$offset:Int!,$limit:Int!){
+      questionSubmissionList(questionSlug:$slug,offset:$offset,limit:$limit,status:10){
+        submissions{ id lang }
+      }
+    }"""
+    try:
+        r1 = requests.post(_LC_GQL,
+                           json={"query": q1, "variables": {"slug": slug, "offset": 0, "limit": 20}},
+                           headers=_lc_headers(session, csrf), timeout=15)
+        subs = r1.json().get("data", {}).get("questionSubmissionList", {}).get("submissions", [])
+    except Exception:
+        return None, None
+    if not subs:
+        return None, None
+    chosen = (next((s for s in subs if s["lang"] == "python3"), None)
+              or next((s for s in subs if s["lang"] == "python"), None)
+              or subs[0])
+    q2 = "query($id:Int!){submissionDetails(submissionId:$id){code}}"
+    try:
+        r2 = requests.post(_LC_GQL,
+                           json={"query": q2, "variables": {"id": int(chosen["id"])}},
+                           headers=_lc_headers(session, csrf), timeout=15)
+        code = r2.json().get("data", {}).get("submissionDetails", {}).get("code", "")
+    except Exception:
+        return None, None
+    return chosen["lang"], code
+
+
+def load_my_solutions() -> dict:
+    """Return {qid: (lang, code)} combining pinned Supabase rows + live LC fetches."""
+    print("Loading my LeetCode solutions…")
+    q_map = {q["id"]: q for q in json.loads(QUESTIONS.read_text())}
+
+    # Pinned solutions from best_solutions table
+    try:
+        pinned_rows = _sb_get("best_solutions",
+                              "&order=question_id.asc&select=question_id,language,code")
+        pinned = {int(r["question_id"]): (r.get("language", "python3"), r.get("code", ""))
+                  for r in pinned_rows if r.get("code", "").strip()}
+        print(f"  {len(pinned)} pinned solutions from Supabase")
+    except Exception as e:
+        print(f"  ⚠ Could not fetch pinned solutions: {e}")
+        pinned = {}
+
+    # LeetCode session
+    try:
+        rows = requests.get(
+            f"{_SB_URL}/rest/v1/user_settings?user_id=eq.{_USER_ID}&select=lc_session,lc_csrf",
+            headers=_SB_HDRS, timeout=10).json()
+        lc_session = rows[0].get("lc_session", "") if rows else ""
+        lc_csrf    = rows[0].get("lc_csrf", "")    if rows else ""
+    except Exception:
+        lc_session, lc_csrf = "", ""
+
+    # Solved question IDs not yet pinned
+    live = {}
+    if lc_session:
+        try:
+            solved_rows = _sb_get("progress", "&solved=eq.true&select=question_id")
+            to_fetch = sorted(
+                {int(r["question_id"]) for r in solved_rows} - set(pinned.keys()))
+            print(f"  {len(to_fetch)} questions need live LC fetch…")
+            for i, qid in enumerate(to_fetch, 1):
+                slug = q_map.get(qid, {}).get("slug", "")
+                if not slug:
+                    continue
+                lang, code = _fetch_ac_submission(slug, lc_session, lc_csrf)
+                if code:
+                    live[qid] = (lang, code)
+                if i % 10 == 0:
+                    print(f"    {i}/{len(to_fetch)} fetched…")
+                time.sleep(0.3)
+            print(f"  {len(live)} live submissions fetched")
+        except Exception as e:
+            print(f"  ⚠ Live fetch failed: {e}")
+    else:
+        print("  ⚠ No LeetCode session — only pinned solutions will appear")
+
+    result = {**pinned, **live}  # live LC takes priority — most recent submission wins
+    print(f"  {len(result)} total my-solutions loaded")
+    return result
+
+
 if MODE_NC_EXTRA:
     INNER_PDF       = SCRIPT_DIR / '_nc_extra_inner.pdf'
     OUTPUT_PDF      = SCRIPT_DIR / 'neetcode_extra.pdf'
@@ -698,7 +812,8 @@ class PageCounter:
 
 # ─── Question block ───────────────────────────────────────────────────────────
 def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
-                          pattern_name: str, pattern_obj: dict) -> list:
+                          pattern_name: str, pattern_obj: dict,
+                          my_solutions: dict | None = None) -> list:
     items = []
     slug     = q.get('slug', '')
     qid      = q['id']
@@ -784,6 +899,18 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
     doocs_blocks = doocs_cache.get(str(qid), {}).get('blocks', [])
     merged = dict(entry)
     merged['doocs'] = [{'code': b['code'], 'lang': b.get('lang','')} for b in doocs_blocks]
+
+    # My LeetCode Solution — shown first so it's immediately visible
+    if my_solutions:
+        my_sol = my_solutions.get(qid)
+        if my_sol:
+            my_lang, my_code = my_sol
+            my_code = my_code.strip()
+            if my_code:
+                items.append(Spacer(1, 3))
+                items.append(Paragraph('<b>★ My LeetCode Solution</b>', S['head2']))
+                items.append(site_label_p('My LeetCode Solution'))
+                items += code_panel(my_code, lang=my_lang)
 
     if is_js_pattern:
         js_langs = ('javascript', 'js', 'typescript', 'ts')
@@ -990,7 +1117,7 @@ def build_round_summary(round_num: int, priority: str, difficulty: str,
     return items
 
 # ─── Inner PDF builder ────────────────────────────────────────────────────────
-def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
+def build_inner_pdf(rounds: list, sites: dict, doocs: dict, my_solutions: dict | None = None):
     counter = PageCounter()
     round_page_registry: dict[int, int] = {}
     pat_page_registry: dict[tuple[int, str], int] = {}
@@ -1189,7 +1316,7 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict):
             story.append(PageBreak())
 
             for q in qs:
-                story += build_question_block(q, sites, doocs, pat['name'], pat)
+                story += build_question_block(q, sites, doocs, pat['name'], pat, my_solutions)
 
         # Per-round summary removed — each question now carries its own
         # inline Quick Review summary. Chapter 2 still collects all summaries.
@@ -1501,7 +1628,7 @@ def _add_links_2x1(output_path: Path, page_types: dict,
       • Master Done checkbox + → Next button at top of each question cell
       • Checkboxes beside each solution label (● WalkCC etc.) on question pages
     """
-    _SOL_LABELS   = [f'● {site_label}' for _, site_label in SITE_META]
+    _SOL_LABELS   = ['● My LeetCode Solution'] + [f'● {site_label}' for _, site_label in SITE_META]
     _qid_diff     = qid_difficulty or {}
     _DIFF_COLOR   = {
         'Easy':   (0.13, 0.77, 0.37),   # green
@@ -1534,9 +1661,11 @@ def _add_links_2x1(output_path: Path, page_types: dict,
             _cur = _first_page_to_qid_pre[_ip]
         inner_page_current_qid_pre[_ip] = _cur
 
-    # sorted study order for → Next links
+    # sorted study order for → Next / ← Prev links
     _sorted_qids = sorted(qid_first_page.keys(), key=lambda q: qid_first_page[q])
     _qid_next    = {_sorted_qids[i]: _sorted_qids[i + 1]
+                    for i in range(len(_sorted_qids) - 1)}
+    _qid_prev    = {_sorted_qids[i + 1]: _sorted_qids[i]
                     for i in range(len(_sorted_qids) - 1)}
 
     # Pre-scan: collect sol label rects from the clean output PDF before any modifications.
@@ -1794,13 +1923,29 @@ def _add_links_2x1(output_path: Path, page_types: dict,
                 out_pg.add_widget(wd)
                 n_done += 1
 
-            # → Next — top-band button on every question page
+            # ← Prev / → Next — top-band buttons on every question page
+            prev_qid = _qid_prev.get(qid)
             next_qid = _qid_next.get(qid)
+            btn_x0   = slot_x0 + 6
+            if prev_qid is not None:
+                prev_sh   = qid_sheet_map.get(prev_qid)
+                prev_slot = qid_slot_map.get(prev_qid, 0)
+                if prev_sh is not None:
+                    btn_prev = fitz.Rect(btn_x0, 5, btn_x0 + BW_N, 5 + BH_N)
+                    out_pg.draw_rect(btn_prev, color=(0.22, 0.28, 0.90),
+                                     fill=(0.08, 0.08, 0.45), width=1.0)
+                    out_pg.insert_text(fitz.Point(btn_prev.x0 + 6, btn_prev.y0 + 12),
+                                       f'← #{prev_qid}', fontsize=max(7, TOC_CB_PT + 1),
+                                       color=(1.0, 1.0, 1.0), fontname='helv')
+                    out_pg.insert_link({
+                        'kind': fitz.LINK_GOTO, 'from': btn_prev,
+                        'page': prev_sh, 'to': fitz.Point(prev_slot * CW, 0), 'zoom': 0,
+                    })
+                    btn_x0 += BW_N + 4
             if next_qid is not None:
                 next_sh   = qid_sheet_map.get(next_qid)
                 next_slot = qid_slot_map.get(next_qid, 0)
                 if next_sh is not None:
-                    btn_x0  = slot_x0 + 6
                     btn_nav = fitz.Rect(btn_x0, 5, btn_x0 + BW_N, 5 + BH_N)
                     out_pg.draw_rect(btn_nav, color=(0.22, 0.28, 0.90),
                                      fill=(0.08, 0.08, 0.45), width=1.0)
@@ -2265,7 +2410,7 @@ def _add_links_1x1(output_path: Path, page_types: dict,
     Features: TOC arrows, checkboxes, difficulty dots, smart ← Contents,
               solution checkboxes, master Done checkbox, → Next button.
     """
-    _SOL_LABELS = [f'● {site_label}' for _, site_label in SITE_META]
+    _SOL_LABELS = [f'● {site_label}' for _, site_label in SITE_META] + ['● My LeetCode Solution']
     _qid_diff   = qid_difficulty or {}
     _DIFF_COLOR = {
         'Easy':   (0.13, 0.77, 0.37),
@@ -2323,9 +2468,11 @@ def _add_links_1x1(output_path: Path, page_types: dict,
             line_dest = tx_rect(rect_info['line'])
             qid_toc_dest[qid] = (inner_pg, fitz.Point(0, line_dest.y0))
 
-    # Study order for → Next links (inner_pg == output sheet in 1×1)
+    # Study order for → Next / ← Prev links (inner_pg == output sheet in 1×1)
     _sorted_qids = sorted(qid_first_page.keys(), key=lambda q: qid_first_page[q])
     _qid_next    = {_sorted_qids[i]: _sorted_qids[i + 1]
+                    for i in range(len(_sorted_qids) - 1)}
+    _qid_prev    = {_sorted_qids[i + 1]: _sorted_qids[i]
                     for i in range(len(_sorted_qids) - 1)}
 
     # Pre-scan: collect sol label rects and title rects before any page modifications
@@ -2456,12 +2603,28 @@ def _add_links_1x1(output_path: Path, page_types: dict,
         if not qid:
             continue
 
-        # → Next button (top band, every question page)
+        # ← Prev / → Next buttons (top band, every question page)
+        prev_qid = _qid_prev.get(qid)
         next_qid = _qid_next.get(qid)
+        btn_left = 6
+        if prev_qid is not None:
+            prev_sh = qid_first_page.get(prev_qid)
+            if prev_sh is not None:
+                btn_prev = fitz.Rect(btn_left, 5, btn_left + BW_N, 5 + BH_N)
+                out_pg.draw_rect(btn_prev, color=(0.22, 0.28, 0.90),
+                                 fill=(0.08, 0.08, 0.45), width=1.0)
+                out_pg.insert_text(fitz.Point(btn_prev.x0 + 6, btn_prev.y0 + 12),
+                                   f'← #{prev_qid}', fontsize=max(7, TOC_CB_PT + 1),
+                                   color=(1.0, 1.0, 1.0), fontname='helv')
+                out_pg.insert_link({
+                    'kind': fitz.LINK_GOTO, 'from': btn_prev,
+                    'page': prev_sh, 'to': fitz.Point(0, 0), 'zoom': 0,
+                })
+                btn_left += BW_N + 4
         if next_qid is not None:
             next_sh = qid_first_page.get(next_qid)
             if next_sh is not None:
-                btn_nav = fitz.Rect(6, 5, 6 + BW_N, 5 + BH_N)
+                btn_nav = fitz.Rect(btn_left, 5, btn_left + BW_N, 5 + BH_N)
                 out_pg.draw_rect(btn_nav, color=(0.22, 0.28, 0.90),
                                  fill=(0.08, 0.08, 0.45), width=1.0)
                 out_pg.insert_text(fitz.Point(btn_nav.x0 + 6, btn_nav.y0 + 12),
@@ -2709,8 +2872,10 @@ if __name__ == '__main__':
         print(f'\nDone → {OUTPUT_PDF}  ({kb:,} KB)  ·  {n_pages} pages')
         sys.exit(0)
 
+    my_solutions = load_my_solutions()
+
     print('\nBuilding inner mini-page PDF…')
-    n_pages, round_page_registry, pat_page_registry = build_inner_pdf(rounds, sites, doocs)
+    n_pages, round_page_registry, pat_page_registry = build_inner_pdf(rounds, sites, doocs, my_solutions)
 
     if GRID_2X1:
         print('Analyzing inner PDF for link structure…')

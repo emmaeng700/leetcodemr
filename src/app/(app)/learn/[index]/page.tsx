@@ -25,6 +25,7 @@ import MobileSplitPanelTabs, { type MobileSplitPanel } from '@/components/Mobile
 import DescriptionRenderer from '@/components/DescriptionRenderer'
 import LearnSetTabs from '@/components/LearnSetTabs'
 import CycleProgressBanner from '@/components/CycleProgressBanner'
+import BestSolutionsSection from '@/components/BestSolutionsContent'
 import { canonicalCycleBaseIds, readSessionCycleOrder } from '@/lib/cycleLapReset'
 
 interface Question {
@@ -1695,9 +1696,15 @@ function LearnInner() {
               }}
             />
           </div>
+
         </div>
         </>
       )}
+
+      {/* ── My Best — full section, same as Reviews tab, persists across questions ── */}
+      <div className="border-t-4 border-amber-400/30 mt-2">
+        <BestSolutionsSection lockedLayout="horizontal" />
+      </div>
 
       {/* lc-description styles live in globals.css — no inline override needed */}
     </div>
