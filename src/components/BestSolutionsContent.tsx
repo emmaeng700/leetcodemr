@@ -389,13 +389,6 @@ function RevisionCard({
   )
 }
 
-function getScrollParent(el: HTMLElement | null): HTMLElement | null {
-  if (!el || el === document.body) return null
-  const s = window.getComputedStyle(el)
-  if ((s.overflow === 'auto' || s.overflow === 'scroll' || s.overflowY === 'auto' || s.overflowY === 'scroll') && el.scrollHeight > el.clientHeight) return el
-  return getScrollParent(el.parentElement as HTMLElement | null)
-}
-
 /* ══ BestSolutionsContent ════════════════════════════════════════════════════ */
 export default function BestSolutionsContent({
   lockedLayout,
@@ -552,14 +545,7 @@ export default function BestSolutionsContent({
     } else {
       const target = document.querySelector(`[data-jump="${key}"]`) as HTMLElement | null
       if (!target) return
-      const scrollParent = getScrollParent(target)
-      if (scrollParent) {
-        const parentTop = scrollParent.getBoundingClientRect().top
-        const targetTop = target.getBoundingClientRect().top
-        scrollParent.scrollTo({ top: scrollParent.scrollTop + (targetTop - parentTop) - 100, behavior: 'smooth' })
-      } else {
-        window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - 100, behavior: 'smooth' })
-      }
+      target.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })
     }
   }, [layout])
 
