@@ -548,9 +548,7 @@ export default function BestSolutionsContent({
       if (!container) return
       const target = container.querySelector(`[data-jump="${key}"]`) as HTMLElement | null
       if (!target) return
-      const containerLeft = container.getBoundingClientRect().left
-      const targetLeft = target.getBoundingClientRect().left
-      container.scrollTo({ left: container.scrollLeft + (targetLeft - containerLeft) - 16, behavior: 'smooth' })
+      target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' })
     } else {
       const target = document.querySelector(`[data-jump="${key}"]`) as HTMLElement | null
       if (!target) return
