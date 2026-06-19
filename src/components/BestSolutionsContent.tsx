@@ -404,7 +404,7 @@ export default function BestSolutionsContent({
   const [query,          setQuery]          = useState('')
   const [filter,         setFilter]         = useState<'all' | 'saved' | 'waiting'>('all')
   const [diffFilter,     setDiffFilter]     = useState<'all' | 'Easy' | 'Medium' | 'Hard'>('all')
-  const [layout,         setLayout]         = useState<'vertical' | 'horizontal'>(lockedLayout ?? 'vertical')
+  const [layout,         setLayout]         = useState<'vertical' | 'horizontal'>(lockedLayout ?? 'horizontal')
   const [exportProgress, setExportProgress] = useState<{ done: number; total: number; found: number } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
