@@ -9,11 +9,33 @@ const ReviewContent      = dynamic(() => import('./ReviewContent'),             
 const QuickReviewPage    = dynamic(() => import('../quick-review/page'),               { ssr: false })
 const PatternReviewPage  = dynamic(() => import('../pattern-review/PatternReviewContent'), { ssr: false })
 const SRQueuePage        = dynamic(() => import('../sr-queue/page'),                   { ssr: false })
-const BestSolutionsPage  = dynamic(() => import('../best-solutions/page'),             { ssr: false })
+const BestSolutionsContent = dynamic(() => import('@/components/BestSolutionsContent'), { ssr: false })
+
+function MyBestWithSets() {
+  const [set, setSet] = useState<1 | 2 | 3>(1)
+  const LABELS: Record<number, string> = { 1: 'Set 1 · 331 Qs', 2: 'Set 2 · NC150', 3: 'Set 3 · AM600' }
+  return (
+    <div className="flex flex-col min-h-0 h-full">
+      <div className="flex gap-1.5 px-4 pt-3 pb-1 shrink-0 border-b border-[var(--border)]">
+        {([1, 2, 3] as const).map(s => (
+          <button key={s} onClick={() => setSet(s)}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+              set === s
+                ? 'bg-amber-500 text-white'
+                : 'text-[var(--text-subtle)] hover:text-[var(--text)] bg-[var(--bg-card)] border border-[var(--border)]'
+            }`}>
+            {LABELS[s]}
+          </button>
+        ))}
+      </div>
+      <BestSolutionsContent set={set} />
+    </div>
+  )
+}
 
 const TABS = [
   { key: 'reviews',        label: 'Reviews',        icon: Brain,      Page: () => <ReviewContent />     },
-  { key: 'my-best',        label: 'My Best',        icon: Bookmark,   Page: () => <BestSolutionsPage /> },
+  { key: 'my-best',        label: 'My Best',        icon: Bookmark,   Page: () => <MyBestWithSets />    },
   { key: 'quick-review',   label: 'Quick Review',   icon: Clock,      Page: () => <QuickReviewPage />   },
   { key: 'pattern-review', label: 'Pattern Review', icon: GitBranch,  Page: () => <PatternReviewPage /> },
   { key: 'sr-queue',       label: 'SR Queue',       icon: RefreshCw,  Page: () => <SRQueuePage />       },
