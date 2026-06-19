@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { Search, Loader2, ChevronRight, Briefcase, ArrowLeft } from 'lucide-react'
+import { Search, Loader2, ChevronRight, Briefcase, ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { getProgress } from '@/lib/db'
 
 const TIMEFRAMES = [
   { slug: 'all',                  label: 'All Time' },
@@ -34,6 +35,16 @@ export default function CompanyBrowser({ onSolve }: { onSolve: (slug: string) =>
   const [loadingProblems,  setLoadingProblems]   = useState(false)
   const [compError,        setCompError]         = useState<string | null>(null)
   const [probError,        setProbError]         = useState<string | null>(null)
+  const [solvedIds,        setSolvedIds]         = useState<Set<number>>(new Set())
+
+  useEffect(() => {
+    getProgress().then(prog => {
+      if (!prog) return
+      setSolvedIds(new Set(
+        Object.entries(prog).filter(([, v]) => v?.solved).map(([k]) => Number(k))
+      ))
+    }).catch(() => {})
+  }, [])
 
   // Load company list once
   useEffect(() => {
@@ -88,8 +99,16 @@ export default function CompanyBrowser({ onSolve }: { onSolve: (slug: string) =>
           {selected && !compSearch ? selected.name : 'Company Questions'}
         </h2>
         {selected && !compSearch && (
-          <span className="text-xs text-gray-500 ml-1">
+          <span className="text-xs text-gray-500 ml-1 flex items-center gap-1.5">
             {loadingProblems ? '…' : `${problems.length} questions`}
+            {!loadingProblems && problems.length > 0 && (() => {
+              const n = problems.filter(p => solvedIds.has(p.id)).length
+              return n > 0 ? (
+                <span className="flex items-center gap-0.5 text-green-400 font-semibold">
+                  <CheckCircle2 size={11} /> {n} solved
+                </span>
+              ) : null
+            })()}
           </span>
         )}
       </div>
@@ -184,11 +203,18 @@ export default function CompanyBrowser({ onSolve }: { onSolve: (slug: string) =>
                     <button
                       key={p.id}
                       onClick={() => onSolve(slug)}
-                      className="w-full text-left px-4 py-2.5 hover:bg-white/5 border-b border-gray-800/50 last:border-b-0 grid grid-cols-[1.5rem_1fr_5rem_4rem_1.5rem] gap-2 items-center group transition"
+                      className={`w-full text-left px-4 py-2.5 border-b border-gray-800/50 last:border-b-0 grid grid-cols-[1.5rem_1fr_5rem_4rem_1.5rem] gap-2 items-center group transition ${
+                        solvedIds.has(p.id) ? 'bg-green-500/5 hover:bg-green-500/10' : 'hover:bg-white/5'
+                      }`}
                     >
-                      <span className="text-[11px] text-gray-600 tabular-nums">{i + 1}</span>
+                      <span className="text-[11px] tabular-nums flex items-center">
+                        {solvedIds.has(p.id)
+                          ? <CheckCircle2 size={13} className="text-green-400 shrink-0" />
+                          : <span className="text-gray-600">{i + 1}</span>
+                        }
+                      </span>
 
-                      <span className="text-xs text-gray-200 group-hover:text-indigo-300 transition truncate">
+                      <span className={`text-xs truncate group-hover:text-indigo-300 transition ${solvedIds.has(p.id) ? 'text-green-300/90' : 'text-gray-200'}`}>
                         <span className="text-gray-500 mr-1">{p.id}.</span>{p.title}
                       </span>
 
