@@ -776,7 +776,7 @@ export default function BestSolutionsContent({
               const prevDiff = prev?.questions[0]?.difficulty ?? null
               const showRound = isNewRound(pri, diff, prevPri, prevDiff)
               return (
-                <div key={`${pattern}-${diff}`} data-jump={`${pri}-${diff}`}>
+                <div key={`${pattern}-${diff}-${gi}`} data-jump={`${pri}-${diff}`}>
                   {showRound && <StudyRoundHeader priority={pri} difficulty={diff} className="-mx-1 mb-4" />}
                   <div className="flex items-center gap-2 mb-3">
                     <p className="text-xs font-bold text-[var(--text-subtle)] uppercase tracking-widest">{pattern}</p>
