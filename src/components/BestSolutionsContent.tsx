@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   Bookmark, BookmarkCheck, Search, Copy, Check, Download,
   Loader2, Clock, ExternalLink,
-  BookOpen, Sparkles, Rows3, Columns3, AlertCircle,
+  BookOpen, Sparkles, Rows3, Columns3, AlertCircle, GraduationCap, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
@@ -150,6 +150,63 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
   )
 }
 
+interface PlaybookEntry {
+  title: string
+  script: string
+}
+
+function InterviewApproach({ entry }: { entry: PlaybookEntry | undefined }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center justify-between w-full mb-2 group"
+      >
+        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-violet-400">
+          <GraduationCap size={11} /> Interview Approach · STAR-LC
+        </span>
+        {open
+          ? <ChevronUp size={11} className="text-gray-500 group-hover:text-gray-300 transition-colors" />
+          : <ChevronDown size={11} className="text-gray-500 group-hover:text-gray-300 transition-colors" />
+        }
+      </button>
+      {open && (
+        entry ? (
+          <div className="rounded-lg overflow-hidden border border-gray-700/60">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-[#21252b] border-b border-gray-700/60">
+              <span className="text-[10px] font-semibold text-violet-400 uppercase tracking-wider">STAR-LC · 6 Phases</span>
+              <span className="text-[10px] text-gray-500">read out loud in the interview</span>
+            </div>
+            <div className="bg-[#282c34] max-h-[60vh] overflow-y-auto">
+              <pre className="p-4 text-[11.5px] leading-relaxed whitespace-pre-wrap break-words font-mono">
+                {entry.script.split('\n').map((line, i) => {
+                  if (/^# PHASE \d+ —/.test(line))
+                    return <span key={i} className="block text-violet-300 font-bold">{line}{'\n'}</span>
+                  if (/^# "(.*)"/.test(line) || /^#  /.test(line))
+                    return <span key={i} className="block text-amber-200">{line}{'\n'}</span>
+                  if (/^class /.test(line) || /^    def /.test(line))
+                    return <span key={i} className="block text-sky-400">{line}{'\n'}</span>
+                  if (/^#/.test(line))
+                    return <span key={i} className="block text-gray-400">{line}{'\n'}</span>
+                  return <span key={i} className="block text-[#abb2bf]">{line}{'\n'}</span>
+                })}
+              </pre>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-gray-700/60 bg-[#21252b] px-3 py-2.5">
+            <p className="text-xs text-gray-500 italic">
+              Not generated yet — add this question to <code className="text-violet-400 text-[10px]">pattern_run_331_playbook.py</code> then run <code className="bg-black/30 text-amber-300 text-[10px] px-1 rounded">npm run playbook</code>.
+            </p>
+          </div>
+        )
+      )}
+    </div>
+  )
+}
+
 type DescState =
   | { status: 'idle' }
   | { status: 'loading' }
@@ -158,11 +215,12 @@ type DescState =
   | { status: 'error' }
 
 function RevisionCard({
-  q, sol, pattern, onSaved, onUnpinned, fixedWidth, jumpKey,
+  q, sol, pattern, playbookEntry, onSaved, onUnpinned, fixedWidth, jumpKey,
 }: {
   q: Question
   sol: BestSolution | undefined
   pattern: string
+  playbookEntry: PlaybookEntry | undefined
   onSaved: (qid: number, lang: string, code: string) => void
   onUnpinned: (qid: number) => void
   fixedWidth?: boolean
@@ -384,6 +442,10 @@ function RevisionCard({
             </>
           )}
         </div>
+
+        <div className="border-t border-[var(--border)] pt-4">
+          <InterviewApproach entry={playbookEntry} />
+        </div>
       </div>
     </div>
   )
@@ -397,9 +459,10 @@ export default function BestSolutionsContent({
   lockedLayout?: 'vertical' | 'horizontal'
   set?: 1 | 2 | 3
 }) {
-  const [questions,  setQuestions]  = useState<Question[]>([])
-  const [solutions,  setSolutions]  = useState<BestSolution[]>([])
-  const [loading,    setLoading]    = useState(true)
+  const [questions,    setQuestions]    = useState<Question[]>([])
+  const [solutions,    setSolutions]    = useState<BestSolution[]>([])
+  const [playbookData, setPlaybookData] = useState<Record<string, PlaybookEntry>>({})
+  const [loading,      setLoading]      = useState(true)
   const [tableReady,     setTableReady]     = useState(true)
   const [query,          setQuery]          = useState('')
   const [filter,         setFilter]         = useState<'all' | 'saved' | 'waiting'>('all')
@@ -413,8 +476,10 @@ export default function BestSolutionsContent({
     Promise.all([
       fetch('/questions_full.json').then(r => r.json()),
       fetch('/api/best-solutions').then(r => r.json()),
+      fetch('/playbook_data.json').then(r => r.json()).catch(() => ({})),
     ])
-      .then(([qs, solData]) => {
+      .then(([qs, solData, pb]) => {
+        setPlaybookData(pb ?? {})
         const mainQs: Question[] = Array.isArray(qs) ? qs : []
         if (set === 1) {
           setQuestions(mainQs)
@@ -744,7 +809,7 @@ export default function BestSolutionsContent({
               {flatFiltered.map(({ q, pattern }) => {
                 const pri = PATTERN_PRIORITY[pattern] ?? 'Low'
                 return (
-                  <RevisionCard key={q.id} q={q} sol={solByQid.get(q.id)} pattern={pattern} onSaved={handleSaved} onUnpinned={handleUnpinned} fixedWidth jumpKey={`${pri}-${q.difficulty}`} />
+                  <RevisionCard key={q.id} q={q} sol={solByQid.get(q.id)} pattern={pattern} playbookEntry={playbookData[String(q.id)]} onSaved={handleSaved} onUnpinned={handleUnpinned} fixedWidth jumpKey={`${pri}-${q.difficulty}`} />
                 )
               })}
             </div>
@@ -770,7 +835,7 @@ export default function BestSolutionsContent({
                   </div>
                   <div className="space-y-4">
                     {qs.map(q => (
-                      <RevisionCard key={q.id} q={q} sol={solByQid.get(q.id)} pattern={pattern} onSaved={handleSaved} onUnpinned={handleUnpinned} />
+                      <RevisionCard key={q.id} q={q} sol={solByQid.get(q.id)} pattern={pattern} playbookEntry={playbookData[String(q.id)]} onSaved={handleSaved} onUnpinned={handleUnpinned} />
                     ))}
                   </div>
                 </div>

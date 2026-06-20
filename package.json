@@ -9,7 +9,8 @@
     "lint": "eslint",
     "lc:connector": "node scripts/leetcode-connector.js",
     "lc:auth": "node scripts/leetcode-connector.js auth",
-    "lc:import": "node scripts/leetcode-connector.js import"
+    "lc:import": "node scripts/leetcode-connector.js import",
+    "playbook": "python3 scripts/generate_playbook_json.py"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",
