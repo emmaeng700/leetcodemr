@@ -73,10 +73,16 @@ from generate_patterns_pdf import (
 )
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
-SCRIPT_DIR  = Path(__file__).parent
-QUESTIONS   = SCRIPT_DIR / "public" / "questions_full.json"
-SITES_CACHE = SCRIPT_DIR / ".full_langs_cache.json"
-DOOCS_CACHE = SCRIPT_DIR / ".doocs_cache.json"
+SCRIPT_DIR    = Path(__file__).parent
+QUESTIONS     = SCRIPT_DIR / "public" / "questions_full.json"
+SITES_CACHE   = SCRIPT_DIR / ".full_langs_cache.json"
+DOOCS_CACHE   = SCRIPT_DIR / ".doocs_cache.json"
+PLAYBOOK_PATH = SCRIPT_DIR / "public" / "playbook_data.json"
+
+# Load interview approach scripts keyed by question ID (string)
+_PLAYBOOK: dict = (
+    json.loads(PLAYBOOK_PATH.read_text()) if PLAYBOOK_PATH.exists() else {}
+)
 
 # ─── My LeetCode Solution loader ─────────────────────────────────────────────
 _SB_URL  = "https://azrokoorufejfoeddzrw.supabase.co"
@@ -811,6 +817,75 @@ class PageCounter:
         canvas.restoreState()
 
 # ─── Question block ───────────────────────────────────────────────────────────
+def build_interview_approach(qid: int) -> list:
+    """
+    Renders the STAR-LC interview approach section for a question.
+    Returns an empty list if no entry exists — caller adds a 'not generated' note.
+    """
+    entry = _PLAYBOOK.get(str(qid))
+    items = [
+        Spacer(1, 4),
+        hr(GRAY_300, 0.5),
+        Paragraph('<b>◆ Interview Approach · STAR-LC</b>', S['head2']),
+    ]
+    if not entry:
+        items.append(Paragraph(
+            'No interview approach generated yet.',
+            ParagraphStyle('ia_none', fontName='LG-Bold', fontSize=S['body_sm'].fontSize,
+                           textColor=HexColor('#6B7280'), leading=S['body_sm'].leading,
+                           leftIndent=4, spaceAfter=2),
+        ))
+        return items
+
+    script = entry.get('script', '').strip()
+    if not script:
+        items.append(Paragraph(
+            'No interview approach generated yet.',
+            ParagraphStyle('ia_none2', fontName='LG-Bold', fontSize=S['body_sm'].fontSize,
+                           textColor=HexColor('#6B7280'), leading=S['body_sm'].leading,
+                           leftIndent=4, spaceAfter=2),
+        ))
+        return items
+
+    # Render each line with colour-coding matching the app UI
+    phase_st = ParagraphStyle('ia_phase', fontName='LG-Bold',
+                               fontSize=S['code'].fontSize, textColor=HexColor('#7C3AED'),
+                               leading=S['code'].leading, spaceBefore=3)
+    quote_st = ParagraphStyle('ia_quote', fontName='Menlo-Bold',
+                               fontSize=S['code'].fontSize, textColor=HexColor('#92400E'),
+                               leading=S['code'].leading)
+    code_st  = ParagraphStyle('ia_code',  fontName='Menlo-Bold',
+                               fontSize=S['code'].fontSize, textColor=HexColor('#0369A1'),
+                               leading=S['code'].leading)
+    comment_st = ParagraphStyle('ia_cmt', fontName='Menlo-Bold',
+                                 fontSize=S['code'].fontSize, textColor=HexColor('#374151'),
+                                 leading=S['code'].leading)
+
+    def _indent_xml(raw: str) -> str:
+        """Preserve leading spaces by converting them to non-breaking spaces."""
+        n = len(raw) - len(raw.lstrip(' '))
+        return '&#160;' * n + safe_xml(raw.lstrip(' '))
+
+    for raw_line in script.split('\n'):
+        line = raw_line.rstrip()
+        if not line:
+            items.append(Spacer(1, 1))
+            continue
+        stripped = line.lstrip()
+        txt = _indent_xml(line)
+        if stripped.startswith('# PHASE ') and ' — ' in stripped:
+            items.append(Paragraph(txt, phase_st))
+        elif stripped.startswith('# "') or stripped.startswith('#  "') or \
+             (stripped.startswith('#') and '"' in stripped[:15]):
+            items.append(Paragraph(txt, quote_st))
+        elif stripped.startswith('#'):
+            items.append(Paragraph(txt, comment_st))
+        else:
+            # Code line — use blue style, indentation preserved via &#160;
+            items.append(Paragraph(txt, code_st))
+    return items
+
+
 def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
                           pattern_name: str, pattern_obj: dict,
                           my_solutions: dict | None = None) -> list:
@@ -911,6 +986,16 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
                 items.append(Paragraph('<b>★ My LeetCode Solution</b>', S['head2']))
                 items.append(site_label_p('My LeetCode Solution'))
                 items += code_panel(my_code, lang=my_lang)
+        else:
+            items.append(Spacer(1, 3))
+            items.append(Paragraph(
+                'No accepted LeetCode solution yet.',
+                ParagraphStyle('no_sol', fontName='LG-Bold', fontSize=S['body_sm'].fontSize,
+                               textColor=HexColor('#6B7280'), leading=S['body_sm'].leading,
+                               spaceAfter=2)))
+
+    # Interview Approach · STAR-LC — immediately after the LeetCode solution
+    items += build_interview_approach(qid)
 
     if is_js_pattern:
         js_langs = ('javascript', 'js', 'typescript', 'ts')
