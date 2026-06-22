@@ -929,9 +929,9 @@ def build_question_block(q: dict, doocs_cache: dict,
         ('RIGHTPADDING',  (0,0), (-1,-1), 0),
     ]))
     items.append(title_tbl)
-    # Prominent LeetCode link directly under the title
+    # LeetCode link directly under the title — short display text avoids hyphen line-wrap
     items.append(Paragraph(
-        f'<a href="{lc_url}" color="{LINK_COLOR_PRINT}"><b>↗ leetcode.com/problems/{slug}/</b></a>',
+        f'<a href="{lc_url}" color="{LINK_COLOR_PRINT}"><b>↗ Open on LeetCode</b></a>',
         ParagraphStyle('lc_link', fontName='LG-Bold', fontSize=S['body_sm'].fontSize,
                        textColor=HexColor(LINK_COLOR_PRINT), leading=S['body_sm'].leading,
                        spaceBefore=1, spaceAfter=2),
