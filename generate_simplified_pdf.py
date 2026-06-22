@@ -916,8 +916,7 @@ def build_question_block(q: dict, doocs_cache: dict,
     lc_url = f'https://leetcode.com/problems/{slug}/'
     title_tbl = Table([[
         Paragraph(
-            f'<b>{premium_question_prefix(q)}#{qid} {safe_xml(q["title"])}{premium_question_suffix(q)}</b>'
-            f'  <a href="{lc_url}" color="{LINK_COLOR_PRINT}">↗</a>',
+            f'<b>{premium_question_prefix(q)}#{qid} {safe_xml(q["title"])}{premium_question_suffix(q)}</b>',
             S['title'],
         ),
         pill,
@@ -930,7 +929,13 @@ def build_question_block(q: dict, doocs_cache: dict,
         ('RIGHTPADDING',  (0,0), (-1,-1), 0),
     ]))
     items.append(title_tbl)
-    items.append(Spacer(1, 2))
+    # Prominent LeetCode link directly under the title
+    items.append(Paragraph(
+        f'<a href="{lc_url}" color="{LINK_COLOR_PRINT}"><b>↗ leetcode.com/problems/{slug}/</b></a>',
+        ParagraphStyle('lc_link', fontName='LG-Bold', fontSize=S['body_sm'].fontSize,
+                       textColor=HexColor(LINK_COLOR_PRINT), leading=S['body_sm'].leading,
+                       spaceBefore=1, spaceAfter=2),
+    ))
     items.append(hr(GRAY_300, 0.3))
 
     tags = q.get('tags', [])
