@@ -913,9 +913,11 @@ def build_question_block(q: dict, doocs_cache: dict,
         ('LEFTPADDING',   (0,0), (-1,-1), 2),
         ('RIGHTPADDING',  (0,0), (-1,-1), 2),
     ]))
+    lc_url = f'https://leetcode.com/problems/{slug}/'
     title_tbl = Table([[
         Paragraph(
-            f'<b>{premium_question_prefix(q)}#{qid} {safe_xml(q["title"])}{premium_question_suffix(q)}</b>',
+            f'<b>{premium_question_prefix(q)}#{qid} {safe_xml(q["title"])}{premium_question_suffix(q)}</b>'
+            f'  <a href="{lc_url}" color="{LINK_COLOR_PRINT}">↗</a>',
             S['title'],
         ),
         pill,
@@ -930,16 +932,6 @@ def build_question_block(q: dict, doocs_cache: dict,
     items.append(title_tbl)
     items.append(Spacer(1, 2))
     items.append(hr(GRAY_300, 0.3))
-
-    links = (
-        f'<a href="https://leetcode.doocs.org/en/lc/{qid}/" color="#000000">LeetDoocs</a>  ·  '
-        f'<a href="https://www.simplyleet.com/{slug}" color="#000000">SimplyLeet</a>  ·  '
-        f'<a href="https://walkccc.me/LeetCode/problems/{qid}/" color="#000000">WalkCC</a>  ·  '
-        f'<a href="https://leetcode.com/problems/{slug}/" color="#000000">LeetCode</a>'
-    )
-    items.append(Paragraph(links, ParagraphStyle(
-        'lnk', fontName='LG-Bold', fontSize=S['body_sm'].fontSize, textColor=BLACK,
-        leading=S['body_sm'].leading, spaceAfter=2)))
 
     tags = q.get('tags', [])
     if tags:
