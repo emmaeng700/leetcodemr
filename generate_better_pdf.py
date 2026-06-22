@@ -505,28 +505,32 @@ def build_exclusive_map(questions: list) -> dict:
 def build_rounds(questions: list) -> list:
     """
     Returns list of (round_num, priority, difficulty, [(pat_obj, [q, ...])])
-    sorted in study order. Within each round questions are grouped by pattern
-    (DISPLAY_PATTERN_ORDER within that priority tier), then by question id.
+    sorted by question ID within each round (matching the app's Pattern Review order).
+    Consecutive same-pattern questions are grouped together for section headers.
     """
     exclusive = build_exclusive_map(questions)
     pat_by_name = {p['name']: p for p in QUICK_PATTERNS}
 
     result = []
     for round_num, priority, difficulty in ROUNDS:
-        # Get patterns for this priority tier, in DISPLAY order
-        tier_patterns = [p for p in DISPLAY_PATTERN_ORDER
-                         if PATTERN_PRIORITY.get(p) == priority]
+        # Sort ALL questions in this round by ID (matches app studyOrder.ts)
+        round_qs = sorted(
+            [q for q in questions
+             if PATTERN_PRIORITY.get(exclusive.get(q['id'], '')) == priority
+             and q.get('difficulty') == difficulty],
+            key=lambda q: q['id'],
+        )
+        # Re-group consecutive same-pattern questions for section headers in PDF
         pattern_groups = []
-        for pat_name in tier_patterns:
-            pat_obj = pat_by_name.get(pat_name)
+        for q in round_qs:
+            pat_name = exclusive.get(q['id'], 'Unknown')
+            pat_obj  = pat_by_name.get(pat_name)
             if not pat_obj:
                 continue
-            qs = [q for q in questions
-                  if exclusive.get(q['id']) == pat_name
-                  and q.get('difficulty') == difficulty]
-            qs.sort(key=lambda q: q['id'])
-            if qs:
-                pattern_groups.append((pat_obj, qs))
+            if pattern_groups and pattern_groups[-1][0]['name'] == pat_name:
+                pattern_groups[-1][1].append(q)
+            else:
+                pattern_groups.append((pat_obj, [q]))
         result.append((round_num, priority, difficulty, pattern_groups))
     return result
 
