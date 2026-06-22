@@ -1650,6 +1650,7 @@ def _add_links_2x1(output_path: Path, page_types: dict,
                    round_page_registry: dict,
                    pat_page_registry: dict,
                    qid_difficulty: dict = None,
+                   qid_slug: dict = None,
                    per_sheet: int = 2, cols: int = 2,
                    src_w: float = 204.0, src_h: float = 264.0,
                    L_W: float = 792.0, L_H: float = 612.0, GAP: float = 3.0):
@@ -1709,6 +1710,7 @@ def _add_links_2x1(output_path: Path, page_types: dict,
     toc_sheets_pre = set(pg // per_sheet for pg in toc_inner)
     sol_output_rects: dict = {}
     title_output_rects: dict = {}   # inner_pg → fitz.Rect of "#qid" text in output PDF
+    lc_link_rects: dict = {}        # (sh, slot) → fitz.Rect of "Open on LeetCode" text
     _scan_doc = fitz.open(str(output_path))
     for _sh in range(len(_scan_doc)):
         if _sh in toc_sheets_pre:
@@ -1723,9 +1725,7 @@ def _add_links_2x1(output_path: Path, page_types: dict,
                     _hits.append((_lbl, _r))
             if _hits:
                 sol_output_rects[(_sh, _slot)] = _hits
-            # Title scan: only for first page of each question.
-            # Search "★ #qid" first — if the title has a premium-star prefix, include
-            # it in the anchor rect so the checkbox lands LEFT of the star, not on it.
+            # Scan for LeetCode link text on each question's first page
             _qid = inner_page_current_qid_pre.get(_inner_pg)
             if _qid and qid_first_page.get(_qid) == _inner_pg:
                 _t = (
@@ -1736,6 +1736,9 @@ def _add_links_2x1(output_path: Path, page_types: dict,
                 )
                 if _t:
                     title_output_rects[_inner_pg] = _t[0]
+                _lc = _scan_doc[_sh].search_for('Open on LeetCode', clip=_clip)
+                if _lc:
+                    lc_link_rects[(_sh, _slot)] = (_lc[0], _qid)
     _scan_doc.close()
 
     doc = fitz.open(str(output_path))
@@ -1992,6 +1995,20 @@ def _add_links_2x1(output_path: Path, page_types: dict,
                     })
                     n_next += 1
 
+    # Add clickable LeetCode URI links over "↗ Open on LeetCode" text
+    _qid_slug = qid_slug or {}
+    n_lc_links = 0
+    for (sh, slot), (text_rect, qid) in lc_link_rects.items():
+        slug = _qid_slug.get(qid, '')
+        if not slug:
+            continue
+        uri = f'https://leetcode.com/problems/{slug}/'
+        # Expand tap target slightly around the text rect
+        tap = fitz.Rect(text_rect.x0 - 2, text_rect.y0 - 1,
+                        text_rect.x1 + 2, text_rect.y1 + 1)
+        doc[sh].insert_link({'kind': fitz.LINK_URI, 'from': tap, 'uri': uri})
+        n_lc_links += 1
+
     tmp = output_path.with_suffix('.tmp.pdf')
     doc.save(str(tmp), garbage=4, deflate=True, incremental=False)
     doc.close()
@@ -1999,7 +2016,7 @@ def _add_links_2x1(output_path: Path, page_types: dict,
     print(f'  Links: {n_links} question (↗)  |  {n_sec} round/pattern  |  '
           f'TOC checkboxes: {n_boxes}  |  Diff dots: {n_boxes}  |  '
           f'Sol checkboxes: {n_sol_boxes}  |  Done checkboxes: {n_done}  |  '
-          f'Next buttons: {n_next}  |  ← Contents: {n_contents_btns} slot buttons')
+          f'Next buttons: {n_next}  |  ← Contents: {n_contents_btns}  |  LeetCode links: {n_lc_links}')
 
 
 # ─── Chapter-2-only inner PDF builder ────────────────────────────────────────
@@ -2435,6 +2452,7 @@ def _add_links_1x1(output_path: Path, page_types: dict,
                    round_page_registry: dict,
                    pat_page_registry: dict,
                    qid_difficulty: dict = None,
+                   qid_slug: dict = None,
                    GAP: float = 8.0,
                    src_w: float = 204.0, src_h: float = 264.0,
                    L_W: float = 612.0, L_H: float = 792.0):
@@ -2509,9 +2527,10 @@ def _add_links_1x1(output_path: Path, page_types: dict,
     _qid_prev    = {_sorted_qids[i + 1]: _sorted_qids[i]
                     for i in range(len(_sorted_qids) - 1)}
 
-    # Pre-scan: collect sol label rects and title rects before any page modifications
+    # Pre-scan: collect sol label rects, title rects, and LeetCode link rects
     sol_rects: dict = {}    # {sh: [(label, fitz.Rect)]}
     title_rects: dict = {}  # {sh: fitz.Rect of "#qid" text}  — first pages only
+    lc_link_rects_1x1: dict = {}  # {sh: (fitz.Rect, qid)} for "Open on LeetCode"
     _first_pg_to_qid = {pg: qid for qid, pg in qid_first_page.items()}
     _scan = fitz.open(str(output_path))
     for _sh in range(len(_scan)):
@@ -2523,8 +2542,6 @@ def _add_links_1x1(output_path: Path, page_types: dict,
                 _hits.append((_lbl, _r))
         if _hits:
             sol_rects[_sh] = _hits
-        # Title scan: only for first pages of each question (inner_pg == sh in 1×1).
-        # Search "★ #qid" first so premium-star prefixes are included in the anchor.
         _qid = _first_pg_to_qid.get(_sh)
         if _qid:
             _t = (
@@ -2535,6 +2552,9 @@ def _add_links_1x1(output_path: Path, page_types: dict,
             )
             if _t:
                 title_rects[_sh] = _t[0]
+            _lc = _scan[_sh].search_for('Open on LeetCode')
+            if _lc:
+                lc_link_rects_1x1[_sh] = (_lc[0], _qid)
     _scan.close()
 
     doc = fitz.open(str(output_path))
@@ -2714,12 +2734,25 @@ def _add_links_1x1(output_path: Path, page_types: dict,
             out_pg.add_widget(wd)
             n_sol += 1
 
+    # Add clickable LeetCode URI links over "↗ Open on LeetCode" text
+    _qid_slug = qid_slug or {}
+    n_lc_links = 0
+    for sh, (text_rect, qid) in lc_link_rects_1x1.items():
+        slug = _qid_slug.get(qid, '')
+        if not slug:
+            continue
+        uri = f'https://leetcode.com/problems/{slug}/'
+        tap = fitz.Rect(text_rect.x0 - 2, text_rect.y0 - 1,
+                        text_rect.x1 + 2, text_rect.y1 + 1)
+        doc[sh].insert_link({'kind': fitz.LINK_URI, 'from': tap, 'uri': uri})
+        n_lc_links += 1
+
     tmp = output_path.with_suffix('.tmp.pdf')
     doc.save(str(tmp), garbage=4, deflate=True, incremental=False)
     doc.close()
     tmp.replace(output_path)
     print(f'  Links: {n_links} (↗)  |  {n_sec} round/pat  |  TOC cb: {n_boxes}  |  '
-          f'Sol cb: {n_sol}  |  Done: {n_done}  |  Next: {n_next}  |  ← Cont: {n_cont}')
+          f'Sol cb: {n_sol}  |  Done: {n_done}  |  Next: {n_next}  |  ← Cont: {n_cont}  |  LeetCode links: {n_lc_links}')
 
 
 # ─── NeetCode-150 / AlgoMaster-600 category mode support ─────────────────────
@@ -2919,10 +2952,12 @@ if __name__ == '__main__':
         impose_2x1_landscape(INNER_PDF, OUTPUT_PDF)
         print('Adding precise hyperlinks…')
         qid_difficulty = {q['id']: q.get('difficulty', 'Easy') for q in questions}
+        qid_slug       = {q['id']: q.get('slug', '') for q in questions}
         _add_links_2x1(
             OUTPUT_PDF, page_types, qid_first_page, toc_link_rects, toc_section_rects,
             round_page_registry, pat_page_registry,
             qid_difficulty=qid_difficulty,
+            qid_slug=qid_slug,
         )
     elif GRID_2X2:
         print('Analyzing inner PDF for link structure…')
@@ -2954,6 +2989,7 @@ if __name__ == '__main__':
         OUTPUT_1UP, page_types, qid_first_page, toc_link_rects, toc_section_rects,
         round_page_registry, pat_page_registry,
         qid_difficulty=qid_difficulty,
+        qid_slug=qid_slug,
     )
 
     INNER_PDF.unlink(missing_ok=True)
