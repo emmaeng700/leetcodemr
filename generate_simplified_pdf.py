@@ -6,9 +6,9 @@ page contains ONLY:
   1. Problem header (title, difficulty, tags, source, description)
   2. My LeetCode Solution (fetched from Supabase/LC API) — or "Not scraped yet."
   3. Interview Approach · STAR-LC (from playbook_data.json) — or "Not scraped yet."
-  4. Quick Review summary (key insights, complexity, solution explanation)
 
 Community solutions (WalkCC, LeetDoocs, SimplyLeet, LC.ca) are omitted.
+Quick Review summaries are omitted to keep page count down.
 All navigation features (TOC, checkboxes, ← Contents, ← Prev / → Next) are retained.
 
 Output: simplified.pdf  (2×1 landscape)   simplified_1up.pdf  (1×1 portrait)
@@ -1004,9 +1004,6 @@ def build_question_block(q: dict, doocs_cache: dict,
     # Interview Approach · STAR-LC
     items += build_interview_approach(qid)
 
-    # Inline Quick Review summary — follows immediately after solutions
-    items += build_question_inline_summary(q)
-
     items.append(PageBreak())
     return items
 
@@ -1181,10 +1178,10 @@ def build_inner_pdf(rounds: list, doocs: dict, my_solutions: dict | None = None)
     # Subtitle line changes per format
     if GRID_2X1:
         subtitle = 'Python Only  ·  Priority-Grouped  ·  Difficulty-First  ·  2×1 Landscape'
-        detail   = f'{total_qs} questions  ·  9 rounds  ·  Inline Quick Review  ·  Chapter 2 Summary'
+        detail   = f'{total_qs} questions  ·  9 rounds  ·  Interview Approach + My Solution'
     elif GRID_2X2:
         subtitle = 'Python Only  ·  Priority-Grouped  ·  Difficulty-First  ·  2×2 Landscape'
-        detail   = f'{total_qs} questions  ·  9 rounds  ·  Inline Quick Review  ·  Chapter 2 Summary'
+        detail   = f'{total_qs} questions  ·  9 rounds  ·  Interview Approach + My Solution'
     elif GRID_4X4:
         subtitle = 'Python Only  ·  Priority-Grouped  ·  Difficulty-First  ·  4×4 Landscape'
         detail   = f'{total_qs} questions  ·  9 rounds  ·  4×4 Landscape'
@@ -1359,8 +1356,7 @@ def build_inner_pdf(rounds: list, doocs: dict, my_solutions: dict | None = None)
             for q in qs:
                 story += build_question_block(q, doocs, pat['name'], pat, my_solutions)
 
-        # Per-round summary removed — each question now carries its own
-        # inline Quick Review summary. Chapter 2 still collects all summaries.
+        # Per-round summary removed — each question page is problem + solution + interview script only.
 
     # Chapter 2 is now a separate PDF (--chapter2 flag). Not included here.
 
