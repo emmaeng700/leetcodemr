@@ -1587,11 +1587,14 @@ def _add_links_2x1(output_path: Path, page_types: dict,
             # Scan for LeetCode link text on each question's first page
             _qid = inner_page_current_qid_pre.get(_inner_pg)
             if _qid and qid_first_page.get(_qid) == _inner_pg:
+                # Restrict the last fallback to the top 200pt of the column so we
+                # never match  (#qid)  references inside Phase-6 follow-up comments.
+                _clip_hdr = fitz.Rect(_slot_x0, 0, _slot_x0 + CW, 200)
                 _t = (
                     _scan_doc[_sh].search_for(f'★ #{_qid} ', clip=_clip)
                     or _scan_doc[_sh].search_for(f'★ #{_qid}', clip=_clip)
                     or _scan_doc[_sh].search_for(f'#{_qid} ', clip=_clip)
-                    or _scan_doc[_sh].search_for(f'#{_qid}', clip=_clip)
+                    or _scan_doc[_sh].search_for(f'#{_qid}', clip=_clip_hdr)
                 )
                 if _t:
                     title_output_rects[_inner_pg] = _t[0]
@@ -2403,11 +2406,15 @@ def _add_links_1x1(output_path: Path, page_types: dict,
             sol_rects[_sh] = _hits
         _qid = _first_pg_to_qid.get(_sh)
         if _qid:
+            # Restrict bare #qid fallback to top 200pt to avoid matching (#qid)
+            # references inside Phase-6 follow-up comments lower on the page.
+            _page_h = _scan[_sh].rect.height
+            _clip_hdr_1x1 = fitz.Rect(0, 0, _scan[_sh].rect.width, min(200, _page_h))
             _t = (
                 _scan[_sh].search_for(f'★ #{_qid} ')
                 or _scan[_sh].search_for(f'★ #{_qid}')
                 or _scan[_sh].search_for(f'#{_qid} ')
-                or _scan[_sh].search_for(f'#{_qid}')
+                or _scan[_sh].search_for(f'#{_qid}', clip=_clip_hdr_1x1)
             )
             if _t:
                 title_rects[_sh] = _t[0]
