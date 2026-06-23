@@ -1,13 +1,12 @@
 """
-LeetMastery — Simplified PDF (2×1 landscape · Interview Approach + My Solution only)
+LeetMastery — Simplified PDF (2×1 landscape · Interview Approach only)
 ======================================================================================
 Same layout and navigation features as generate_better_pdf.py, but each question
 page contains ONLY:
   1. Problem header (title, difficulty, tags, source, description)
-  2. My LeetCode Solution (fetched from Supabase/LC API) — or "Not scraped yet."
-  3. Interview Approach · STAR-LC (from playbook_data.json) — or "Not scraped yet."
+  2. Interview Approach · STAR-LC (from playbook_data.json) — or "Not scraped yet."
 
-Community solutions (WalkCC, LeetDoocs, SimplyLeet, LC.ca) are omitted.
+Community solutions (WalkCC, LeetDoocs, SimplyLeet, LC.ca) and my LeetCode solutions are omitted.
 Quick Review summaries are omitted to keep page count down.
 All navigation features (TOC, checkboxes, ← Contents, ← Prev / → Next) are retained.
 
@@ -17,7 +16,7 @@ Usage:
   python3 generate_simplified_pdf.py [--neetcode | --am600 | --nc-extra | --am-extra]
 """
 
-import json, re, sys, time, requests
+import json, re, sys
 from pathlib import Path
 
 LANDSCAPE    = False
@@ -87,119 +86,6 @@ PLAYBOOK_PATH = SCRIPT_DIR / "public" / "playbook_data.json"
 _PLAYBOOK: dict = (
     json.loads(PLAYBOOK_PATH.read_text()) if PLAYBOOK_PATH.exists() else {}
 )
-
-# ─── My LeetCode Solution loader ─────────────────────────────────────────────
-_SB_URL  = "https://azrokoorufejfoeddzrw.supabase.co"
-_SB_KEY  = (
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6cm9rb29ydWZlamZvZWRkenJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMjcyMjIsImV4cCI6MjA4OTkwMzIyMn0."
-    "AlmIGVNfPs7Cl482eLpl_hkkhFmMKPj63QNVXbvEDvw"
-)
-_SB_HDRS = {"apikey": _SB_KEY, "Authorization": f"Bearer {_SB_KEY}"}
-_LC_GQL  = "https://leetcode.com/graphql"
-_USER_ID = "emmanuel"
-
-
-def _sb_get(table, params=""):
-    r = requests.get(f"{_SB_URL}/rest/v1/{table}?user_id=eq.{_USER_ID}{params}",
-                     headers=_SB_HDRS, timeout=15)
-    r.raise_for_status()
-    return r.json()
-
-
-def _lc_headers(session, csrf):
-    return {
-        "Content-Type": "application/json",
-        "Cookie":       f"LEETCODE_SESSION={session}; csrftoken={csrf}",
-        "Referer":      "https://leetcode.com/",
-        "x-csrftoken":  csrf,
-    }
-
-
-def _fetch_ac_submission(slug, session, csrf):
-    """Return (lang, code) of the most recent accepted LC submission, or (None, None)."""
-    q1 = """query($slug:String!,$offset:Int!,$limit:Int!){
-      questionSubmissionList(questionSlug:$slug,offset:$offset,limit:$limit,status:10){
-        submissions{ id lang }
-      }
-    }"""
-    try:
-        r1 = requests.post(_LC_GQL,
-                           json={"query": q1, "variables": {"slug": slug, "offset": 0, "limit": 20}},
-                           headers=_lc_headers(session, csrf), timeout=15)
-        subs = r1.json().get("data", {}).get("questionSubmissionList", {}).get("submissions", [])
-    except Exception:
-        return None, None
-    if not subs:
-        return None, None
-    chosen = (next((s for s in subs if s["lang"] == "python3"), None)
-              or next((s for s in subs if s["lang"] == "python"), None)
-              or subs[0])
-    q2 = "query($id:Int!){submissionDetails(submissionId:$id){code}}"
-    try:
-        r2 = requests.post(_LC_GQL,
-                           json={"query": q2, "variables": {"id": int(chosen["id"])}},
-                           headers=_lc_headers(session, csrf), timeout=15)
-        code = r2.json().get("data", {}).get("submissionDetails", {}).get("code", "")
-    except Exception:
-        return None, None
-    return chosen["lang"], code
-
-
-def load_my_solutions() -> dict:
-    """Return {qid: (lang, code)} combining pinned Supabase rows + live LC fetches."""
-    print("Loading my LeetCode solutions…")
-    q_map = {q["id"]: q for q in json.loads(QUESTIONS.read_text())}
-
-    # Pinned solutions from best_solutions table
-    try:
-        pinned_rows = _sb_get("best_solutions",
-                              "&order=question_id.asc&select=question_id,language,code")
-        pinned = {int(r["question_id"]): (r.get("language", "python3"), r.get("code", ""))
-                  for r in pinned_rows if r.get("code", "").strip()}
-        print(f"  {len(pinned)} pinned solutions from Supabase")
-    except Exception as e:
-        print(f"  ⚠ Could not fetch pinned solutions: {e}")
-        pinned = {}
-
-    # LeetCode session
-    try:
-        rows = requests.get(
-            f"{_SB_URL}/rest/v1/user_settings?user_id=eq.{_USER_ID}&select=lc_session,lc_csrf",
-            headers=_SB_HDRS, timeout=10).json()
-        lc_session = rows[0].get("lc_session", "") if rows else ""
-        lc_csrf    = rows[0].get("lc_csrf", "")    if rows else ""
-    except Exception:
-        lc_session, lc_csrf = "", ""
-
-    # Solved question IDs not yet pinned
-    live = {}
-    if lc_session:
-        try:
-            solved_rows = _sb_get("progress", "&solved=eq.true&select=question_id")
-            to_fetch = sorted(
-                {int(r["question_id"]) for r in solved_rows} - set(pinned.keys()))
-            print(f"  {len(to_fetch)} questions need live LC fetch…")
-            for i, qid in enumerate(to_fetch, 1):
-                slug = q_map.get(qid, {}).get("slug", "")
-                if not slug:
-                    continue
-                lang, code = _fetch_ac_submission(slug, lc_session, lc_csrf)
-                if code:
-                    live[qid] = (lang, code)
-                if i % 10 == 0:
-                    print(f"    {i}/{len(to_fetch)} fetched…")
-                time.sleep(0.3)
-            print(f"  {len(live)} live submissions fetched")
-        except Exception as e:
-            print(f"  ⚠ Live fetch failed: {e}")
-    else:
-        print("  ⚠ No LeetCode session — only pinned solutions will appear")
-
-    result = {**pinned, **live}  # live LC takes priority — most recent submission wins
-    print(f"  {len(result)} total my-solutions loaded")
-    return result
-
 
 if MODE_NC_EXTRA:
     INNER_PDF       = SCRIPT_DIR / '_nc_extra_inner.pdf'
@@ -890,8 +776,7 @@ def build_interview_approach(qid: int) -> list:
 
 
 def build_question_block(q: dict, doocs_cache: dict,
-                          pattern_name: str, pattern_obj: dict,
-                          my_solutions: dict | None = None) -> list:
+                          pattern_name: str, pattern_obj: dict) -> list:
     items = []
     slug     = q.get('slug', '')
     qid      = q['id']
@@ -967,36 +852,6 @@ def build_question_block(q: dict, doocs_cache: dict,
         else:
             items += plain_desc_to_paragraphs(desc_html, S['body'])
         items.append(Spacer(1, 2))
-
-    # My LeetCode Solution
-    items.append(Spacer(1, 3))
-    items.append(Paragraph('<b>★ My LeetCode Solution</b>', S['head2']))
-    if my_solutions:
-        my_sol = my_solutions.get(qid)
-        if my_sol:
-            my_lang, my_code = my_sol
-            my_code = my_code.strip()
-            if my_code:
-                items.append(site_label_p('My LeetCode Solution'))
-                items += code_panel(my_code, lang=my_lang)
-            else:
-                items.append(Paragraph(
-                    'Not scraped yet.',
-                    ParagraphStyle('no_sol', fontName='LG-Bold', fontSize=S['body_sm'].fontSize,
-                                   textColor=HexColor('#6B7280'), leading=S['body_sm'].leading,
-                                   spaceAfter=2)))
-        else:
-            items.append(Paragraph(
-                'Not scraped yet.',
-                ParagraphStyle('no_sol2', fontName='LG-Bold', fontSize=S['body_sm'].fontSize,
-                               textColor=HexColor('#6B7280'), leading=S['body_sm'].leading,
-                               spaceAfter=2)))
-    else:
-        items.append(Paragraph(
-            'Not scraped yet.',
-            ParagraphStyle('no_sol3', fontName='LG-Bold', fontSize=S['body_sm'].fontSize,
-                           textColor=HexColor('#6B7280'), leading=S['body_sm'].leading,
-                           spaceAfter=2)))
 
     # Interview Approach · STAR-LC
     items += build_interview_approach(qid)
@@ -1152,7 +1007,7 @@ def build_round_summary(round_num: int, priority: str, difficulty: str,
     return items
 
 # ─── Inner PDF builder ────────────────────────────────────────────────────────
-def build_inner_pdf(rounds: list, doocs: dict, my_solutions: dict | None = None):
+def build_inner_pdf(rounds: list, doocs: dict):
     counter = PageCounter()
     round_page_registry: dict[int, int] = {}
     pat_page_registry: dict[tuple[int, str], int] = {}
@@ -1175,10 +1030,10 @@ def build_inner_pdf(rounds: list, doocs: dict, my_solutions: dict | None = None)
     # Subtitle line changes per format
     if GRID_2X1:
         subtitle = 'Python Only  ·  Priority-Grouped  ·  Difficulty-First  ·  2×1 Landscape'
-        detail   = f'{total_qs} questions  ·  9 rounds  ·  Interview Approach + My Solution'
+        detail   = f'{total_qs} questions  ·  9 rounds  ·  Interview Approach'
     elif GRID_2X2:
         subtitle = 'Python Only  ·  Priority-Grouped  ·  Difficulty-First  ·  2×2 Landscape'
-        detail   = f'{total_qs} questions  ·  9 rounds  ·  Interview Approach + My Solution'
+        detail   = f'{total_qs} questions  ·  9 rounds  ·  Interview Approach'
     elif GRID_4X4:
         subtitle = 'Python Only  ·  Priority-Grouped  ·  Difficulty-First  ·  4×4 Landscape'
         detail   = f'{total_qs} questions  ·  9 rounds  ·  4×4 Landscape'
@@ -1351,7 +1206,7 @@ def build_inner_pdf(rounds: list, doocs: dict, my_solutions: dict | None = None)
             story.append(PageBreak())
 
             for q in qs:
-                story += build_question_block(q, doocs, pat['name'], pat, my_solutions)
+                story += build_question_block(q, doocs, pat['name'], pat)
 
         # Per-round summary removed — each question page is problem + solution + interview script only.
 
@@ -1663,7 +1518,7 @@ def _add_links_2x1(output_path: Path, page_types: dict,
       • Master Done checkbox + → Next button at top of each question cell
       • Checkboxes beside each solution label (● WalkCC etc.) on question pages
     """
-    _SOL_LABELS   = ['● My LeetCode Solution']
+    _SOL_LABELS   = []
     _qid_diff     = qid_difficulty or {}
     _DIFF_COLOR   = {
         'Easy':   (0.13, 0.77, 0.37),   # green
@@ -2462,7 +2317,7 @@ def _add_links_1x1(output_path: Path, page_types: dict,
     Features: TOC arrows, checkboxes, difficulty dots, smart ← Contents,
               solution checkboxes, master Done checkbox, → Next button.
     """
-    _SOL_LABELS = ['● My LeetCode Solution']
+    _SOL_LABELS = []
     _qid_diff   = qid_difficulty or {}
     _DIFF_COLOR = {
         'Easy':   (0.13, 0.77, 0.37),
@@ -2938,10 +2793,8 @@ if __name__ == '__main__':
         print(f'\nDone → {OUTPUT_PDF}  ({kb:,} KB)  ·  {n_pages} pages')
         sys.exit(0)
 
-    my_solutions = load_my_solutions()
-
     print('\nBuilding inner mini-page PDF…')
-    n_pages, round_page_registry, pat_page_registry = build_inner_pdf(rounds, doocs, my_solutions)
+    n_pages, round_page_registry, pat_page_registry = build_inner_pdf(rounds, doocs)
 
     if GRID_2X1:
         print('Analyzing inner PDF for link structure…')
