@@ -177,10 +177,11 @@ DIFF_COLORS_PILL = {
 }
 DIFF_DOT = {'Easy': 'E', 'Medium': 'M', 'Hard': 'H'}
 
-# ─── Mini-page dimensions (3×3 on 612×792 portrait letter) ──────────────────
-MP_W  = 612.0 / 3   # 204 pts
-MP_H  = 792.0 / 3   # 264 pts
+# ─── Page dimensions ─────────────────────────────────────────────────────────
+# Full letter inner pages: one question per page in simplified_1up (not 2-up mini cells).
 MG    = 8.0
+MP_W  = 612.0
+MP_H  = 792.0
 USE_W = MP_W - 2 * MG - 12
 USE_H = MP_H - 2 * MG
 
@@ -217,17 +218,18 @@ if GRID_4X4:
         'cover_sub':   ParagraphStyle('cs',  fontName='LG-Bold',    fontSize=8, textColor=BLACK, alignment=TA_CENTER, leading=10),
     }
 elif GRID_2X1:
-    # pattern_run: one text size everywhere (Round header size), code unchanged.
-    _RUN_PT, _RUN_LD = 7, 9
+    # Full-page inner build — readable sizes (scaled down only in 2×1 impose).
+    _RUN_PT, _RUN_LD = 9, 11
+    _CODE_PT, _CODE_LD = 7.5, 9
     S = {
         'title':       ParagraphStyle('ttl', fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
         'body':        ParagraphStyle('bd',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
         'body_sm':     ParagraphStyle('bds', fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
-        'code':        ParagraphStyle('cd',  fontName='Menlo-Bold', fontSize=3.5, textColor=BLACK, leading=4.6),
+        'code':        ParagraphStyle('cd',  fontName='Menlo-Bold', fontSize=_CODE_PT, textColor=BLACK, leading=_CODE_LD),
         'head2':       ParagraphStyle('h2',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
         'toc':         ParagraphStyle('tc',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD),
-        'cover_title': ParagraphStyle('ct',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, alignment=TA_CENTER, leading=_RUN_LD),
-        'cover_sub':   ParagraphStyle('cs',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, alignment=TA_CENTER, leading=_RUN_LD),
+        'cover_title': ParagraphStyle('ct',  fontName='LG-Bold',    fontSize=14, textColor=BLACK, alignment=TA_CENTER, leading=17),
+        'cover_sub':   ParagraphStyle('cs',  fontName='LG-Bold',    fontSize=10, textColor=BLACK, alignment=TA_CENTER, leading=12),
     }
     TOC_CB_PT = float(_RUN_PT)
     TOC_CB_GAP = _RUN_PT + 1
@@ -761,6 +763,9 @@ def build_interview_approach(qid: int) -> list:
             items.append(Spacer(1, 1))
             continue
         stripped = line.lstrip()
+        # Interview script = comment lines only (skip class/def solution code).
+        if not stripped.startswith('#'):
+            continue
         txt = _indent_xml(line)
         if stripped.startswith('# PHASE ') and ' — ' in stripped:
             items.append(Paragraph(txt, phase_st))
@@ -769,9 +774,6 @@ def build_interview_approach(qid: int) -> list:
             items.append(Paragraph(txt, quote_st))
         elif stripped.startswith('#'):
             items.append(Paragraph(txt, comment_st))
-        else:
-            # Code line — use blue style, indentation preserved via &#160;
-            items.append(Paragraph(txt, code_st))
     return items
 
 
@@ -2811,6 +2813,7 @@ if __name__ == '__main__':
             round_page_registry, pat_page_registry,
             qid_difficulty=qid_difficulty,
             qid_slug=qid_slug,
+            src_w=MP_W, src_h=MP_H,
         )
     elif GRID_2X2:
         print('Analyzing inner PDF for link structure…')
@@ -2843,6 +2846,7 @@ if __name__ == '__main__':
         round_page_registry, pat_page_registry,
         qid_difficulty=qid_difficulty,
         qid_slug=qid_slug,
+        src_w=MP_W, src_h=MP_H,
     )
 
     INNER_PDF.unlink(missing_ok=True)
