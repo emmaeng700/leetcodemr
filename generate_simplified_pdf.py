@@ -81,11 +81,15 @@ QUESTIONS     = SCRIPT_DIR / "public" / "questions_full.json"
 SITES_CACHE   = SCRIPT_DIR / ".full_langs_cache.json"
 DOOCS_CACHE   = SCRIPT_DIR / ".doocs_cache.json"
 PLAYBOOK_PATH = SCRIPT_DIR / "public" / "playbook_data.json"
+PLAYBOOK_SET3_PATH = SCRIPT_DIR / "public" / "playbook_data_set3.json"
 
 # Load interview approach scripts keyed by question ID (string)
+# For --am-extra / --nc-extra modes, merge Set 3 playbook on top
 _PLAYBOOK: dict = (
     json.loads(PLAYBOOK_PATH.read_text()) if PLAYBOOK_PATH.exists() else {}
 )
+if (MODE_AM_EXTRA or MODE_NC_EXTRA) and PLAYBOOK_SET3_PATH.exists():
+    _PLAYBOOK.update(json.loads(PLAYBOOK_SET3_PATH.read_text()))
 
 if MODE_NC_EXTRA:
     INNER_PDF       = SCRIPT_DIR / '_nc_extra_inner.pdf'
@@ -95,8 +99,8 @@ if MODE_NC_EXTRA:
     _COVER_SUBTITLE = '32 questions not in Set 1 · Priority-Grouped · 2×1 Landscape'
 elif MODE_AM_EXTRA:
     INNER_PDF       = SCRIPT_DIR / '_am_extra_inner.pdf'
-    OUTPUT_PDF      = SCRIPT_DIR / 'am600_extra.pdf'
-    OUTPUT_1UP      = SCRIPT_DIR / 'am600_extra_1up.pdf'
+    OUTPUT_PDF      = SCRIPT_DIR / 'simplified_am600.pdf'
+    OUTPUT_1UP      = SCRIPT_DIR / 'simplified_am600_1up.pdf'
     _COVER_TITLE    = 'AlgoMaster Exclusives'
     _COVER_SUBTITLE = '344 questions not in Set 1 or NeetCode · Priority-Grouped · 2×1 Landscape'
 elif MODE_NC150:
