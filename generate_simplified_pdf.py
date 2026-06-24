@@ -227,7 +227,7 @@ elif GRID_2X1:
         'title':       ParagraphStyle('ttl', fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
         'body':        ParagraphStyle('bd',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
         'body_sm':     ParagraphStyle('bds', fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
-        'code':        ParagraphStyle('cd',  fontName='Menlo-Bold', fontSize=3.5, textColor=BLACK, leading=4.6),
+        'code':        ParagraphStyle('cd',  fontName='Menlo-Bold', fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD),
         'head2':       ParagraphStyle('h2',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
         'toc':         ParagraphStyle('tc',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD),
         'cover_title': ParagraphStyle('ct',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, alignment=TA_CENTER, leading=_RUN_LD),
@@ -252,7 +252,7 @@ else:
         'title':       ParagraphStyle('ttl', fontName='LG-Bold',    fontSize=8,   textColor=BLACK, leading=10,  spaceAfter=1),
         'body':        ParagraphStyle('bd',  fontName='LG-Bold',    fontSize=6,   textColor=BLACK, leading=8,   spaceAfter=1),
         'body_sm':     ParagraphStyle('bds', fontName='LG-Bold',    fontSize=5.8, textColor=BLACK, leading=7.5, spaceAfter=1),
-        'code':        ParagraphStyle('cd',  fontName='Menlo-Bold', fontSize=5.5, textColor=BLACK, leading=7.5),
+        'code':        ParagraphStyle('cd',  fontName='Menlo-Bold', fontSize=6.0, textColor=BLACK, leading=8.0),
         'head2':       ParagraphStyle('h2',  fontName='LG-Bold',    fontSize=6.5, textColor=BLACK, leading=9,   spaceAfter=1),
         'toc':         ParagraphStyle('tc',  fontName='LG-Bold',    fontSize=7,   textColor=BLACK, leading=10),
         'cover_title': ParagraphStyle('ct',  fontName='LG-Bold',    fontSize=13,  textColor=BLACK, alignment=TA_CENTER, leading=16),
@@ -1698,6 +1698,7 @@ def _add_links_2x1(output_path: Path, page_types: dict,
             widget.field_value = 'Off'
             widget.on_state    = 'Yes'
             out_pg.add_widget(widget)
+            widget.update()
             n_boxes += 1
 
             # Difficulty dot: colored circle in the gap between checkbox and line text
@@ -1778,6 +1779,7 @@ def _add_links_2x1(output_path: Path, page_types: dict,
             widget.field_value = 'Off'
             widget.on_state    = 'Yes'
             out_pg.add_widget(widget)
+            widget.update()
             n_sol_boxes += 1
 
     # ── Master Done checkbox (next to title) + → Next button (top band) ──────────
@@ -1820,6 +1822,7 @@ def _add_links_2x1(output_path: Path, page_types: dict,
                 wd.field_value = 'Off'
                 wd.on_state    = 'Yes'
                 out_pg.add_widget(wd)
+                wd.update()
                 n_done += 1
 
             # ← Prev / → Next — top-band buttons on every question page
@@ -2205,6 +2208,7 @@ def _add_links_2x2(output_path: Path, page_types: dict,
             widget.field_value = 'Off'
             widget.on_state    = 'Yes'
             out_pg.add_widget(widget)
+            widget.update()
             n_boxes += 1
 
     # ── "← Contents" button on every non-TOC sheet ───────────────────────────
@@ -2482,6 +2486,7 @@ def _add_links_1x1(output_path: Path, page_types: dict,
             wd.field_value = 'Off'
             wd.on_state    = 'Yes'
             out_pg.add_widget(wd)
+            wd.update()
             n_boxes += 1
 
             # Difficulty dot between checkbox and line text
@@ -2575,6 +2580,7 @@ def _add_links_1x1(output_path: Path, page_types: dict,
             wd.field_value = 'Off'
             wd.on_state    = 'Yes'
             out_pg.add_widget(wd)
+            wd.update()
             n_done += 1
 
     # ── Solution checkboxes (pre-scanned before modifications) ────────────────
@@ -2598,6 +2604,7 @@ def _add_links_1x1(output_path: Path, page_types: dict,
             wd.field_value = 'Off'
             wd.on_state    = 'Yes'
             out_pg.add_widget(wd)
+            wd.update()
             n_sol += 1
 
     # Add clickable LeetCode URI links over "↗ Open on LeetCode" text
