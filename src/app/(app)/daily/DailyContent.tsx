@@ -6,7 +6,7 @@ import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { CalendarCheck, Rocket, RotateCcw, ArrowRight, CheckCircle2, Circle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ExternalLink, List, Brain, Star, Wind, Bell, BookOpen, Settings } from 'lucide-react'
-import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodayDailyDoneCount, syncStreakActivityFromGoals, getUserRevisionCap, syncDailyRepsFromLocal } from '@/lib/db'
+import { getStudyPlan, saveStudyPlan, clearStudyPlan, getProgress, getDueReviews, rebalanceReviews, updateProgress, getTodayDailyDoneCount, getDailyLog, syncStreakActivityFromGoals, getUserRevisionCap, syncDailyRepsFromLocal } from '@/lib/db'
 import { getActiveBreathers, type ActiveBreather } from '@/lib/breatherUtils'
 import { studyOrder } from '@/lib/studyOrder'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS, PATTERN_PRIORITY } from '@/lib/constants'
@@ -115,6 +115,13 @@ function dayScheduledDate(startDate: string, dayIdx: number): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+/** Returns the ISO date (YYYY-MM-DD) for a given plan day index. */
+function dayScheduledISO(startDate: string, dayIdx: number): string {
+  const d = new Date(startDate + 'T12:00:00')
+  d.setDate(d.getDate() + dayIdx)
+  return d.toISOString().split('T')[0]
+}
+
 function calcFinish(startDate: string, perDay: number, total: number) {
   const days = Math.ceil(total / perDay)
   const d = new Date(startDate)
@@ -195,6 +202,8 @@ export default function DailyPage() {
   const [dueOpen, setDueOpen] = useState(true)
   const [plan, setPlan] = useState<StudyPlan | null>(null)
   const [loading, setLoading] = useState(true)
+  // dailyLog: date (YYYY-MM-DD) → number of daily questions done that day
+  const [dailyLog, setDailyLog] = useState<Record<string, number>>({})
 
   // Setup form
   const [startDate, setStartDate] = useState(todayISO())
@@ -387,7 +396,7 @@ export default function DailyPage() {
       const savedFocus = localStorage.getItem(FOCUS_PATTERN_KEY)
       if (savedFocus) setFocusPattern(savedFocus)
 
-      const [qs, prog, p, due, dailyDoneToday, profileRes] = await Promise.all([
+      const [qs, prog, p, due, dailyDoneToday, profileRes, logData] = await Promise.all([
         fetch('/questions_full.json').then(r => r.json()),
         getProgress(),
         getStudyPlan(),
@@ -396,7 +405,9 @@ export default function DailyPage() {
         fetch('/api/user/profile')
           .then(r => (r.ok ? r.json() : null))
           .catch(() => null),
+        getDailyLog(),
       ])
+      setDailyLog(logData ?? {})
 
       // Load reps-per-question setting and today's rep counts.
       // DB (profile) wins — it is the source of truth across devices.
@@ -624,20 +635,70 @@ export default function DailyPage() {
     return isSolved(id)
   }
 
-  /** Daily quota met for a question on its scheduled plan day. */
+  /**
+   * Was this question done as a daily on its scheduled plan day?
+   * Past days: check the question's last_daily_done was on that specific date.
+   * Today: check daily reps done today.
+   * Catch-up (today doing a past day's question): counts toward today's log, not the past day.
+   */
   function isDailyDoneForPlanDay(dayIdx: number, id: number) {
-    if (dayIdx < calendarDayIndex) {
-      return !!progress[String(id)]?.solved
+    if (dayIdx > calendarDayIndex) return false
+    if (dayIdx === calendarDayIndex) {
+      return isQuestionDoneForDailyToday(id, progress, todayISO(), dailyReps, repsPerQRef.current)
     }
-    if (dayIdx > calendarDayIndex) {
-      return false
-    }
-    return isQuestionDoneForDailyToday(id, progress, todayISO(), dailyReps, repsPerQRef.current)
+    // Past day: only credit if the question was done as daily specifically on that day's date
+    const scheduledDate = plan ? dayScheduledISO(plan.start_date, dayIdx) : null
+    if (!scheduledDate) return !!progress[String(id)]?.solved
+    const lastDone = (progress[String(id)]?.last_daily_done as string | null | undefined)
+    return !!lastDone && lastDone.startsWith(scheduledDate)
+  }
+
+  /**
+   * Was a past day completed as a proper daily session?
+   * Primary: dailyLog records >= perDay completions on that day's date.
+   * Fallback: all questions for that day have last_daily_done matching the scheduled date
+   *           (handles older data before daily_log table was tracked).
+   */
+  function wasDayDoneAsDaily(dayIdx: number): boolean {
+    if (!plan) return false
+    if (dayIdx >= calendarDayIndex) return false
+    const scheduledDate = dayScheduledISO(plan.start_date, dayIdx)
+    // Primary check: daily_log table
+    if ((dailyLog[scheduledDate] ?? 0) >= plan.per_day) return true
+    // Fallback: check per-question last_daily_done (for data predating daily_log)
+    const dayIds = plan.question_order.slice(dayIdx * plan.per_day, (dayIdx + 1) * plan.per_day)
+    if (dayIds.length === 0) return true
+    return dayIds.every(id => {
+      const lastDone = (progress[String(id)]?.last_daily_done as string | null | undefined)
+      return !!lastDone && lastDone.startsWith(scheduledDate)
+    })
   }
 
   function countDailyDoneOnPlanDay(dayIdx: number, questionIds: number[]) {
     return questionIds.filter(id => isDailyDoneForPlanDay(dayIdx, id)).length
   }
+
+  /**
+   * All questions from missed past days that haven't been done as daily yet today.
+   * These get pushed forward and shown alongside today's questions.
+   */
+  const pushedForwardIds = useMemo((): number[] => {
+    if (!plan || isRandomMode) return []
+    const perDay = plan.per_day
+    const result: number[] = []
+    for (let i = 0; i < calendarDayIndex; i++) {
+      if (wasDayDoneAsDaily(i)) continue
+      const dayIds = plan.question_order.slice(i * perDay, i * perDay + perDay)
+      for (const id of dayIds) {
+        // Include if not yet done as daily today
+        if (!isQuestionDoneForDailyToday(id, progress, todayISO(), dailyReps, repsPerQRef.current)) {
+          result.push(id)
+        }
+      }
+    }
+    return result
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan, calendarDayIndex, dailyLog, progress, dailyReps, isRandomMode])
 
   function isStarred(id: number) {
     return !!progress[String(id)]?.starred
@@ -935,7 +996,15 @@ export default function DailyPage() {
   const todayInfo = getTodayInfo(plan, allQuestions, progress, dailyReps, repsPerQ)
   const totalDays = Math.ceil(plan.question_order.length / plan.per_day)
 
-  const todayQs    = todayInfo.questions || []
+  // Build pushed-forward questions from missed past days (deduplicated, not in today's plan)
+  const todayPlanIds = new Set((todayInfo.questions || []).map(q => q.id))
+  const pushedQs = pushedForwardIds
+    .filter(id => !todayPlanIds.has(id))
+    .map(id => allQuestions.find(q => q.id === id))
+    .filter((q): q is Question => !!q)
+
+  // Today's full queue = today's plan questions + pushed-forward missed questions
+  const todayQs = [...(todayInfo.questions || []), ...pushedQs]
   todayQsRef.current = todayQs   // keep ref fresh for incrementRep auto-advance
   const todayDone  = todayQs.filter(q => isRepDone(q.id)).length
 
@@ -1479,17 +1548,25 @@ export default function DailyPage() {
               Today — Day {todayInfo.dayNumber}
               <span className="text-xs font-normal text-[var(--text-subtle)]">· {fmtDate(todayISO())}</span>
             </h2>
-            <span className={`shrink-0 text-[11px] sm:text-xs font-bold px-2 py-1 rounded-full ${
-              todayAllRepsDone ? 'bg-green-100 text-green-700' :
-              todayRepsDone > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-            }`}>
-              {todayRepsDone}/{todayQs.length} daily
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`shrink-0 text-[11px] sm:text-xs font-bold px-2 py-1 rounded-full ${
+                todayAllRepsDone ? 'bg-green-100 text-green-700' :
+                todayRepsDone > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+              }`}>
+                {todayRepsDone}/{todayQs.length} daily
+              </span>
+              {pushedQs.length > 0 && (
+                <span className="shrink-0 text-[11px] font-bold px-2 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-300">
+                  +{pushedQs.length} pushed
+                </span>
+              )}
+            </div>
           </div>
           <p className="text-[10px] text-[var(--text-subtle)] mb-3">
             <span className="text-green-600 font-semibold">Daily ✓</span> = today&apos;s reps done
             {' · '}
             <span className="text-indigo-500 font-semibold">Learn ✓</span> = marked solved on Learn
+            {pushedQs.length > 0 && <>{' · '}<span className="text-amber-600 font-semibold">⚠️ {pushedQs.length} catch-up</span> from missed days</>}
           </p>
 
           <div className="space-y-3">
@@ -1504,6 +1581,7 @@ export default function DailyPage() {
               const prevTopic = prev ? (topicMap[prev.id] ?? 'Other') : null
               const prevPri   = prevTopic ? (PATTERN_PRIORITY[prevTopic] ?? null) : null
               const showRound = curPri && isNewRound(curPri, q.difficulty, prevPri, prev?.difficulty)
+              const isPushed  = pushedQs.some(pq => pq.id === q.id)
               return (
                 <div key={q.id}>
                   {showRound && <StudyRoundHeader priority={curPri!} difficulty={q.difficulty} />}
@@ -1548,6 +1626,9 @@ export default function DailyPage() {
                         <span className={`text-[10px] font-bold ${repDone ? 'text-green-600' : repCount > 0 ? 'text-indigo-500' : 'text-[var(--text-subtle)]'}`}>
                           {Math.min(repCount, repsPerQ)}/{repsPerQ}
                         </span>
+                        {isPushed && !repDone && (
+                          <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200">⚠️ catch-up</span>
+                        )}
                         {repDone && (
                           <span className="text-[10px] font-semibold text-green-600">Daily ✓</span>
                         )}
@@ -1889,20 +1970,27 @@ export default function DailyPage() {
               const { questionIds, questions: dayQs } = getDayInfo(plan, dayIdx, allQuestions, progress)
               const doneCnt = countDailyDoneOnPlanDay(dayIdx, questionIds)
               const expanded = expandedDays[dayIdx]
+              // A past day is ⚠️ missed if daily was not done on its scheduled date
+              const wasMissed = !wasDayDoneAsDaily(dayIdx)
+              const fullyDoneAsDaily = !wasMissed  // daily log confirms ≥ perDay done that day
               return (
-                <div key={dayIdx} className="border border-[var(--border)] rounded-xl overflow-hidden">
+                <div key={dayIdx} className={`border rounded-xl overflow-hidden ${wasMissed ? 'border-amber-400/40' : 'border-[var(--border)]'}`}>
                   <button
                     onClick={() => setExpandedDays(p => ({ ...p, [dayIdx]: !p[dayIdx] }))}
                     className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-[var(--bg-muted)] transition-colors"
                   >
                     <span className="text-sm font-semibold text-[var(--text)]">
-                      Day {dayIdx + 1}
+                      {wasMissed ? '⚠️ ' : ''}Day {dayIdx + 1}
                       <span className="ml-1.5 text-xs font-normal text-[var(--text-subtle)]">· {dayScheduledDate(plan.start_date, dayIdx)}</span>
+                      {wasMissed && (
+                        <span className="ml-2 text-[10px] font-bold text-amber-500">missed · pushed forward</span>
+                      )}
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs font-bold ${doneCnt === dayQs.length ? 'text-green-600' : doneCnt > 0 ? 'text-yellow-600' : 'text-red-500'}`}>
-                        {doneCnt}/{dayQs.length}
-                      </span>
+                      {fullyDoneAsDaily
+                        ? <span className="text-xs font-bold text-green-600">{doneCnt}/{dayQs.length}</span>
+                        : <span className="text-xs font-bold text-amber-500">{doneCnt}/{dayQs.length}</span>
+                      }
                       {expanded ? <ChevronUp size={14} className="text-[var(--text-subtle)]" /> : <ChevronDown size={14} className="text-[var(--text-subtle)]" />}
                     </div>
                   </button>

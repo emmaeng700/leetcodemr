@@ -6,14 +6,9 @@ import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { formatTime, stripScripts, leetCodeUrl } from '@/lib/utils'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import MobileSplitPanelTabs, { type MobileSplitPanel } from '@/components/MobileSplitPanelTabs'
-import { createClient } from '@supabase/supabase-js'
 import { ALGOMASTER_600 } from '@/lib/algomaster600'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-const USER_ID = 'emmanuel'
+import { supabase, USER_ID } from '@/lib/supabase'
 
 const CONTENT_Q = `query($s:String!){question(titleSlug:$s){content isPaidOnly topicTags{name}}}`
 

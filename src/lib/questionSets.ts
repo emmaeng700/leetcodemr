@@ -2,7 +2,9 @@ import { PATTERN_PRIORITY } from './constants'
 import { buildExclusivePatternMap } from './patternUtils'
 import { studyOrder } from './studyOrder'
 import { NEETCODE_150 } from './neetcode150'
+import { NEETCODE_250, NC250_TOTAL } from './neetcode250'
 import { ALGOMASTER_600 } from './algomaster600'
+export { NC250_TOTAL }
 import ncExtraQuestions from '../../neetcode_extra_questions.json'
 import am600ExtraQuestions from '../../am600_extra_questions.json'
 
@@ -35,6 +37,10 @@ export function countCatalogNotInSet1(
 
 export function countNc150NotInSet1(mainIds: Set<number>): number {
   return countCatalogNotInSet1(NEETCODE_150, mainIds)
+}
+
+export function countNc250NotInSet1(mainIds: Set<number>): number {
+  return countCatalogNotInSet1(NEETCODE_250, mainIds)
 }
 
 export function countAm600NotInSet1(mainIds: Set<number>): number {

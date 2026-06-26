@@ -4,8 +4,8 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Rocket, Zap, Library, Brain } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import {
-  NC150_TOTAL, AM600_TOTAL,
-  countNc150NotInSet1, countAm600NotInSet1,
+  NC150_TOTAL, NC250_TOTAL, AM600_TOTAL,
+  countNc250NotInSet1, countAm600NotInSet1,
   getSet2Questions, getSet3Questions, totalAppQuestionCount,
 } from '@/lib/questionSets'
 
@@ -32,7 +32,7 @@ function SitesInner() {
         const s2 = getSet2Questions(mainIds, main)
         const s3 = getSet3Questions(mainIds, main)
         setAppTotal(totalAppQuestionCount(main.length, s2.length, s3.length))
-        setNcNotIn331(countNc150NotInSet1(mainIds))
+        setNcNotIn331(countNc250NotInSet1(mainIds))
         setAmNotIn331(countAm600NotInSet1(mainIds))
         setSet2Count(s2.length)
         setSet3Count(s3.length)
@@ -43,7 +43,7 @@ function SitesInner() {
   const TABS = [
     {
       key: 'neetcode',
-      label: 'NeetCode 150',
+      label: 'NeetCode 250',
       sub: ncNotIn331 > 0 ? `${ncNotIn331} not in 331` : null,
       icon: Rocket,
       Page: NeetCodePage,
@@ -80,7 +80,7 @@ function SitesInner() {
             · Set 3 <span className="font-bold text-emerald-600">{set3Count}</span>
           </span>
           <span className="text-[var(--text-subtle)]">
-            NC150: {NC150_TOTAL} · AM600: {AM600_TOTAL}
+            NC250: {NC250_TOTAL} · AM600: {AM600_TOTAL}
           </span>
         </div>
       )}

@@ -2,16 +2,11 @@
 import { Fragment, useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { CheckCircle, Circle, ChevronDown, ChevronUp, Search, ExternalLink } from 'lucide-react'
-import { createClient } from '@supabase/supabase-js'
 import { ALGOMASTER_600, type AM600Category } from '@/lib/algomaster600'
 import { AM600_TOTAL, countAm600NotInSet1, getSet3Questions } from '@/lib/questionSets'
 import { QuestionCountHighlight } from '@/components/QuestionCountHighlight'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-const USER_ID = 'emmanuel'
+import { supabase, USER_ID } from '@/lib/supabase'
 
 const TOTAL = AM600_TOTAL
 
