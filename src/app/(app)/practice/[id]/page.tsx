@@ -322,7 +322,6 @@ export default function PracticePage() {
     if (!question || !usesThreeSolveGate) return
     const before = modeRuns[String(question.id)] ?? 0
     const currentIdx = planOrder.indexOf(question.id)
-    const nextQuestionId = currentIdx >= 0 ? planOrder[currentIdx + 1] : null
     const navSuffix = isDailyMode ? '?from=daily' : '?from=review'
     if (isDailyMode) {
       const repRes = await bumpDailyRep(question.id)
@@ -348,7 +347,6 @@ export default function PracticePage() {
     const after = Math.min(before + 1, targetReps)
     setModeRuns(prev => ({ ...prev, [String(question.id)]: (prev[String(question.id)] ?? 0) + 1 }))
 
-    const nextQuestion = nextQuestionId ? allQuestions.find(q => q.id === nextQuestionId) ?? null : null
     const modeLabel = isDailyMode ? 'Daily' : 'Review'
     let autoAdvanceId: number | null = null
 
@@ -374,15 +372,20 @@ export default function PracticePage() {
         setQueuedNextId(autoAdvanceId)
       } else if (isReviewMode) {
         const remainingQueue = planOrder.filter(qid => qid !== question.id)
+        sessionStorage.setItem('lm_review_queue', JSON.stringify(remainingQueue))
         autoAdvanceId = remainingQueue[0] ?? null
         setQueuedNextId(autoAdvanceId)
       } else {
+        const nextQuestionId = currentIdx >= 0 ? planOrder[currentIdx + 1] : null
         autoAdvanceId = nextQuestionId ?? null
         setQueuedNextId(autoAdvanceId)
       }
+      const toastNext = autoAdvanceId
+        ? allQuestions.find(q => q.id === autoAdvanceId) ?? null
+        : null
       toast.success(
-        nextQuestion
-          ? `${modeLabel} complete: ${targetReps}/${targetReps}. ${nextQuestion.title} is next.`
+        toastNext
+          ? `${modeLabel} complete: ${targetReps}/${targetReps}. ${toastNext.title} is next.`
           : `${modeLabel} complete: ${targetReps}/${targetReps}. All done!`,
         { duration: 4500 }
       )

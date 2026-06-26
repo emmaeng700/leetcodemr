@@ -650,7 +650,17 @@ export default function DailyPage() {
     const scheduledDate = plan ? dayScheduledISO(plan.start_date, dayIdx) : null
     if (!scheduledDate) return !!progress[String(id)]?.solved
     const lastDone = (progress[String(id)]?.last_daily_done as string | null | undefined)
-    return !!lastDone && lastDone.startsWith(scheduledDate)
+    if (!!lastDone && lastDone.startsWith(scheduledDate)) return true
+    // Catch-up: missed-day question cleared in today's daily session
+    if (
+      plan &&
+      !wasDayDoneAsDaily(dayIdx) &&
+      isQuestionDoneForDailyToday(id, progress, todayISO(), dailyReps, repsPerQRef.current)
+    ) {
+      const dayIds = plan.question_order.slice(dayIdx * plan.per_day, (dayIdx + 1) * plan.per_day)
+      return dayIds.includes(id)
+    }
+    return false
   }
 
   /**
@@ -1003,8 +1013,8 @@ export default function DailyPage() {
     .map(id => allQuestions.find(q => q.id === id))
     .filter((q): q is Question => !!q)
 
-  // Today's full queue = today's plan questions + pushed-forward missed questions
-  const todayQs = [...(todayInfo.questions || []), ...pushedQs]
+  // Catch-ups first, then today's scheduled questions
+  const todayQs = [...pushedQs, ...(todayInfo.questions || [])]
   todayQsRef.current = todayQs   // keep ref fresh for incrementRep auto-advance
   const todayDone  = todayQs.filter(q => isRepDone(q.id)).length
 
@@ -1970,20 +1980,26 @@ export default function DailyPage() {
               const { questionIds, questions: dayQs } = getDayInfo(plan, dayIdx, allQuestions, progress)
               const doneCnt = countDailyDoneOnPlanDay(dayIdx, questionIds)
               const expanded = expandedDays[dayIdx]
-              // A past day is ⚠️ missed if daily was not done on its scheduled date
-              const wasMissed = !wasDayDoneAsDaily(dayIdx)
-              const fullyDoneAsDaily = !wasMissed  // daily log confirms ≥ perDay done that day
+              const wasMissedOnSchedule = !wasDayDoneAsDaily(dayIdx)
+              const catchUpCleared = wasMissedOnSchedule && questionIds.every(id =>
+                isQuestionDoneForDailyToday(id, progress, todayISO(), dailyReps, repsPerQRef.current)
+              )
+              const showMissedBanner = wasMissedOnSchedule && !catchUpCleared
+              const fullyDoneAsDaily = !wasMissedOnSchedule || catchUpCleared
               return (
-                <div key={dayIdx} className={`border rounded-xl overflow-hidden ${wasMissed ? 'border-amber-400/40' : 'border-[var(--border)]'}`}>
+                <div key={dayIdx} className={`border rounded-xl overflow-hidden ${showMissedBanner ? 'border-amber-400/40' : 'border-[var(--border)]'}`}>
                   <button
                     onClick={() => setExpandedDays(p => ({ ...p, [dayIdx]: !p[dayIdx] }))}
                     className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-[var(--bg-muted)] transition-colors"
                   >
                     <span className="text-sm font-semibold text-[var(--text)]">
-                      {wasMissed ? '⚠️ ' : ''}Day {dayIdx + 1}
+                      {showMissedBanner ? '⚠️ ' : ''}Day {dayIdx + 1}
                       <span className="ml-1.5 text-xs font-normal text-[var(--text-subtle)]">· {dayScheduledDate(plan.start_date, dayIdx)}</span>
-                      {wasMissed && (
+                      {showMissedBanner && (
                         <span className="ml-2 text-[10px] font-bold text-amber-500">missed · pushed forward</span>
+                      )}
+                      {catchUpCleared && (
+                        <span className="ml-2 text-[10px] font-bold text-green-600">catch-up done</span>
                       )}
                     </span>
                     <div className="flex items-center gap-2">
