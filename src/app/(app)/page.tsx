@@ -1,12 +1,12 @@
 'use client'
-import { useState, useEffect, useRef, useMemo, Suspense } from 'react'
+import { useState, useEffect, useRef, useMemo, Suspense, Fragment } from 'react'
 import React from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Star, CheckCircle2, Circle, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp, RotateCcw } from 'lucide-react'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
-import { getAppPatternCoverageStats, type AppPatternStat } from '@/lib/appPatternCoverage'
+import { getAppPatternCoverageStats, appPatternNameForSetQuestion, type AppPatternStat } from '@/lib/appPatternCoverage'
 
 const ORDERED_QUICK_PATTERNS = QUICK_PATTERNS
   .slice()
@@ -1301,6 +1301,39 @@ function SetExternalQuestions({
   )
 }
 
+type AppQuestionRow = {
+  set: 1 | 2 | 3
+  id: number
+  title: string
+  slug: string
+  difficulty: string
+  tags?: string[]
+  category?: string
+  python_solution?: string
+  cpp_solution?: string
+  solved: boolean
+  starred: boolean
+  notes?: string
+}
+
+const SET_LABELS: Record<1 | 2 | 3, string> = {
+  1: 'Set 1 · Main 331',
+  2: 'Set 2 · NeetCode 250',
+  3: 'Set 3 · AlgoMaster 600',
+}
+
+const SET_BADGE_CLASS: Record<1 | 2 | 3, string> = {
+  1: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  2: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  3: 'bg-purple-100 text-purple-700 border-purple-200',
+}
+
+const SET_CARD_CLASS: Record<1 | 2 | 3, string> = {
+  1: 'border-l-4 border-l-indigo-500',
+  2: 'border-l-4 border-l-emerald-500',
+  3: 'border-l-4 border-l-purple-500',
+}
+
 function HomeInner() {
   const sp = useSearchParams()
   const pathname = usePathname()
@@ -1315,7 +1348,7 @@ function HomeInner() {
   const [activePattern, setActivePattern] = useState<string | null>(null)
   const [qPage, setQPage] = useState(1)
   const search = sp.get('search') || ''
-  const [questionSet, setQuestionSet] = useState<1 | 2 | 3>(1)
+  const [questionSet, setQuestionSet] = useState<'all' | 1 | 2 | 3>('all')
   const [set2Questions, setSet2Questions] = useState<import('@/lib/questionSets').SetQuestion[]>([])
   const [set3Questions, setSet3Questions] = useState<import('@/lib/questionSets').SetQuestion[]>([])
   const [setProgress2, setSetProgress2] = useState<Record<string, import('@/lib/setProgress').SetQProgress>>({})
@@ -1373,121 +1406,91 @@ function HomeInner() {
   // Exclusive map for accurate per-pattern counts and filtering (no repetition)
   const exclusiveMapHome = useMemo(() => buildExclusivePatternMap(questions), [questions])
 
-  const filtered = useMemo(() => questions.filter(q => {
-    if (difficulty !== 'All' && q.difficulty !== difficulty) return false
-    if (source !== 'All' && !(q.source || []).includes(source)) return false
-    if (search && !matchesQuestionSearch(q, search)) return false
-    if (activePattern && exclusiveMapHome[q.id] !== activePattern) return false
-    const p = progress[String(q.id)] || {}
-    if (showStarred && !p.starred) return false
-    if (showSolved === true && !p.solved) return false
-    if (showSolved === false && p.solved) return false
-    return true
-  }).sort((a, b) => (DIFF_ORDER[a.difficulty] ?? 1) - (DIFF_ORDER[b.difficulty] ?? 1)), [
-    questions,
-    difficulty,
-    source,
-    search,
-    activePattern,
-    exclusiveMapHome,
-    progress,
-    showStarred,
-    showSolved,
-    DIFF_ORDER,
-  ])
-
   const isSearching = !!search.trim()
+  const effectiveSet = isSearching ? 'all' as const : questionSet
 
-  type UnifiedSearchRow = {
-    set: 1 | 2 | 3
-    id: number
-    title: string
-    slug: string
-    difficulty: string
-    tags?: string[]
-    category?: string
-    python_solution?: string
-    cpp_solution?: string
-    solved: boolean
-    starred: boolean
-    notes?: string
-  }
+  const filteredRows = useMemo((): AppQuestionRow[] => {
+    const out: AppQuestionRow[] = []
 
-  const unifiedResults = useMemo((): UnifiedSearchRow[] => {
-    if (!isSearching) return []
-    const out: UnifiedSearchRow[] = []
-
-    for (const q of questions) {
-      if (!matchesQuestionSearch(q, search)) continue
-      if (difficulty !== 'All' && q.difficulty !== difficulty) continue
-      if (source !== 'All' && !(q.source || []).includes(source)) continue
-      if (activePattern && exclusiveMapHome[q.id] !== activePattern) continue
-      const p = progress[String(q.id)] || {}
-      if (showStarred && !p.starred) continue
-      if (showSolved === true && !p.solved) continue
-      if (showSolved === false && p.solved) continue
-      out.push({
-        set: 1,
-        id: q.id,
-        title: q.title,
-        slug: q.slug,
-        difficulty: q.difficulty,
-        tags: q.tags,
-        python_solution: q.python_solution,
-        cpp_solution: q.cpp_solution,
-        solved: !!p.solved,
-        starred: !!p.starred,
-        notes: p.notes,
-      })
+    if (effectiveSet === 'all' || effectiveSet === 1) {
+      for (const q of questions) {
+        if (difficulty !== 'All' && q.difficulty !== difficulty) continue
+        if (source !== 'All' && !(q.source || []).includes(source)) continue
+        if (search && !matchesQuestionSearch(q, search)) continue
+        if (activePattern && exclusiveMapHome[q.id] !== activePattern) continue
+        const p = progress[String(q.id)] || {}
+        if (showStarred && !p.starred) continue
+        if (showSolved === true && !p.solved) continue
+        if (showSolved === false && p.solved) continue
+        out.push({
+          set: 1,
+          id: q.id,
+          title: q.title,
+          slug: q.slug,
+          difficulty: q.difficulty,
+          tags: q.tags,
+          python_solution: q.python_solution,
+          cpp_solution: q.cpp_solution,
+          solved: !!p.solved,
+          starred: !!p.starred,
+          notes: p.notes,
+        })
+      }
     }
 
-    for (const q of set2Questions) {
-      if (!matchesQuestionSearch(q, search)) continue
-      if (difficulty !== 'All' && q.difficulty !== difficulty) continue
-      const p = setProgress2[String(q.id)] || {}
-      if (showStarred && !p.starred) continue
-      if (showSolved === true && !p.solved) continue
-      if (showSolved === false && p.solved) continue
-      out.push({
-        set: 2,
-        id: q.id,
-        title: q.title,
-        slug: q.slug,
-        difficulty: q.difficulty,
-        tags: q.tags,
-        category: q.category,
-        solved: !!p.solved,
-        starred: !!p.starred,
-        notes: p.notes,
-      })
+    if (effectiveSet === 'all' || effectiveSet === 2) {
+      for (const q of set2Questions) {
+        if (difficulty !== 'All' && q.difficulty !== difficulty) continue
+        if (search && !matchesQuestionSearch(q, search)) continue
+        if (activePattern && appPatternNameForSetQuestion(q, 2) !== activePattern) continue
+        const p = setProgress2[String(q.id)] || {}
+        if (showStarred && !p.starred) continue
+        if (showSolved === true && !p.solved) continue
+        if (showSolved === false && p.solved) continue
+        out.push({
+          set: 2,
+          id: q.id,
+          title: q.title,
+          slug: q.slug,
+          difficulty: q.difficulty,
+          tags: q.tags,
+          category: q.category,
+          solved: !!p.solved,
+          starred: !!p.starred,
+          notes: p.notes,
+        })
+      }
     }
 
-    for (const q of set3Questions) {
-      if (!matchesQuestionSearch(q, search)) continue
-      if (difficulty !== 'All' && q.difficulty !== difficulty) continue
-      const p = setProgress3[String(q.id)] || {}
-      if (showStarred && !p.starred) continue
-      if (showSolved === true && !p.solved) continue
-      if (showSolved === false && p.solved) continue
-      out.push({
-        set: 3,
-        id: q.id,
-        title: q.title,
-        slug: q.slug,
-        difficulty: q.difficulty,
-        tags: q.tags,
-        category: q.category,
-        solved: !!p.solved,
-        starred: !!p.starred,
-        notes: p.notes,
-      })
+    if (effectiveSet === 'all' || effectiveSet === 3) {
+      for (const q of set3Questions) {
+        if (difficulty !== 'All' && q.difficulty !== difficulty) continue
+        if (search && !matchesQuestionSearch(q, search)) continue
+        if (activePattern && appPatternNameForSetQuestion(q, 3) !== activePattern) continue
+        const p = setProgress3[String(q.id)] || {}
+        if (showStarred && !p.starred) continue
+        if (showSolved === true && !p.solved) continue
+        if (showSolved === false && p.solved) continue
+        out.push({
+          set: 3,
+          id: q.id,
+          title: q.title,
+          slug: q.slug,
+          difficulty: q.difficulty,
+          tags: q.tags,
+          category: q.category,
+          solved: !!p.solved,
+          starred: !!p.starred,
+          notes: p.notes,
+        })
+      }
     }
 
     return out.sort(
-      (a, b) => (DIFF_ORDER[a.difficulty] ?? 1) - (DIFF_ORDER[b.difficulty] ?? 1) || a.set - b.set || a.id - b.id,
+      (a, b) => a.set - b.set || (DIFF_ORDER[a.difficulty] ?? 1) - (DIFF_ORDER[b.difficulty] ?? 1) || a.id - b.id,
     )
   }, [
-    isSearching,
+    effectiveSet,
     search,
     questions,
     set2Questions,
@@ -1504,15 +1507,13 @@ function HomeInner() {
     DIFF_ORDER,
   ])
 
-  const visibleCount = isSearching ? unifiedResults.length : filtered.length
+  const visibleCount = filteredRows.length
 
   // Reset to page 1 whenever filters change
-  useEffect(() => { setQPage(1) }, [difficulty, source, search, activePattern, showStarred, showSolved])
+  useEffect(() => { setQPage(1) }, [difficulty, source, search, activePattern, showStarred, showSolved, questionSet])
 
   const totalQPages = Math.ceil(visibleCount / PAGE_SIZE)
-  const paginated = isSearching
-    ? unifiedResults.slice((qPage - 1) * PAGE_SIZE, qPage * PAGE_SIZE)
-    : filtered.slice((qPage - 1) * PAGE_SIZE, qPage * PAGE_SIZE)
+  const paginated = filteredRows.slice((qPage - 1) * PAGE_SIZE, qPage * PAGE_SIZE)
 
   const solvedSet1 = useMemo(
     () => countSolvedInQuestions(questions, progress),
@@ -1601,14 +1602,19 @@ function HomeInner() {
       {/* Question Set Switcher — hidden while searching all sets */}
       {!isSearching && (
       <div className="flex items-center gap-1 mb-3 overflow-x-auto scrollbar-none pb-1">
-        {([1, 2, 3] as const).map(s => (
-          <button key={s} onClick={() => setQuestionSet(s)}
+        {(['all', 1, 2, 3] as const).map(s => (
+          <button key={String(s)} onClick={() => setQuestionSet(s)}
             className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors border whitespace-nowrap shrink-0 ${
               questionSet === s
                 ? 'bg-indigo-600 text-white border-indigo-600 shadow-[0_0_8px_rgba(99,102,241,0.3)]'
                 : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:brightness-110'
             }`}>
-            {s === 1 ? (
+            {s === 'all' ? (
+              <>
+                <span className="sm:hidden">All ({appTotalQuestions})</span>
+                <span className="hidden sm:inline">All sets ({appTotalQuestions})</span>
+              </>
+            ) : s === 1 ? (
               <>
                 <span className="sm:hidden">Set 1 ({questions.length})</span>
                 <span className="hidden sm:inline">Questions Set 1 ({questions.length})</span>
@@ -1635,16 +1641,7 @@ function HomeInner() {
         </p>
       )}
 
-      {!isSearching && questionSet !== 1 && (
-        <SetExternalQuestions
-          set={questionSet as 2 | 3}
-          questions={questionSet === 2 ? set2Questions : set3Questions}
-          progress={questionSet === 2 ? setProgress2 : setProgress3}
-          onProgressChange={questionSet === 2 ? setSetProgress2 : setSetProgress3}
-        />
-      )}
-
-      {(questionSet === 1 || isSearching) && <div>
+      <div>
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 mb-6 shadow-lg">
         <div className="flex flex-wrap gap-1">
           {DIFFICULTIES.map(d => (
@@ -1723,79 +1720,68 @@ function HomeInner() {
 
       {loading ? (
         <div className="text-center py-20 text-[var(--text-subtle)] text-sm animate-pulse">Loading questions...</div>
-      ) : isSearching ? (
+      ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {paginated.map(q => {
-            const row = q as UnifiedSearchRow
+          {paginated.map((row, idx) => {
+            const pageStart = (qPage - 1) * PAGE_SIZE
+            const globalIdx = pageStart + idx
+            const prevRow = globalIdx > 0 ? filteredRows[globalIdx - 1] : null
+            const showSetHeader = !prevRow || prevRow.set !== row.set
             const href = row.set === 1
               ? `/practice/${row.id}`
               : learnHrefForSetQuestion(row.id, row.set, set2Questions, set3Questions)
-            const setBadge = row.set === 1
-              ? 'bg-indigo-100 text-indigo-700 border-indigo-200'
-              : row.set === 2
-                ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                : 'bg-purple-100 text-purple-700 border-purple-200'
             return (
-              <Link key={`${row.set}-${row.id}`} href={href}
-                className={`group block rounded-xl border p-4 transition-all duration-150 hover:shadow-xl hover:shadow-indigo-900/20 hover:border-indigo-500/50 ${row.solved ? 'bg-green-50 border-green-300' : 'bg-[var(--bg-card)] border-[var(--border-soft)]'}`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${setBadge}`}>
+              <Fragment key={`${row.set}-${row.id}`}>
+                {showSetHeader && (
+                  <div className={`col-span-full flex items-center gap-2 px-1 py-2 mt-1 first:mt-0 rounded-lg border ${
+                    row.set === 1
+                      ? 'bg-indigo-50/80 border-indigo-200 text-indigo-800'
+                      : row.set === 2
+                        ? 'bg-emerald-50/80 border-emerald-200 text-emerald-800'
+                        : 'bg-purple-50/80 border-purple-200 text-purple-800'
+                  }`}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${SET_BADGE_CLASS[row.set]}`}>
                       Set {row.set}
                     </span>
-                    <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{row.id}</span>
-                    <h3 className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-400 transition-colors">{row.title}</h3>
+                    <span className="text-xs font-bold">{SET_LABELS[row.set]}</span>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {row.starred && <Star size={14} className="text-yellow-400 fill-yellow-400" />}
-                    {row.solved && <CheckCircle size={14} className="text-green-400" />}
+                )}
+                <Link href={href}
+                  className={`group block rounded-xl border p-4 transition-all duration-150 hover:shadow-xl hover:shadow-indigo-900/20 hover:border-indigo-500/50 ${SET_CARD_CLASS[row.set]} ${row.solved ? 'bg-green-50 border-green-300' : 'bg-[var(--bg-card)] border-[var(--border-soft)]'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {(effectiveSet === 'all' || isSearching) && (
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${SET_BADGE_CLASS[row.set]}`}>
+                          Set {row.set}
+                        </span>
+                      )}
+                      <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{row.id}</span>
+                      <h3 className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-400 transition-colors">{row.title}</h3>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {row.starred && <Star size={14} className="text-yellow-400 fill-yellow-400" />}
+                      {row.solved && <CheckCircle size={14} className="text-green-400" />}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <DifficultyBadge difficulty={row.difficulty} />
-                  {(row.tags || []).slice(0, 2).map(tag => (
-                    <span key={tag} className="text-xs bg-[var(--bg-muted)] text-[var(--text-subtle)] px-2 py-0.5 rounded-full">{tag}</span>
-                  ))}
-                  {row.category && (
-                    <span className="text-xs text-[var(--text-subtle)] truncate">{row.category}</span>
-                  )}
-                </div>
-                {row.notes && <p className="text-xs text-[var(--text-subtle)] mt-2 italic truncate">📝 {row.notes}</p>}
-              </Link>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <DifficultyBadge difficulty={row.difficulty} />
+                    {(row.tags || []).slice(0, row.set === 1 ? 3 : 2).map(tag => (
+                      <span key={tag} className="text-xs bg-[var(--bg-muted)] text-[var(--text-subtle)] px-2 py-0.5 rounded-full">{tag}</span>
+                    ))}
+                    {row.category && (
+                      <span className="text-xs text-[var(--text-subtle)] truncate">{row.category}</span>
+                    )}
+                    {row.python_solution && <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Py ✓</span>}
+                    {row.cpp_solution && <span className="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full">C++ ✓</span>}
+                  </div>
+                  {row.notes && <p className="text-xs text-[var(--text-subtle)] mt-2 italic truncate">📝 {row.notes}</p>}
+                </Link>
+              </Fragment>
             )
           })}
           {paginated.length === 0 && (
-            <p className="col-span-full text-center py-10 text-[var(--text-subtle)] text-sm">No questions match your search.</p>
+            <p className="col-span-full text-center py-10 text-[var(--text-subtle)] text-sm">No questions match your filters.</p>
           )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {paginated.map(q => {
-            const p = progress[String(q.id)] || {}
-            return (
-              <Link key={q.id} href={'/practice/' + q.id} className={'group block rounded-xl border p-4 transition-all duration-150 hover:shadow-xl hover:shadow-indigo-900/20 hover:border-indigo-500/50 ' + (p.solved ? 'bg-green-50  border-green-300 ' : 'bg-[var(--bg-card)] border-[var(--border-soft)]')}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
-                    <h3 className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-400 transition-colors">{q.title}</h3>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {p.starred && <Star size={14} className="text-yellow-400 fill-yellow-400" />}
-                    {p.solved && <CheckCircle size={14} className="text-green-400" />}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <DifficultyBadge difficulty={q.difficulty} />
-                  {(q.tags || []).slice(0, 3).map(tag => (
-                    <span key={tag} className="text-xs bg-[var(--bg-muted)] text-[var(--text-subtle)] px-2 py-0.5 rounded-full">{tag}</span>
-                  ))}
-                  {q.python_solution && <span className="text-xs bg-blue-100  text-blue-600  px-2 py-0.5 rounded-full">Py ✓</span>}
-                  {q.cpp_solution && <span className="text-xs bg-purple-100  text-purple-600  px-2 py-0.5 rounded-full">C++ ✓</span>}
-                </div>
-                {p.notes && <p className="text-xs text-[var(--text-subtle)] mt-2 italic truncate">📝 {p.notes}</p>}
-              </Link>
-            )
-          })}
         </div>
       )}
 
@@ -1819,7 +1805,7 @@ function HomeInner() {
           </button>
         </div>
       )}
-      </div>}
+      </div>
     </div>
   )
 }

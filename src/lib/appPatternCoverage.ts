@@ -123,6 +123,10 @@ function patternSortKey(name: string): [number, number, string] {
   return [displayIdx === -1 ? 999 : displayIdx, priRank, name]
 }
 
+export function appPatternNameForSetQuestion(q: SetQuestion, set: 2 | 3): string | null {
+  return set === 2 ? patternForSet2(q) : patternForSet3(q)
+}
+
 /** Unified pattern stats across Set 1 + exclusive Set 2 + exclusive Set 3 (disjoint union). */
 export function getAppPatternCoverageStats(
   set1Questions: TaggedQuestion[],
