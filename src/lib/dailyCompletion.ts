@@ -75,6 +75,24 @@ export function readDailyRepsLocal(today = todayISOChicago()): Record<string, nu
   }
 }
 
+/** Any localStorage daily-rep day on or after missed schedule with full reps (same device). */
+function catchUpClearedInLocalStorage(id: number, missedDayScheduledISO: string, repsPerQ: number): boolean {
+  if (typeof window === 'undefined') return false
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (!key?.startsWith(DAILY_REPS_PREFIX)) continue
+    const date = key.slice(DAILY_REPS_PREFIX.length)
+    if (date < missedDayScheduledISO) continue
+    try {
+      const map = JSON.parse(localStorage.getItem(key) ?? '{}') as Record<string, number>
+      if ((map[String(id)] ?? 0) >= repsPerQ) return true
+    } catch {
+      /* ignore */
+    }
+  }
+  return false
+}
+
 export function writeDailyRepsLocal(questionId: number, count: number, today = todayISOChicago()) {
   if (typeof window === 'undefined') return
   const map = readDailyRepsLocal(today)
@@ -91,6 +109,33 @@ export function isQuestionDoneForDailyToday(
 ): boolean {
   if (getDailyRepCount(id, progress, today, dailyReps) >= repsPerQ) return true
   return normalizeRepDate(progress[String(id)]?.last_daily_done) === today
+}
+
+/**
+ * Missed-day catch-up: cleared if done for daily today OR daily-completed on any
+ * later calendar date (last_daily_done after that day's scheduled date).
+ */
+export function isCatchUpDailyCleared(
+  id: number,
+  missedDayScheduledISO: string,
+  progress: Record<string, DailyProgressSlice | undefined>,
+  today = todayISOChicago(),
+  dailyReps?: Record<string, number>,
+  repsPerQ = 2,
+): boolean {
+  if (isQuestionDoneForDailyToday(id, progress, today, dailyReps, repsPerQ)) return true
+  const row = progress[String(id)]
+  const lastDone = normalizeRepDate(row?.last_daily_done)
+  if (lastDone && lastDone >= missedDayScheduledISO) {
+    if (lastDone > missedDayScheduledISO) return true
+    const repDate = normalizeRepDate(row?.daily_rep_date)
+    const repCount = row?.daily_rep_count ?? 0
+    if (repDate === lastDone && repCount >= repsPerQ) return true
+  }
+  const repDate = normalizeRepDate(row?.daily_rep_date)
+  const repCount = row?.daily_rep_count ?? 0
+  if (!!repDate && repDate > missedDayScheduledISO && repCount >= repsPerQ) return true
+  return catchUpClearedInLocalStorage(id, missedDayScheduledISO, repsPerQ)
 }
 
 /** Whether a strict-plan day slot is cleared (past days vs today/catch-up). */

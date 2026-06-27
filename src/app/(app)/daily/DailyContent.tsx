@@ -24,6 +24,7 @@ import {
   isActiveDailyBlockComplete,
   isPlanDayComplete,
   isQuestionDoneForDailyToday,
+  isCatchUpDailyCleared,
 } from '@/lib/dailyCompletion'
 import { isDayComplete } from '@/lib/streakGoals'
 import { getSetProgress, type SetQProgress } from '@/lib/setProgress'
@@ -119,7 +120,7 @@ function dayScheduledDate(startDate: string, dayIdx: number): string {
 function dayScheduledISO(startDate: string, dayIdx: number): string {
   const d = new Date(startDate + 'T12:00:00')
   d.setDate(d.getDate() + dayIdx)
-  return d.toISOString().split('T')[0]
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
 }
 
 function calcFinish(startDate: string, perDay: number, total: number) {
@@ -356,8 +357,13 @@ export default function DailyPage() {
 
   const refreshProgress = useCallback(async () => {
     try {
-      const [prog, dailyDoneToday] = await Promise.all([getProgress(), getTodayDailyDoneCount()])
+      const [prog, dailyDoneToday, logData] = await Promise.all([
+        getProgress(),
+        getTodayDailyDoneCount(),
+        getDailyLog(),
+      ])
       if (prog !== null) setProgress(prog)
+      setDailyLog(logData ?? {})
       setTodayDailyDoneCount(dailyDoneToday)
       setBreathers(getActiveBreathers())
       setSet2Progress(getSetProgress(2))
@@ -655,7 +661,7 @@ export default function DailyPage() {
     if (
       plan &&
       !wasDayDoneAsDaily(dayIdx) &&
-      isQuestionDoneForDailyToday(id, progress, todayISO(), dailyReps, repsPerQRef.current)
+      isCatchUpDailyCleared(id, scheduledDate, progress, todayISO(), dailyReps, repsPerQRef.current)
     ) {
       const dayIds = plan.question_order.slice(dayIdx * plan.per_day, (dayIdx + 1) * plan.per_day)
       return dayIds.includes(id)
@@ -689,19 +695,19 @@ export default function DailyPage() {
   }
 
   /**
-   * All questions from missed past days that haven't been done as daily yet today.
-   * These get pushed forward and shown alongside today's questions.
+   * Questions from missed past days not yet cleared via daily (today or prior catch-up).
    */
   const pushedForwardIds = useMemo((): number[] => {
     if (!plan || isRandomMode) return []
     const perDay = plan.per_day
+    const today = todayISO()
     const result: number[] = []
     for (let i = 0; i < calendarDayIndex; i++) {
       if (wasDayDoneAsDaily(i)) continue
       const dayIds = plan.question_order.slice(i * perDay, i * perDay + perDay)
+      const scheduledDate = dayScheduledISO(plan.start_date, i)
       for (const id of dayIds) {
-        // Include if not yet done as daily today
-        if (!isQuestionDoneForDailyToday(id, progress, todayISO(), dailyReps, repsPerQRef.current)) {
+        if (!isCatchUpDailyCleared(id, scheduledDate, progress, today, dailyReps, repsPerQRef.current)) {
           result.push(id)
         }
       }
@@ -1982,7 +1988,7 @@ export default function DailyPage() {
               const expanded = expandedDays[dayIdx]
               const wasMissedOnSchedule = !wasDayDoneAsDaily(dayIdx)
               const catchUpCleared = wasMissedOnSchedule && questionIds.every(id =>
-                isQuestionDoneForDailyToday(id, progress, todayISO(), dailyReps, repsPerQRef.current)
+                isCatchUpDailyCleared(id, dayScheduledISO(plan.start_date, dayIdx), progress, todayISO(), dailyReps, repsPerQRef.current)
               )
               const showMissedBanner = wasMissedOnSchedule && !catchUpCleared
               const fullyDoneAsDaily = !wasMissedOnSchedule || catchUpCleared
