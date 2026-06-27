@@ -93,7 +93,7 @@ export function computeAppQuestionTotals(
 type TaggedRow = { id: number; tags?: string[] }
 
 /** Tags from main bank + scraped extra JSON (Set 2/3 questions often live only in extras). */
-export function buildSetTagMap(mainQuestions: TaggedRow[]): Record<number, string[]> {
+export function buildSetTagMap(mainQuestions: ReadonlyArray<TaggedRow>): Record<number, string[]> {
   const map: Record<number, string[]> = {}
   for (const q of [...mainQuestions, ...ncExtraQuestions, ...am600ExtraQuestions] as TaggedRow[]) {
     if (Array.isArray(q.tags) && q.tags.length > 0) map[q.id] = q.tags
@@ -132,7 +132,7 @@ function rawSet3Questions(mainIds: Set<number>): Omit<SetQuestion, 'tags'>[] {
 /** Attach tags and order by priority tier → difficulty → pattern (same as Learn 1). */
 export function prepareSetQuestions(
   set: 2 | 3,
-  mainQuestions: TaggedRow[],
+  mainQuestions: ReadonlyArray<TaggedRow>,
   tagMap: Record<number, string[]> = buildSetTagMap(mainQuestions),
 ): SetQuestion[] {
   const mainIds = new Set(mainQuestions.map(q => q.id))
@@ -146,14 +146,14 @@ export function prepareSetQuestions(
   return order.map(id => byId[id]).filter(Boolean)
 }
 
-export function getSet2Questions(mainIds: Set<number>, mainQuestions?: TaggedRow[]): SetQuestion[] {
+export function getSet2Questions(mainIds: Set<number>, mainQuestions?: ReadonlyArray<TaggedRow>): SetQuestion[] {
   const main = mainQuestions?.length
     ? mainQuestions
     : Array.from(mainIds).map(id => ({ id }))
   return prepareSetQuestions(2, main)
 }
 
-export function getSet3Questions(mainIds: Set<number>, mainQuestions?: TaggedRow[]): SetQuestion[] {
+export function getSet3Questions(mainIds: Set<number>, mainQuestions?: ReadonlyArray<TaggedRow>): SetQuestion[] {
   const main = mainQuestions?.length
     ? mainQuestions
     : Array.from(mainIds).map(id => ({ id }))
