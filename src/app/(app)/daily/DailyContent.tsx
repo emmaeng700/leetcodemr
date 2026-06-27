@@ -1420,7 +1420,7 @@ export default function DailyPage() {
       {extensionSet !== null && (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-4">
           <div className="flex justify-between text-xs font-semibold text-[var(--text-muted)] mb-2">
-            <span>Set {extensionSet} · {extensionSet === 2 ? 'NeetCode 150' : 'AlgoMaster 600'}</span>
+            <span>Set {extensionSet} · {extensionSet === 2 ? 'NeetCode 250' : 'AlgoMaster 600'}</span>
             <span className={extensionSet === 2 ? 'text-emerald-600' : 'text-purple-600'}>
               {extSolvedCount}/{extTotalCount} solved
             </span>
@@ -1733,7 +1733,7 @@ export default function DailyPage() {
                 {/* Set 2 reviews */}
                 {set2DueReviews.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1.5">Set 2 · NeetCode 150</p>
+                    <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1.5">Set 2 · NeetCode 250</p>
                     <div className="flex flex-wrap gap-2">
                       <Link href="/learn2"
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs font-semibold text-emerald-700 hover:border-emerald-400 hover:shadow-sm transition-all">

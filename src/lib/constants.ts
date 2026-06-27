@@ -98,7 +98,7 @@ export const PATTERN_PRIORITY: Record<string, PatternPriority> = {
   'Math':                'Low',
   'JavaScript':          'Low',
 
-  // ── NeetCode 150 category names ───────────────────────────────────────────
+  // ── NeetCode 250 category names ───────────────────────────────────────────
   // High
   'Trees':                        'High',
   'Advanced Graphs':              'High',

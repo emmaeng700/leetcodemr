@@ -464,7 +464,7 @@ function CyclesInner() {
 
 const SET_TABS = [
   { key: '1', label: 'Set 1 (331)' },
-  { key: '2', label: 'Set 2 (NC150)' },
+  { key: '2', label: 'Set 2 (NC250)' },
   { key: '3', label: 'Set 3 (AM600)' },
 ]
 

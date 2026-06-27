@@ -6,7 +6,7 @@ import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { formatTime, stripScripts, leetCodeUrl } from '@/lib/utils'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import MobileSplitPanelTabs, { type MobileSplitPanel } from '@/components/MobileSplitPanelTabs'
-import { NEETCODE_150 } from '@/lib/neetcode150'
+import { NEETCODE_250 } from '@/lib/neetcode250'
 
 import { supabase, USER_ID } from '@/lib/supabase'
 
@@ -23,7 +23,7 @@ export default function NeetCodeQuestionPage() {
   const router = useRouter()
   const slug = String(params.slug)
 
-  const q = NEETCODE_150.flatMap(c => c.questions).find(x => x.slug === slug) ?? null
+  const q = NEETCODE_250.flatMap(c => c.questions).find(x => x.slug === slug) ?? null
 
   const [content, setContent] = useState<string | null>(null)
   const [tags, setTags] = useState<string[]>([])

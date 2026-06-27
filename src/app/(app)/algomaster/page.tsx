@@ -146,7 +146,7 @@ export default function AlgoMaster600Page() {
             {learn3ExclusiveCount > 0 && (
               <QuestionCountHighlight
                 value={learn3ExclusiveCount}
-                label="exclusive · Learn 3 pool (not in Set 1 or NC150)"
+                label="exclusive · Learn 3 pool (not in Set 1 or NC250)"
                 variant="exclusive"
               />
             )}

@@ -354,7 +354,7 @@ function PatternsSetTabBar({ set, setSet }: { set: 1|2|3; setSet: (s: 1|2|3) => 
           className={`px-4 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors shrink-0 ${
             set === s ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text)]'
           }`}>
-          {s === 1 ? 'Set 1 (331)' : s === 2 ? 'Set 2 (NC150)' : 'Set 3 (AM600)'}
+          {s === 1 ? 'Set 1 (331)' : s === 2 ? 'Set 2 (NC250)' : 'Set 3 (AM600)'}
         </button>
       ))}
     </div>
@@ -403,7 +403,7 @@ function setQuestionToPatternQuestion(q: SetQuestion): Question {
 }
 
 const SET_META: Record<2 | 3, { label: string; solutionBase: string; solutionLabel: string }> = {
-  2: { label: 'NeetCode 150', solutionBase: '/neetcode', solutionLabel: 'NeetCode' },
+  2: { label: 'NeetCode 250', solutionBase: '/neetcode', solutionLabel: 'NeetCode' },
   3: { label: 'AlgoMaster 600', solutionBase: '/algomaster', solutionLabel: 'AlgoMaster' },
 }
 

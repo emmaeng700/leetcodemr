@@ -57,8 +57,8 @@ const FEATURES = [
   {
     icon: Star,
     color: 'text-yellow-400',
-    label: 'NeetCode 150',
-    desc: 'Track progress through the NeetCode 150 problem set. Questions grouped by category with colour-coded progress bars. Filter by difficulty (Easy / Medium / Hard / Not in 331) or search by title. Questions in the 331 library open in the Practice editor; others open the dedicated NeetCode solution page. Solved status syncs from your main progress.',
+    label: 'NeetCode 250',
+    desc: 'Track progress through the NeetCode 250 problem set. Questions grouped by category with colour-coded progress bars. Filter by difficulty (Easy / Medium / Hard / Not in 331) or search by title. Questions in the 331 library open in the Practice editor; others open the dedicated NeetCode solution page. Solved status syncs from your main progress.',
   },
   {
     icon: BookMarked,

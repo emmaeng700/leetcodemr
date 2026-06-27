@@ -1085,7 +1085,7 @@ export default function SetLearnContent({ set, index }: Props) {
             variant="exclusive"
           />
           <span className="text-[11px] text-gray-500">
-            Learn {set} · {set === 2 ? 'from NeetCode 150' : 'from AlgoMaster 600'}
+            Learn {set} · {set === 2 ? 'from NeetCode 250' : 'from AlgoMaster 600'}
           </span>
         </div>
       )}

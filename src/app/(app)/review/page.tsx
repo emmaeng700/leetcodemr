@@ -13,7 +13,7 @@ const BestSolutionsContent = dynamic(() => import('@/components/BestSolutionsCon
 
 function MyBestWithSets() {
   const [set, setSet] = useState<1 | 2 | 3>(1)
-  const LABELS: Record<number, string> = { 1: 'Set 1 · 331 Qs', 2: 'Set 2 · NC150', 3: 'Set 3 · AM600' }
+  const LABELS: Record<number, string> = { 1: 'Set 1 · 331 Qs', 2: 'Set 2 · NC250', 3: 'Set 3 · AM600' }
   return (
     <div className="flex flex-col min-h-0 h-full">
       <div className="flex gap-1.5 px-4 pt-3 pb-1 shrink-0 border-b border-[var(--border)]">

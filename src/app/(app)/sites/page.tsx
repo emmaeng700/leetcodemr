@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Rocket, Zap, Library, Brain } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import {
-  NC150_TOTAL, NC250_TOTAL, AM600_TOTAL,
+  NC250_TOTAL, AM600_TOTAL,
   countNc250NotInSet1, countAm600NotInSet1,
   getSet2Questions, getSet3Questions, totalAppQuestionCount,
 } from '@/lib/questionSets'

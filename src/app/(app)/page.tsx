@@ -6,6 +6,7 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Star, CheckCircle2, Circle, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp, RotateCcw } from 'lucide-react'
 import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { getAppPatternCoverageStats, type AppPatternStat } from '@/lib/appPatternCoverage'
 
 const ORDERED_QUICK_PATTERNS = QUICK_PATTERNS
   .slice()
@@ -28,6 +29,9 @@ import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import { QuestionCountHighlight, SetExclusiveCountLabel } from '@/components/QuestionCountHighlight'
 import { totalAppQuestionCount } from '@/lib/questionSets'
+import { countSolvedInQuestions, getSetProgress } from '@/lib/setProgress'
+import { learnHrefForSetQuestion } from '@/lib/dailyExtension'
+import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
 import toast from 'react-hot-toast'
 import { addToRebootQueue, getRebootQueue, removeFromRebootQueue } from '@/lib/rebootQueue'
 import { todayISOChicago } from '@/lib/studyPlanDay'
@@ -249,16 +253,39 @@ function StreakCard({
   )
 }
 
-function PatternCoverageGrid({ questions, progress }: { questions: Question[]; progress: Record<string, ProgressData> }) {
+function PatternCoverageGrid({
+  set1Questions,
+  set2Questions,
+  set3Questions,
+  set1Progress,
+  set2Progress,
+  set3Progress,
+}: {
+  set1Questions: Question[]
+  set2Questions: import('@/lib/questionSets').SetQuestion[]
+  set3Questions: import('@/lib/questionSets').SetQuestion[]
+  set1Progress: Record<string, ProgressData>
+  set2Progress: Record<string, import('@/lib/setProgress').SetQProgress>
+  set3Progress: Record<string, import('@/lib/setProgress').SetQProgress>
+}) {
   const [collapsed, setCollapsed] = useState(false)
 
-  const exclusiveMap = useMemo(() => buildExclusivePatternMap(questions), [questions])
-  const patternStats = useMemo(() => ORDERED_QUICK_PATTERNS.map(p => {
-    const qs = questions.filter(q => exclusiveMap[q.id] === p.name)
-    const solved = qs.filter(q => progress[String(q.id)]?.solved).length
-    const pct = qs.length ? Math.round((solved / qs.length) * 100) : 0
-    return { name: p.name, tags: p.tags, total: qs.length, solved, pct }
-  }).filter(p => p.total > 0), [questions, progress, exclusiveMap])
+  const patternStats = useMemo(
+    () => getAppPatternCoverageStats(
+      set1Questions,
+      set2Questions,
+      set3Questions,
+      set1Progress,
+      set2Progress,
+      set3Progress,
+    ),
+    [set1Questions, set2Questions, set3Questions, set1Progress, set2Progress, set3Progress],
+  )
+
+  const learnHref = (p: AppPatternStat) =>
+    QUICK_PATTERNS.some(q => q.name === p.name)
+      ? `/learn/0?tags=${(p.tags as readonly string[]).join(',')}`
+      : '/patterns'
 
   const weakest = [...patternStats].filter(p => p.total >= 3).sort((a, b) => a.pct - b.pct)[0]
   const overallSolved = patternStats.reduce((s, p) => s + p.solved, 0)
@@ -298,7 +325,7 @@ function PatternCoverageGrid({ questions, progress }: { questions: Question[]; p
                   <p className="text-xs font-bold text-green-700 ">{almostDone.name} is almost conquered!</p>
                   <p className="text-xs text-green-600 ">Just {almostDone.total - almostDone.solved} more question{almostDone.total - almostDone.solved !== 1 ? 's' : ''} — finish it off, these will feel like a breeze 🔥</p>
                 </div>
-                <Link href={`/learn/0?tags=${(almostDone.tags as readonly string[]).join(',')}`}
+                <Link href={learnHref(almostDone)}
                   className="text-xs font-semibold text-green-700  bg-green-100  border border-green-300  px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
                   Finish →
                 </Link>
@@ -311,7 +338,7 @@ function PatternCoverageGrid({ questions, progress }: { questions: Question[]; p
                   <p className="text-xs font-bold text-indigo-700 ">You&apos;re crushing {crushing.name}!</p>
                   <p className="text-xs text-indigo-600 ">{crushing.pct}% done — these questions will feel like a breeze. Try a harder one 💪</p>
                 </div>
-                <Link href={`/learn/0?tags=${(crushing.tags as readonly string[]).join(',')}`}
+                <Link href={learnHref(crushing)}
                   className="text-xs font-semibold text-indigo-700  bg-indigo-100  border border-indigo-300  px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
                   Keep going →
                 </Link>
@@ -324,7 +351,7 @@ function PatternCoverageGrid({ questions, progress }: { questions: Question[]; p
                   <p className="text-xs font-bold text-violet-700 ">Try a never-seen topic: {untouched[0].name}</p>
                   <p className="text-xs text-violet-600 ">{untouched.length} pattern{untouched.length !== 1 ? 's' : ''} untouched — explore something new today!</p>
                 </div>
-                <Link href={`/learn/0?tags=${(untouched[0].tags as readonly string[]).join(',')}`}
+                <Link href={learnHref(untouched[0])}
                   className="text-xs font-semibold text-violet-700  bg-violet-100  border border-violet-300  px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
                   Explore →
                 </Link>
@@ -340,7 +367,7 @@ function PatternCoverageGrid({ questions, progress }: { questions: Question[]; p
                   </div>
                 </div>
                 <Link
-                  href={`/learn/0?tags=${(weakest.tags as readonly string[]).join(',')}`}
+                  href={learnHref(weakest)}
                   className="text-xs font-semibold text-amber-700  bg-amber-100  border border-amber-300  px-3 py-1.5 rounded-full hover:bg-amber-200  transition-colors shrink-0 whitespace-nowrap"
                 >
                   Study now →
@@ -357,7 +384,7 @@ function PatternCoverageGrid({ questions, progress }: { questions: Question[]; p
               return (
                 <Link
                   key={p.name}
-                  href={`/learn/0?tags=${(p.tags as readonly string[]).join(',')}`}
+                  href={learnHref(p)}
                   className={`flex flex-col gap-1 px-3 py-2 rounded-lg border transition-all hover:border-indigo-400/60 hover:bg-[var(--bg-muted)] ${
                     isWeakest
                       ? 'border-amber-300  bg-amber-50/50 '
@@ -1118,10 +1145,7 @@ function SetExternalQuestions({
   const filtered = useMemo(() => questions.filter(q => {
     if (difficulty !== 'All' && q.difficulty !== difficulty) return false
     if (activePattern && exclusiveMap[q.id] !== activePattern) return false
-    if (search) {
-      const s = search.toLowerCase()
-      if (!q.title.toLowerCase().includes(s) && !String(q.id).includes(s.replace(/^#/, ''))) return false
-    }
+    if (search && !matchesQuestionSearch(q, search)) return false
     const p = progress[String(q.id)] || {}
     if (showStarred && !p.starred) return false
     if (showSolved === true && !p.solved) return false
@@ -1130,7 +1154,7 @@ function SetExternalQuestions({
   }), [questions, difficulty, activePattern, exclusiveMap, search, showStarred, showSolved, progress])
 
   const studyQs = buildSetStudyParams(difficulty, search, showStarred, showSolved, activePattern)
-  const solved = Object.values(progress).filter(p => p.solved).length
+  const solvedInSet = countSolvedInQuestions(questions, progress)
 
   return (
     <div className="mb-6">
@@ -1141,10 +1165,10 @@ function SetExternalQuestions({
           variant="exclusive"
         />
         <CheckCircle size={15} className="text-green-400 shrink-0" />
-        <span className="text-sm font-bold text-[var(--text)]">{solved}/{questions.length} solved</span>
+        <span className="text-sm font-bold text-[var(--text)]">{solvedInSet}/{questions.length} solved</span>
         <div className="flex-1 min-w-[120px] h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
           <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all"
-            style={{ width: `${questions.length ? Math.round((solved / questions.length) * 100) : 0}%` }} />
+            style={{ width: `${questions.length ? Math.round((solvedInSet / questions.length) * 100) : 0}%` }} />
         </div>
       </div>
 
@@ -1311,7 +1335,6 @@ function HomeInner() {
       if (prog !== null) setProgress(prog)
       // Compute Set 2/3 question lists
       const { getSet2Questions, getSet3Questions } = await import('@/lib/questionSets')
-      const { getSetProgress } = await import('@/lib/setProgress')
       const mainIds = new Set((qs as { id: number }[]).map(q => q.id))
       setSet2Questions(getSet2Questions(mainIds, qs))
       setSet3Questions(getSet3Questions(mainIds, qs))
@@ -1329,6 +1352,8 @@ function HomeInner() {
     prevPathRef.current = pathname
     if (pathname === '/' && prev !== null && prev !== '/') {
       getProgress().then(prog => { if (prog) setProgress(prog) }).catch(() => {})
+      setSetProgress2(getSetProgress(2))
+      setSetProgress3(getSetProgress(3))
     }
   }, [pathname])
 
@@ -1336,6 +1361,8 @@ function HomeInner() {
     const onVisible = () => {
       if (document.visibilityState !== 'visible' || pathname !== '/') return
       getProgress().then(prog => { if (prog) setProgress(prog) }).catch(() => {})
+      setSetProgress2(getSetProgress(2))
+      setSetProgress3(getSetProgress(3))
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
@@ -1349,11 +1376,7 @@ function HomeInner() {
   const filtered = useMemo(() => questions.filter(q => {
     if (difficulty !== 'All' && q.difficulty !== difficulty) return false
     if (source !== 'All' && !(q.source || []).includes(source)) return false
-    if (search) {
-      const s = search.toLowerCase()
-      const byId = s.replace(/^#/, '')
-      if (!q.title.toLowerCase().includes(s) && !String(q.id).includes(byId)) return false
-    }
+    if (search && !matchesQuestionSearch(q, search)) return false
     if (activePattern && exclusiveMapHome[q.id] !== activePattern) return false
     const p = progress[String(q.id)] || {}
     if (showStarred && !p.starred) return false
@@ -1373,18 +1396,143 @@ function HomeInner() {
     DIFF_ORDER,
   ])
 
+  const isSearching = !!search.trim()
+
+  type UnifiedSearchRow = {
+    set: 1 | 2 | 3
+    id: number
+    title: string
+    slug: string
+    difficulty: string
+    tags?: string[]
+    category?: string
+    python_solution?: string
+    cpp_solution?: string
+    solved: boolean
+    starred: boolean
+    notes?: string
+  }
+
+  const unifiedResults = useMemo((): UnifiedSearchRow[] => {
+    if (!isSearching) return []
+    const out: UnifiedSearchRow[] = []
+
+    for (const q of questions) {
+      if (!matchesQuestionSearch(q, search)) continue
+      if (difficulty !== 'All' && q.difficulty !== difficulty) continue
+      if (source !== 'All' && !(q.source || []).includes(source)) continue
+      if (activePattern && exclusiveMapHome[q.id] !== activePattern) continue
+      const p = progress[String(q.id)] || {}
+      if (showStarred && !p.starred) continue
+      if (showSolved === true && !p.solved) continue
+      if (showSolved === false && p.solved) continue
+      out.push({
+        set: 1,
+        id: q.id,
+        title: q.title,
+        slug: q.slug,
+        difficulty: q.difficulty,
+        tags: q.tags,
+        python_solution: q.python_solution,
+        cpp_solution: q.cpp_solution,
+        solved: !!p.solved,
+        starred: !!p.starred,
+        notes: p.notes,
+      })
+    }
+
+    for (const q of set2Questions) {
+      if (!matchesQuestionSearch(q, search)) continue
+      if (difficulty !== 'All' && q.difficulty !== difficulty) continue
+      const p = setProgress2[String(q.id)] || {}
+      if (showStarred && !p.starred) continue
+      if (showSolved === true && !p.solved) continue
+      if (showSolved === false && p.solved) continue
+      out.push({
+        set: 2,
+        id: q.id,
+        title: q.title,
+        slug: q.slug,
+        difficulty: q.difficulty,
+        tags: q.tags,
+        category: q.category,
+        solved: !!p.solved,
+        starred: !!p.starred,
+        notes: p.notes,
+      })
+    }
+
+    for (const q of set3Questions) {
+      if (!matchesQuestionSearch(q, search)) continue
+      if (difficulty !== 'All' && q.difficulty !== difficulty) continue
+      const p = setProgress3[String(q.id)] || {}
+      if (showStarred && !p.starred) continue
+      if (showSolved === true && !p.solved) continue
+      if (showSolved === false && p.solved) continue
+      out.push({
+        set: 3,
+        id: q.id,
+        title: q.title,
+        slug: q.slug,
+        difficulty: q.difficulty,
+        tags: q.tags,
+        category: q.category,
+        solved: !!p.solved,
+        starred: !!p.starred,
+        notes: p.notes,
+      })
+    }
+
+    return out.sort(
+      (a, b) => (DIFF_ORDER[a.difficulty] ?? 1) - (DIFF_ORDER[b.difficulty] ?? 1) || a.set - b.set || a.id - b.id,
+    )
+  }, [
+    isSearching,
+    search,
+    questions,
+    set2Questions,
+    set3Questions,
+    difficulty,
+    source,
+    activePattern,
+    exclusiveMapHome,
+    progress,
+    setProgress2,
+    setProgress3,
+    showStarred,
+    showSolved,
+    DIFF_ORDER,
+  ])
+
+  const visibleCount = isSearching ? unifiedResults.length : filtered.length
+
   // Reset to page 1 whenever filters change
   useEffect(() => { setQPage(1) }, [difficulty, source, search, activePattern, showStarred, showSolved])
 
-  const totalQPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice((qPage - 1) * PAGE_SIZE, qPage * PAGE_SIZE)
+  const totalQPages = Math.ceil(visibleCount / PAGE_SIZE)
+  const paginated = isSearching
+    ? unifiedResults.slice((qPage - 1) * PAGE_SIZE, qPage * PAGE_SIZE)
+    : filtered.slice((qPage - 1) * PAGE_SIZE, qPage * PAGE_SIZE)
 
-  const solved = Object.values(progress).filter(p => p.solved).length
+  const solvedSet1 = useMemo(
+    () => countSolvedInQuestions(questions, progress),
+    [questions, progress],
+  )
+  const solvedSet2 = useMemo(
+    () => countSolvedInQuestions(set2Questions, setProgress2),
+    [set2Questions, setProgress2],
+  )
+  const solvedSet3 = useMemo(
+    () => countSolvedInQuestions(set3Questions, setProgress3),
+    [set3Questions, setProgress3],
+  )
   const appTotalQuestions = totalAppQuestionCount(
     questions.length,
     set2Questions.length,
     set3Questions.length,
   )
+  const totalSolved = solvedSet1 + solvedSet2 + solvedSet3
+  const totalPct = appTotalQuestions ? Math.round((totalSolved / appTotalQuestions) * 100) : 0
 
   async function toggleSolved(e: React.MouseEvent, q: Question) {
     e.preventDefault()
@@ -1417,24 +1565,41 @@ function HomeInner() {
           </span>
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-3 mb-5 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg px-4 sm:px-5 py-3">
-        <div className="flex items-center gap-2 shrink-0">
-          <CheckCircle size={16} className="text-green-400" />
-          <span className="text-sm font-bold text-[var(--text)]">{solved} / {questions.length} solved</span>
+      <div className="flex flex-col gap-2 mb-5 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg px-4 sm:px-5 py-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 shrink-0">
+            <CheckCircle size={16} className="text-green-400" />
+            <span className="text-sm font-bold text-[var(--text)]">{totalSolved} / {appTotalQuestions} solved</span>
+          </div>
+          <div className="flex-1 min-w-[120px] h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
+              style={{ width: `${totalPct}%` }} />
+          </div>
+          <span className="text-sm font-semibold text-indigo-400">{totalPct}%</span>
         </div>
-        <div className="flex-1 min-w-[120px] h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
-            style={{ width: (questions.length ? Math.round((solved / questions.length) * 100) : 0) + '%' }} />
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-subtle)]">
+          <span>Set 1: <span className="font-semibold text-[var(--text-muted)]">{solvedSet1}/{questions.length}</span></span>
+          <span>Set 2: <span className="font-semibold text-[var(--text-muted)]">{solvedSet2}/{set2Questions.length}</span></span>
+          <span>Set 3: <span className="font-semibold text-[var(--text-muted)]">{solvedSet3}/{set3Questions.length}</span></span>
         </div>
-        <span className="text-sm font-semibold text-indigo-400">{questions.length ? Math.round((solved / questions.length) * 100) : 0}%</span>
       </div>
 
       {!loading && <InterviewCountdownWidget questions={questions} progress={progress} />}
       {!loading && <TodayPlanCard questions={questions} progress={progress} />}
       <DueReviewBanner />
-      {!loading && <PatternCoverageGrid questions={questions} progress={progress} />}
+      {!loading && (
+        <PatternCoverageGrid
+          set1Questions={questions}
+          set2Questions={set2Questions}
+          set3Questions={set3Questions}
+          set1Progress={progress}
+          set2Progress={setProgress2}
+          set3Progress={setProgress3}
+        />
+      )}
 
-      {/* Question Set Switcher */}
+      {/* Question Set Switcher — hidden while searching all sets */}
+      {!isSearching && (
       <div className="flex items-center gap-1 mb-3 overflow-x-auto scrollbar-none pb-1">
         {([1, 2, 3] as const).map(s => (
           <button key={s} onClick={() => setQuestionSet(s)}
@@ -1462,9 +1627,15 @@ function HomeInner() {
           </button>
         ))}
       </div>
+      )}
 
-      {/* Set 2 question list */}
-      {questionSet !== 1 && (
+      {isSearching && (
+        <p className="text-xs text-indigo-500 font-semibold mb-3">
+          Search results across Set 1, Set 2, and Set 3 · {visibleCount} match{visibleCount !== 1 ? 'es' : ''}
+        </p>
+      )}
+
+      {!isSearching && questionSet !== 1 && (
         <SetExternalQuestions
           set={questionSet as 2 | 3}
           questions={questionSet === 2 ? set2Questions : set3Questions}
@@ -1473,7 +1644,7 @@ function HomeInner() {
         />
       )}
 
-      {questionSet === 1 && <div>
+      {(questionSet === 1 || isSearching) && <div>
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 mb-6 shadow-lg">
         <div className="flex flex-wrap gap-1">
           {DIFFICULTIES.map(d => (
@@ -1524,7 +1695,7 @@ function HomeInner() {
         </div>
 
         <div className="flex items-center justify-between mt-2">
-          <span className="text-xs text-[var(--text-subtle)]">{filtered.length} questions{activePattern ? ` · ${activePattern}` : ''}</span>
+          <span className="text-xs text-[var(--text-subtle)]">{visibleCount} questions{activePattern ? ` · ${activePattern}` : ''}{isSearching ? ' · all sets' : ''}</span>
           {(activePattern || difficulty !== 'All' || source !== 'All' || showStarred || showSolved !== null || search) && (
             <button
               onClick={() => {
@@ -1540,7 +1711,7 @@ function HomeInner() {
         </div>
 
         <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[var(--border)]">
-          <span className="text-xs text-[var(--text-subtle)] self-center">Study {filtered.length} as:</span>
+          <span className="text-xs text-[var(--text-subtle)] self-center">Study {visibleCount} as:</span>
           <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePattern ? ([...(QUICK_PATTERNS.find(p => p.name === activePattern)?.tags ?? [])]) : [])}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50  text-indigo-600  border border-indigo-200  hover:bg-indigo-100  transition-colors">
             <Layers size={12} /> Flashcards
           </Link>
@@ -1552,17 +1723,55 @@ function HomeInner() {
 
       {loading ? (
         <div className="text-center py-20 text-[var(--text-subtle)] text-sm animate-pulse">Loading questions...</div>
+      ) : isSearching ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {paginated.map(q => {
+            const row = q as UnifiedSearchRow
+            const href = row.set === 1
+              ? `/practice/${row.id}`
+              : learnHrefForSetQuestion(row.id, row.set, set2Questions, set3Questions)
+            const setBadge = row.set === 1
+              ? 'bg-indigo-100 text-indigo-700 border-indigo-200'
+              : row.set === 2
+                ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                : 'bg-purple-100 text-purple-700 border-purple-200'
+            return (
+              <Link key={`${row.set}-${row.id}`} href={href}
+                className={`group block rounded-xl border p-4 transition-all duration-150 hover:shadow-xl hover:shadow-indigo-900/20 hover:border-indigo-500/50 ${row.solved ? 'bg-green-50 border-green-300' : 'bg-[var(--bg-card)] border-[var(--border-soft)]'}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${setBadge}`}>
+                      Set {row.set}
+                    </span>
+                    <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{row.id}</span>
+                    <h3 className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-400 transition-colors">{row.title}</h3>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {row.starred && <Star size={14} className="text-yellow-400 fill-yellow-400" />}
+                    {row.solved && <CheckCircle size={14} className="text-green-400" />}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <DifficultyBadge difficulty={row.difficulty} />
+                  {(row.tags || []).slice(0, 2).map(tag => (
+                    <span key={tag} className="text-xs bg-[var(--bg-muted)] text-[var(--text-subtle)] px-2 py-0.5 rounded-full">{tag}</span>
+                  ))}
+                  {row.category && (
+                    <span className="text-xs text-[var(--text-subtle)] truncate">{row.category}</span>
+                  )}
+                </div>
+                {row.notes && <p className="text-xs text-[var(--text-subtle)] mt-2 italic truncate">📝 {row.notes}</p>}
+              </Link>
+            )
+          })}
+          {paginated.length === 0 && (
+            <p className="col-span-full text-center py-10 text-[var(--text-subtle)] text-sm">No questions match your search.</p>
+          )}
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {paginated.map(q => {
             const p = progress[String(q.id)] || {}
-            const isDue = (nextReview: string | null | undefined) => {
-              if (!nextReview) return false
-              const [y, m, d] = nextReview.split('-').map(Number)
-              const rev = new Date(y, m - 1, d)
-              const today = new Date(); today.setHours(0, 0, 0, 0)
-              return rev <= today
-            }
             return (
               <Link key={q.id} href={'/practice/' + q.id} className={'group block rounded-xl border p-4 transition-all duration-150 hover:shadow-xl hover:shadow-indigo-900/20 hover:border-indigo-500/50 ' + (p.solved ? 'bg-green-50  border-green-300 ' : 'bg-[var(--bg-card)] border-[var(--border-soft)]')}>
                 <div className="flex items-start justify-between gap-2">
@@ -1600,7 +1809,7 @@ function HomeInner() {
             ← Prev
           </button>
           <span className="text-xs text-[var(--text-subtle)] font-mono">
-            {(qPage - 1) * PAGE_SIZE + 1}–{Math.min(qPage * PAGE_SIZE, filtered.length)} of {filtered.length}
+            {(qPage - 1) * PAGE_SIZE + 1}–{Math.min(qPage * PAGE_SIZE, visibleCount)} of {visibleCount}
           </span>
           <button
             onClick={() => setQPage(p => Math.min(totalQPages, p + 1))}

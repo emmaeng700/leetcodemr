@@ -140,7 +140,7 @@ export default function NeetCode250Page() {
               className="!text-gray-200 !border-gray-600" />
           </div>
           <p className="text-xs text-gray-500 mb-2">
-            NeetCode 150 + 100 extra — the most beginner-friendly curated list. Track your progress below.
+            NeetCode 250 — curated list with 100 extra beyond the classic 150. Track your progress below.
           </p>
           {notInSetsCount > 0 && (
             <QuestionCountHighlight

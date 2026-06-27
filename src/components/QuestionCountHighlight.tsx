@@ -36,5 +36,5 @@ export function SetExclusiveCountLabel(set: 2 | 3, count: number): { value: numb
   if (set === 2) {
     return { value: count, label: 'exclusive - not in Set 1 (331)' }
   }
-  return { value: count, label: 'exclusive - not in Set 1 or NC150' }
+  return { value: count, label: 'exclusive - not in Set 1 or NC250' }
 }

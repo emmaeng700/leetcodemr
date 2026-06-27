@@ -7,6 +7,14 @@ export interface SetQProgress {
   notes: string
 }
 
+/** Count solved among a specific question list (not all keys in progress). */
+export function countSolvedInQuestions(
+  questions: ReadonlyArray<{ id: number }>,
+  progress: Record<string, { solved?: boolean } | undefined>,
+): number {
+  return questions.reduce((n, q) => n + (progress[String(q.id)]?.solved ? 1 : 0), 0)
+}
+
 export interface SetSavedCycle {
   id: string
   name: string
