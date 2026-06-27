@@ -9,6 +9,7 @@ import PriorityBadge from '@/components/PriorityBadge'
 import { getPatternForQuestion } from '@/lib/patternUtils'
 import { PATTERN_PRIORITY } from '@/lib/constants'
 import { getSrScheduleWindow } from '@/lib/db'
+import { clearReviewSessionReps } from '@/lib/reviewSessionReps'
 
 type Question = { id: number; title: string; slug: string; difficulty: string; tags: string[] }
 
@@ -78,6 +79,7 @@ export default function PileupPage() {
         {due.length > 0 && (
           <button
             onClick={() => {
+              clearReviewSessionReps()
               sessionStorage.setItem('lm_review_queue', JSON.stringify(due.map(r => r.id)))
               router.push(`/practice/${due[0].id}?from=review`)
             }}

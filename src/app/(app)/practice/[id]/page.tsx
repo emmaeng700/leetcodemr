@@ -5,7 +5,8 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { dailyRepsFromProgress, normalizeRepDate } from '@/lib/dailyCompletion'
-import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan, addMasteryRunEvent, getMasteryRunsByQuestion, markDailyCompleteToday, bumpDailyRep, setDailyRep } from '@/lib/db'
+import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan, addMasteryRunEvent, getUserProfile, markDailyCompleteToday, bumpDailyRep, setDailyRep } from '@/lib/db'
+import { readReviewSessionReps, writeReviewSessionRep } from '@/lib/reviewSessionReps'
 import { todayISOChicago } from '@/lib/studyPlanDay'
 import { formatTime, isDue, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
@@ -60,6 +61,21 @@ function getDailyRepTarget() {
   const raw = localStorage.getItem('lm_reps_per_q')
   const parsed = Number.parseInt(raw ?? '2', 10)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 2
+}
+
+async function resolveRepTarget(): Promise<number> {
+  const local = getDailyRepTarget()
+  try {
+    const profile = await getUserProfile()
+    const profileReps = profile?.repsPerQ
+    if (typeof profileReps === 'number' && profileReps > 0) {
+      localStorage.setItem('lm_reps_per_q', String(profileReps))
+      return profileReps
+    }
+  } catch {
+    /* profile optional */
+  }
+  return local
 }
 
 export default function PracticePage() {
@@ -155,7 +171,7 @@ export default function PracticePage() {
       setSolved(!!safeProg[String(id)]?.solved)
       const today = todayISOChicago()
       const dailyRuns = isDailyMode ? dailyRepsFromProgress(safeProg, today) : {}
-      const repTarget = getDailyRepTarget()
+      const repTarget = await resolveRepTarget()
       const dailyDone =
         isDailyMode &&
         ((dailyRuns[String(id)] ?? 0) >= repTarget || normalizeRepDate(safeProg[String(id)]?.last_daily_done) === today)
@@ -163,10 +179,10 @@ export default function PracticePage() {
       setStarred(!!safeProg[String(id)]?.starred)
       setNextReview(safeProg[String(id)]?.next_review ?? null)
       progressRef.current = safeProg
-      if (isDailyMode || isReviewMode) setDailyRepTarget(getDailyRepTarget())
+      if (isDailyMode || isReviewMode) setDailyRepTarget(repTarget)
       if (usesThreeSolveGate) {
-        const masteryRuns = isDailyMode ? dailyRuns : await getMasteryRunsByQuestion()
-        setModeRuns(masteryRuns)
+        const runs = isDailyMode ? dailyRuns : readReviewSessionReps()
+        setModeRuns(runs)
       }
     }
     load()
@@ -292,6 +308,7 @@ export default function PracticePage() {
       }
       return
     }
+    writeReviewSessionRep(question.id, targetReps)
     const res = await addMasteryRunEvent(question.id, missing)
     if (!res.ok) {
       toast.error(`Couldn't fully sync review reps: ${res.error ?? 'unknown error'}`)
@@ -346,6 +363,7 @@ export default function PracticePage() {
     }
     const after = Math.min(before + 1, targetReps)
     setModeRuns(prev => ({ ...prev, [String(question.id)]: (prev[String(question.id)] ?? 0) + 1 }))
+    if (isReviewMode) writeReviewSessionRep(question.id, after)
 
     const modeLabel = isDailyMode ? 'Daily' : 'Review'
     let autoAdvanceId: number | null = null

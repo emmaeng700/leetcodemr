@@ -31,6 +31,7 @@ import { totalAppQuestionCount } from '@/lib/questionSets'
 import toast from 'react-hot-toast'
 import { addToRebootQueue, getRebootQueue, removeFromRebootQueue } from '@/lib/rebootQueue'
 import { todayISOChicago } from '@/lib/studyPlanDay'
+import { clearReviewSessionReps } from '@/lib/reviewSessionReps'
 
 interface Question {
   id: number
@@ -697,6 +698,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
         sub: 'Spaced repetition due now',
         color: 'from-indigo-600 to-purple-600',
         action: () => {
+          clearReviewSessionReps()
           sessionStorage.setItem('lm_review_queue', JSON.stringify(dueReviews.map(d => d.id)))
           router.push(`/practice/${dueReviews[0].id}?from=review`)
         },

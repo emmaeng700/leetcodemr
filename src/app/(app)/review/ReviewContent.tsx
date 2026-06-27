@@ -7,6 +7,7 @@ import { getProgress, getDueReviews, completeReview, getUserProfile, rebalanceRe
 import { isDue, formatLocalDate } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { clearReviewSessionReps } from '@/lib/reviewSessionReps'
 import { DISPLAY_PATTERN_ORDER } from '@/lib/constants'
 import PriorityBadge from '@/components/PriorityBadge'
 import { Brain, CheckCircle, Clock, CalendarCheck, Flame, Trophy, Home } from 'lucide-react'
@@ -183,6 +184,7 @@ export default function ReviewPage() {
                   type="button"
                   onClick={() => {
                     const ordered = dueByPattern.flatMap(({ items }) => items.map(q => q.id))
+                    clearReviewSessionReps()
                     sessionStorage.setItem('lm_review_queue', JSON.stringify(ordered))
                     router.push(`/practice/${ordered[0]}?from=review`)
                   }}
@@ -224,6 +226,7 @@ export default function ReviewPage() {
                     <button
                       type="button"
                       onClick={() => {
+                        clearReviewSessionReps()
                         sessionStorage.setItem('lm_review_queue', JSON.stringify(items.map(q => q.id)))
                         router.push(`/practice/${items[0].id}?from=review`)
                       }}
@@ -239,6 +242,7 @@ export default function ReviewPage() {
                         <div
                           key={q.id}
                           onClick={() => {
+                            clearReviewSessionReps()
                             sessionStorage.setItem('lm_review_queue', JSON.stringify(
                               due.filter(d => !localDoneIds.has(d.id)).map(d => d.id)
                             ))
