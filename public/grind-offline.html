@@ -91,7 +91,21 @@
       padding: 0.35rem 0.6rem; font-size: 0.6rem; color: #6c7086; background: #181825;
       border-top: 1px solid #313244; flex-shrink: 0;
     }
-    .err { padding: 1rem; color: #f38ba8; font-size: 0.8rem; }
+    .online-banner {
+      display: none; padding: 0.55rem 0.65rem; background: #16352a; border-bottom: 1px solid #2d6a4f;
+      flex-shrink: 0;
+    }
+    .online-banner.show { display: block; }
+    .online-banner p { font-size: 0.72rem; color: #a7f3d0; line-height: 1.4; margin-bottom: 0.45rem; }
+    .online-banner strong { color: #ecfdf5; }
+    .online-banner-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+    .online-banner-actions a { text-decoration: none; }
+    .online-banner-actions .primary { background: #059669; border-color: #059669; color: #fff; }
+    .offline-banner {
+      padding: 0.4rem 0.65rem; background: #3d2c1a; border-bottom: 1px solid #92400e;
+      font-size: 0.65rem; color: #fcd34d; flex-shrink: 0;
+    }
+    .offline-banner.hidden { display: none; }
     .list-backdrop {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 40;
     }
@@ -125,6 +139,15 @@
 </head>
 <body>
   <div class="app">
+    <div id="offline-banner" class="offline-banner">Offline ù saved on this device only.</div>
+    <div id="online-banner" class="online-banner">
+      <p><strong>You&apos;re back online.</strong> Drafts can sync. Tap below to visit other pages in the app.</p>
+      <div class="online-banner-actions">
+        <a id="link-full-grind" class="chip-btn primary" href="/grind">Open full Grind</a>
+        <a class="chip-btn" href="/daily">Daily</a>
+        <a class="chip-btn" href="/">Questions</a>
+      </div>
+    </div>
     <header>
       <div class="header-row">
         <h1>Grind (offline)</h1>
@@ -163,6 +186,30 @@
     var editorHostId = 'editor-host'
     var listOpen = false
     var editorExpanded = false
+    var wasOffline = !navigator.onLine
+
+    function updateConnectivityUI() {
+      var online = navigator.onLine
+      var offlineBanner = document.getElementById('offline-banner')
+      var onlineBanner = document.getElementById('online-banner')
+      var status = document.getElementById('status')
+      var grindLink = document.getElementById('link-full-grind')
+      if (offlineBanner) offlineBanner.classList.toggle('hidden', online)
+      if (onlineBanner) {
+        if (online && wasOffline) onlineBanner.classList.add('show')
+        if (!online) onlineBanner.classList.remove('show')
+      }
+      if (grindLink && selectedId) grindLink.href = '/grind?id=' + selectedId
+      if (status) {
+        status.textContent = online
+          ? (wasOffline ? 'Back online ù tap links above to visit other pages' : questions.length + ' questions')
+          : 'Offline mode ù saved locally'
+      }
+      if (!online) wasOffline = true
+    }
+
+    window.addEventListener('online', updateConnectivityUI)
+    window.addEventListener('offline', updateConnectivityUI)
 
     function draftKey(id) { return 'lm_grind_' + id + '_' + lang }
     function starterKey(id) { return 'lm_grind_starter_' + id + '_' + lang }
@@ -342,6 +389,7 @@
       renderList()
       renderEditor()
       setListOpen(false)
+      updateConnectivityUI()
       try { history.replaceState(null, '', '?id=' + id) } catch (e) {}
     }
 
@@ -445,7 +493,10 @@
       .then(function(data) {
         questions = data
         buildUI()
-        document.getElementById('status').textContent = questions.length + ' questions - offline'
+        updateConnectivityUI()
+        document.getElementById('status').textContent = navigator.onLine
+          ? questions.length + ' questions'
+          : 'Offline mode ù saved locally'
       })
       .catch(function() {
         document.getElementById('body').innerHTML =

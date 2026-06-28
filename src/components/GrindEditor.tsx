@@ -37,6 +37,11 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
   const portalViewRef = useRef<unknown>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadGenRef = useRef(0)
+  const codeRef = useRef('')
+
+  useEffect(() => {
+    codeRef.current = code
+  }, [code])
 
   useEffect(() => {
     async function loadExtensions() {
@@ -113,7 +118,14 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
   }, [question.id, question.slug, question.title, question.set, lang, question.starterPython, question.starterCpp])
 
   useEffect(() => {
-    const onOnline = () => setSyncState(prev => (prev === 'offline' ? 'local' : prev))
+    const onOnline = () => {
+      setSyncState(prev => (prev === 'offline' ? 'local' : prev))
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        saveGrindSession(question.id, lang, codeRef.current)
+          .then(() => setSyncState('synced'))
+          .catch(() => setSyncState('local'))
+      }
+    }
     const onOffline = () => setSyncState('offline')
     window.addEventListener('online', onOnline)
     window.addEventListener('offline', onOffline)
@@ -121,7 +133,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
       window.removeEventListener('online', onOnline)
       window.removeEventListener('offline', onOffline)
     }
-  }, [])
+  }, [question.id, lang])
 
   const handleChange = useCallback(
     (val: string) => {

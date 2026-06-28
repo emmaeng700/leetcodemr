@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Search, PenLine } from 'lucide-react'
 import GrindEditor from '@/components/GrindEditor'
+import GrindConnectivityBanner from '@/components/GrindConnectivityBanner'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import { buildGrindQuestions, loadQuestionsFullJson, type GrindQuestion } from '@/lib/grindQuestions'
 import { grindListWithDividers } from '@/lib/grindList'
@@ -122,6 +123,8 @@ function GrindInner() {
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex flex-col gap-3 min-h-[calc(100dvh-3.5rem)]">
+      <GrindConnectivityBanner questionId={selected?.id} />
+
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <PenLine size={18} className="text-indigo-500 shrink-0" />
