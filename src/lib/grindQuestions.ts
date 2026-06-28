@@ -84,7 +84,7 @@ export function buildGrindQuestions(
   return rows.sort((a, b) => a.set - b.set || a.id - b.id)
 }
 
-/** Load questions_full.json — uses service worker cache when offline. */
+/** Load questions_full.json - uses service worker cache when offline. */
 export async function loadQuestionsFullJson(): Promise<Set1Row[]> {
   try {
     const res = await fetch('/questions_full.json')
