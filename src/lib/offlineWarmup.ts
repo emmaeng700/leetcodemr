@@ -4,7 +4,7 @@ import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter } from '@/lib/grindStorage'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 
-export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v4'
+export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v5'
 
 export type WarmupPhase = 'pages' | 'questions' | 'starters' | 'done'
 
@@ -61,7 +61,7 @@ export async function runOfflineWarmup(
 
   postCachePagesToSw()
 
-  const pageTotal = OFFLINE_PAGES.length + 1
+  const pageTotal = 3
   let done = 0
 
   const tickPages = (label: string) => {
@@ -72,16 +72,21 @@ export async function runOfflineWarmup(
   await loadQuestionsFullJson()
   done += 1
 
-  for (const path of OFFLINE_PAGES) {
-    tickPages(`Caching ${path === '/' ? 'home' : path.slice(1)} for offline...`)
-    try {
-      await fetch(path, { credentials: 'include' })
-    } catch {
-      /* continue */
-    }
-    done += 1
-    await sleep(80)
+  tickPages('Caching offline Grind page...')
+  try {
+    await fetch('/grind-offline.html')
+  } catch {
+    /* continue */
   }
+  done += 1
+
+  tickPages('Caching Grind question list...')
+  try {
+    await fetch('/grind_questions.json')
+  } catch {
+    /* continue */
+  }
+  done += 1
 
   onProgress({ phase: 'questions', label: 'Building Grind catalog...', done: pageTotal, total: pageTotal })
   const qs = await loadQuestionsFullJson()

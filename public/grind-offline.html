@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Grind (Offline) - LeetMastery</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #11111b; color: #cdd6f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .app { display: flex; flex-direction: column; height: 100%; max-width: 900px; margin: 0 auto; }
+    header {
+      padding: 0.65rem 0.75rem; background: #181825; border-bottom: 1px solid #313244;
+      display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; flex-shrink: 0;
+    }
+    header h1 { font-size: 0.85rem; font-weight: 700; color: #cdd6f4; flex: 1; min-width: 120px; }
+    header .sub { font-size: 0.65rem; color: #6c7086; width: 100%; }
+    .search {
+      width: 100%; padding: 0.5rem 0.65rem; border-radius: 0.5rem; border: 1px solid #313244;
+      background: #1e1e2e; color: #cdd6f4; font-size: 16px;
+    }
+    .langs { display: flex; gap: 0.25rem; }
+    .langs button {
+      border: none; border-radius: 0.4rem; padding: 0.35rem 0.65rem; font-size: 0.7rem; font-weight: 600;
+      background: #313244; color: #a6adc8; cursor: pointer;
+    }
+    .langs button.on-py { background: #2563eb; color: #fff; }
+    .langs button.on-cpp { background: #7c3aed; color: #fff; }
+    .body { display: flex; flex: 1; min-height: 0; }
+    .list {
+      width: 38%; max-width: 220px; border-right: 1px solid #313244; overflow-y: auto;
+      background: #181825; flex-shrink: 0;
+    }
+    .q {
+      display: block; width: 100%; text-align: left; border: none; border-bottom: 1px solid #313244;
+      background: transparent; color: #cdd6f4; padding: 0.45rem 0.5rem; cursor: pointer;
+    }
+    .q.on { background: #1e1e2e; }
+    .q-id { font-size: 0.6rem; color: #6c7086; font-family: monospace; }
+    .q-title { font-size: 0.68rem; line-height: 1.3; margin-top: 0.1rem; }
+    .q-set { font-size: 0.55rem; font-weight: 700; color: #89b4fa; }
+    .editor { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    .meta {
+      padding: 0.4rem 0.6rem; font-size: 0.65rem; color: #a6adc8; background: #181825;
+      border-bottom: 1px solid #313244; flex-shrink: 0;
+    }
+    textarea {
+      flex: 1; width: 100%; resize: none; border: none; outline: none;
+      background: #1e1e2e; color: #cdd6f4; padding: 0.5rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 9px; line-height: 1.45; tab-size: 4;
+    }
+    footer {
+      padding: 0.4rem 0.6rem; font-size: 0.6rem; color: #6c7086; background: #181825;
+      border-top: 1px solid #313244; flex-shrink: 0;
+    }
+    .err { padding: 1rem; color: #f38ba8; font-size: 0.8rem; }
+    @media (max-width: 640px) {
+      .list { width: 42%; max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Grind (offline)</h1>
+      <div class="langs">
+        <button type="button" id="btn-py" class="on-py">Python</button>
+        <button type="button" id="btn-cpp">C++</button>
+      </div>
+      <input class="search" id="search" type="search" placeholder="Search #id or title..." autocomplete="off" />
+      <p class="sub">Write from memory. Saved on this device. Syncs when you are back online in the app.</p>
+    </header>
+    <div class="body" id="body">
+      <div class="err" id="loading">Loading questions...</div>
+    </div>
+    <footer id="status">Offline mode</footer>
+  </div>
+  <script>
+    var questions = []
+    var filtered = []
+    var selectedId = 0
+    var lang = 'python3'
+    var saveTimer = null
+
+    function draftKey(id) { return 'lm_grind_' + id + '_' + lang }
+    function starterKey(id) { return 'lm_grind_starter_' + id + '_' + lang }
+
+    function titleComment(q) {
+      return lang === 'python3' ? '# ' + q.title : '// ' + q.title
+    }
+
+    function genericStarter(q) {
+      var body = lang === 'python3'
+        ? 'class Solution:\\n    def solve(self):\\n        pass\\n'
+        : 'class Solution {\\npublic:\\n    void solve() {}\\n};\\n'
+      return titleComment(q) + '\\n' + body
+    }
+
+    function starterFor(q) {
+      var bundled = lang === 'python3' ? q.starterPython : q.starterCpp
+      if (bundled) {
+        var c = titleComment(q)
+        if (bundled.indexOf(c) === 0) return bundled
+        return c + '\\n' + bundled
+      }
+      try {
+        var cached = localStorage.getItem(starterKey(q.id))
+        if (cached) return cached
+      } catch (e) {}
+      return genericStarter(q)
+    }
+
+    function loadCode(q) {
+      try {
+        var d = localStorage.getItem(draftKey(q.id))
+        if (d !== null) return d
+      } catch (e) {}
+      return starterFor(q)
+    }
+
+    function saveCode(id, code) {
+      try { localStorage.setItem(draftKey(id), code) } catch (e) {}
+      document.getElementById('status').textContent = 'Saved locally'
+    }
+
+    function matches(q, s) {
+      if (!s) return true
+      s = s.toLowerCase().trim()
+      var byId = s.replace(/^#/, '')
+      return q.title.toLowerCase().indexOf(s) >= 0 || String(q.id).indexOf(byId) >= 0
+    }
+
+    function renderList() {
+      var list = document.getElementById('list')
+      if (!list) return
+      list.innerHTML = ''
+      filtered.forEach(function(q) {
+        var btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'q' + (q.id === selectedId ? ' on' : '')
+        btn.innerHTML = '<div class="q-set">Set ' + q.set + '</div><div class="q-id">#' + q.id + '</div><div class="q-title">' + q.title + '</div>'
+        btn.onclick = function() { selectQuestion(q.id) }
+        list.appendChild(btn)
+      })
+    }
+
+    function renderEditor() {
+      var q = questions.find(function(x) { return x.id === selectedId })
+      if (!q) return
+      document.getElementById('meta').textContent = '#' + q.id + ' - ' + q.title + ' (Set ' + q.set + ')'
+      var ta = document.getElementById('code')
+      ta.value = loadCode(q)
+    }
+
+    function selectQuestion(id) {
+      selectedId = id
+      renderList()
+      renderEditor()
+      try { history.replaceState(null, '', '?id=' + id) } catch (e) {}
+    }
+
+    function buildUI() {
+      var body = document.getElementById('body')
+      body.innerHTML =
+        '<aside class="list" id="list"></aside>' +
+        '<section class="editor">' +
+          '<div class="meta" id="meta"></div>' +
+          '<textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>' +
+        '</section>'
+      var sp = new URLSearchParams(location.search)
+      var fromUrl = parseInt(sp.get('id') || '0', 10)
+      filtered = questions.slice()
+      selectedId = fromUrl && questions.some(function(q) { return q.id === fromUrl }) ? fromUrl : questions[0].id
+      renderList()
+      renderEditor()
+      document.getElementById('code').addEventListener('input', function(e) {
+        clearTimeout(saveTimer)
+        var id = selectedId
+        var val = e.target.value
+        saveTimer = setTimeout(function() { saveCode(id, val) }, 300)
+      })
+    }
+
+    function setLang(next) {
+      lang = next
+      document.getElementById('btn-py').className = next === 'python3' ? 'on-py' : ''
+      document.getElementById('btn-cpp').className = next === 'cpp' ? 'on-cpp' : ''
+      if (questions.length) renderEditor()
+    }
+
+    document.getElementById('btn-py').onclick = function() { setLang('python3') }
+    document.getElementById('btn-cpp').onclick = function() { setLang('cpp') }
+    document.getElementById('search').addEventListener('input', function(e) {
+      var s = e.target.value
+      filtered = questions.filter(function(q) { return matches(q, s) })
+      if (filtered.length && !filtered.some(function(q) { return q.id === selectedId })) {
+        selectedId = filtered[0].id
+      }
+      renderList()
+      renderEditor()
+    })
+
+    fetch('/grind_questions.json')
+      .then(function(r) { return r.json() })
+      .then(function(data) {
+        questions = data
+        buildUI()
+        document.getElementById('status').textContent = questions.length + ' questions - offline'
+      })
+      .catch(function() {
+        document.getElementById('body').innerHTML = '<div class="err">Could not load questions. Open the app online once first.</div>'
+      })
+  </script>
+</body>
+</html>

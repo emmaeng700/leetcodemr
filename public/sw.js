@@ -1,2 +1,2 @@
-// Loader stub — changing this file forces browsers to install sw-v9.js (with Grind offline).
-importScripts('/sw-v9.js')
+// Loader stub — bump this file to force browsers to install the latest sw-v*.js.
+importScripts('/sw-v10.js')
