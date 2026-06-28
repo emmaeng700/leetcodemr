@@ -1,10 +1,14 @@
-import { OFFLINE_PAGES } from '@/lib/offlinePages'
+import {
+  cacheGrindOfflineAssets,
+  GRIND_OFFLINE_ASSETS,
+  OFFLINE_PAGES,
+} from '@/lib/offlinePages'
 import { buildGrindQuestions, loadQuestionsFullJson } from '@/lib/grindQuestions'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter } from '@/lib/grindStorage'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 
-export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v5'
+export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v6'
 
 export type WarmupPhase = 'pages' | 'questions' | 'starters' | 'done'
 
@@ -34,6 +38,7 @@ function postCachePagesToSw() {
     .then(reg => {
       const worker = reg.active || reg.waiting || reg.installing
       worker?.postMessage({ type: 'CACHE_PAGES', pages: [...OFFLINE_PAGES] })
+      worker?.postMessage({ type: 'CACHE_GRIND_ASSETS' })
     })
     .catch(() => {})
 }
@@ -49,7 +54,7 @@ function startersNeedingFetch(questions: GrindQuestion[]): GrindQuestion[] {
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
-/** One-time warm-up: cache offline pages, questions JSON, and Grind starter code. */
+/** One-time warm-up: cache offline Grind page, questions JSON, and starter code. */
 export async function runOfflineWarmup(
   onProgress: (p: WarmupProgress) => void,
 ): Promise<void> {
@@ -61,7 +66,7 @@ export async function runOfflineWarmup(
 
   postCachePagesToSw()
 
-  const pageTotal = 3
+  const pageTotal = 2 + GRIND_OFFLINE_ASSETS.length
   let done = 0
 
   const tickPages = (label: string) => {
@@ -72,20 +77,21 @@ export async function runOfflineWarmup(
   await loadQuestionsFullJson()
   done += 1
 
-  tickPages('Caching offline Grind page...')
-  try {
-    await fetch('/grind-offline.html')
-  } catch {
-    /* continue */
+  for (const path of GRIND_OFFLINE_ASSETS) {
+    const label =
+      path === '/grind-offline.html' ? 'Saving offline Grind page...' : 'Saving Grind question list...'
+    tickPages(label)
+    try {
+      await fetch(path, { cache: 'reload' })
+    } catch {
+      /* continue */
+    }
+    done += 1
+    await sleep(80)
   }
-  done += 1
 
-  tickPages('Caching Grind question list...')
-  try {
-    await fetch('/grind_questions.json')
-  } catch {
-    /* continue */
-  }
+  tickPages('Writing offline cache...')
+  await cacheGrindOfflineAssets()
   done += 1
 
   onProgress({ phase: 'questions', label: 'Building Grind catalog...', done: pageTotal, total: pageTotal })

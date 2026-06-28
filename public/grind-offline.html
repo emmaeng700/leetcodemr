@@ -201,7 +201,17 @@
     })
 
     fetch('/grind_questions.json')
-      .then(function(r) { return r.json() })
+      .then(function(r) {
+        if (r.ok) return r.json()
+        throw new Error('network')
+      })
+      .catch(function() {
+        if (!('caches' in window)) throw new Error('no cache')
+        return caches.match('/grind_questions.json', { ignoreSearch: true }).then(function(r) {
+          if (!r) throw new Error('missing')
+          return r.json()
+        })
+      })
       .then(function(data) {
         questions = data
         buildUI()

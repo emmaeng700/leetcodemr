@@ -1,11 +1,12 @@
 'use client'
 import { useEffect } from 'react'
-import { OFFLINE_PAGES } from '@/lib/offlinePages'
+import { cacheGrindOfflineAssets, OFFLINE_PAGES } from '@/lib/offlinePages'
 
 function cacheOfflinePages(registration: ServiceWorkerRegistration) {
   const worker = registration.active || registration.waiting || registration.installing
   if (!worker) return
   worker.postMessage({ type: 'CACHE_PAGES', pages: [...OFFLINE_PAGES] })
+  worker.postMessage({ type: 'CACHE_GRIND_ASSETS' })
 }
 
 function activateWaitingWorker(reg: ServiceWorkerRegistration) {
@@ -30,12 +31,18 @@ export default function SwRegister() {
       .then(async reg => {
         await reg.update()
         activateWaitingWorker(reg)
-        if (navigator.onLine) cacheOfflinePages(reg)
+        if (navigator.onLine) {
+          cacheOfflinePages(reg)
+          await cacheGrindOfflineAssets()
+        }
         reg.addEventListener('updatefound', () => {
           const next = reg.installing
           next?.addEventListener('statechange', () => {
             if (next.state === 'installed') activateWaitingWorker(reg)
-            if (next.state === 'activated' && navigator.onLine) cacheOfflinePages(reg)
+            if (next.state === 'activated' && navigator.onLine) {
+              cacheOfflinePages(reg)
+              void cacheGrindOfflineAssets()
+            }
           })
         })
       })
@@ -43,9 +50,10 @@ export default function SwRegister() {
 
     const onOnline = () => {
       navigator.serviceWorker.ready
-        .then(reg => {
+        .then(async reg => {
           activateWaitingWorker(reg)
           cacheOfflinePages(reg)
+          await cacheGrindOfflineAssets()
         })
         .catch(() => {})
     }
