@@ -108,7 +108,7 @@ function GrindInner() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] text-sm text-[var(--text-subtle)] animate-pulse">
-        Loading grind workspaceù
+        Loading grind workspace...
       </div>
     )
   }
@@ -121,7 +121,7 @@ function GrindInner() {
           <div className="min-w-0">
             <h1 className="text-base font-bold text-[var(--text)] leading-tight">The Grind</h1>
             <p className="text-[10px] text-[var(--text-subtle)]">
-              Write solutions from memory ù {questions.length} questions ù works offline
+              Write solutions from memory | {questions.length} questions | works offline
             </p>
           </div>
         </div>
@@ -132,7 +132,7 @@ function GrindInner() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search by #id or titleù"
+              placeholder="Search by #id or title..."
               className="w-full pl-9 pr-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] text-sm text-[var(--text)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:border-indigo-400"
             />
           </div>
@@ -227,7 +227,7 @@ export default function GrindPage() {
     <Suspense
       fallback={
         <div className="flex items-center justify-center min-h-[60vh] text-sm text-[var(--text-subtle)] animate-pulse">
-          Loadingù
+          Loading...
         </div>
       }
     >

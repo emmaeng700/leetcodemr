@@ -97,7 +97,6 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
         }
       } else if (online && localDraft !== null) {
         setSyncState('local')
-        // Push local draft to cloud when back online (other devices may not have it yet).
         saveGrindSession(question.id, lang, localDraft).catch(() => {})
       } else {
         setSyncState('offline')
@@ -184,14 +183,14 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
         </>
       ) : syncState === 'offline' ? (
         <>
-          <CloudOff size={10} className="text-orange-400" /> Offline ù saved locally
+          <CloudOff size={10} className="text-orange-400" /> Offline - saved locally
         </>
       ) : (
         <>
           <Wifi size={10} className="text-blue-400" /> Saved locally
         </>
       )}
-      {savedFlash && <span className="text-green-400 ml-1">?</span>}
+      {savedFlash && <span className="text-green-400 ml-1">ok</span>}
     </span>
   )
 
@@ -199,7 +198,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     <div className="flex items-center justify-between px-4 py-2 bg-[#181825] border-t border-gray-700 flex-wrap gap-2 shrink-0">
       <div className="flex items-center gap-2">
         {syncLabel}
-        <span className="text-[10px] text-gray-600 hidden sm:inline">ù no submit ù write from memory</span>
+        <span className="text-[10px] text-gray-600 hidden sm:inline">no submit - write from memory</span>
       </div>
       <button
         type="button"
@@ -215,7 +214,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     <>
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#1e1e2e]/80 text-xs text-gray-400">
-          Loading starterù
+          Loading starter...
         </div>
       )}
       {typeof window !== 'undefined' && CodeMirror && (
@@ -250,7 +249,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
           <div className="flex items-center gap-2 min-w-0">
             <Code2 size={14} className="text-indigo-400 shrink-0" />
             <span className="text-xs font-bold text-gray-200 truncate">
-              #{question.id} ù {question.title}
+              #{question.id} - {question.title}
             </span>
             <span
               className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${
@@ -275,7 +274,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
               onClick={() => setEditorExpanded(v => !v)}
               className="md:hidden px-2 py-1 rounded-md text-xs font-mono bg-[#313244] text-indigo-300 border border-[#585b70]"
             >
-              {editorExpanded ? '?' : '?'}
+              {editorExpanded ? 'Close' : 'Full'}
             </button>
           </div>
         </div>
@@ -292,7 +291,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
           <div className="fixed inset-0 flex flex-col bg-[#1e1e2e]" style={{ zIndex: 9999 }}>
             <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#181825] border-b border-gray-700 shrink-0">
               <span className="text-xs font-bold text-gray-200 truncate">
-                #{question.id} ù {question.title}
+                #{question.id} - {question.title}
               </span>
               <div className="flex items-center gap-2">
                 {langToggle}
@@ -301,7 +300,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
                   onClick={() => setEditorExpanded(false)}
                   className="px-2 py-1 rounded-md text-xs font-mono bg-indigo-700 text-white"
                 >
-                  ?
+                  Close
                 </button>
               </div>
             </div>
