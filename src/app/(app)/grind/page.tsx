@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Search, PenLine } from 'lucide-react'
 import GrindEditor from '@/components/GrindEditor'
 import DifficultyBadge from '@/components/DifficultyBadge'
-import { buildGrindQuestions, type GrindQuestion } from '@/lib/grindQuestions'
+import { buildGrindQuestions, loadQuestionsFullJson, type GrindQuestion } from '@/lib/grindQuestions'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter } from '@/lib/grindStorage'
@@ -29,12 +29,16 @@ function GrindInner() {
 
   useEffect(() => {
     async function load() {
-      const qs = await fetch('/questions_full.json').then(r => r.json())
-      const { getSet2Questions, getSet3Questions } = await import('@/lib/questionSets')
-      const mainIds = new Set((qs as { id: number }[]).map(q => q.id))
-      const set2 = getSet2Questions(mainIds, qs)
-      const set3 = getSet3Questions(mainIds, qs)
-      setQuestions(buildGrindQuestions(qs, set2, set3))
+      try {
+        const qs = await loadQuestionsFullJson()
+        const { getSet2Questions, getSet3Questions } = await import('@/lib/questionSets')
+        const mainIds = new Set(qs.map(q => q.id))
+        const set2 = getSet2Questions(mainIds, qs)
+        const set3 = getSet3Questions(mainIds, qs)
+        setQuestions(buildGrindQuestions(qs, set2, set3))
+      } catch {
+        setQuestions([])
+      }
       setLoading(false)
     }
     void load()
