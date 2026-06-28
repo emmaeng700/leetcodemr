@@ -1,4 +1,5 @@
 import type { GrindLang } from '@/lib/grindStorage'
+import { normalizeGrindCode } from '@/lib/grindStamp'
 import { readCachedStarter, writeCachedStarter } from '@/lib/grindStorage'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 
@@ -6,7 +7,7 @@ const LC_SNIPPET_QUERY =
   'query($s:String!){question(titleSlug:$s){codeSnippets{langSlug code}}}'
 
 function normalizeCode(raw: string): string {
-  return raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\t/g, '    ')
+  return normalizeGrindCode(raw.replace(/\t/g, '    '))
 }
 
 export function grindTitleComment(lang: GrindLang, title: string): string {

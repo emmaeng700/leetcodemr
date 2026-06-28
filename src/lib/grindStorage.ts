@@ -1,3 +1,5 @@
+import { normalizeGrindCode } from '@/lib/grindStamp'
+
 export type GrindLang = 'python3' | 'cpp'
 
 export function grindDraftKey(questionId: number, lang: GrindLang): string {
@@ -11,7 +13,8 @@ export function grindStarterKey(questionId: number, lang: GrindLang): string {
 export function readGrindDraft(questionId: number, lang: GrindLang): string | null {
   if (typeof window === 'undefined') return null
   try {
-    return localStorage.getItem(grindDraftKey(questionId, lang))
+    const raw = localStorage.getItem(grindDraftKey(questionId, lang))
+    return raw !== null ? normalizeGrindCode(raw) : null
   } catch {
     return null
   }
@@ -33,10 +36,13 @@ export function clearGrindDraft(questionId: number, lang: GrindLang): void {
   }
 }
 
+export { clearGrindStartedAt } from '@/lib/grindStamp'
+
 export function readCachedStarter(questionId: number, lang: GrindLang): string | null {
   if (typeof window === 'undefined') return null
   try {
-    return localStorage.getItem(grindStarterKey(questionId, lang))
+    const raw = localStorage.getItem(grindStarterKey(questionId, lang))
+    return raw !== null ? normalizeGrindCode(raw) : null
   } catch {
     return null
   }

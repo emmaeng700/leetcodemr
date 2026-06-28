@@ -146,7 +146,7 @@
 </head>
 <body>
   <div class="app">
-    <div id="offline-banner" class="offline-banner">Offline ù saved on this device only.</div>
+    <div id="offline-banner" class="offline-banner">Offline ÔøΩ saved on this device only.</div>
     <div id="online-banner" class="online-banner">
       <p><strong>You&apos;re back online.</strong> Drafts can sync. Tap below to visit other pages in the app.</p>
       <div class="online-banner-actions">
@@ -207,19 +207,75 @@
         if (!online) onlineBanner.classList.remove('show')
       }
       if (grindLink && selectedId) grindLink.href = '/grind?id=' + selectedId
+      if (online && wasOffline && editorHandle && selectedId) {
+        var stamped = applyGrindStamp(selectedId, editorHandle.getDoc())
+        if (stamped !== editorHandle.getDoc()) {
+          editorHandle.setDoc(stamped)
+          try { localStorage.setItem(draftKey(selectedId), stamped) } catch (e) {}
+        }
+      }
       if (status) {
         status.textContent = online
-          ? (wasOffline ? 'Back online ù tap links above to visit other pages' : questions.length + ' questions')
-          : 'Offline mode ù saved locally'
+          ? (wasOffline ? 'Back online - tap links above to visit other pages' : questions.length + ' questions')
+          : 'Offline mode - saved locally'
       }
       if (!online) wasOffline = true
     }
-
     window.addEventListener('online', updateConnectivityUI)
     window.addEventListener('offline', updateConnectivityUI)
 
     function draftKey(id) { return 'lm_grind_' + id + '_' + lang }
     function starterKey(id) { return 'lm_grind_starter_' + id + '_' + lang }
+    function startedKey(id) { return 'lm_grind_started_' + id + '_' + lang }
+
+    function normalizeGrindCode(code) {
+      var out = code.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+      if (out.indexOf('\n') < 0 && out.indexOf('\\n') >= 0) {
+        out = out.replace(/\\n/g, '\n').replace(/\\t/g, '\t')
+      }
+      return out
+    }
+
+    function formatGrindStamp(d) {
+      var label = d.toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: 'numeric', minute: '2-digit'
+      })
+      return lang === 'python3' ? '# Grind: ' + label : '// Grind: ' + label
+    }
+
+    function hasGrindStamp(code) {
+      var first = (code.split('\n')[0] || '').trim()
+      return lang === 'python3' ? first.indexOf('# Grind:') === 0 : first.indexOf('// Grind:') === 0
+    }
+
+    function prependGrindStamp(code, d) {
+      var lines = code.split('\n')
+      if (lines.length && hasGrindStamp(code)) lines = lines.slice(1)
+      var body = lines.join('\n')
+      var stamp = formatGrindStamp(d)
+      return body.trim() ? stamp + '\n' + body : stamp
+    }
+
+    function applyGrindStamp(id, code) {
+      var normalized = normalizeGrindCode(code)
+      if (hasGrindStamp(normalized)) return normalized
+      var started = null
+      try { started = localStorage.getItem(startedKey(id)) } catch (e) {}
+      if (!started) {
+        started = new Date().toISOString()
+        try { localStorage.setItem(startedKey(id), started) } catch (e) {}
+      }
+      return prependGrindStamp(normalized, new Date(started))
+    }
+
+    function ensureGrindStampOnLoad(id, code) {
+      var normalized = normalizeGrindCode(code)
+      var started = null
+      try { started = localStorage.getItem(startedKey(id)) } catch (e) {}
+      if (!started) return normalized
+      return prependGrindStamp(normalized, new Date(started))
+    }
 
     function titleComment(q) {
       return lang === 'python3' ? '# ' + q.title : '// ' + q.title
@@ -227,17 +283,18 @@
 
     function genericStarter(q) {
       var body = lang === 'python3'
-        ? 'class Solution:\\n    def solve(self):\\n        pass\\n'
-        : 'class Solution {\\npublic:\\n    void solve() {}\\n};\\n'
-      return titleComment(q) + '\\n' + body
+        ? 'class Solution:\n    def solve(self):\n        pass\n'
+        : 'class Solution {\npublic:\n    void solve() {};\n};\n'
+      return titleComment(q) + '\n' + body
     }
 
     function starterFor(q) {
       var bundled = lang === 'python3' ? q.starterPython : q.starterCpp
       if (bundled) {
+        bundled = normalizeGrindCode(bundled)
         var c = titleComment(q)
         if (bundled.indexOf(c) === 0) return bundled
-        return c + '\\n' + bundled
+        return c + '\n' + bundled
       }
       try {
         var cached = localStorage.getItem(starterKey(q.id))
@@ -249,14 +306,17 @@
     function loadCode(q) {
       try {
         var d = localStorage.getItem(draftKey(q.id))
-        if (d !== null) return d
+        if (d !== null) return ensureGrindStampOnLoad(q.id, d)
       } catch (e) {}
       return starterFor(q)
     }
 
     function saveCode(id, code) {
-      try { localStorage.setItem(draftKey(id), code) } catch (e) {}
+      var next = applyGrindStamp(id, code)
+      try { localStorage.setItem(draftKey(id), next) } catch (e) {}
       document.getElementById('status').textContent = 'Saved locally'
+      if (editorHandle && next !== code) editorHandle.setDoc(next)
+      return next
     }
 
     function matches(q, s) {
@@ -320,7 +380,7 @@
         var btn = document.createElement('button')
         btn.type = 'button'
         btn.className = 'q' + (q.id === selectedId ? ' on' : '')
-        btn.innerHTML = '<div class="q-id">#' + q.id + ' ù ' + q.difficulty + '</div><div class="q-title">' + q.title + '</div>'
+        btn.innerHTML = '<div class="q-id">#' + q.id + ' ÔøΩ ' + q.difficulty + '</div><div class="q-title">' + q.title + '</div>'
         btn.onclick = function() { selectQuestion(q.id) }
         list.appendChild(btn)
       })
@@ -503,7 +563,7 @@
         updateConnectivityUI()
         document.getElementById('status').textContent = navigator.onLine
           ? questions.length + ' questions'
-          : 'Offline mode ù saved locally'
+          : 'Offline mode ÔøΩ saved locally'
       })
       .catch(function() {
         document.getElementById('body').innerHTML =

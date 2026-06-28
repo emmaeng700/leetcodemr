@@ -8,8 +8,14 @@ import { getGrindSession, saveGrindSession } from '@/lib/db'
 import {
   readGrindDraft,
   writeGrindDraft,
+  clearGrindStartedAt,
   type GrindLang,
 } from '@/lib/grindStorage'
+import {
+  applyGrindStampOnEdit,
+  ensureGrindStampOnLoad,
+  normalizeGrindCode,
+} from '@/lib/grindStamp'
 import {
   ensureGrindStarterCached,
   resolveGrindStarterSync,
@@ -92,13 +98,17 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
       setStarter(syncStarter)
 
       const localDraft = readGrindDraft(question.id, lang)
-      setCode(localDraft ?? syncStarter)
+      const draftNorm = localDraft !== null ? normalizeGrindCode(localDraft) : null
+      setCode(draftNorm ?? syncStarter)
 
       const resolvedStarter = await ensureGrindStarterCached(question, lang)
       if (cancelled || gen !== loadGenRef.current) return
       setStarter(resolvedStarter)
 
-      let initial = localDraft ?? resolvedStarter
+      let initial = draftNorm ?? resolvedStarter
+      if (draftNorm !== null) {
+        initial = ensureGrindStampOnLoad(question.id, lang, draftNorm)
+      }
 
       const online = typeof navigator !== 'undefined' && navigator.onLine
       if (online && localDraft === null) {
@@ -136,6 +146,12 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     const onOnline = () => {
       setSyncState(prev => (prev === 'offline' ? 'local' : prev))
       if (typeof navigator !== 'undefined' && navigator.onLine) {
+        const stamped = applyGrindStampOnEdit(question.id, lang, codeRef.current)
+        if (stamped !== codeRef.current) {
+          codeRef.current = stamped
+          setCode(stamped)
+          writeGrindDraft(question.id, lang, stamped)
+        }
         saveGrindSession(question.id, lang, codeRef.current)
           .then(() => setSyncState('synced'))
           .catch(() => setSyncState('local'))
@@ -152,8 +168,9 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
 
   const handleChange = useCallback(
     (val: string) => {
-      setCode(val)
-      writeGrindDraft(question.id, lang, val)
+      const next = applyGrindStampOnEdit(question.id, lang, val)
+      setCode(next)
+      writeGrindDraft(question.id, lang, next)
       setSavedFlash(true)
       setTimeout(() => setSavedFlash(false), 1200)
 
@@ -163,7 +180,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
           setSyncState('offline')
           return
         }
-        saveGrindSession(question.id, lang, val)
+        saveGrindSession(question.id, lang, next)
           .then(() => setSyncState('synced'))
           .catch(() => setSyncState('local'))
       }, 2000)
@@ -172,6 +189,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
   )
 
   const reset = useCallback(() => {
+    clearGrindStartedAt(question.id, lang)
     setCode(starter)
     writeGrindDraft(question.id, lang, starter)
     if (typeof navigator !== 'undefined' && navigator.onLine) {
