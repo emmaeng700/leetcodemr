@@ -1,5 +1,28 @@
-const CACHE     = 'lm-v6'
+const CACHE     = 'lm-v7'
 const IMG_CACHE = 'lm-images'   // stable — never wiped on SW updates
+
+// App shells precached on install (keep in sync with src/lib/offlinePages.ts).
+const OFFLINE_PAGES = [
+  '/',
+  '/grind',
+  '/flashcards',
+  '/cycles',
+  '/daily',
+  '/behavioral',
+  '/system-design',
+  '/dsa',
+  '/gems',
+  '/patterns',
+  '/quick-review',
+  '/about',
+]
+
+function offlineShellPath(pathname) {
+  const p = pathname.replace(/\/$/, '') || '/'
+  if (OFFLINE_PAGES.includes(p)) return p
+  if (p.startsWith('/grind')) return '/grind'
+  return null
+}
 
 // Only cache resources that don't require auth cookies.
 // App pages are cached by the network-first handler as the user visits them,
@@ -59,6 +82,7 @@ const OFFLINE_HTML = `<!DOCTYPE html>
     <div class="nav-label">Works offline</div>
     <div class="grid">
       <a class="link" href="/">🏠 Questions</a>
+      <a class="link" href="/grind">✍️ Grind</a>
       <a class="link" href="/flashcards">🃏 Flashcards</a>
       <a class="link" href="/daily">📅 Daily</a>
       <a class="link" href="/cycles">🔄 Cycles</a>
@@ -89,6 +113,14 @@ self.addEventListener('install', e => {
         PRECACHE.map(url =>
           cache.add(url).catch(() => {})
         )
+      )
+      await Promise.allSettled(
+        OFFLINE_PAGES.map(async url => {
+          try {
+            const res = await fetch(url, { credentials: 'include' })
+            if (res.ok) await cache.put(url, res)
+          } catch {}
+        })
       )
       return self.skipWaiting()
     })
@@ -191,6 +223,12 @@ self.addEventListener('fetch', e => {
         if (cached) return cached
 
         if (e.request.mode === 'navigate') {
+          const shell = offlineShellPath(url.pathname)
+          if (shell) {
+            const shellCached = await caches.match(shell)
+            if (shellCached) return shellCached
+          }
+
           // Try the cached offline.html first, fall back to inline HTML
           const offlinePage = await caches.match('/offline.html')
           return offlinePage || offlineResponse()
@@ -216,11 +254,8 @@ self.addEventListener('message', e => {
     caches.open(CACHE).then(async cache => {
       for (const url of pages) {
         try {
-          const existing = await cache.match(url)
-          if (!existing) {
-            const res = await fetch(url, { credentials: 'include' })
-            if (res.ok) await cache.put(url, res)
-          }
+          const res = await fetch(url, { credentials: 'include' })
+          if (res.ok) await cache.put(url, res)
         } catch {}
       }
     })

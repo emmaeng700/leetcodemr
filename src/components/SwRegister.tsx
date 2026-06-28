@@ -1,5 +1,12 @@
 'use client'
 import { useEffect } from 'react'
+import { OFFLINE_PAGES } from '@/lib/offlinePages'
+
+function cacheOfflinePages(registration: ServiceWorkerRegistration) {
+  const worker = registration.active || registration.waiting || registration.installing
+  if (!worker) return
+  worker.postMessage({ type: 'CACHE_PAGES', pages: [...OFFLINE_PAGES] })
+}
 
 export default function SwRegister() {
   useEffect(() => {
@@ -15,16 +22,28 @@ export default function SwRegister() {
     }
     navigator.serviceWorker.addEventListener('controllerchange', onControllerChange)
 
-    navigator.serviceWorker.register('/sw.js')
+    navigator.serviceWorker
+      .register('/sw.js')
       .then(reg => {
-        // Force a network check every time the app loads.
-        // Critical for iOS PWA — Safari doesn't poll aggressively on its own.
         void reg.update()
+        if (navigator.onLine) cacheOfflinePages(reg)
+        reg.addEventListener('updatefound', () => {
+          const next = reg.installing
+          next?.addEventListener('statechange', () => {
+            if (next.state === 'activated' && navigator.onLine) cacheOfflinePages(reg)
+          })
+        })
       })
       .catch(() => {})
 
+    const onOnline = () => {
+      navigator.serviceWorker.ready.then(cacheOfflinePages).catch(() => {})
+    }
+    window.addEventListener('online', onOnline)
+
     return () => {
       navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange)
+      window.removeEventListener('online', onOnline)
     }
   }, [])
 
