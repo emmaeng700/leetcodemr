@@ -4,7 +4,9 @@ const IMG_CACHE = 'lm-images'
 const GRIND_OFFLINE = '/grind-offline.html'
 const GRIND_QUESTIONS = '/grind_questions.json'
 
-const GRIND_ASSETS = [GRIND_OFFLINE, GRIND_QUESTIONS]
+const GRIND_EDITOR = '/grind-offline-editor.js'
+
+const GRIND_ASSETS = [GRIND_OFFLINE, GRIND_EDITOR, GRIND_QUESTIONS]
 
 function offlineShellPath(pathname) {
   const p = pathname.replace(/\/$/, '') || '/'
@@ -16,6 +18,7 @@ function offlineShellPath(pathname) {
 const PRECACHE = [
   '/offline.html',
   GRIND_OFFLINE,
+  GRIND_EDITOR,
   GRIND_QUESTIONS,
   '/questions_full.json',
   '/behavioral_questions.json',
@@ -166,21 +169,25 @@ self.addEventListener('fetch', e => {
     return
   }
 
-  if (url.pathname === GRIND_OFFLINE) {
+  if (url.pathname === GRIND_OFFLINE || url.pathname === GRIND_EDITOR) {
     e.respondWith(
       (async () => {
-        const cached = await cacheGet(GRIND_OFFLINE, e.request)
+        const path = url.pathname
+        const cached = await cacheGet(path, e.request)
         if (cached) return cached
         try {
           const res = await fetch(e.request)
           if (res.ok) {
             const cache = await caches.open(CACHE)
-            await cache.put(GRIND_OFFLINE, res.clone())
+            await cache.put(path, res.clone())
             return res
           }
         } catch {}
-        const retry = await cacheGet(GRIND_OFFLINE)
+        const retry = await cacheGet(path)
         if (retry) return retry
+        if (path === GRIND_EDITOR) {
+          return new Response('// editor not cached', { status: 503, headers: { 'Content-Type': 'application/javascript' } })
+        }
         return new Response(
           '<!DOCTYPE html><html><body style="font-family:sans-serif;padding:1.5rem"><h1>Grind not cached yet</h1><p>Open the app online once, wait for the download to finish, then try again.</p></body></html>',
           { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } },

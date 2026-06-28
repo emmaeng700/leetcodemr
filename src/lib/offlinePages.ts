@@ -6,7 +6,11 @@ export const OFFLINE_PAGES = ['/grind-offline.html'] as const
 
 export const GRIND_OFFLINE_PATH = '/grind-offline.html'
 
-export const GRIND_OFFLINE_ASSETS = ['/grind-offline.html', '/grind_questions.json'] as const
+export const GRIND_OFFLINE_ASSETS = [
+  '/grind-offline.html',
+  '/grind-offline-editor.js',
+  '/grind_questions.json',
+] as const
 
 /** Links shown on public/offline.html */
 export const OFFLINE_NAV_LINKS: { href: string; emoji: string; label: string }[] = [

@@ -38,17 +38,29 @@
     .q-id { font-size: 0.6rem; color: #6c7086; font-family: monospace; }
     .q-title { font-size: 0.68rem; line-height: 1.3; margin-top: 0.1rem; }
     .q-set { font-size: 0.55rem; font-weight: 700; color: #89b4fa; }
-    .editor { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    .editor { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #1e1e2e; }
     .meta {
       padding: 0.4rem 0.6rem; font-size: 0.65rem; color: #a6adc8; background: #181825;
       border-bottom: 1px solid #313244; flex-shrink: 0;
     }
-    textarea {
-      flex: 1; width: 100%; resize: none; border: none; outline: none;
-      background: #1e1e2e; color: #cdd6f4; padding: 0.5rem;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 9px; line-height: 1.45; tab-size: 4;
+    .practice-cm-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .practice-cm-wrap .cm-editor,
+    .practice-cm-wrap .cm-content,
+    .practice-cm-wrap .cm-line {
+      font-size: 9px !important;
+      line-height: 1.45 !important;
     }
+    .practice-cm-wrap .cm-scroller {
+      overflow-x: hidden !important;
+      overflow-y: auto !important;
+    }
+    .practice-cm-wrap .cm-content,
+    .practice-cm-wrap .cm-line {
+      white-space: pre-wrap !important;
+      overflow-wrap: anywhere !important;
+      word-break: break-word !important;
+    }
+    .cm-gutters { background-color: transparent !important; border-right: 1px solid rgba(255,255,255,0.06) !important; }
     footer {
       padding: 0.4rem 0.6rem; font-size: 0.6rem; color: #6c7086; background: #181825;
       border-top: 1px solid #313244; flex-shrink: 0;
@@ -68,7 +80,7 @@
         <button type="button" id="btn-cpp">C++</button>
       </div>
       <input class="search" id="search" type="search" placeholder="Search #id or title..." autocomplete="off" />
-      <p class="sub">Write from memory. Saved on this device. Syncs when you are back online in the app.</p>
+      <p class="sub">Write from memory. Tab indents. Autocomplete works offline. Syncs when back online.</p>
     </header>
     <div class="body" id="body">
       <div class="err" id="loading">Loading questions...</div>
@@ -81,6 +93,7 @@
     var selectedId = 0
     var lang = 'python3'
     var saveTimer = null
+    var editorHandle = null
 
     function draftKey(id) { return 'lm_grind_' + id + '_' + lang }
     function starterKey(id) { return 'lm_grind_starter_' + id + '_' + lang }
@@ -130,6 +143,10 @@
       return q.title.toLowerCase().indexOf(s) >= 0 || String(q.id).indexOf(byId) >= 0
     }
 
+    function currentQuestion() {
+      return questions.find(function(x) { return x.id === selectedId })
+    }
+
     function renderList() {
       var list = document.getElementById('list')
       if (!list) return
@@ -144,12 +161,28 @@
       })
     }
 
+    function initEditor() {
+      var q = currentQuestion()
+      var host = document.getElementById('editor-host')
+      if (!q || !host || !window.GrindOfflineEditor) return
+      if (editorHandle) editorHandle.destroy()
+      editorHandle = window.GrindOfflineEditor.create(host, {
+        lang: lang,
+        value: loadCode(q),
+        onChange: function(val) {
+          clearTimeout(saveTimer)
+          var id = selectedId
+          saveTimer = setTimeout(function() { saveCode(id, val) }, 300)
+        }
+      })
+    }
+
     function renderEditor() {
-      var q = questions.find(function(x) { return x.id === selectedId })
+      var q = currentQuestion()
       if (!q) return
       document.getElementById('meta').textContent = '#' + q.id + ' - ' + q.title + ' (Set ' + q.set + ')'
-      var ta = document.getElementById('code')
-      ta.value = loadCode(q)
+      if (editorHandle) editorHandle.setDoc(loadCode(q))
+      else initEditor()
     }
 
     function selectQuestion(id) {
@@ -165,27 +198,27 @@
         '<aside class="list" id="list"></aside>' +
         '<section class="editor">' +
           '<div class="meta" id="meta"></div>' +
-          '<textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>' +
+          '<div class="practice-cm-wrap"><div id="editor-host"></div></div>' +
         '</section>'
       var sp = new URLSearchParams(location.search)
       var fromUrl = parseInt(sp.get('id') || '0', 10)
       filtered = questions.slice()
       selectedId = fromUrl && questions.some(function(q) { return q.id === fromUrl }) ? fromUrl : questions[0].id
       renderList()
-      renderEditor()
-      document.getElementById('code').addEventListener('input', function(e) {
-        clearTimeout(saveTimer)
-        var id = selectedId
-        var val = e.target.value
-        saveTimer = setTimeout(function() { saveCode(id, val) }, 300)
-      })
+      initEditor()
+      document.getElementById('meta').textContent =
+        '#' + selectedId + ' - ' + currentQuestion().title + ' (Set ' + currentQuestion().set + ')'
     }
 
     function setLang(next) {
+      if (next === lang) return
       lang = next
       document.getElementById('btn-py').className = next === 'python3' ? 'on-py' : ''
       document.getElementById('btn-cpp').className = next === 'cpp' ? 'on-cpp' : ''
-      if (questions.length) renderEditor()
+      var q = currentQuestion()
+      if (!editorHandle || !q) return
+      editorHandle.setLang(next)
+      editorHandle.setDoc(loadCode(q))
     }
 
     document.getElementById('btn-py').onclick = function() { setLang('python3') }
@@ -200,25 +233,56 @@
       renderEditor()
     })
 
-    fetch('/grind_questions.json')
-      .then(function(r) {
-        if (r.ok) return r.json()
-        throw new Error('network')
+    function fetchCached(url) {
+      if (!('caches' in window)) return Promise.reject(new Error('no cache'))
+      return caches.match(url, { ignoreSearch: true }).then(function(r) {
+        if (!r) throw new Error('missing')
+        return r
       })
-      .catch(function() {
-        if (!('caches' in window)) throw new Error('no cache')
-        return caches.match('/grind_questions.json', { ignoreSearch: true }).then(function(r) {
-          if (!r) throw new Error('missing')
-          return r.json()
+    }
+
+    function loadEditorScript() {
+      if (window.GrindOfflineEditor) return Promise.resolve()
+      return new Promise(function(resolve, reject) {
+        var done = false
+        function finish() { if (!done) { done = true; resolve() } }
+        function fail() {
+          fetchCached('/grind-offline-editor.js').then(function(r) { return r.text() }).then(function(code) {
+            var inline = document.createElement('script')
+            inline.textContent = code
+            document.head.appendChild(inline)
+            finish()
+          }).catch(reject)
+        }
+        var s = document.createElement('script')
+        s.src = '/grind-offline-editor.js'
+        s.onload = finish
+        s.onerror = fail
+        document.head.appendChild(s)
+      })
+    }
+
+    function loadQuestions() {
+      return fetch('/grind_questions.json')
+        .then(function(r) {
+          if (r.ok) return r.json()
+          throw new Error('network')
         })
-      })
+        .catch(function() {
+          return fetchCached('/grind_questions.json').then(function(r) { return r.json() })
+        })
+    }
+
+    loadEditorScript()
+      .then(loadQuestions)
       .then(function(data) {
         questions = data
         buildUI()
         document.getElementById('status').textContent = questions.length + ' questions - offline'
       })
       .catch(function() {
-        document.getElementById('body').innerHTML = '<div class="err">Could not load questions. Open the app online once first.</div>'
+        document.getElementById('body').innerHTML =
+          '<div class="err">Could not load offline Grind. Open the app online once and wait for the download to finish.</div>'
       })
   </script>
 </body>

@@ -8,7 +8,7 @@ import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter } from '@/lib/grindStorage'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 
-export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v6'
+export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v7'
 
 export type WarmupPhase = 'pages' | 'questions' | 'starters' | 'done'
 
@@ -79,7 +79,11 @@ export async function runOfflineWarmup(
 
   for (const path of GRIND_OFFLINE_ASSETS) {
     const label =
-      path === '/grind-offline.html' ? 'Saving offline Grind page...' : 'Saving Grind question list...'
+      path === '/grind-offline.html'
+        ? 'Saving offline Grind page...'
+        : path === '/grind-offline-editor.js'
+          ? 'Saving code editor...'
+          : 'Saving Grind question list...'
     tickPages(label)
     try {
       await fetch(path, { cache: 'reload' })

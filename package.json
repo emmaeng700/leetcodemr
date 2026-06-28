@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run grind:questions && next build",
+    "build": "npm run grind:questions && npm run grind:editor && next build",
     "grind:questions": "npx --yes tsx scripts/generate-grind-questions.ts",
+    "grind:editor": "npx --yes esbuild scripts/grind-offline-editor-entry.ts --bundle --format=iife --platform=browser --target=es2020 --minify --legal-comments=none --outfile=public/grind-offline-editor.js",
     "start": "next start",
     "lint": "eslint",
     "lc:connector": "node scripts/leetcode-connector.js",
