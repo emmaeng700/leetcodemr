@@ -60,14 +60,16 @@ function GrindInner() {
 
   const selectedIndex = selected ? questions.findIndex(q => q.id === selected.id) : -1
 
+  const spKey = sp.toString()
+
   useEffect(() => {
     if (loading || questions.length === 0 || selectedId > 0) return
     const first = filtered[0] ?? questions[0]
     if (!first) return
-    const params = new URLSearchParams(sp.toString())
+    const params = new URLSearchParams(spKey)
     params.set('id', String(first.id))
     router.replace(`/grind?${params.toString()}`, { scroll: false })
-  }, [loading, questions, filtered, selectedId, sp, router])
+  }, [loading, questions, filtered, selectedId, spKey, router])
 
   useEffect(() => {
     if (loading || !selected || prefetchRef.current) return

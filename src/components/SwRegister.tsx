@@ -9,36 +9,21 @@ function cacheOfflinePages(registration: ServiceWorkerRegistration) {
   worker.postMessage({ type: 'CACHE_GRIND_ASSETS' })
 }
 
-function activateWaitingWorker(reg: ServiceWorkerRegistration) {
-  const waiting = reg.waiting
-  if (waiting) waiting.postMessage({ type: 'SKIP_WAITING' })
-}
-
 export default function SwRegister() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
 
-    let reloading = false
-    const onControllerChange = () => {
-      if (reloading) return
-      reloading = true
-      window.location.reload()
-    }
-    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange)
-
     navigator.serviceWorker
       .register('/sw.js', { updateViaCache: 'none' })
-      .then(async reg => {
-        await reg.update()
-        activateWaitingWorker(reg)
+      .then(reg => {
+        void reg.update()
         if (navigator.onLine) {
           cacheOfflinePages(reg)
-          await cacheGrindOfflineAssets()
+          void cacheGrindOfflineAssets()
         }
         reg.addEventListener('updatefound', () => {
           const next = reg.installing
           next?.addEventListener('statechange', () => {
-            if (next.state === 'installed') activateWaitingWorker(reg)
             if (next.state === 'activated' && navigator.onLine) {
               cacheOfflinePages(reg)
               void cacheGrindOfflineAssets()
@@ -50,19 +35,15 @@ export default function SwRegister() {
 
     const onOnline = () => {
       navigator.serviceWorker.ready
-        .then(async reg => {
-          activateWaitingWorker(reg)
+        .then(reg => {
           cacheOfflinePages(reg)
-          await cacheGrindOfflineAssets()
+          return cacheGrindOfflineAssets()
         })
         .catch(() => {})
     }
     window.addEventListener('online', onOnline)
 
-    return () => {
-      navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange)
-      window.removeEventListener('online', onOnline)
-    }
+    return () => window.removeEventListener('online', onOnline)
   }, [])
 
   return null
