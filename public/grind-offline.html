@@ -7,29 +7,39 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; background: #11111b; color: #cdd6f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    .app { display: flex; flex-direction: column; height: 100%; max-width: 900px; margin: 0 auto; }
-    header {
-      padding: 0.65rem 0.75rem; background: #181825; border-bottom: 1px solid #313244;
-      display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; flex-shrink: 0;
+    .app { display: flex; flex-direction: column; height: 100dvh; max-width: 900px; margin: 0 auto; }
+    .header-row {
+      display: flex; align-items: center; gap: 0.5rem; width: 100%;
     }
-    header h1 { font-size: 0.85rem; font-weight: 700; color: #cdd6f4; flex: 1; min-width: 120px; }
-    header .sub { font-size: 0.65rem; color: #6c7086; width: 100%; }
+    header {
+      padding: 0.5rem 0.65rem; background: #181825; border-bottom: 1px solid #313244;
+      display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; flex-shrink: 0;
+    }
+    header h1 { font-size: 0.85rem; font-weight: 700; color: #cdd6f4; flex: 1; min-width: 0; }
+    header .sub { font-size: 0.6rem; color: #6c7086; width: 100%; }
     .search {
-      width: 100%; padding: 0.5rem 0.65rem; border-radius: 0.5rem; border: 1px solid #313244;
+      width: 100%; padding: 0.45rem 0.6rem; border-radius: 0.5rem; border: 1px solid #313244;
       background: #1e1e2e; color: #cdd6f4; font-size: 16px;
     }
     .langs { display: flex; gap: 0.25rem; }
-    .langs button {
+    .langs button, .chip-btn {
       border: none; border-radius: 0.4rem; padding: 0.35rem 0.65rem; font-size: 0.7rem; font-weight: 600;
       background: #313244; color: #a6adc8; cursor: pointer;
     }
     .langs button.on-py { background: #2563eb; color: #fff; }
     .langs button.on-cpp { background: #7c3aed; color: #fff; }
-    .body { display: flex; flex: 1; min-height: 0; }
-    .list {
-      width: 38%; max-width: 220px; border-right: 1px solid #313244; overflow-y: auto;
-      background: #181825; flex-shrink: 0;
+    .chip-btn { background: #1e1e2e; border: 1px solid #45475a; color: #cdd6f4; }
+    .chip-btn.on { background: #45475a; color: #fff; }
+    .body { display: flex; flex: 1; min-height: 0; position: relative; }
+    .list-wrap {
+      width: 38%; max-width: 220px; border-right: 1px solid #313244;
+      background: #181825; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0;
     }
+    .list-head {
+      padding: 0.35rem 0.5rem; font-size: 0.6rem; color: #6c7086;
+      border-bottom: 1px solid #313244; flex-shrink: 0;
+    }
+    .list { overflow-y: auto; flex: 1; min-height: 0; }
     .q {
       display: block; width: 100%; text-align: left; border: none; border-bottom: 1px solid #313244;
       background: transparent; color: #cdd6f4; padding: 0.45rem 0.5rem; cursor: pointer;
@@ -40,52 +50,100 @@
     .q-set { font-size: 0.55rem; font-weight: 700; color: #89b4fa; }
     .editor { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #1e1e2e; }
     .meta {
-      padding: 0.4rem 0.6rem; font-size: 0.65rem; color: #a6adc8; background: #181825;
+      padding: 0.35rem 0.5rem; font-size: 0.65rem; color: #a6adc8; background: #181825;
       border-bottom: 1px solid #313244; flex-shrink: 0;
+      display: flex; align-items: center; gap: 0.5rem;
     }
+    .meta span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .practice-cm-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
     .practice-cm-wrap .cm-editor,
     .practice-cm-wrap .cm-content,
-    .practice-cm-wrap .cm-line {
+    .practice-cm-wrap .cm-line,
+    .practice-fs-portal .cm-editor,
+    .practice-fs-portal .cm-content,
+    .practice-fs-portal .cm-line {
       font-size: 9px !important;
       line-height: 1.45 !important;
     }
-    .practice-cm-wrap .cm-scroller {
+    .practice-cm-wrap .cm-scroller,
+    .practice-fs-portal .cm-scroller {
       overflow-x: hidden !important;
       overflow-y: auto !important;
     }
     .practice-cm-wrap .cm-content,
-    .practice-cm-wrap .cm-line {
+    .practice-cm-wrap .cm-line,
+    .practice-fs-portal .cm-content,
+    .practice-fs-portal .cm-line {
       white-space: pre-wrap !important;
       overflow-wrap: anywhere !important;
       word-break: break-word !important;
     }
     .cm-gutters { background-color: transparent !important; border-right: 1px solid rgba(255,255,255,0.06) !important; }
     footer {
-      padding: 0.4rem 0.6rem; font-size: 0.6rem; color: #6c7086; background: #181825;
+      padding: 0.35rem 0.6rem; font-size: 0.6rem; color: #6c7086; background: #181825;
       border-top: 1px solid #313244; flex-shrink: 0;
     }
     .err { padding: 1rem; color: #f38ba8; font-size: 0.8rem; }
-    @media (max-width: 640px) {
-      .list { width: 42%; max-width: none; }
+    .list-backdrop {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 40;
+    }
+    .practice-fs-portal {
+      position: fixed; inset: 0; z-index: 9999; display: none; flex-direction: column;
+      background: #1e1e2e; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
+    }
+    .practice-fs-portal.open { display: flex; }
+    .fs-bar {
+      display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.6rem;
+      background: #181825; border-bottom: 1px solid #313244; flex-shrink: 0;
+    }
+    .fs-bar span { flex: 1; font-size: 0.65rem; color: #a6adc8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fs-editor { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .mob-only { display: none; }
+    @media (max-width: 767px) {
+      .mob-only { display: inline-flex; }
+      header .sub { display: none; }
+      .list-wrap {
+        display: none; position: fixed; left: 0; right: 0; bottom: 0;
+        width: 100%; max-width: none; max-height: 55dvh; z-index: 50;
+        border-right: none; border-top: 1px solid #313244; border-radius: 1rem 1rem 0 0;
+        box-shadow: 0 -8px 32px rgba(0,0,0,0.35);
+      }
+      .list-wrap.open { display: flex; }
+      .list-wrap.open + .list-backdrop,
+      .list-backdrop.open { display: block; }
+      .editor { width: 100%; }
     }
   </style>
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>Grind (offline)</h1>
-      <div class="langs">
-        <button type="button" id="btn-py" class="on-py">Python</button>
-        <button type="button" id="btn-cpp">C++</button>
+      <div class="header-row">
+        <h1>Grind (offline)</h1>
+        <div class="langs">
+          <button type="button" id="btn-py" class="on-py">Py</button>
+          <button type="button" id="btn-cpp">C++</button>
+        </div>
+        <button type="button" class="chip-btn mob-only" id="btn-list">List</button>
       </div>
       <input class="search" id="search" type="search" placeholder="Search #id or title..." autocomplete="off" />
-      <p class="sub">Write from memory. Tab indents. Autocomplete works offline. Syncs when back online.</p>
+      <p class="sub">Write from memory. Tab indents. Syncs when back online.</p>
     </header>
     <div class="body" id="body">
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
+  </div>
+  <div class="practice-fs-portal" id="fs-portal">
+    <div class="fs-bar">
+      <span id="fs-meta"></span>
+      <div class="langs">
+        <button type="button" id="fs-btn-py" class="on-py">Py</button>
+        <button type="button" id="fs-btn-cpp">C++</button>
+      </div>
+      <button type="button" class="chip-btn" id="btn-fs-close">Close</button>
+    </div>
+    <div class="fs-editor practice-cm-wrap"><div id="editor-host-fs"></div></div>
   </div>
   <script>
     var questions = []
@@ -94,6 +152,9 @@
     var lang = 'python3'
     var saveTimer = null
     var editorHandle = null
+    var editorHostId = 'editor-host'
+    var listOpen = false
+    var editorExpanded = false
 
     function draftKey(id) { return 'lm_grind_' + id + '_' + lang }
     function starterKey(id) { return 'lm_grind_starter_' + id + '_' + lang }
@@ -147,9 +208,28 @@
       return questions.find(function(x) { return x.id === selectedId })
     }
 
+    function metaText(q) {
+      return '#' + q.id + ' - ' + q.title + ' (Set ' + q.set + ')'
+    }
+
+    function updateMeta() {
+      var q = currentQuestion()
+      if (!q) return
+      var text = metaText(q)
+      var meta = document.getElementById('meta-text')
+      if (meta) meta.textContent = text
+      var fsMeta = document.getElementById('fs-meta')
+      if (fsMeta) fsMeta.textContent = text
+    }
+
     function renderList() {
       var list = document.getElementById('list')
+      var head = document.getElementById('list-head')
       if (!list) return
+      if (head) {
+        var s = document.getElementById('search').value.trim()
+        head.textContent = filtered.length + ' question' + (filtered.length === 1 ? '' : 's') + (s ? ' matching' : '')
+      }
       list.innerHTML = ''
       filtered.forEach(function(q) {
         var btn = document.createElement('button')
@@ -161,9 +241,20 @@
       })
     }
 
+    function syncLangButtons() {
+      var pyOn = lang === 'python3' ? 'on-py' : ''
+      var cppOn = lang === 'cpp' ? 'on-cpp' : ''
+      document.getElementById('btn-py').className = pyOn
+      document.getElementById('btn-cpp').className = cppOn
+      var fsPy = document.getElementById('fs-btn-py')
+      var fsCpp = document.getElementById('fs-btn-cpp')
+      if (fsPy) fsPy.className = pyOn
+      if (fsCpp) fsCpp.className = cppOn
+    }
+
     function initEditor() {
       var q = currentQuestion()
-      var host = document.getElementById('editor-host')
+      var host = document.getElementById(editorHostId)
       if (!q || !host || !window.GrindOfflineEditor) return
       if (editorHandle) editorHandle.destroy()
       editorHandle = window.GrindOfflineEditor.create(host, {
@@ -178,43 +269,87 @@
     }
 
     function renderEditor() {
+      updateMeta()
+      if (editorHandle) editorHandle.setDoc(loadCode(currentQuestion()))
+      else initEditor()
+    }
+
+    function setListOpen(open) {
+      listOpen = open
+      var wrap = document.getElementById('list-wrap')
+      var backdrop = document.getElementById('list-backdrop')
+      var btn = document.getElementById('btn-list')
+      if (wrap) wrap.classList.toggle('open', open)
+      if (backdrop) backdrop.classList.toggle('open', open)
+      if (btn) btn.textContent = open ? 'Hide' : 'List'
+    }
+
+    function setEditorExpanded(open) {
+      if (open === editorExpanded) return
       var q = currentQuestion()
       if (!q) return
-      document.getElementById('meta').textContent = '#' + q.id + ' - ' + q.title + ' (Set ' + q.set + ')'
-      if (editorHandle) editorHandle.setDoc(loadCode(q))
-      else initEditor()
+      editorExpanded = open
+      var portal = document.getElementById('fs-portal')
+      var inlineWrap = document.querySelector('.editor .practice-cm-wrap')
+      if (open) {
+        setListOpen(false)
+        editorHostId = 'editor-host-fs'
+        portal.classList.add('open')
+        if (inlineWrap) inlineWrap.style.visibility = 'hidden'
+        initEditor()
+        updateMeta()
+      } else {
+        editorHostId = 'editor-host'
+        portal.classList.remove('open')
+        if (inlineWrap) inlineWrap.style.visibility = ''
+        initEditor()
+      }
     }
 
     function selectQuestion(id) {
       selectedId = id
       renderList()
       renderEditor()
+      setListOpen(false)
       try { history.replaceState(null, '', '?id=' + id) } catch (e) {}
     }
 
     function buildUI() {
       var body = document.getElementById('body')
       body.innerHTML =
-        '<aside class="list" id="list"></aside>' +
+        '<aside class="list-wrap" id="list-wrap">' +
+          '<div class="list-head" id="list-head"></div>' +
+          '<div class="list" id="list"></div>' +
+        '</aside>' +
+        '<div class="list-backdrop" id="list-backdrop"></div>' +
         '<section class="editor">' +
-          '<div class="meta" id="meta"></div>' +
+          '<div class="meta">' +
+            '<span id="meta-text"></span>' +
+            '<button type="button" class="chip-btn mob-only" id="btn-full">Full</button>' +
+          '</div>' +
           '<div class="practice-cm-wrap"><div id="editor-host"></div></div>' +
         '</section>'
+      document.getElementById('list-backdrop').onclick = function() { setListOpen(false) }
+      document.getElementById('btn-list').onclick = function() { setListOpen(!listOpen) }
+      document.getElementById('btn-full').onclick = function() { setEditorExpanded(true) }
+      document.getElementById('btn-fs-close').onclick = function() { setEditorExpanded(false) }
+      document.getElementById('fs-btn-py').onclick = function() { setLang('python3') }
+      document.getElementById('fs-btn-cpp').onclick = function() { setLang('cpp') }
+
       var sp = new URLSearchParams(location.search)
       var fromUrl = parseInt(sp.get('id') || '0', 10)
       filtered = questions.slice()
       selectedId = fromUrl && questions.some(function(q) { return q.id === fromUrl }) ? fromUrl : questions[0].id
+      editorHostId = 'editor-host'
       renderList()
       initEditor()
-      document.getElementById('meta').textContent =
-        '#' + selectedId + ' - ' + currentQuestion().title + ' (Set ' + currentQuestion().set + ')'
+      updateMeta()
     }
 
     function setLang(next) {
       if (next === lang) return
       lang = next
-      document.getElementById('btn-py').className = next === 'python3' ? 'on-py' : ''
-      document.getElementById('btn-cpp').className = next === 'cpp' ? 'on-cpp' : ''
+      syncLangButtons()
       var q = currentQuestion()
       if (!editorHandle || !q) return
       editorHandle.setLang(next)
@@ -231,6 +366,7 @@
       }
       renderList()
       renderEditor()
+      if (s.trim() && window.matchMedia('(max-width: 767px)').matches) setListOpen(true)
     })
 
     function fetchCached(url) {

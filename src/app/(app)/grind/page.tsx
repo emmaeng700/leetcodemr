@@ -174,11 +174,22 @@ function GrindInner() {
         )}
       </div>
 
-      <div className="flex flex-1 min-h-0 gap-3">
+      <div className="flex flex-1 min-h-0 gap-3 relative">
+        {listOpen && (
+          <button
+            type="button"
+            aria-label="Close question list"
+            className="lg:hidden fixed inset-0 z-40 bg-black/40"
+            onClick={() => setListOpen(false)}
+          />
+        )}
         <aside
           className={`${
-            listOpen ? 'block' : 'hidden'
-          } lg:block w-full lg:w-64 xl:w-72 shrink-0 flex flex-col rounded-xl border border-[var(--border)] bg-[var(--bg-card)] overflow-hidden max-h-48 lg:max-h-none`}
+            listOpen ? 'flex' : 'hidden'
+          } lg:flex fixed lg:relative z-50 lg:z-auto bottom-0 left-0 right-0 lg:inset-auto
+            w-full lg:w-64 xl:w-72 shrink-0 flex-col rounded-t-2xl lg:rounded-xl
+            border border-[var(--border)] bg-[var(--bg-card)] overflow-hidden
+            max-h-[55dvh] lg:max-h-none shadow-[0_-8px_32px_rgba(0,0,0,0.2)] lg:shadow-none`}
         >
           <div className="px-3 py-2 border-b border-[var(--border-soft)] text-xs text-[var(--text-subtle)] shrink-0">
             {filtered.length} question{filtered.length !== 1 ? 's' : ''}
@@ -212,7 +223,7 @@ function GrindInner() {
           </div>
         </aside>
 
-        <div className="flex-1 min-w-0 min-h-[50dvh] lg:min-h-0 flex flex-col">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col">
           {selected ? (
             <GrindEditor key={selected.id} question={selected} className="flex-1 min-h-0 h-full" />
           ) : (
