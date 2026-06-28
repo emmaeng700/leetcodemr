@@ -1,0 +1,125 @@
+import { OFFLINE_PAGES } from '@/lib/offlinePages'
+import { buildGrindQuestions, loadQuestionsFullJson } from '@/lib/grindQuestions'
+import { ensureGrindStarterCached } from '@/lib/grindStarter'
+import { readCachedStarter } from '@/lib/grindStorage'
+import type { GrindQuestion } from '@/lib/grindQuestions'
+
+export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v2'
+
+export type WarmupPhase = 'pages' | 'questions' | 'starters' | 'done'
+
+export type WarmupProgress = {
+  phase: WarmupPhase
+  label: string
+  done: number
+  total: number
+}
+
+export function isOfflineWarmupComplete(): boolean {
+  if (typeof window === 'undefined') return true
+  return !!localStorage.getItem(OFFLINE_WARMUP_KEY)
+}
+
+export function markOfflineWarmupComplete(status: 'done' | 'partial' | 'skipped-offline' = 'done') {
+  try {
+    localStorage.setItem(OFFLINE_WARMUP_KEY, status === 'done' ? String(Date.now()) : status)
+  } catch {
+    /* ignore */
+  }
+}
+
+function postCachePagesToSw() {
+  if (!('serviceWorker' in navigator)) return
+  navigator.serviceWorker.ready
+    .then(reg => {
+      const worker = reg.active || reg.waiting || reg.installing
+      worker?.postMessage({ type: 'CACHE_PAGES', pages: [...OFFLINE_PAGES] })
+    })
+    .catch(() => {})
+}
+
+function startersNeedingFetch(questions: GrindQuestion[]): GrindQuestion[] {
+  return questions.filter(q => {
+    if (q.set === 1) return false
+    const needsPy = !q.starterPython && !readCachedStarter(q.id, 'python3')
+    const needsCpp = !q.starterCpp && !readCachedStarter(q.id, 'cpp')
+    return needsPy || needsCpp
+  })
+}
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
+/** One-time warm-up: cache offline pages, questions JSON, and Grind starter code. */
+export async function runOfflineWarmup(
+  onProgress: (p: WarmupProgress) => void,
+): Promise<void> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    markOfflineWarmupComplete('skipped-offline')
+    onProgress({ phase: 'done', label: 'Offline - skipped warm-up', done: 1, total: 1 })
+    return
+  }
+
+  postCachePagesToSw()
+
+  const pageTotal = OFFLINE_PAGES.length + 1
+  let done = 0
+
+  const tickPages = (label: string) => {
+    onProgress({ phase: 'pages', label, done, total: pageTotal })
+  }
+
+  tickPages('Loading question bank...')
+  await loadQuestionsFullJson()
+  done += 1
+
+  for (const path of OFFLINE_PAGES) {
+    tickPages(`Caching ${path === '/' ? 'home' : path.slice(1)} for offline...`)
+    try {
+      await fetch(path, { credentials: 'include' })
+    } catch {
+      /* continue */
+    }
+    done += 1
+    await sleep(80)
+  }
+
+  onProgress({ phase: 'questions', label: 'Building Grind catalog...', done: pageTotal, total: pageTotal })
+  const qs = await loadQuestionsFullJson()
+  const { getSet2Questions, getSet3Questions } = await import('@/lib/questionSets')
+  const mainIds = new Set(qs.map(q => q.id))
+  const grindQuestions = buildGrindQuestions(qs, getSet2Questions(mainIds, qs), getSet3Questions(mainIds, qs))
+  const needStarters = startersNeedingFetch(grindQuestions)
+  const starterTotal = needStarters.length
+  const grandTotal = pageTotal + starterTotal
+
+  onProgress({
+    phase: 'starters',
+    label: starterTotal
+      ? `Saving starter code (0/${starterTotal})...`
+      : 'Starter code already cached',
+    done: pageTotal,
+    total: grandTotal,
+  })
+
+  for (let i = 0; i < needStarters.length; i++) {
+    const q = needStarters[i]
+    onProgress({
+      phase: 'starters',
+      label: `Saving starter code (${i + 1}/${starterTotal}) - #${q.id} ${q.title}`,
+      done: pageTotal + i + 1,
+      total: grandTotal,
+    })
+    await Promise.all([
+      !q.starterPython && !readCachedStarter(q.id, 'python3')
+        ? ensureGrindStarterCached(q, 'python3')
+        : Promise.resolve(),
+      !q.starterCpp && !readCachedStarter(q.id, 'cpp')
+        ? ensureGrindStarterCached(q, 'cpp')
+        : Promise.resolve(),
+    ])
+    await sleep(350)
+  }
+
+  onProgress({ phase: 'done', label: 'Ready for offline use', done: grandTotal, total: grandTotal })
+  markOfflineWarmupComplete('done')
+}
