@@ -5,6 +5,7 @@ import { python } from '@codemirror/lang-python'
 import { cpp } from '@codemirror/lang-cpp'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { indentWithTab } from '@codemirror/commands'
+import { indentationMarkers } from '@replit/codemirror-indentation-markers'
 
 export type GrindLang = 'python3' | 'cpp'
 
@@ -17,6 +18,20 @@ export type GrindEditorHandle = {
 
 function langExt(lang: GrindLang) {
   return lang === 'python3' ? python() : cpp()
+}
+
+function smartEnter(view: EditorView): boolean {
+  const { from, to } = view.state.selection.main
+  const line = view.state.doc.lineAt(from)
+  const base = line.text.match(/^(\s*)/)?.[1] ?? ''
+  const trimmed = line.text.trimEnd()
+  const extra = trimmed.endsWith(':') || trimmed.endsWith('{') ? '    ' : ''
+  const insert = '\n' + base + extra
+  view.dispatch({
+    changes: { from, to, insert },
+    selection: { anchor: from + insert.length },
+  })
+  return true
 }
 
 export function createGrindEditor(
@@ -39,10 +54,19 @@ export function createGrindEditor(
         langExt(lang),
         oneDark,
         EditorView.lineWrapping,
-        Prec.highest(keymap.of([indentWithTab])),
+        indentationMarkers(),
+        Prec.highest(keymap.of([{ key: 'Enter', run: smartEnter }, indentWithTab])),
         EditorView.theme({
-          '&': { height: '100%', fontSize: '9px' },
-          '.cm-scroller': { overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' },
+          '&': {
+            height: '100%',
+            fontSize: '9px',
+            '--indent-marker-bg-color': 'rgba(120, 140, 190, 0.35)',
+            '--indent-marker-active-bg-color': 'rgba(150, 175, 255, 0.55)',
+          },
+          '.cm-scroller': {
+            overflow: 'auto',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+          },
           '.cm-content': { fontSize: '9px', lineHeight: '1.45' },
           '.cm-gutters': { fontSize: '9px' },
         }),

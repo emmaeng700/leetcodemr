@@ -269,6 +269,12 @@ body {
   max-width: 100%;
 }
 
+.practice-cm-wrap,
+.practice-fs-portal {
+  --indent-marker-bg-color: rgba(120, 140, 190, 0.35);
+  --indent-marker-active-bg-color: rgba(150, 175, 255, 0.55);
+}
+
 @media (min-width: 768px) {
   .practice-cm-wrap .cm-editor,
   .practice-cm-wrap .cm-content,

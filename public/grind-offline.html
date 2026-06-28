@@ -63,7 +63,14 @@
       display: flex; align-items: center; gap: 0.5rem;
     }
     .meta span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .practice-cm-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .practice-cm-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column;
+      --indent-marker-bg-color: rgba(120, 140, 190, 0.35);
+      --indent-marker-active-bg-color: rgba(150, 175, 255, 0.55);
+    }
+    .practice-fs-portal {
+      --indent-marker-bg-color: rgba(120, 140, 190, 0.35);
+      --indent-marker-active-bg-color: rgba(150, 175, 255, 0.55);
+    }
     .practice-cm-wrap .cm-editor,
     .practice-cm-wrap .cm-content,
     .practice-cm-wrap .cm-line,

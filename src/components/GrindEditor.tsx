@@ -56,10 +56,25 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
       const { Prec } = stateMod
       const { indentWithTab } = cmdMod
       const { oneDark } = await import('@codemirror/theme-one-dark')
+      const { indentationMarkers } = await import('@replit/codemirror-indentation-markers')
+      const smartEnter = (view: any) => {
+        const { from, to } = view.state.selection.main
+        const line = view.state.doc.lineAt(from)
+        const base = line.text.match(/^(\s*)/)?.[1] ?? ''
+        const trimmed = line.text.trimEnd()
+        const extra = trimmed.endsWith(':') || trimmed.endsWith('{') ? '    ' : ''
+        const insert = '\n' + base + extra
+        view.dispatch({
+          changes: { from, to, insert },
+          selection: { anchor: from + insert.length },
+        })
+        return true
+      }
       setEditorTheme(oneDark)
       setExtensions([
         lang === 'python3' ? python() : cpp(),
-        Prec.highest(keymap.of([indentWithTab])),
+        Prec.highest(keymap.of([{ key: 'Enter', run: smartEnter }, indentWithTab])),
+        indentationMarkers(),
         viewMod.EditorView.lineWrapping,
       ])
     }
@@ -247,6 +262,8 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
             foldGutter: true,
             autocompletion: true,
             indentOnInput: true,
+            bracketMatching: true,
+            closeBrackets: true,
           }}
           style={height === '100%' ? { height: '100%' } : undefined}
         />
