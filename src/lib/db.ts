@@ -812,6 +812,15 @@ export async function savePracticeSession(questionId: number, language: string, 
   if (error) console.error('[db] savePracticeSession:', error.message)
 }
 
+/** Grind editor drafts — stored separately from practice sessions via language prefix. */
+export async function getGrindSession(questionId: number, lang: 'python3' | 'cpp') {
+  return getPracticeSession(questionId, `grind_${lang}`)
+}
+
+export async function saveGrindSession(questionId: number, lang: 'python3' | 'cpp', code: string) {
+  return savePracticeSession(questionId, `grind_${lang}`, code)
+}
+
 // ─── Mock Sessions ────────────────────────────────────────────────────────────
 export interface MockSessionRecord {
   id?: number

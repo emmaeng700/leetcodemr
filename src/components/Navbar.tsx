@@ -40,6 +40,7 @@ const MCP_CHILDREN: { tab: McpTab; label: string; icon: React.ElementType }[] = 
 ]
 
 const DRILL_LINKS: NavLink[] = [
+  { href: '/grind',      label: 'Grind',      icon: Code2 },
   { href: '/flashcards', label: 'Flashcards', icon: Layers },
   { href: '/cycles',     label: 'Cycles',     icon: RefreshCw },
 ]
