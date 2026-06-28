@@ -8,12 +8,15 @@ function cacheOfflinePages(registration: ServiceWorkerRegistration) {
   worker.postMessage({ type: 'CACHE_PAGES', pages: [...OFFLINE_PAGES] })
 }
 
+function activateWaitingWorker(reg: ServiceWorkerRegistration) {
+  const waiting = reg.waiting
+  if (waiting) waiting.postMessage({ type: 'SKIP_WAITING' })
+}
+
 export default function SwRegister() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
 
-    // When a new SW takes over (skipWaiting already fires in install),
-    // reload so the page picks up the latest HTML/JS.
     let reloading = false
     const onControllerChange = () => {
       if (reloading) return
@@ -23,13 +26,15 @@ export default function SwRegister() {
     navigator.serviceWorker.addEventListener('controllerchange', onControllerChange)
 
     navigator.serviceWorker
-      .register('/sw.js')
-      .then(reg => {
-        void reg.update()
+      .register('/sw.js', { updateViaCache: 'none' })
+      .then(async reg => {
+        await reg.update()
+        activateWaitingWorker(reg)
         if (navigator.onLine) cacheOfflinePages(reg)
         reg.addEventListener('updatefound', () => {
           const next = reg.installing
           next?.addEventListener('statechange', () => {
+            if (next.state === 'installed') activateWaitingWorker(reg)
             if (next.state === 'activated' && navigator.onLine) cacheOfflinePages(reg)
           })
         })
@@ -37,7 +42,12 @@ export default function SwRegister() {
       .catch(() => {})
 
     const onOnline = () => {
-      navigator.serviceWorker.ready.then(cacheOfflinePages).catch(() => {})
+      navigator.serviceWorker.ready
+        .then(reg => {
+          activateWaitingWorker(reg)
+          cacheOfflinePages(reg)
+        })
+        .catch(() => {})
     }
     window.addEventListener('online', onOnline)
 
