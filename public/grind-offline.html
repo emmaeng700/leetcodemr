@@ -47,7 +47,15 @@
     .q.on { background: #1e1e2e; }
     .q-id { font-size: 0.6rem; color: #6c7086; font-family: monospace; }
     .q-title { font-size: 0.68rem; line-height: 1.3; margin-top: 0.1rem; }
-    .q-set { font-size: 0.55rem; font-weight: 700; color: #89b4fa; }
+    .list-divider-set {
+      padding: 0.4rem 0.5rem; font-size: 0.58rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.04em; color: #89b4fa; background: #1e1e2e;
+      border-bottom: 1px solid #313244; position: sticky; top: 0; z-index: 2;
+    }
+    .list-divider-sec {
+      padding: 0.35rem 0.5rem; font-size: 0.55rem; font-weight: 600; color: #6c7086;
+      background: #181825; border-bottom: 1px solid #313244; position: sticky; top: 0; z-index: 1;
+    }
     .editor { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #1e1e2e; }
     .meta {
       padding: 0.35rem 0.5rem; font-size: 0.65rem; color: #a6adc8; background: #181825;
@@ -222,6 +230,12 @@
       if (fsMeta) fsMeta.textContent = text
     }
 
+    function setDividerLabel(setNum) {
+      if (setNum === 1) return 'Set 1 - Main 331'
+      if (setNum === 2) return 'Set 2 - NeetCode 250'
+      return 'Set 3 - AlgoMaster 600'
+    }
+
     function renderList() {
       var list = document.getElementById('list')
       var head = document.getElementById('list-head')
@@ -231,11 +245,28 @@
         head.textContent = filtered.length + ' question' + (filtered.length === 1 ? '' : 's') + (s ? ' matching' : '')
       }
       list.innerHTML = ''
+      var lastSet = 0
+      var lastSection = null
       filtered.forEach(function(q) {
+        if (q.set !== lastSet) {
+          var setDiv = document.createElement('div')
+          setDiv.className = 'list-divider-set'
+          setDiv.textContent = setDividerLabel(q.set)
+          list.appendChild(setDiv)
+          lastSet = q.set
+          lastSection = null
+        }
+        if (q.section && q.section !== lastSection) {
+          var secDiv = document.createElement('div')
+          secDiv.className = 'list-divider-sec'
+          secDiv.textContent = q.section
+          list.appendChild(secDiv)
+          lastSection = q.section
+        }
         var btn = document.createElement('button')
         btn.type = 'button'
         btn.className = 'q' + (q.id === selectedId ? ' on' : '')
-        btn.innerHTML = '<div class="q-set">Set ' + q.set + '</div><div class="q-id">#' + q.id + '</div><div class="q-title">' + q.title + '</div>'
+        btn.innerHTML = '<div class="q-id">#' + q.id + ' ù ' + q.difficulty + '</div><div class="q-title">' + q.title + '</div>'
         btn.onclick = function() { selectQuestion(q.id) }
         list.appendChild(btn)
       })

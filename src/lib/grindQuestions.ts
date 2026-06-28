@@ -1,4 +1,8 @@
 import type { SetQuestion } from '@/lib/questionSets'
+import { buildSetTagMap } from '@/lib/questionSets'
+import { PATTERN_PRIORITY } from '@/lib/constants'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { studyOrder } from '@/lib/studyOrder'
 import ncExtraQuestions from '../../neetcode_extra_questions.json'
 import am600ExtraQuestions from '../../am600_extra_questions.json'
 
@@ -8,6 +12,10 @@ export type GrindQuestion = {
   title: string
   slug: string
   difficulty: string
+  /** Exclusive pattern name (same assignment as study PDFs). */
+  pattern: string | null
+  /** e.g. "High Easy - Arrays & Hashing" for list section headers. */
+  section: string | null
   starterPython?: string
   starterCpp?: string
 }
@@ -17,6 +25,7 @@ type Set1Row = {
   title: string
   slug: string
   difficulty: string
+  tags?: string[]
   starter_python?: string
   starter_cpp?: string
 }
@@ -37,51 +46,72 @@ for (const q of [...ncExtraQuestions, ...am600ExtraQuestions] as ExtraStarterRow
   }
 }
 
-/** All 727 app questions in set order (Set 1 -> Set 2 -> Set 3). */
+function sectionLabel(pattern: string | null, difficulty: string): string | null {
+  if (!pattern) return null
+  const priority = PATTERN_PRIORITY[pattern as keyof typeof PATTERN_PRIORITY]
+  if (!priority) return pattern
+  return `${priority} ${difficulty} - ${pattern}`
+}
+
+function toGrindRow(
+  set: 1 | 2 | 3,
+  q: { id: number; title: string; slug: string; difficulty: string; starter_python?: string; starter_cpp?: string },
+  patternMap: Record<number, string>,
+  extraStarters?: { starterPython?: string; starterCpp?: string },
+): GrindQuestion {
+  const pattern = patternMap[q.id] ?? null
+  return {
+    set,
+    id: q.id,
+    title: q.title,
+    slug: q.slug,
+    difficulty: q.difficulty,
+    pattern,
+    section: sectionLabel(pattern, q.difficulty),
+    starterPython: q.starter_python ?? extraStarters?.starterPython,
+    starterCpp: q.starter_cpp ?? extraStarters?.starterCpp,
+  }
+}
+
+/**
+ * All 727 questions: Set 1 -> Set 2 -> Set 3.
+ * Within each set: priority tier -> difficulty -> pattern (studyOrder.ts / PDF order).
+ */
 export function buildGrindQuestions(
   set1: Set1Row[],
   set2: SetQuestion[],
   set3: SetQuestion[],
 ): GrindQuestion[] {
+  const tagMap = buildSetTagMap(set1)
   const rows: GrindQuestion[] = []
 
-  for (const q of set1) {
-    rows.push({
-      set: 1,
-      id: q.id,
-      title: q.title,
-      slug: q.slug,
-      difficulty: q.difficulty,
-      starterPython: q.starter_python,
-      starterCpp: q.starter_cpp,
-    })
-  }
-  for (const q of set2) {
-    const extra = EXTRA_STARTERS[q.id]
-    rows.push({
-      set: 2,
-      id: q.id,
-      title: q.title,
-      slug: q.slug,
-      difficulty: q.difficulty,
-      starterPython: extra?.starterPython,
-      starterCpp: extra?.starterCpp,
-    })
-  }
-  for (const q of set3) {
-    const extra = EXTRA_STARTERS[q.id]
-    rows.push({
-      set: 3,
-      id: q.id,
-      title: q.title,
-      slug: q.slug,
-      difficulty: q.difficulty,
-      starterPython: extra?.starterPython,
-      starterCpp: extra?.starterCpp,
-    })
+  const set1Tagged = set1.map(q => ({
+    ...q,
+    tags: q.tags ?? [],
+  }))
+  const set1PatternMap = buildExclusivePatternMap(set1Tagged)
+  const set1Order = studyOrder(
+    set1Tagged.map(q => ({ id: q.id, tags: q.tags, difficulty: q.difficulty })),
+  )
+  const set1ById = Object.fromEntries(set1Tagged.map(q => [q.id, q]))
+  for (const id of set1Order) {
+    const q = set1ById[id]
+    if (q) rows.push(toGrindRow(1, q, set1PatternMap))
   }
 
-  return rows.sort((a, b) => a.set - b.set || a.id - b.id)
+  const set2Tagged = set2.map(q => ({ ...q, tags: tagMap[q.id] ?? q.tags ?? [] }))
+  const set2PatternMap = buildExclusivePatternMap(set2Tagged)
+  for (const q of set2) {
+    rows.push(toGrindRow(2, q, set2PatternMap, EXTRA_STARTERS[q.id]))
+  }
+
+  const set3Tagged = set3.map(q => ({ ...q, tags: tagMap[q.id] ?? q.tags ?? [] }))
+  const set3PatternMap = buildExclusivePatternMap(set3Tagged)
+  for (const q of set3) {
+    rows.push(toGrindRow(3, q, set3PatternMap, EXTRA_STARTERS[q.id]))
+  }
+
+  return rows
 }
 
 /** Load questions_full.json - uses service worker cache when offline. */
@@ -94,7 +124,7 @@ export async function loadQuestionsFullJson(): Promise<Set1Row[]> {
   }
 
   if (typeof caches !== 'undefined') {
-    for (const cacheName of ['lm-v9', 'lm-v8', 'lm-v7', 'lm-v6']) {
+    for (const cacheName of ['lm-v11', 'lm-v10', 'lm-v9', 'lm-v8']) {
       try {
         const cache = await caches.open(cacheName)
         const cached = await cache.match('/questions_full.json')

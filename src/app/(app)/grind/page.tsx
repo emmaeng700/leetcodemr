@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Search, PenLine } from 'lucide-react'
 import GrindEditor from '@/components/GrindEditor'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import { buildGrindQuestions, loadQuestionsFullJson, type GrindQuestion } from '@/lib/grindQuestions'
+import { grindListWithDividers } from '@/lib/grindList'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter } from '@/lib/grindStorage'
@@ -48,6 +49,8 @@ function GrindInner() {
     if (!search.trim()) return questions
     return questions.filter(q => matchesQuestionSearch(q, search))
   }, [questions, search])
+
+  const listEntries = useMemo(() => grindListWithDividers(filtered), [filtered])
 
   const selected = useMemo(() => {
     if (selectedId > 0) return questions.find(q => q.id === selectedId) ?? null
@@ -125,7 +128,7 @@ function GrindInner() {
           <div className="min-w-0">
             <h1 className="text-base font-bold text-[var(--text)] leading-tight">The Grind</h1>
             <p className="text-[10px] text-[var(--text-subtle)]">
-              Write solutions from memory | {questions.length} questions | works offline
+              PDF study order | {questions.length} questions | Set 1 then 2 then 3
             </p>
           </div>
         </div>
@@ -196,11 +199,26 @@ function GrindInner() {
             {search.trim() ? ' matching search' : ''}
           </div>
           <div className="overflow-y-auto flex-1 min-h-0">
-            {filtered.map(q => {
+            {listEntries.map(entry => {
+              if (entry.type === 'divider') {
+                return (
+                  <div
+                    key={entry.key}
+                    className={`sticky top-0 z-10 px-3 py-1.5 border-b border-[var(--border-soft)] shrink-0 ${
+                      entry.variant === 'set'
+                        ? 'bg-indigo-100/90 dark:bg-indigo-950/80 text-[10px] font-bold uppercase tracking-wide text-indigo-800 dark:text-indigo-200'
+                        : 'bg-[var(--bg-muted)] text-[9px] font-semibold text-[var(--text-subtle)]'
+                    }`}
+                  >
+                    {entry.label}
+                  </div>
+                )
+              }
+              const q = entry.q
               const active = selected?.id === q.id
               return (
                 <button
-                  key={`${q.set}-${q.id}`}
+                  key={entry.key}
                   type="button"
                   onClick={() => selectQuestion(q)}
                   className={`w-full text-left px-3 py-2 border-b border-[var(--border-soft)] transition-colors ${
