@@ -279,7 +279,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
           </div>
         </div>
 
-        <div className={`relative flex-1 min-h-0 ${editorExpanded ? 'invisible' : ''}`}>
+        <div className={`practice-cm-wrap relative flex-1 min-h-0 ${editorExpanded ? 'invisible' : ''}`}>
           {editorBody('100%', false)}
         </div>
         {!editorExpanded && footerBar}
@@ -288,7 +288,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
       {editorExpanded &&
         typeof document !== 'undefined' &&
         createPortal(
-          <div className="fixed inset-0 flex flex-col bg-[#1e1e2e]" style={{ zIndex: 9999 }}>
+          <div className="practice-fs-portal fixed inset-0 flex flex-col bg-[#1e1e2e]" style={{ zIndex: 9999 }}>
             <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#181825] border-b border-gray-700 shrink-0">
               <span className="text-xs font-bold text-gray-200 truncate">
                 #{question.id} - {question.title}
