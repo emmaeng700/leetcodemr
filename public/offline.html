@@ -39,13 +39,22 @@
     .btn-primary {
       background: #4f46e5; color: white;
       border: none; border-radius: 0.75rem;
-      padding: 0.6rem 1.25rem;
+      padding: 0.65rem 1.25rem;
       font-size: 0.85rem; font-weight: 600;
       cursor: pointer; width: 100%;
       transition: background 0.15s;
       text-decoration: none; display: block;
+      margin-bottom: 0.5rem;
     }
     .btn-primary:hover { background: #4338ca; }
+    .btn-grind {
+      background: #059669;
+    }
+    .btn-grind:hover { background: #047857; }
+    .btn-secondary {
+      background: #f3f4f6; color: #374151;
+    }
+    .btn-secondary:hover { background: #e5e7eb; }
 
     .nav-card {
       background: white;
@@ -77,35 +86,35 @@
       font-size: 0.8rem;
       font-weight: 500;
       color: #374151;
-      transition: background 0.15s;
     }
-    .nav-link:hover { background: #e5e7eb; }
-    .nav-link span.em { font-size: 1rem; }
+    .nav-link.grind { background: #ecfdf5; color: #065f46; font-weight: 700; }
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="icon">📡</div>
-    <h1>This page needs internet</h1>
-    <p>You're offline. Go back or navigate to a page that works offline.</p>
-    <a class="btn-primary" onclick="history.length > 1 ? history.back() : location.href='/'" href="/">← Go back</a>
+    <div class="icon">&#128225;</div>
+    <h1>You're offline</h1>
+    <p>These pages still work without internet:</p>
+    <a class="btn-primary btn-grind" href="/grind">Grind - write code offline</a>
+    <a class="btn-primary" href="/">Questions</a>
+    <a class="btn-primary btn-secondary" onclick="history.length > 1 ? history.back() : location.href='/'" href="/">Go back</a>
   </div>
 
   <div class="nav-card">
-    <div class="nav-label">Works offline</div>
+    <div class="nav-label">More offline pages</div>
     <div class="nav-grid">
-      <a class="nav-link" href="/"><span class="em">🏠</span> Questions</a>
-      <a class="nav-link" href="/grind"><span class="em">✍️</span> Grind</a>
-      <a class="nav-link" href="/flashcards"><span class="em">🃏</span> Flashcards</a>
-      <a class="nav-link" href="/daily"><span class="em">📅</span> Daily</a>
-      <a class="nav-link" href="/cycles"><span class="em">🔄</span> Cycles</a>
-      <a class="nav-link" href="/behavioral"><span class="em">🎯</span> Behavioral</a>
-      <a class="nav-link" href="/system-design"><span class="em">🏗️</span> System Design</a>
-      <a class="nav-link" href="/dsa"><span class="em">📐</span> DSA</a>
-      <a class="nav-link" href="/gems"><span class="em">💎</span> Gems</a>
-      <a class="nav-link" href="/patterns"><span class="em">🔁</span> Patterns</a>
-      <a class="nav-link" href="/quick-review"><span class="em">⚡</span> Quick Review</a>
-      <a class="nav-link" href="/about"><span class="em">ℹ️</span> About</a>
+      <a class="nav-link grind" href="/grind">Grind</a>
+      <a class="nav-link" href="/">Questions</a>
+      <a class="nav-link" href="/flashcards">Flashcards</a>
+      <a class="nav-link" href="/daily">Daily</a>
+      <a class="nav-link" href="/cycles">Cycles</a>
+      <a class="nav-link" href="/behavioral">Behavioral</a>
+      <a class="nav-link" href="/system-design">System Design</a>
+      <a class="nav-link" href="/dsa">DSA</a>
+      <a class="nav-link" href="/gems">Gems</a>
+      <a class="nav-link" href="/patterns">Patterns</a>
+      <a class="nav-link" href="/quick-review">Quick Review</a>
+      <a class="nav-link" href="/about">About</a>
     </div>
   </div>
 </body>

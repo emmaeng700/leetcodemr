@@ -1,4 +1,4 @@
-const CACHE     = 'lm-v7'
+const CACHE     = 'lm-v8'
 const IMG_CACHE = 'lm-images'   // stable — never wiped on SW updates
 
 // App shells precached on install (keep in sync with src/lib/offlinePages.ts).
@@ -43,7 +43,7 @@ const OFFLINE_HTML = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Offline — LeetMastery</title>
+  <title>Offline - LeetMastery</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
@@ -58,9 +58,11 @@ const OFFLINE_HTML = `<!DOCTYPE html>
     h1{font-size:1.1rem;font-weight:700;color:#111827;margin-bottom:.4rem}
     p{font-size:.85rem;color:#6b7280;line-height:1.6;margin-bottom:1.25rem}
     .btn{background:#4f46e5;color:#fff;border:none;border-radius:.75rem;
-         padding:.6rem 1.25rem;font-size:.85rem;font-weight:600;
+         padding:.65rem 1.25rem;font-size:.85rem;font-weight:600;
          cursor:pointer;width:100%;margin-bottom:.5rem;
          text-decoration:none;display:block}
+    .btn-grind{background:#059669}
+    .btn-secondary{background:#f3f4f6;color:#374151}
     .nav{background:#fff;border-radius:1.25rem;padding:1.25rem 1.75rem;
          max-width:380px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,.06)}
     .nav-label{font-size:.7rem;font-weight:700;text-transform:uppercase;
@@ -69,30 +71,33 @@ const OFFLINE_HTML = `<!DOCTYPE html>
     a.link{display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;
            background:#f3f4f6;border-radius:.625rem;text-decoration:none;
            font-size:.8rem;font-weight:500;color:#374151}
+    a.grind{background:#ecfdf5;color:#065f46;font-weight:700}
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="icon">📡</div>
-    <h1>This page needs internet</h1>
-    <p>You're offline. Go back or visit a page that works without internet.</p>
-    <a class="btn" onclick="history.length>1?history.back():location.href='/'" href="/">← Go back</a>
+    <div class="icon">&#128225;</div>
+    <h1>You're offline</h1>
+    <p>These pages still work without internet:</p>
+    <a class="btn btn-grind" href="/grind">Grind - write code offline</a>
+    <a class="btn" href="/">Questions</a>
+    <a class="btn btn-secondary" onclick="history.length>1?history.back():location.href='/'" href="/">Go back</a>
   </div>
   <div class="nav">
-    <div class="nav-label">Works offline</div>
+    <div class="nav-label">More offline pages</div>
     <div class="grid">
-      <a class="link" href="/">🏠 Questions</a>
-      <a class="link" href="/grind">✍️ Grind</a>
-      <a class="link" href="/flashcards">🃏 Flashcards</a>
-      <a class="link" href="/daily">📅 Daily</a>
-      <a class="link" href="/cycles">🔄 Cycles</a>
-      <a class="link" href="/behavioral">🎯 Behavioral</a>
-      <a class="link" href="/system-design">🏗️ System Design</a>
-      <a class="link" href="/dsa">📐 DSA</a>
-      <a class="link" href="/gems">💎 Gems</a>
-      <a class="link" href="/patterns">🔁 Patterns</a>
-      <a class="link" href="/quick-review">⚡ Quick Review</a>
-      <a class="link" href="/about">ℹ️ About</a>
+      <a class="link grind" href="/grind">Grind</a>
+      <a class="link" href="/">Questions</a>
+      <a class="link" href="/flashcards">Flashcards</a>
+      <a class="link" href="/daily">Daily</a>
+      <a class="link" href="/cycles">Cycles</a>
+      <a class="link" href="/behavioral">Behavioral</a>
+      <a class="link" href="/system-design">System Design</a>
+      <a class="link" href="/dsa">DSA</a>
+      <a class="link" href="/gems">Gems</a>
+      <a class="link" href="/patterns">Patterns</a>
+      <a class="link" href="/quick-review">Quick Review</a>
+      <a class="link" href="/about">About</a>
     </div>
   </div>
 </body>
@@ -130,10 +135,23 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      // Delete old page caches; KEEP lm-images so images survive SW updates
       .then(keys => Promise.all(
         keys.filter(k => k !== CACHE && k !== IMG_CACHE).map(k => caches.delete(k))
       ))
+      .then(async () => {
+        const cache = await caches.open(CACHE)
+        await cache.delete('/offline.html').catch(() => {})
+        try {
+          const res = await fetch('/offline.html')
+          if (res.ok) await cache.put('/offline.html', res)
+        } catch {}
+        for (const url of ['/grind', '/']) {
+          try {
+            const res = await fetch(url, { credentials: 'include' })
+            if (res.ok) await cache.put(url, res)
+          } catch {}
+        }
+      })
       .then(() => self.clients.claim())
   )
 })
@@ -183,6 +201,19 @@ self.addEventListener('fetch', e => {
     return
   }
 
+  // offline.html: network-first so updates propagate; inline fallback is always fresh too
+  if (url.pathname === '/offline.html') {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()))
+          return res
+        })
+        .catch(() => caches.match(e.request).then(c => c || offlineResponse()))
+    )
+    return
+  }
+
   // ── Other static assets: cache-first ──────────────────────────────────────
   const isStatic =
     url.pathname.startsWith('/icons/')        ||
@@ -192,8 +223,7 @@ self.addEventListener('fetch', e => {
     url.pathname.endsWith('.svg')             ||
     url.pathname.endsWith('.ico')             ||
     url.pathname.endsWith('.woff2')           ||
-    url.pathname.endsWith('.woff')            ||
-    url.pathname === '/offline.html'
+    url.pathname.endsWith('.woff')
 
   if (isStatic) {
     e.respondWith(
@@ -229,9 +259,8 @@ self.addEventListener('fetch', e => {
             if (shellCached) return shellCached
           }
 
-          // Try the cached offline.html first, fall back to inline HTML
-          const offlinePage = await caches.match('/offline.html')
-          return offlinePage || offlineResponse()
+          // Inline HTML ships with this SW version (always includes Grind link)
+          return offlineResponse()
         }
 
         return new Response('', { status: 503 })

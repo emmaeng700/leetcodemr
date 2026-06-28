@@ -94,7 +94,7 @@ export async function loadQuestionsFullJson(): Promise<Set1Row[]> {
   }
 
   if (typeof caches !== 'undefined') {
-    for (const cacheName of ['lm-v7', 'lm-v6']) {
+    for (const cacheName of ['lm-v8', 'lm-v7', 'lm-v6']) {
       try {
         const cache = await caches.open(cacheName)
         const cached = await cache.match('/questions_full.json')
