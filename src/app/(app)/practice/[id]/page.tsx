@@ -174,20 +174,24 @@ export default function PracticePage() {
         } catch { /* ignore */ }
       }
 
-      if (modeQueue?.length) setPlanOrder(modeQueue)
-      else if (inReviewFlow) {
+      if (modeQueue?.length) {
+        if (!modeQueue.includes(id)) {
+          modeQueue = [id, ...modeQueue]
+          try { sessionStorage.setItem(queueKey!, JSON.stringify(modeQueue)) } catch { /* ignore */ }
+        }
+        setPlanOrder(modeQueue)
+      } else if (inReviewFlow) {
         try {
           const due = await getDueReviews()
           const ids = due.map(d => d.id)
-          if (ids.length) setPlanOrder(ids)
-          else if (plan?.question_order?.length) setPlanOrder(plan.question_order)
-          else setPlanOrder((qs as Question[]).map((q: Question) => q.id))
+          if (ids.includes(id)) setPlanOrder(ids)
+          else setPlanOrder([id, ...ids.filter(qid => qid !== id)])
         } catch {
-          if (plan?.question_order?.length) setPlanOrder(plan.question_order)
-          else setPlanOrder((qs as Question[]).map((q: Question) => q.id))
+          setPlanOrder([id])
         }
-      }
-      else if (plan?.question_order?.length) setPlanOrder(plan.question_order)
+      } else if (isDailyMode) {
+        setPlanOrder([id])
+      } else if (plan?.question_order?.length) setPlanOrder(plan.question_order)
       else setPlanOrder((qs as Question[]).map((q: Question) => q.id))
       setSolved(!!safeProg[String(id)]?.solved)
       const today = todayISOChicago()
@@ -219,18 +223,6 @@ export default function PracticePage() {
   useEffect(() => {
     setQueuedNextId(null)
   }, [id])
-
-  useEffect(() => {
-    if (!usesThreeSolveGate || planOrder.length === 0) return
-    const currentIdx = planOrder.indexOf(id)
-    if (currentIdx < 0) return
-    const firstIncompleteIdx = planOrder.findIndex(qid => (modeRuns[String(qid)] ?? 0) < targetReps)
-    const unlockedThrough = firstIncompleteIdx === -1 ? planOrder.length - 1 : firstIncompleteIdx
-    if (currentIdx <= unlockedThrough) return
-    const fallbackId = planOrder[unlockedThrough]
-    const navSuffix = isDailyMode ? '?from=daily' : '?from=review'
-    router.replace(`/practice/${fallbackId}${navSuffix}`)
-  }, [id, isDailyMode, activeReviewFlow, modeRuns, planOrder, router, targetReps, usesThreeSolveGate])
 
   // Fetch real LeetCode description in the background once we have the slug.
   // Reads session from localStorage first; if empty falls back to Supabase
@@ -576,33 +568,21 @@ export default function PracticePage() {
           {planOrder.length > 0 && (() => {
             const qMap = Object.fromEntries(allQuestions.map(q => [q.id, q]))
             const currentIdx = planOrder.indexOf(id)
-            const firstIncompleteIdx = usesThreeSolveGate
-              ? planOrder.findIndex(qid => (modeRuns[String(qid)] ?? 0) < targetReps)
-              : -1
-            const unlockedThrough = !usesThreeSolveGate
-              ? planOrder.length - 1
-              : firstIncompleteIdx === -1
-                ? planOrder.length - 1
-                : firstIncompleteIdx
             const prevId = currentIdx > 0 ? planOrder[currentIdx - 1] : null
-            const nextId = queuedNextId ?? (currentIdx < unlockedThrough ? planOrder[currentIdx + 1] : null)
+            const nextId = queuedNextId ?? (currentIdx >= 0 && currentIdx < planOrder.length - 1 ? planOrder[currentIdx + 1] : null)
             const navSuffix = isDailyMode ? '?from=daily' : activeReviewFlow ? '?from=review' : ''
             const practiceListItems = planOrder.map((qid) => {
               const lq = qMap[qid]
               if (!lq) return null
-              const listIdx = planOrder.indexOf(qid)
-              const unlocked = !usesThreeSolveGate || listIdx <= unlockedThrough
               return (
                 <button
                   key={qid}
                   type="button"
-                  disabled={!unlocked}
                   onClick={() => {
-                    if (!unlocked) return
                     router.push(`/practice/${qid}${navSuffix}`)
                     setShowList(false)
                   }}
-                  className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors border-b border-[var(--border-soft)] ${unlocked ? 'hover:bg-indigo-600/10' : 'opacity-50 cursor-not-allowed'} ${qid === id ? 'bg-indigo-600/15' : ''}`}
+                  className={`flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left text-sm transition-colors border-b border-[var(--border-soft)] hover:bg-indigo-600/10 ${qid === id ? 'bg-indigo-600/15' : ''}`}
                 >
                   <span className="shrink-0 tabular-nums text-xs font-mono text-[var(--text-subtle)]">#{lq.id}</span>
                   <span className="min-w-0 flex-1 truncate text-[var(--text)]">{lq.title}</span>
