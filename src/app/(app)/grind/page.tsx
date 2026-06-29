@@ -23,11 +23,21 @@ function GrindInner() {
   const router = useRouter()
   const [questions, setQuestions] = useState<GrindQuestion[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState(sp.get('search') || '')
+  const [search, setSearch] = useState(() => sp.get('search') || '')
+  const [selectedId, setSelectedId] = useState(() => Number(sp.get('id') || '0'))
   const [listOpen, setListOpen] = useState(false)
   const prefetchRef = useRef(false)
 
-  const selectedId = Number(sp.get('id') || '0')
+  const spKey = sp.toString()
+
+  useEffect(() => {
+    const fromUrl = Number(sp.get('id') || '0')
+    if (fromUrl > 0) setSelectedId(fromUrl)
+  }, [spKey, sp])
+
+  useEffect(() => {
+    setSearch(sp.get('search') || '')
+  }, [spKey, sp])
 
   useEffect(() => {
     async function load() {
@@ -61,12 +71,11 @@ function GrindInner() {
   const navList = search.trim() ? filtered : questions
   const navIndex = selected ? navList.findIndex(q => q.id === selected.id) : -1
 
-  const spKey = sp.toString()
-
   useEffect(() => {
     if (loading || questions.length === 0 || selectedId > 0) return
     const first = filtered[0] ?? questions[0]
     if (!first) return
+    setSelectedId(first.id)
     const params = new URLSearchParams(spKey)
     params.set('id', String(first.id))
     router.replace(`/grind?${params.toString()}`, { scroll: false })
@@ -94,9 +103,12 @@ function GrindInner() {
   }, [loading, questions, selected])
 
   function navigateToQuestion(q: GrindQuestion) {
+    setSelectedId(q.id)
     const params = new URLSearchParams(sp.toString())
     params.set('id', String(q.id))
-    router.replace(`/grind?${params.toString()}`, { scroll: false })
+    const href = `/grind?${params.toString()}`
+    window.history.replaceState(window.history.state, '', href)
+    router.replace(href, { scroll: false })
   }
 
   function selectQuestion(q: GrindQuestion) {
@@ -116,8 +128,13 @@ function GrindInner() {
     if (search.trim()) params.set('search', search.trim())
     else params.delete('search')
     const first = filtered[0]
-    if (first) params.set('id', String(first.id))
-    router.replace(`/grind?${params.toString()}`, { scroll: false })
+    if (first) {
+      setSelectedId(first.id)
+      params.set('id', String(first.id))
+    }
+    const href = `/grind?${params.toString()}`
+    window.history.replaceState(window.history.state, '', href)
+    router.replace(href, { scroll: false })
   }
 
   if (loading) {
@@ -132,7 +149,7 @@ function GrindInner() {
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex flex-col gap-3 min-h-[calc(100dvh-3.5rem)]">
       <GrindConnectivityBanner questionId={selected?.id} />
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 shrink-0 relative z-[45]">
         <div className="flex items-center gap-2 min-w-0">
           <PenLine size={18} className="text-indigo-500 shrink-0" />
           <div className="min-w-0">
