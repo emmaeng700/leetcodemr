@@ -18,9 +18,14 @@
     header h1 { font-size: 0.85rem; font-weight: 700; color: #cdd6f4; flex: 1; min-width: 0; }
     header .sub { font-size: 0.6rem; color: #6c7086; width: 100%; }
     .search {
-      width: 100%; padding: 0.45rem 0.6rem; border-radius: 0.5rem; border: 1px solid #313244;
+      padding: 0.45rem 0.6rem; border-radius: 0.5rem; border: 1px solid #313244;
       background: #1e1e2e; color: #cdd6f4; font-size: 16px;
     }
+    .search-row { display: flex; gap: 0.35rem; width: 100%; align-items: center; }
+    .search-row .search { flex: 1; width: auto; min-width: 0; }
+    .nav-btn { padding: 0.45rem 0.55rem; flex-shrink: 0; font-size: 1rem; line-height: 1; min-width: 2rem; }
+    .nav-btn:disabled { opacity: 0.35; cursor: default; }
+    .nav-count { font-size: 0.6rem; color: #6c7086; width: 100%; text-align: center; margin-top: -0.15rem; }
     .langs { display: flex; gap: 0.25rem; }
     .langs button, .chip-btn {
       border: none; border-radius: 0.4rem; padding: 0.35rem 0.65rem; font-size: 0.7rem; font-weight: 600;
@@ -146,7 +151,7 @@
 </head>
 <body>
   <div class="app">
-    <div id="offline-banner" class="offline-banner">Offline ÔøΩ saved on this device only.</div>
+    <div id="offline-banner" class="offline-banner">Offline ù saved on this device only.</div>
     <div id="online-banner" class="online-banner">
       <p><strong>You&apos;re back online.</strong> Drafts can sync. Tap below to visit other pages in the app.</p>
       <div class="online-banner-actions">
@@ -164,7 +169,12 @@
         </div>
         <button type="button" class="chip-btn mob-only" id="btn-list">List</button>
       </div>
-      <input class="search" id="search" type="search" placeholder="Search #id or title..." autocomplete="off" />
+      <div class="search-row">
+        <button type="button" class="chip-btn nav-btn" id="btn-prev" aria-label="Previous question">&#8249;</button>
+        <input class="search" id="search" type="search" placeholder="Search #id or title..." autocomplete="off" />
+        <button type="button" class="chip-btn nav-btn" id="btn-next" aria-label="Next question">&#8250;</button>
+      </div>
+      <span class="nav-count" id="nav-count"></span>
       <p class="sub">Write from memory. Tab indents. Syncs when back online.</p>
     </header>
     <div class="body" id="body">
@@ -330,6 +340,38 @@
       return questions.find(function(x) { return x.id === selectedId })
     }
 
+    function navList() {
+      var s = document.getElementById('search').value.trim()
+      return s ? filtered : questions
+    }
+
+    function navIndex() {
+      var list = navList()
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].id === selectedId) return i
+      }
+      return -1
+    }
+
+    function updateNavUI() {
+      var list = navList()
+      var idx = navIndex()
+      var prev = document.getElementById('btn-prev')
+      var next = document.getElementById('btn-next')
+      var count = document.getElementById('nav-count')
+      if (prev) prev.disabled = idx <= 0
+      if (next) next.disabled = idx < 0 || idx >= list.length - 1
+      if (count) count.textContent = idx >= 0 ? (idx + 1) + '/' + list.length : ''
+    }
+
+    function goNav(delta) {
+      var list = navList()
+      var idx = navIndex()
+      if (idx < 0) return
+      var n = list[idx + delta]
+      if (n) selectQuestion(n.id, false)
+    }
+
     function metaText(q) {
       return '#' + q.id + ' - ' + q.title + ' (Set ' + q.set + ')'
     }
@@ -380,10 +422,11 @@
         var btn = document.createElement('button')
         btn.type = 'button'
         btn.className = 'q' + (q.id === selectedId ? ' on' : '')
-        btn.innerHTML = '<div class="q-id">#' + q.id + ' ÔøΩ ' + q.difficulty + '</div><div class="q-title">' + q.title + '</div>'
+        btn.innerHTML = '<div class="q-id">#' + q.id + ' ù ' + q.difficulty + '</div><div class="q-title">' + q.title + '</div>'
         btn.onclick = function() { selectQuestion(q.id) }
         list.appendChild(btn)
       })
+      updateNavUI()
     }
 
     function syncLangButtons() {
@@ -451,11 +494,12 @@
       }
     }
 
-    function selectQuestion(id) {
+    function selectQuestion(id, closeList) {
+      if (closeList === undefined) closeList = true
       selectedId = id
       renderList()
       renderEditor()
-      setListOpen(false)
+      if (closeList) setListOpen(false)
       updateConnectivityUI()
       try { history.replaceState(null, '', '?id=' + id) } catch (e) {}
     }
@@ -477,6 +521,8 @@
         '</section>'
       document.getElementById('list-backdrop').onclick = function() { setListOpen(false) }
       document.getElementById('btn-list').onclick = function() { setListOpen(!listOpen) }
+      document.getElementById('btn-prev').onclick = function() { goNav(-1) }
+      document.getElementById('btn-next').onclick = function() { goNav(1) }
       document.getElementById('btn-full').onclick = function() { setEditorExpanded(true) }
       document.getElementById('btn-fs-close').onclick = function() { setEditorExpanded(false) }
       document.getElementById('fs-btn-py').onclick = function() { setLang('python3') }
@@ -490,6 +536,7 @@
       renderList()
       initEditor()
       updateMeta()
+      updateNavUI()
     }
 
     function setLang(next) {
@@ -563,7 +610,7 @@
         updateConnectivityUI()
         document.getElementById('status').textContent = navigator.onLine
           ? questions.length + ' questions'
-          : 'Offline mode ÔøΩ saved locally'
+          : 'Offline mode ù saved locally'
       })
       .catch(function() {
         document.getElementById('body').innerHTML =

@@ -58,7 +58,8 @@ function GrindInner() {
     return filtered[0] ?? questions[0] ?? null
   }, [questions, filtered, selectedId])
 
-  const selectedIndex = selected ? questions.findIndex(q => q.id === selected.id) : -1
+  const navList = search.trim() ? filtered : questions
+  const navIndex = selected ? navList.findIndex(q => q.id === selected.id) : -1
 
   const spKey = sp.toString()
 
@@ -92,17 +93,21 @@ function GrindInner() {
     setTimeout(tick, 800)
   }, [loading, questions, selected])
 
-  function selectQuestion(q: GrindQuestion) {
+  function navigateToQuestion(q: GrindQuestion) {
     const params = new URLSearchParams(sp.toString())
     params.set('id', String(q.id))
     router.replace(`/grind?${params.toString()}`, { scroll: false })
+  }
+
+  function selectQuestion(q: GrindQuestion) {
+    navigateToQuestion(q)
     setListOpen(false)
   }
 
   function go(delta: number) {
-    if (selectedIndex < 0) return
-    const next = questions[selectedIndex + delta]
-    if (next) selectQuestion(next)
+    if (navIndex < 0) return
+    const next = navList[navIndex + delta]
+    if (next) navigateToQuestion(next)
   }
 
   function onSearchSubmit(e: React.FormEvent) {
@@ -138,7 +143,18 @@ function GrindInner() {
           </div>
         </div>
 
-        <form onSubmit={onSearchSubmit} className="flex-1 flex gap-2 min-w-0">
+        <form onSubmit={onSearchSubmit} className="flex-1 flex gap-1.5 min-w-0 items-center">
+          {selected && (
+            <button
+              type="button"
+              disabled={navIndex <= 0}
+              onClick={() => go(-1)}
+              aria-label="Previous question"
+              className="p-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] disabled:opacity-30 shrink-0"
+            >
+              <ChevronLeft size={16} />
+            </button>
+          )}
           <div className="relative flex-1 min-w-0">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-subtle)]" />
             <input
@@ -148,6 +164,22 @@ function GrindInner() {
               className="w-full pl-9 pr-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] text-sm text-[var(--text)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:border-indigo-400"
             />
           </div>
+          {selected && (
+            <>
+              <button
+                type="button"
+                disabled={navIndex < 0 || navIndex >= navList.length - 1}
+                onClick={() => go(1)}
+                aria-label="Next question"
+                className="p-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] disabled:opacity-30 shrink-0"
+              >
+                <ChevronRight size={16} />
+              </button>
+              <span className="text-[10px] text-[var(--text-subtle)] font-mono shrink-0 tabular-nums">
+                {navIndex + 1}/{navList.length}
+              </span>
+            </>
+          )}
           <button
             type="button"
             onClick={() => setListOpen(v => !v)}
@@ -156,30 +188,6 @@ function GrindInner() {
             {listOpen ? 'Hide' : 'List'}
           </button>
         </form>
-
-        {selected && (
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              disabled={selectedIndex <= 0}
-              onClick={() => go(-1)}
-              className="p-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] disabled:opacity-30"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <span className="text-xs text-[var(--text-subtle)] font-mono px-1">
-              {selectedIndex + 1}/{questions.length}
-            </span>
-            <button
-              type="button"
-              disabled={selectedIndex >= questions.length - 1}
-              onClick={() => go(1)}
-              className="p-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] disabled:opacity-30"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        )}
       </div>
 
       <div className="flex flex-1 min-h-0 gap-3 relative">
