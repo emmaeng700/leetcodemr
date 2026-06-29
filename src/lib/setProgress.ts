@@ -5,6 +5,8 @@ export interface SetQProgress {
   next_review: string | null
   last_reviewed: string | null
   notes: string
+  /** Rolled forward from a missed review day — shown in catch-up UI. */
+  review_carry_date?: string | null
 }
 
 /** Count solved among a specific question list (not all keys in progress). */
@@ -65,6 +67,7 @@ export function updateSetQProgress(
   const current: SetQProgress = all[String(qId)] ?? {
     solved: false, starred: false, review_count: 0,
     next_review: null, last_reviewed: null, notes: '',
+    review_carry_date: null,
   }
   const next = { ...current, ...update }
   all[String(qId)] = next

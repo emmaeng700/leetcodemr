@@ -5,6 +5,7 @@ import {
   getSetProgress,
   updateSetQProgress,
   nextReviewDate,
+  saveSetProgress,
   type SetQProgress,
 } from '@/lib/setProgress'
 import { todayISOChicago } from '@/lib/studyPlanDay'
@@ -99,13 +100,43 @@ export async function loadSetQuestions(reviewSet: ReviewSet): Promise<SetQuestio
   return reviewSet === 2 ? getSet2Questions(mainIds, main) : getSet3Questions(mainIds, main)
 }
 
+export type SetDueReview = {
+  id: number
+  review_count: number
+  next_review: string
+  carried: boolean
+}
+
+function isReviewIncompleteOnDueDate(
+  dueDate: string,
+  lastReviewed: string | null | undefined,
+): boolean {
+  if (!lastReviewed) return true
+  return lastReviewed < dueDate
+}
+
+/** Roll incomplete Set 2/3 reviews forward to today (Chicago), like Set 1 catch-up. */
+export function rolloverIncompleteSetReviews(reviewSet: ReviewSet): void {
+  const today = todayISOChicago()
+  const progress = getSetProgress(reviewSet)
+  let changed = false
+  for (const [idStr, row] of Object.entries(progress)) {
+    if (!row?.solved || !row.next_review || row.next_review >= today) continue
+    if (!isReviewIncompleteOnDueDate(row.next_review, row.last_reviewed)) continue
+    progress[idStr] = { ...row, next_review: today, review_carry_date: today }
+    changed = true
+  }
+  if (changed) saveSetProgress(reviewSet, progress)
+}
+
 export function getSetDueReviews(
   reviewSet: ReviewSet,
   questions: SetQuestion[],
-): Array<{ id: number; review_count: number; next_review: string }> {
+): SetDueReview[] {
+  rolloverIncompleteSetReviews(reviewSet)
   const today = todayISOChicago()
   const progress = getSetProgress(reviewSet)
-  return questions
+  const due = questions
     .filter(q => {
       const p = progress[String(q.id)]
       return !!p?.solved && !!p.next_review && p.next_review <= today
@@ -114,7 +145,11 @@ export function getSetDueReviews(
       id: q.id,
       review_count: progress[String(q.id)]?.review_count ?? 0,
       next_review: progress[String(q.id)]?.next_review ?? today,
+      carried: !!progress[String(q.id)]?.review_carry_date,
     }))
+  const carried = due.filter(d => d.carried)
+  const natural = due.filter(d => !d.carried)
+  return [...carried, ...natural]
 }
 
 export function resolveQuestionForPractice(
@@ -152,6 +187,7 @@ export function getSetQProgressRow(reviewSet: ReviewSet, questionId: number): Se
     next_review: null,
     last_reviewed: null,
     notes: '',
+    review_carry_date: null,
   }
 }
 
@@ -163,6 +199,7 @@ export function completeSetReview(reviewSet: ReviewSet, questionId: number) {
     review_count: newCount,
     next_review: nextReview,
     last_reviewed: todayISOChicago(),
+    review_carry_date: null,
   })
   return { review_count: newCount, next_review: nextReview, error: null as string | null }
 }
@@ -173,6 +210,7 @@ export function failSetReview(reviewSet: ReviewSet, questionId: number) {
     review_count: 0,
     next_review: nextReview,
     last_reviewed: todayISOChicago(),
+    review_carry_date: null,
   })
   return { review_count: 0, next_review: nextReview, error: null as string | null }
 }

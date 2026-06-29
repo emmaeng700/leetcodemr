@@ -1288,6 +1288,7 @@ export async function getDueReviews(): Promise<Array<{ id: number; review_count:
       id: r.question_id,
       review_count: r.review_count,
       next_review: r.next_review,
+      carried: false,
     }))
   }
   if (error) {
@@ -1302,6 +1303,7 @@ export async function getDueReviews(): Promise<Array<{ id: number; review_count:
     id: r.question_id,
     review_count: r.review_count,
     next_review: r.next_review,
+    carried: !!r.review_carry_date,
   }))
 }
 

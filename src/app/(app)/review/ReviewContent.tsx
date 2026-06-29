@@ -47,7 +47,7 @@ export default function ReviewPage() {
   const online = useOnlineStatus()
   const [allQ, setAllQ] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, any>>({})
-  const [dueList, setDueList] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
+  const [dueList, setDueList] = useState<Array<{ id: number; review_count: number; next_review: string; carried?: boolean }>>([])
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState<number | null>(null)
   const [localDoneIds, setLocalDoneIds] = useState<Set<number>>(new Set())
@@ -134,7 +134,18 @@ export default function ReviewPage() {
 
   // Pre-compute pattern groups for due and upcoming sections
   const pendingDue = due.filter(q => !localDoneIds.has(q.id))
-  const dueByPattern = groupByPattern(pendingDue, exclusiveMap)
+  const pendingCarried = pendingDue.filter(q => dueList.find(d => d.id === q.id)?.carried)
+  const pendingNatural = pendingDue.filter(q => !dueList.find(d => d.id === q.id)?.carried)
+  const dueByPattern = groupByPattern(pendingNatural, exclusiveMap)
+  const carriedByPattern = groupByPattern(pendingCarried, exclusiveMap)
+
+  function daysOverdue(nr: string) {
+    const [y, m, d] = nr.split('-').map(Number)
+    const diff = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(y, m - 1, d).getTime()) / 86400000)
+    if (diff === 0) return 'due today'
+    if (diff === 1) return '1 day overdue'
+    return `${diff} days overdue`
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -169,45 +180,75 @@ export default function ReviewPage() {
       {/* ── Due for Review ─────────────────────────────────────────────────── */}
       {due.length > 0 && (
         <section className="mb-7">
-          {/* Section header — makes crystal clear these are today's batch */}
-          <div className="mb-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="flex flex-wrap items-center gap-2 text-sm font-bold text-[var(--text)]">
-                  <Flame size={15} className="text-orange-500" />
-                  Today&apos;s Reviews
-                  <span className="px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full text-xs border border-orange-200 font-bold">
-                    {pendingDue.length} left
+          {/* Review catch-up — rolled forward from missed days */}
+          {pendingCarried.length > 0 && (
+            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h2 className="text-sm font-bold text-amber-800 flex items-center gap-2">
+                  ⚠️ Review catch-up
+                  <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs border border-amber-300 font-bold">
+                    {pendingCarried.length} rolled forward
                   </span>
-                  {localDoneIds.size > 0 && (
-                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs border border-green-200 font-bold">
-                      {localDoneIds.size} done ✓
-                    </span>
-                  )}
                 </h2>
-                <p className="text-xs text-[var(--text-subtle)] mt-1">
-                  Grouped by pattern · Again &amp; Pass appear on each question
-                </p>
-              </div>
-              {/* Start all — queues every pending question in pattern order */}
-              {pendingDue.length > 0 && (
                 <button
                   type="button"
                   onClick={() => {
-                    const ordered = dueByPattern.flatMap(({ items }) => items.map(q => q.id))
+                    const ordered = carriedByPattern.flatMap(({ items }) => items.map(q => q.id))
                     clearReviewSessionReps()
                     sessionStorage.setItem('lm_review_queue', JSON.stringify(ordered))
                     router.push(`/practice/${ordered[0]}?from=review`)
                   }}
-                  className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-xl transition-colors"
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors"
                 >
-                  <Flame size={12} /> Start all {pendingDue.length}
+                  Start catch-up ({pendingCarried.length})
                 </button>
-              )}
+              </div>
+              <p className="text-xs text-amber-700 mb-3">
+                Missed from earlier days — complete these to clear catch-up.
+              </p>
+              <div className="space-y-4">
+                {carriedByPattern.map(({ pattern, items }) => (
+                  <div key={pattern}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                      <span className="text-xs font-bold text-amber-800 uppercase tracking-wider">{pattern}</span>
+                      <span className="text-[11px] font-bold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                        {items.length}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {items.map(q => (
+                        <div
+                          key={q.id}
+                          onClick={() => {
+                            clearReviewSessionReps()
+                            sessionStorage.setItem('lm_review_queue', JSON.stringify(
+                              pendingCarried.map(d => d.id),
+                            ))
+                            router.push(`/practice/${q.id}?from=review`)
+                          }}
+                          className="flex items-center justify-between gap-2 flex-wrap rounded-xl px-4 py-3 cursor-pointer bg-white border border-amber-200 hover:border-amber-400 hover:shadow-md transition-all group"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
+                            <span className="font-semibold text-sm truncate text-[var(--text)] group-hover:text-amber-700">{q.title}</span>
+                            <DifficultyBadge difficulty={q.difficulty} />
+                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200">
+                              catch-up
+                            </span>
+                          </div>
+                          <span className="text-xs text-amber-700 shrink-0">
+                            Review #{(q.p.review_count || 0) + 1} · {daysOverdue(q.p.next_review)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* All done celebration */}
           {localDoneIds.size >= due.length ? (
             <div className="rounded-2xl border border-green-300 bg-gradient-to-br from-green-50 to-emerald-50 p-6 text-center shadow-md">
               <div className="text-4xl mb-2">🎉</div>
@@ -221,68 +262,112 @@ export default function ReviewPage() {
               </button>
             </div>
           ) : (
-            <div className="space-y-5">
-              {dueByPattern.map(({ pattern, items }) => (
-                <div key={pattern}>
-                  {/* Pattern header */}
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
-                      <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">{pattern}</span>
-                      <PriorityBadge pattern={pattern} />
-                      <span className="text-[11px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full">
-                        {items.length}
-                      </span>
+            <>
+              {pendingNatural.length > 0 && (
+                <>
+                  <div className="mb-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h2 className="flex flex-wrap items-center gap-2 text-sm font-bold text-[var(--text)]">
+                          <Flame size={15} className="text-orange-500" />
+                          Today&apos;s Reviews
+                          <span className="px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full text-xs border border-orange-200 font-bold">
+                            {pendingNatural.length} left
+                          </span>
+                          {localDoneIds.size > 0 && (
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs border border-green-200 font-bold">
+                              {localDoneIds.size} done ✓
+                            </span>
+                          )}
+                        </h2>
+                        <p className="text-xs text-[var(--text-subtle)] mt-1">
+                          Grouped by pattern · Again &amp; Pass appear on each question
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const ordered = [
+                            ...carriedByPattern.flatMap(({ items }) => items.map(q => q.id)),
+                            ...dueByPattern.flatMap(({ items }) => items.map(q => q.id)),
+                          ]
+                          clearReviewSessionReps()
+                          sessionStorage.setItem('lm_review_queue', JSON.stringify(ordered))
+                          router.push(`/practice/${ordered[0]}?from=review`)
+                        }}
+                        className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-xl transition-colors"
+                      >
+                        <Flame size={12} /> Start all {pendingDue.length}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        clearReviewSessionReps()
-                        sessionStorage.setItem('lm_review_queue', JSON.stringify(items.map(q => q.id)))
-                        router.push(`/practice/${items[0].id}?from=review`)
-                      }}
-                      className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
-                    >
-                      Review all <CalendarCheck size={11} />
-                    </button>
                   </div>
-
-                  {/* Questions */}
-                  <div className="space-y-2">
-                    {items.map(q => (
-                        <div
-                          key={q.id}
-                          onClick={() => {
-                            clearReviewSessionReps()
-                            sessionStorage.setItem('lm_review_queue', JSON.stringify(
-                              due.filter(d => !localDoneIds.has(d.id)).map(d => d.id)
-                            ))
-                            router.push(`/practice/${q.id}?from=review`)
-                          }}
-                          className="flex items-center justify-between gap-2 flex-wrap rounded-xl px-4 py-3 cursor-pointer bg-indigo-50 border border-indigo-200 hover:border-indigo-400 hover:shadow-md transition-all group"
-                        >
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
-                            <span className="font-semibold text-sm truncate text-[var(--text)] group-hover:text-indigo-600">{q.title}</span>
-                            <DifficultyBadge difficulty={q.difficulty} />
+                  <div className="space-y-5">
+                    {dueByPattern.map(({ pattern, items }) => (
+                      <div key={pattern}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
+                            <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">{pattern}</span>
+                            <PriorityBadge pattern={pattern} />
+                            <span className="text-[11px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full">
+                              {items.length}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-xs text-indigo-500 hidden sm:inline">Review #{(q.p.review_count || 0) + 1}</span>
-                            <button
-                              onClick={e => handleCompleteReview(q.id, e)}
-                              disabled={completing === q.id}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                            >
-                              <CalendarCheck size={12} />
-                              {completing === q.id ? 'Saving…' : 'Done'}
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              clearReviewSessionReps()
+                              sessionStorage.setItem('lm_review_queue', JSON.stringify(items.map(q => q.id)))
+                              router.push(`/practice/${items[0].id}?from=review`)
+                            }}
+                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+                          >
+                            Review all <CalendarCheck size={11} />
+                          </button>
                         </div>
+                        <div className="space-y-2">
+                          {items.map(q => (
+                            <div
+                              key={q.id}
+                              onClick={() => {
+                                clearReviewSessionReps()
+                                sessionStorage.setItem('lm_review_queue', JSON.stringify(
+                                  due.filter(d => !localDoneIds.has(d.id)).map(d => d.id),
+                                ))
+                                router.push(`/practice/${q.id}?from=review`)
+                              }}
+                              className="flex items-center justify-between gap-2 flex-wrap rounded-xl px-4 py-3 cursor-pointer bg-indigo-50 border border-indigo-200 hover:border-indigo-400 hover:shadow-md transition-all group"
+                            >
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
+                                <span className="font-semibold text-sm truncate text-[var(--text)] group-hover:text-indigo-600">{q.title}</span>
+                                <DifficultyBadge difficulty={q.difficulty} />
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-xs text-indigo-500 hidden sm:inline">Review #{(q.p.review_count || 0) + 1}</span>
+                                <button
+                                  onClick={e => handleCompleteReview(q.id, e)}
+                                  disabled={completing === q.id}
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                                >
+                                  <CalendarCheck size={12} />
+                                  {completing === q.id ? 'Saving…' : 'Done'}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
+                </>
+              )}
+              {pendingNatural.length === 0 && pendingCarried.length > 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Today&apos;s scheduled batch is clear — finish catch-up above to complete reviews.
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </section>
       )}

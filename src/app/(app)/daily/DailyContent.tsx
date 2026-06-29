@@ -41,8 +41,9 @@ import {
   dailyHrefForSetQuestion,
   reviewHrefForQuestion,
 } from '@/lib/dailyExtension'
-import { dailyQueueKey, practiceDailyHref } from '@/lib/setReviewFlow'
+import { dailyQueueKey, practiceDailyHref, getSetDueReviews, practiceReviewHref } from '@/lib/setReviewFlow'
 import { readSetDailyReps, isSetQuestionDoneForDailyToday } from '@/lib/setDailyReps'
+import ReviewCatchUpBox from '@/components/ReviewCatchUpBox'
 
 interface Question {
   id: number
@@ -202,7 +203,7 @@ export default function DailyPage() {
   const online = useOnlineStatus()
   const [allQuestions, setAllQuestions] = useState<Question[]>([])
   const [progress, setProgress] = useState<Record<string, ProgressData>>({})
-  const [dueReviews, setDueReviews] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
+  const [dueReviews, setDueReviews] = useState<Array<{ id: number; review_count: number; next_review: string; carried?: boolean }>>([])
   const [dueOpen, setDueOpen] = useState(true)
   const [plan, setPlan] = useState<StudyPlan | null>(null)
   const [loading, setLoading] = useState(true)
@@ -323,32 +324,44 @@ export default function DailyPage() {
 
   // Set 2/3 SR reviews due — computed before early returns (Rules of Hooks)
   const set2DueReviews = useMemo(() => {
-    const today = todayISO()
-    return set2Questions.filter(q => {
-      const p = set2Progress[String(q.id)]
-      return p?.solved && p.next_review && p.next_review <= today
-    }).map(q => ({
-      id: q.id,
-      review_count: set2Progress[String(q.id)]?.review_count ?? 0,
-      next_review: set2Progress[String(q.id)]?.next_review ?? today,
-      title: q.title,
-      slug: q.slug,
-    }))
+    return getSetDueReviews(2, set2Questions).map(d => {
+      const q = set2Questions.find(x => x.id === d.id)
+      return { ...d, title: q?.title ?? '', slug: q?.slug ?? '' }
+    })
   }, [set2Questions, set2Progress])
 
   const set3DueReviews = useMemo(() => {
-    const today = todayISO()
-    return set3Questions.filter(q => {
-      const p = set3Progress[String(q.id)]
-      return p?.solved && p.next_review && p.next_review <= today
-    }).map(q => ({
-      id: q.id,
-      review_count: set3Progress[String(q.id)]?.review_count ?? 0,
-      next_review: set3Progress[String(q.id)]?.next_review ?? today,
-      title: q.title,
-      slug: q.slug,
-    }))
+    return getSetDueReviews(3, set3Questions).map(d => {
+      const q = set3Questions.find(x => x.id === d.id)
+      return { ...d, title: q?.title ?? '', slug: q?.slug ?? '' }
+    })
   }, [set3Questions, set3Progress])
+
+  const set1CarriedReviews = useMemo(
+    () => dueReviews.filter(r => r.carried),
+    [dueReviews],
+  )
+  const set1NaturalReviews = useMemo(
+    () => dueReviews.filter(r => !r.carried),
+    [dueReviews],
+  )
+  const set2CarriedReviews = useMemo(
+    () => set2DueReviews.filter(r => r.carried),
+    [set2DueReviews],
+  )
+  const set2NaturalReviews = useMemo(
+    () => set2DueReviews.filter(r => !r.carried),
+    [set2DueReviews],
+  )
+  const set3CarriedReviews = useMemo(
+    () => set3DueReviews.filter(r => r.carried),
+    [set3DueReviews],
+  )
+  const set3NaturalReviews = useMemo(
+    () => set3DueReviews.filter(r => !r.carried),
+    [set3DueReviews],
+  )
+  const totalReviewCatchUpCount = set1CarriedReviews.length + set2CarriedReviews.length + set3CarriedReviews.length
 
   const set2Unsolved = useMemo(
     () => set2Questions.filter(q => !set2Progress[String(q.id)]?.solved),
@@ -1753,6 +1766,11 @@ export default function DailyPage() {
               {totalDueCount > 0
                 ? `Reviews due — ${totalDueCount} question${totalDueCount > 1 ? 's' : ''}`
                 : 'No reviews due today ✓'}
+              {totalReviewCatchUpCount > 0 && (
+                <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300">
+                  +{totalReviewCatchUpCount} catch-up
+                </span>
+              )}
             </span>
           </div>
           {dueOpen ? <ChevronUp size={15} className="text-indigo-400" /> : <ChevronDown size={15} className="text-indigo-400" />}
@@ -1763,10 +1781,57 @@ export default function DailyPage() {
               <p className="text-xs text-indigo-500">You&apos;re all caught up — no spaced repetition reviews due.</p>
             ) : (
               <div className="flex flex-col gap-3">
-                {/* Set 1 reviews */}
-                {dueReviews.length > 0 && (
+                {totalReviewCatchUpCount > 0 && (
+                  <p className="text-[10px] text-amber-700 font-semibold">
+                    ⚠️ {totalReviewCatchUpCount} review catch-up{totalReviewCatchUpCount > 1 ? 's' : ''} rolled forward from missed days
+                  </p>
+                )}
+                <ReviewCatchUpBox
+                  setLabel="Set 1 · Main"
+                  accent="indigo"
+                  items={set1CarriedReviews.map(q => ({
+                    id: q.id,
+                    title: allQuestions.find(x => x.id === q.id)?.title ?? `#${q.id}`,
+                    review_count: q.review_count,
+                    next_review: q.next_review,
+                  }))}
+                  hrefFor={id => `/practice/${id}?from=review`}
+                  daysOverdue={daysOverdue}
+                  hubHref="/review"
+                  hubLabel="Open Set 1 reviews"
+                />
+                <ReviewCatchUpBox
+                  setLabel="Set 2 · NeetCode 250"
+                  accent="emerald"
+                  items={set2CarriedReviews.map(q => ({
+                    id: q.id,
+                    title: q.title,
+                    review_count: q.review_count,
+                    next_review: q.next_review,
+                  }))}
+                  hrefFor={id => practiceReviewHref(id, 2)}
+                  daysOverdue={daysOverdue}
+                  hubHref="/review?tab=sr-set2"
+                  hubLabel="Open Set 2 reviews"
+                />
+                <ReviewCatchUpBox
+                  setLabel="Set 3 · AlgoMaster 600"
+                  accent="purple"
+                  items={set3CarriedReviews.map(q => ({
+                    id: q.id,
+                    title: q.title,
+                    review_count: q.review_count,
+                    next_review: q.next_review,
+                  }))}
+                  hrefFor={id => practiceReviewHref(id, 3)}
+                  daysOverdue={daysOverdue}
+                  hubHref="/review?tab=sr-set3"
+                  hubLabel="Open Set 3 reviews"
+                />
+                {/* Set 1 reviews — today's batch */}
+                {set1NaturalReviews.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1.5">Set 1 · Main 331</p>
+                    <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1.5">Set 1 · Today&apos;s reviews</p>
                     <div className="flex flex-wrap gap-2">
                       <Link
                         href="/review"
@@ -1774,7 +1839,7 @@ export default function DailyPage() {
                       >
                         Open reviews <ArrowRight size={12} />
                       </Link>
-                      {dueReviews.map(q => (
+                      {set1NaturalReviews.map(q => (
                         <Link key={q.id} href={`/practice/${q.id}?from=review`}
                           className="flex items-center gap-2 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs hover:border-indigo-400 hover:shadow-sm transition-all text-left">
                           <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
@@ -1784,17 +1849,17 @@ export default function DailyPage() {
                     </div>
                   </div>
                 )}
-                {/* Set 2 reviews */}
-                {set2DueReviews.length > 0 && (
+                {/* Set 2 reviews — today's batch */}
+                {set2NaturalReviews.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1.5">Set 2 · NeetCode 250</p>
+                    <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1.5">Set 2 · Today&apos;s reviews</p>
                     <div className="flex flex-wrap gap-2">
-                      <Link href="/learn2"
+                      <Link href="/review?tab=sr-set2"
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs font-semibold text-emerald-700 hover:border-emerald-400 hover:shadow-sm transition-all">
                         Open Set 2 <ArrowRight size={12} />
                       </Link>
-                      {set2DueReviews.map(q => (
-                          <Link key={q.id} href={reviewHrefForQuestion(q.id, set2Questions, set3Questions)}
+                      {set2NaturalReviews.map(q => (
+                          <Link key={q.id} href={practiceReviewHref(q.id, 2)}
                             className="flex items-center gap-2 px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs hover:border-emerald-400 hover:shadow-sm transition-all text-left">
                             <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
                             <span className="text-emerald-600 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
@@ -1803,17 +1868,17 @@ export default function DailyPage() {
                     </div>
                   </div>
                 )}
-                {/* Set 3 reviews */}
-                {set3DueReviews.length > 0 && (
+                {/* Set 3 reviews — today's batch */}
+                {set3NaturalReviews.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold text-purple-500 uppercase tracking-wider mb-1.5">Set 3 · AlgoMaster 600</p>
+                    <p className="text-[10px] font-bold text-purple-500 uppercase tracking-wider mb-1.5">Set 3 · Today&apos;s reviews</p>
                     <div className="flex flex-wrap gap-2">
-                      <Link href="/learn3"
+                      <Link href="/review?tab=sr-set3"
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-purple-200 rounded-lg text-xs font-semibold text-purple-700 hover:border-purple-400 hover:shadow-sm transition-all">
                         Open Set 3 <ArrowRight size={12} />
                       </Link>
-                      {set3DueReviews.map(q => (
-                          <Link key={q.id} href={reviewHrefForQuestion(q.id, set2Questions, set3Questions)}
+                      {set3NaturalReviews.map(q => (
+                          <Link key={q.id} href={practiceReviewHref(q.id, 3)}
                             className="flex items-center gap-2 px-3 py-1.5 bg-white border border-purple-200 rounded-lg text-xs hover:border-purple-400 hover:shadow-sm transition-all text-left">
                             <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
                             <span className="text-purple-600 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>

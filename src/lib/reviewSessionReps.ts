@@ -39,8 +39,9 @@ export function writeReviewSessionRep(questionId: number, count: number, reviewS
   localStorage.setItem(repsKey, JSON.stringify(map))
 }
 
-export function clearReviewSessionReps() {
+export function clearReviewSessionReps(reviewSet?: 2 | 3) {
   if (typeof window === 'undefined') return
-  localStorage.removeItem(REVIEW_SESSION_REPS_KEY)
-  localStorage.removeItem(REVIEW_SESSION_DATE_KEY)
+  const { repsKey, dateKey } = repsStorageKeys(reviewSet)
+  localStorage.removeItem(repsKey)
+  localStorage.removeItem(dateKey)
 }
