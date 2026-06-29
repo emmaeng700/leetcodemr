@@ -35,7 +35,7 @@ function QuestionRow({ q, p, urgency, completing, onDone }: {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
-          <Link href={`/practice/${q.id}`} className="font-semibold text-sm text-[var(--text)] hover:text-indigo-500 truncate transition-colors">{q.title}</Link>
+          <Link href={`/practice/${q.id}?from=review`} className="font-semibold text-sm text-[var(--text)] hover:text-indigo-500 truncate transition-colors">{q.title}</Link>
           <DifficultyBadge difficulty={q.difficulty} />
           <PriorityBadge pattern={getPatternForQuestion(q.tags ?? []) ?? ''} />
         </div>
@@ -54,7 +54,7 @@ function QuestionRow({ q, p, urgency, completing, onDone }: {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:shrink-0">
-        <Link href={`/practice/${q.id}`}
+        <Link href={`/practice/${q.id}?from=review`}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50  text-indigo-600  border border-indigo-200  text-xs font-semibold hover:bg-indigo-100  transition-colors">
           Practice <ArrowRight size={11} />
         </Link>
@@ -172,13 +172,24 @@ function SRQueueInner() {
       setDueList(due)
       setLoading(false)
     }
-    load()
+    void load()
+    const refresh = () => { void load() }
+    window.addEventListener('lm-progress-changed', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.removeEventListener('lm-progress-changed', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
   }, [])
 
   const handleDone = useCallback(async (qId: number) => {
     if (!online) return
     setCompleting(qId)
     const result = await completeReview(qId)
+    if (result.error) {
+      setCompleting(null)
+      return
+    }
     setProgress(prev => ({
       ...prev,
       [String(qId)]: { ...prev[String(qId)], review_count: result.review_count, next_review: result.next_review },

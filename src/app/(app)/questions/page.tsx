@@ -450,8 +450,15 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
       if (interviewData?.target_date) setDate(interviewData.target_date)
       setLoaded(true)
     }
-    load()
-    return () => { cancelled = true }
+    void load()
+    const refresh = () => { void load() }
+    window.addEventListener('lm-progress-changed', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      cancelled = true
+      window.removeEventListener('lm-progress-changed', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
   }, [])
   useEffect(() => {
     if (!loaded) return
@@ -811,7 +818,7 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
                   const diff = Math.round((new Date().setHours(0,0,0,0) - new Date(y, m-1, d).getTime()) / 86400000)
                   const overdueTxt = diff === 0 ? 'due today' : diff === 1 ? '1 day overdue' : `${diff}d overdue`
                   return (
-                    <Link key={q.id} href={`/practice/${q.id}`}
+                    <Link key={q.id} href={`/practice/${q.id}?from=review`}
                       className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50  border border-indigo-200  rounded-lg text-xs hover:border-indigo-400 transition-all"
                     >
                       <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>

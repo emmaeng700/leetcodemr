@@ -65,7 +65,6 @@ export default function ReviewPage() {
         setAllQ(qs)
         if (profile?.repsPerQ && profile.repsPerQ > 0) setRepsPerQ(profile.repsPerQ)
 
-        // Rebalance before reading progress/due so next_review dates reflect current cap.
         const REBALANCE_KEY = `lm_rebalanced_cap_${userCap}`
         if (!localStorage.getItem(REBALANCE_KEY)) {
           for (const k of [...Object.keys(localStorage)]) {
@@ -84,7 +83,15 @@ export default function ReviewPage() {
         setLoading(false)
       }
     }
-    load()
+    void load()
+
+    const refresh = () => { void load() }
+    window.addEventListener('lm-progress-changed', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.removeEventListener('lm-progress-changed', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
   }, [])
 
   useEffect(() => {
@@ -102,6 +109,10 @@ export default function ReviewPage() {
     e.stopPropagation()
     setCompleting(qId)
     const result = await completeReview(qId)
+    if (result.error) {
+      setCompleting(null)
+      return
+    }
     setProgress(prev => ({
       ...prev,
       [String(qId)]: { ...prev[String(qId)], review_count: result.review_count, next_review: result.next_review },

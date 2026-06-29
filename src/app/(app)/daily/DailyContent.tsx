@@ -1721,7 +1721,7 @@ export default function DailyPage() {
                         Open reviews <ArrowRight size={12} />
                       </Link>
                       {dueReviews.map(q => (
-                        <Link key={q.id} href={`/practice/${q.id}`}
+                        <Link key={q.id} href={`/practice/${q.id}?from=review`}
                           className="flex items-center gap-2 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs hover:border-indigo-400 hover:shadow-sm transition-all text-left">
                           <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
                           <span className="text-indigo-400 text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>

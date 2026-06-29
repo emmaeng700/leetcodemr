@@ -980,26 +980,38 @@ export async function resetAllProgress(): Promise<{ error?: string }> {
 // srInterval is imported from utils.ts — single source of truth.
 
 export async function completeReview(questionId: number) {
-  const { data: existing } = await supabase
+  const todayCT = todayISOChicago()
+  const { data: existing, error: readErr } = await supabase
     .from('progress')
     .select('*')
     .eq('user_id', USER_ID)
     .eq('question_id', questionId)
-    .single()
+    .maybeSingle()
 
-  const newCount = (existing?.review_count ?? 0) + 1
-  const todayCT = todayISOChicago()
+  if (readErr) {
+    console.error('[db] completeReview read:', readErr.message)
+    return { error: readErr.message, review_count: 0, next_review: todayCT }
+  }
+
+  const base = progressUpsertBase(existing as Record<string, unknown> | null)
+  const newCount = (base.review_count ?? 0) + 1
   const nextReview = addDaysISO(todayCT, srInterval(newCount))
 
-  await supabase.from('progress').upsert({
-    ...existing,
+  const { error: upsertErr } = await supabase.from('progress').upsert({
     user_id: USER_ID,
     question_id: questionId,
+    ...base,
+    solved: true,
     review_count: newCount,
     next_review: nextReview,
     last_reviewed: todayCT,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,question_id' })
+
+  if (upsertErr) {
+    console.error('[db] completeReview upsert:', upsertErr.message)
+    return { error: upsertErr.message, review_count: newCount, next_review: nextReview }
+  }
 
   try {
     await syncStreakActivityFromGoals()
@@ -1007,35 +1019,55 @@ export async function completeReview(questionId: number) {
     console.error('[db] syncStreakActivityFromGoals:', e)
   }
 
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('lm-progress-changed'))
+  }
+
   return { review_count: newCount, next_review: nextReview }
 }
 
 export async function failReview(questionId: number) {
-  const { data: existing } = await supabase
+  const todayCT = todayISOChicago()
+  const { data: existing, error: readErr } = await supabase
     .from('progress')
     .select('*')
     .eq('user_id', USER_ID)
     .eq('question_id', questionId)
-    .single()
+    .maybeSingle()
 
+  if (readErr) {
+    console.error('[db] failReview read:', readErr.message)
+    return { error: readErr.message, review_count: 0, next_review: todayCT }
+  }
+
+  const base = progressUpsertBase(existing as Record<string, unknown> | null)
   const newCount = 0
-  const todayCT = todayISOChicago()
   const nextReview = addDaysISO(todayCT, srInterval(newCount))
 
-  await supabase.from('progress').upsert({
-    ...existing,
+  const { error: upsertErr } = await supabase.from('progress').upsert({
     user_id: USER_ID,
     question_id: questionId,
+    ...base,
+    solved: true,
     review_count: newCount,
     next_review: nextReview,
     last_reviewed: todayCT,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,question_id' })
 
+  if (upsertErr) {
+    console.error('[db] failReview upsert:', upsertErr.message)
+    return { error: upsertErr.message, review_count: newCount, next_review: nextReview }
+  }
+
   try {
     await syncStreakActivityFromGoals()
   } catch (e) {
     console.error('[db] syncStreakActivityFromGoals:', e)
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('lm-progress-changed'))
   }
 
   return { review_count: newCount, next_review: nextReview }

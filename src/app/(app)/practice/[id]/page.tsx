@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Clock, BookOpen, ExternalLink, Loader2, Trophy, List, Sparkles, Star } from 'lucide-react'
 import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { dailyRepsFromProgress, normalizeRepDate } from '@/lib/dailyCompletion'
-import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan, addMasteryRunEvent, getUserProfile, markDailyCompleteToday, bumpDailyRep, setDailyRep } from '@/lib/db'
+import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan, addMasteryRunEvent, getUserProfile, markDailyCompleteToday, bumpDailyRep, setDailyRep, getDueReviews } from '@/lib/db'
 import { readReviewSessionReps, writeReviewSessionRep } from '@/lib/reviewSessionReps'
 import { todayISOChicago } from '@/lib/studyPlanDay'
 import { formatTime, isDue, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
@@ -84,9 +84,10 @@ export default function PracticePage() {
   const searchParams = useSearchParams()
   const flowMode = searchParams.get('from')
   const isDailyMode     = flowMode === 'daily'
-  const isReviewMode    = flowMode === 'review'
+  const isReviewFromUrl = flowMode === 'review'
   const isImbibitionMode = false
-  const usesThreeSolveGate = isDailyMode || isReviewMode
+  const [activeReviewFlow, setActiveReviewFlow] = useState(isReviewFromUrl)
+  const usesThreeSolveGate = isDailyMode || activeReviewFlow
   const id = Number(params.id)
 
   const [question, setQuestion] = useState<Question | null>(null)
@@ -129,6 +130,9 @@ export default function PracticePage() {
     last_daily_done?: string | null
     daily_rep_count?: number
     daily_rep_date?: string | null
+    review_count?: number
+    next_review?: string | null
+    last_reviewed?: string | null
   }>>({})
 
   // Load local data immediately — no spinner blocking the page
@@ -144,11 +148,15 @@ export default function PracticePage() {
       if (!q) return
       setQuestion(q)
       setAllQuestions(qs as Question[])
+      const reviewDue = !!safeProg[String(id)]?.solved && isDue(safeProg[String(id)]?.next_review ?? null)
+      const inReviewFlow = isReviewFromUrl || reviewDue
+      setActiveReviewFlow(inReviewFlow)
+
       // In review mode, use the stored queue for prev/next navigation
       let modeQueue: number[] | null = null
       const queueKey = isDailyMode
         ? 'lm_daily_queue'
-        : isReviewMode
+        : inReviewFlow
           ? 'lm_review_queue'
           : null
       if (queueKey) {
@@ -156,7 +164,7 @@ export default function PracticePage() {
           const stored = sessionStorage.getItem(queueKey)
           if (stored) {
             const parsed = JSON.parse(stored) as number[]
-            modeQueue = isReviewMode
+            modeQueue = inReviewFlow
               ? parsed.filter(qid => {
                   const next = safeProg[String(qid)]?.next_review
                   return !!next && isDue(next)
@@ -165,7 +173,20 @@ export default function PracticePage() {
           }
         } catch { /* ignore */ }
       }
-      if (modeQueue) setPlanOrder(modeQueue)
+
+      if (modeQueue?.length) setPlanOrder(modeQueue)
+      else if (inReviewFlow) {
+        try {
+          const due = await getDueReviews()
+          const ids = due.map(d => d.id)
+          if (ids.length) setPlanOrder(ids)
+          else if (plan?.question_order?.length) setPlanOrder(plan.question_order)
+          else setPlanOrder((qs as Question[]).map((q: Question) => q.id))
+        } catch {
+          if (plan?.question_order?.length) setPlanOrder(plan.question_order)
+          else setPlanOrder((qs as Question[]).map((q: Question) => q.id))
+        }
+      }
       else if (plan?.question_order?.length) setPlanOrder(plan.question_order)
       else setPlanOrder((qs as Question[]).map((q: Question) => q.id))
       setSolved(!!safeProg[String(id)]?.solved)
@@ -179,14 +200,14 @@ export default function PracticePage() {
       setStarred(!!safeProg[String(id)]?.starred)
       setNextReview(safeProg[String(id)]?.next_review ?? null)
       progressRef.current = safeProg
-      if (isDailyMode || isReviewMode) setDailyRepTarget(repTarget)
-      if (usesThreeSolveGate) {
+      if (isDailyMode || inReviewFlow) setDailyRepTarget(repTarget)
+      if (isDailyMode || inReviewFlow) {
         const runs = isDailyMode ? dailyRuns : readReviewSessionReps()
         setModeRuns(runs)
       }
     }
-    load()
-  }, [id, usesThreeSolveGate, isDailyMode, isReviewMode, isImbibitionMode])
+    void load()
+  }, [id, usesThreeSolveGate, isDailyMode, isReviewFromUrl, isImbibitionMode])
 
   useEffect(() => {
     if (!question) return
@@ -209,7 +230,7 @@ export default function PracticePage() {
     const fallbackId = planOrder[unlockedThrough]
     const navSuffix = isDailyMode ? '?from=daily' : '?from=review'
     router.replace(`/practice/${fallbackId}${navSuffix}`)
-  }, [id, isDailyMode, isReviewMode, modeRuns, planOrder, router, targetReps, usesThreeSolveGate])
+  }, [id, isDailyMode, activeReviewFlow, modeRuns, planOrder, router, targetReps, usesThreeSolveGate])
 
   // Fetch real LeetCode description in the background once we have the slug.
   // Reads session from localStorage first; if empty falls back to Supabase
@@ -316,10 +337,10 @@ export default function PracticePage() {
   }
 
   async function handleCompleteReview() {
-    if (isReviewMode) await forceCurrentRunsComplete()
+    if (activeReviewFlow) await forceCurrentRunsComplete()
     if (reviewDone) return
     let nextReviewId: number | null = null
-    if (isReviewMode) {
+    if (activeReviewFlow) {
       const remainingQueue = planOrder.filter(qid => qid !== id)
       sessionStorage.setItem('lm_review_queue', JSON.stringify(remainingQueue))
       nextReviewId = remainingQueue[0] ?? null
@@ -327,9 +348,23 @@ export default function PracticePage() {
     }
     setReviewDone(true)
     const result = await completeReview(id)
+    if (result.error) {
+      toast.error(`Review save failed: ${result.error}`)
+      setReviewDone(false)
+      return
+    }
     setNextReview(result.next_review)
+    progressRef.current = {
+      ...progressRef.current,
+      [String(id)]: {
+        ...progressRef.current[String(id)],
+        review_count: result.review_count,
+        next_review: result.next_review,
+        last_reviewed: todayISOChicago(),
+      },
+    }
     toast.success(`✓ Review done! Next review: ${result.next_review}`)
-    if (isReviewMode) {
+    if (activeReviewFlow) {
       if (nextReviewId) router.push(`/practice/${nextReviewId}?from=review`)
       else router.push('/review')
     }
@@ -363,7 +398,7 @@ export default function PracticePage() {
     }
     const after = Math.min(before + 1, targetReps)
     setModeRuns(prev => ({ ...prev, [String(question.id)]: (prev[String(question.id)] ?? 0) + 1 }))
-    if (isReviewMode) writeReviewSessionRep(question.id, after)
+    if (activeReviewFlow) writeReviewSessionRep(question.id, after)
 
     const modeLabel = isDailyMode ? 'Daily' : 'Review'
     let autoAdvanceId: number | null = null
@@ -388,7 +423,7 @@ export default function PracticePage() {
         sessionStorage.setItem('lm_daily_queue', JSON.stringify(remainingQueue))
         autoAdvanceId = remainingQueue[0] ?? null
         setQueuedNextId(autoAdvanceId)
-      } else if (isReviewMode) {
+      } else if (activeReviewFlow) {
         const remainingQueue = planOrder.filter(qid => qid !== question.id)
         sessionStorage.setItem('lm_review_queue', JSON.stringify(remainingQueue))
         autoAdvanceId = remainingQueue[0] ?? null
@@ -412,7 +447,7 @@ export default function PracticePage() {
     }
 
     // Complete the review at target reps for due reviews
-    if (isReviewMode && due && !reviewDone && after >= targetReps) {
+    if (activeReviewFlow && due && !reviewDone && after >= targetReps) {
       await handleCompleteReview()
     }
 
@@ -424,10 +459,10 @@ export default function PracticePage() {
   }
 
   async function handleFailReview() {
-    if (isReviewMode) await forceCurrentRunsComplete()
+    if (activeReviewFlow) await forceCurrentRunsComplete()
     if (reviewDone) return
     let nextReviewId: number | null = null
-    if (isReviewMode) {
+    if (activeReviewFlow) {
       const remainingQueue = planOrder.filter(qid => qid !== id)
       sessionStorage.setItem('lm_review_queue', JSON.stringify(remainingQueue))
       nextReviewId = remainingQueue[0] ?? null
@@ -435,9 +470,23 @@ export default function PracticePage() {
     }
     setReviewDone(true)
     const result = await failReview(id)
+    if (result.error) {
+      toast.error(`Review save failed: ${result.error}`)
+      setReviewDone(false)
+      return
+    }
     setNextReview(result.next_review)
+    progressRef.current = {
+      ...progressRef.current,
+      [String(id)]: {
+        ...progressRef.current[String(id)],
+        review_count: result.review_count,
+        next_review: result.next_review,
+        last_reviewed: todayISOChicago(),
+      },
+    }
     toast(`Again scheduled — next review: ${result.next_review}`)
-    if (isReviewMode) {
+    if (activeReviewFlow) {
       if (nextReviewId) router.push(`/practice/${nextReviewId}?from=review`)
       else router.push('/review')
     }
@@ -537,7 +586,7 @@ export default function PracticePage() {
                 : firstIncompleteIdx
             const prevId = currentIdx > 0 ? planOrder[currentIdx - 1] : null
             const nextId = queuedNextId ?? (currentIdx < unlockedThrough ? planOrder[currentIdx + 1] : null)
-            const navSuffix = isDailyMode ? '?from=daily' : isReviewMode ? '?from=review' : ''
+            const navSuffix = isDailyMode ? '?from=daily' : activeReviewFlow ? '?from=review' : ''
             const practiceListItems = planOrder.map((qid) => {
               const lq = qMap[qid]
               if (!lq) return null
@@ -577,7 +626,7 @@ export default function PracticePage() {
                     📅 Daily
                   </span>
                 )}
-                {isReviewMode && (
+                {activeReviewFlow && (
                   <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-orange-50 border border-orange-200 text-orange-600 text-xs font-bold shrink-0">
                     🔁 Review
                   </span>
