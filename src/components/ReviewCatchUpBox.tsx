@@ -52,7 +52,7 @@ type Props = {
   hubLabel?: string
 }
 
-/** Amber catch-up box for rolled-forward reviews — hidden when empty. */
+/** Amber catch-up box for rolled-forward reviews; hidden when empty. */
 export default function ReviewCatchUpBox({
   setLabel,
   items,
@@ -68,14 +68,14 @@ export default function ReviewCatchUpBox({
     <div className={`rounded-xl border p-3 mb-3 ${c.box}`}>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
         <p className={`text-[10px] font-bold uppercase tracking-wider ${c.label}`}>
-          ?? Review catch-up · {setLabel}
+          Catch-up reviews | {setLabel}
         </p>
         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
           {items.length} rolled forward
         </span>
       </div>
       <p className={`text-[10px] mb-2 ${c.text}`}>
-        Missed from earlier days — finish these to clear catch-up.
+        Missed from earlier days. Finish these to clear catch-up.
       </p>
       <div className="flex flex-wrap gap-2">
         {hubHref && hubLabel && (
@@ -95,7 +95,7 @@ export default function ReviewCatchUpBox({
             <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
             <span className="font-semibold truncate max-w-[140px]">{q.title}</span>
             <span className={`text-xs ${c.text}`}>
-              · Review #{q.review_count + 1} · {daysOverdue(q.next_review)}
+              Review #{q.review_count + 1} | {daysOverdue(q.next_review)}
             </span>
           </Link>
         ))}
