@@ -1,6 +1,8 @@
 import { isPlanDayComplete, type DailyProgressSlice } from '@/lib/dailyCompletion'
+import { reviewHrefForQuestion as reviewHrefFromSetReviewFlow, practiceDailyHref } from '@/lib/setReviewFlow'
 import type { SetQuestion } from '@/lib/questionSets'
 import type { SetQProgress } from '@/lib/setProgress'
+import { isSetQuestionDoneForDailyToday } from '@/lib/setDailyReps'
 
 export type ExtensionPhase = {
   set: 2 | 3
@@ -81,21 +83,34 @@ export function isExtensionDayComplete(
   perDay: number,
   dayIndexWithinPhase: number,
   progress: Record<string, SetQProgress>,
+  phaseStartDayIndex: number,
+  calendarDayIndex: number,
+  setDailyReps: Record<string, number>,
+  repsPerQ: number,
 ): boolean {
   const ids = getExtensionQuestionsForDay(order, perDay, dayIndexWithinPhase)
   if (ids.length === 0) return true
-  return ids.every(id => !!progress[String(id)]?.solved)
+  const globalDayIndex = phaseStartDayIndex + dayIndexWithinPhase
+  if (globalDayIndex < calendarDayIndex) {
+    return ids.every(id => !!progress[String(id)]?.solved)
+  }
+  return ids.every(id => isSetQuestionDoneForDailyToday(id, setDailyReps, repsPerQ))
 }
 
 /** First incomplete day within a phase (mirrors Set 1 catch-up behavior). */
 export function findActiveExtensionDay(
   phase: ExtensionPhase,
   perDay: number,
+  calendarDayIndex: number,
+  setDailyReps: Record<string, number>,
+  repsPerQ: number,
 ): { dayIndex: number; questionIds: number[] } {
   const { order, progress, totalDays } = phase
   let activeDay = 0
   for (let i = 0; i < totalDays; i++) {
-    if (!isExtensionDayComplete(order, perDay, i, progress)) {
+    if (!isExtensionDayComplete(
+      order, perDay, i, progress, phase.startDayIndex, calendarDayIndex, setDailyReps, repsPerQ,
+    )) {
       activeDay = i
       break
     }
@@ -111,10 +126,18 @@ export function findActiveExtensionDay(
 export function getActiveExtensionPhase(
   phases: ExtensionPhase[],
   perDay: number,
+  calendarDayIndex: number,
+  set2DailyReps: Record<string, number>,
+  set3DailyReps: Record<string, number>,
+  repsPerQ: number,
 ): ExtensionPhase | null {
   for (const phase of phases) {
+    const setDailyReps = phase.set === 2 ? set2DailyReps : set3DailyReps
     for (let i = 0; i < phase.totalDays; i++) {
-      if (!isExtensionDayComplete(phase.order, perDay, i, phase.progress)) {
+      if (!isExtensionDayComplete(
+        phase.order, perDay, i, phase.progress, phase.startDayIndex, calendarDayIndex,
+        setDailyReps, repsPerQ,
+      )) {
         return phase
       }
     }
@@ -199,6 +222,15 @@ export function isExtensionSetQuestionSolved(
   return !!prog[String(id)]?.solved
 }
 
+export function dailyHrefForSetQuestion(
+  id: number,
+  set: 2 | 3,
+  _set2Questions: SetQuestion[],
+  _set3Questions: SetQuestion[],
+): string {
+  return practiceDailyHref(id, set)
+}
+
 export function learnHrefForSetQuestion(
   id: number,
   set: 2 | 3,
@@ -214,9 +246,5 @@ export function reviewHrefForQuestion(
   set2Questions: SetQuestion[],
   set3Questions: SetQuestion[],
 ): string {
-  const set2Idx = set2Questions.findIndex(q => q.id === id)
-  if (set2Idx >= 0) return `/learn2/${set2Idx}`
-  const set3Idx = set3Questions.findIndex(q => q.id === id)
-  if (set3Idx >= 0) return `/learn3/${set3Idx}`
-  return `/practice/${id}`
+  return reviewHrefFromSetReviewFlow(id, set2Questions, set3Questions)
 }

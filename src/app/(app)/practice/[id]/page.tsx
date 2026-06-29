@@ -7,6 +7,23 @@ import BestAnswersPanel from '@/components/BestAnswersPanel'
 import { dailyRepsFromProgress, normalizeRepDate } from '@/lib/dailyCompletion'
 import { getProgress, updateProgress, addTimeSpent, completeReview, failReview, getStudyPlan, addMasteryRunEvent, getUserProfile, markDailyCompleteToday, bumpDailyRep, setDailyRep, getDueReviews } from '@/lib/db'
 import { readReviewSessionReps, writeReviewSessionRep } from '@/lib/reviewSessionReps'
+import {
+  parseReviewSet,
+  reviewQueueKey,
+  reviewHubPath,
+  dailyQueueKey,
+  flowNavQuery,
+  loadSetQuestions,
+  getSetDueReviews,
+  resolveQuestionForPractice,
+  getSetQProgressRow,
+  completeSetReview,
+  failSetReview,
+  completeSetDailyQuestion,
+} from '@/lib/setReviewFlow'
+import { readSetDailyReps, writeSetDailyRep } from '@/lib/setDailyReps'
+import { getSetProgress, updateSetQProgress, type SetQProgress } from '@/lib/setProgress'
+import type { SetQuestion } from '@/lib/questionSets'
 import { todayISOChicago } from '@/lib/studyPlanDay'
 import { formatTime, isDue, stripScripts, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import DescriptionRenderer from '@/components/DescriptionRenderer'
@@ -85,6 +102,8 @@ export default function PracticePage() {
   const flowMode = searchParams.get('from')
   const isDailyMode     = flowMode === 'daily'
   const isReviewFromUrl = flowMode === 'review'
+  const reviewSet = parseReviewSet(searchParams.get('set'))
+  const flowSet = reviewSet
   const isImbibitionMode = false
   const [activeReviewFlow, setActiveReviewFlow] = useState(isReviewFromUrl)
   const usesThreeSolveGate = isDailyMode || activeReviewFlow
@@ -104,6 +123,8 @@ export default function PracticePage() {
   const [mobilePanel, setMobilePanel] = useState<MobileSplitPanel>('content')
   const [modeRuns, setModeRuns] = useState<Record<string, number>>({})
   const [dailyRepTarget, setDailyRepTarget] = useState(2)
+  const [setQuestions, setSetQuestions] = useState<SetQuestion[]>([])
+  const [setProgRow, setSetProgRow] = useState<SetQProgress | null>(null)
 
   const lcTitleSlug = question ? resolveLeetCodeSlug(question.id, question.slug) : undefined
 
@@ -144,32 +165,54 @@ export default function PracticePage() {
         getStudyPlan(),
       ])
       const safeProg = prog ?? {}
-      const q = (qs as Question[]).find((q: Question) => q.id === id)
-      if (!q) return
-      setQuestion(q)
-      setAllQuestions(qs as Question[])
-      const reviewDue = !!safeProg[String(id)]?.solved && isDue(safeProg[String(id)]?.next_review ?? null)
+      const mainQs = qs as Question[]
+
+      let loadedSetQs: SetQuestion[] = []
+      if (flowSet) {
+        loadedSetQs = await loadSetQuestions(flowSet)
+        setSetQuestions(loadedSetQs)
+      }
+
+      const q = resolveQuestionForPractice(id, mainQs, flowSet, loadedSetQs)
+      if (!q) {
+        if (flowSet) router.replace(isDailyMode ? '/daily' : reviewHubPath(flowSet))
+        return
+      }
+      setQuestion(q as Question)
+      setAllQuestions(flowSet && !isDailyMode ? [] : mainQs)
+
+      const setRow = flowSet ? getSetQProgressRow(flowSet, id) : null
+      if (flowSet) setSetProgRow(setRow)
+
+      const reviewDue = flowSet
+        ? !!(setRow?.solved && isDue(setRow?.next_review ?? null))
+        : !!safeProg[String(id)]?.solved && isDue(safeProg[String(id)]?.next_review ?? null)
       const inReviewFlow = isReviewFromUrl || reviewDue
       setActiveReviewFlow(inReviewFlow)
 
-      // In review mode, use the stored queue for prev/next navigation
-      let modeQueue: number[] | null = null
       const queueKey = isDailyMode
-        ? 'lm_daily_queue'
+        ? dailyQueueKey(flowSet)
         : inReviewFlow
-          ? 'lm_review_queue'
+          ? reviewQueueKey(flowSet)
           : null
+
+      let modeQueue: number[] | null = null
       if (queueKey) {
         try {
           const stored = sessionStorage.getItem(queueKey)
           if (stored) {
             const parsed = JSON.parse(stored) as number[]
-            modeQueue = inReviewFlow
+            modeQueue = inReviewFlow && flowSet
               ? parsed.filter(qid => {
-                  const next = safeProg[String(qid)]?.next_review
-                  return !!next && isDue(next)
+                  const p = getSetProgress(flowSet)[String(qid)]
+                  return !!p?.solved && !!p.next_review && isDue(p.next_review)
                 })
-              : parsed   // daily: use as-is
+              : inReviewFlow
+                ? parsed.filter(qid => {
+                    const next = safeProg[String(qid)]?.next_review
+                    return !!next && isDue(next)
+                  })
+                : parsed
           }
         } catch { /* ignore */ }
       }
@@ -181,37 +224,58 @@ export default function PracticePage() {
         }
         setPlanOrder(modeQueue)
       } else if (inReviewFlow) {
-        try {
-          const due = await getDueReviews()
+        if (flowSet) {
+          const due = getSetDueReviews(flowSet, loadedSetQs)
           const ids = due.map(d => d.id)
           if (ids.includes(id)) setPlanOrder(ids)
           else setPlanOrder([id, ...ids.filter(qid => qid !== id)])
-        } catch {
-          setPlanOrder([id])
+        } else {
+          try {
+            const due = await getDueReviews()
+            const ids = due.map(d => d.id)
+            if (ids.includes(id)) setPlanOrder(ids)
+            else setPlanOrder([id, ...ids.filter(qid => qid !== id)])
+          } catch {
+            setPlanOrder([id])
+          }
         }
       } else if (isDailyMode) {
         setPlanOrder([id])
       } else if (plan?.question_order?.length) setPlanOrder(plan.question_order)
-      else setPlanOrder((qs as Question[]).map((q: Question) => q.id))
-      setSolved(!!safeProg[String(id)]?.solved)
+      else setPlanOrder(mainQs.map((q: Question) => q.id))
+
+      if (flowSet) {
+        setSolved(!!setRow?.solved)
+        setStarred(!!setRow?.starred)
+        setNextReview(setRow?.next_review ?? null)
+      } else {
+        setSolved(!!safeProg[String(id)]?.solved)
+        setStarred(!!safeProg[String(id)]?.starred)
+        setNextReview(safeProg[String(id)]?.next_review ?? null)
+        progressRef.current = safeProg
+      }
+
       const today = todayISOChicago()
-      const dailyRuns = isDailyMode ? dailyRepsFromProgress(safeProg, today) : {}
       const repTarget = await resolveRepTarget()
+      const dailyRuns = isDailyMode
+        ? (flowSet ? readSetDailyReps(flowSet) : dailyRepsFromProgress(safeProg, today))
+        : {}
       const dailyDone =
         isDailyMode &&
-        ((dailyRuns[String(id)] ?? 0) >= repTarget || normalizeRepDate(safeProg[String(id)]?.last_daily_done) === today)
+        (flowSet
+          ? (dailyRuns[String(id)] ?? 0) >= repTarget
+          : ((dailyRuns[String(id)] ?? 0) >= repTarget || normalizeRepDate(safeProg[String(id)]?.last_daily_done) === today))
       setDailyDoneToday(!!dailyDone)
-      setStarred(!!safeProg[String(id)]?.starred)
-      setNextReview(safeProg[String(id)]?.next_review ?? null)
-      progressRef.current = safeProg
       if (isDailyMode || inReviewFlow) setDailyRepTarget(repTarget)
       if (isDailyMode || inReviewFlow) {
-        const runs = isDailyMode ? dailyRuns : readReviewSessionReps()
+        const runs = isDailyMode
+          ? dailyRuns
+          : readReviewSessionReps(flowSet ?? undefined)
         setModeRuns(runs)
       }
     }
     void load()
-  }, [id, usesThreeSolveGate, isDailyMode, isReviewFromUrl, isImbibitionMode])
+  }, [id, usesThreeSolveGate, isDailyMode, isReviewFromUrl, isImbibitionMode, flowSet, router])
 
   useEffect(() => {
     if (!question) return
@@ -301,7 +365,46 @@ export default function PracticePage() {
     }
   }, [id])
 
-  const due = isDue(nextReview) && solved
+  const due = flowSet
+    ? !!(setProgRow?.solved && isDue(setProgRow?.next_review ?? null))
+    : isDue(nextReview) && solved
+
+  function questionTitle(qid: number): string | null {
+    return allQuestions.find(q => q.id === qid)?.title
+      ?? setQuestions.find(q => q.id === qid)?.title
+      ?? null
+  }
+
+  function repCountForQueueItem(qid: number, override?: { id: number; reps: number }): number {
+    if (override && qid === override.id) return override.reps
+    return modeRuns[String(qid)] ?? 0
+  }
+
+  /** Queue items still needing reps today — preserves plan order. */
+  function incompleteQueueItems(override?: { id: number; reps: number }): number[] {
+    return planOrder.filter(qid => repCountForQueueItem(qid, override) < targetReps)
+  }
+
+  function persistFlowQueue(key: string, items: number[]) {
+    try {
+      if (items.length) sessionStorage.setItem(key, JSON.stringify(items))
+      else sessionStorage.removeItem(key)
+    } catch { /* ignore */ }
+  }
+
+  function exitFlowToHub(mode: 'daily' | 'review') {
+    if (mode === 'daily') persistFlowQueue(dailyQueueKey(flowSet), [])
+    else persistFlowQueue(reviewQueueKey(flowSet), [])
+    router.push(mode === 'daily' ? '/daily' : reviewHubPath(flowSet))
+  }
+
+  function advanceFlowTo(mode: 'daily' | 'review', nextId: number | null) {
+    if (nextId) {
+      router.push(`/practice/${nextId}${flowNavQuery(flowSet, mode)}`)
+    } else {
+      exitFlowToHub(mode)
+    }
+  }
 
   async function forceCurrentRunsComplete() {
     if (!question || !usesThreeSolveGate) return
@@ -310,6 +413,10 @@ export default function PracticePage() {
     const missing = targetReps - current
     setModeRuns(prev => ({ ...prev, [String(question.id)]: targetReps }))
     if (isDailyMode) {
+      if (flowSet) {
+        writeSetDailyRep(flowSet, question.id, targetReps)
+        return
+      }
       await setDailyRep(question.id, targetReps)
       progressRef.current = {
         ...progressRef.current,
@@ -321,53 +428,66 @@ export default function PracticePage() {
       }
       return
     }
-    writeReviewSessionRep(question.id, targetReps)
+    writeReviewSessionRep(question.id, targetReps, flowSet ?? undefined)
+    if (flowSet) return
     const res = await addMasteryRunEvent(question.id, missing)
     if (!res.ok) {
       toast.error(`Couldn't fully sync review reps: ${res.error ?? 'unknown error'}`)
     }
   }
 
-  async function handleCompleteReview() {
+  async function handleCompleteReview(): Promise<boolean> {
     if (activeReviewFlow) await forceCurrentRunsComplete()
-    if (reviewDone) return
-    let nextReviewId: number | null = null
+    if (reviewDone) return false
+    const queueKey = reviewQueueKey(flowSet)
+    const incomplete = incompleteQueueItems({ id, reps: targetReps })
+    const nextReviewId = incomplete[0] ?? null
     if (activeReviewFlow) {
-      const remainingQueue = planOrder.filter(qid => qid !== id)
-      sessionStorage.setItem('lm_review_queue', JSON.stringify(remainingQueue))
-      nextReviewId = remainingQueue[0] ?? null
+      persistFlowQueue(queueKey, incomplete)
       setQueuedNextId(nextReviewId)
     }
     setReviewDone(true)
-    const result = await completeReview(id)
-    if (result.error) {
-      toast.error(`Review save failed: ${result.error}`)
-      setReviewDone(false)
-      return
+    let savedNextReview: string | null = null
+    if (flowSet) {
+      const result = completeSetReview(flowSet, id)
+      savedNextReview = result.next_review
+      setNextReview(result.next_review)
+      setSetProgRow(getSetQProgressRow(flowSet, id))
+    } else {
+      const result = await completeReview(id)
+      if (result.error) {
+        toast.error(`Review save failed: ${result.error}`)
+        setReviewDone(false)
+        return false
+      }
+      savedNextReview = result.next_review
+      setNextReview(result.next_review)
+      progressRef.current = {
+        ...progressRef.current,
+        [String(id)]: {
+          ...progressRef.current[String(id)],
+          review_count: result.review_count,
+          next_review: result.next_review,
+          last_reviewed: todayISOChicago(),
+        },
+      }
     }
-    setNextReview(result.next_review)
-    progressRef.current = {
-      ...progressRef.current,
-      [String(id)]: {
-        ...progressRef.current[String(id)],
-        review_count: result.review_count,
-        next_review: result.next_review,
-        last_reviewed: todayISOChicago(),
-      },
-    }
-    toast.success(`✓ Review done! Next review: ${result.next_review}`)
+    toast.success(`✓ Review done! Next review: ${savedNextReview}`)
     if (activeReviewFlow) {
-      if (nextReviewId) router.push(`/practice/${nextReviewId}?from=review`)
-      else router.push('/review')
+      advanceFlowTo('review', nextReviewId)
+      return true
     }
+    return false
   }
 
   async function handleAcceptedRun() {
     if (!question || !usesThreeSolveGate) return
     const before = modeRuns[String(question.id)] ?? 0
     const currentIdx = planOrder.indexOf(question.id)
-    const navSuffix = isDailyMode ? '?from=daily' : '?from=review'
-    if (isDailyMode) {
+    const navSuffix = flowNavQuery(flowSet, isDailyMode ? 'daily' : 'review')
+    if (isDailyMode && flowSet) {
+      writeSetDailyRep(flowSet, question.id, Math.min(before + 1, targetReps))
+    } else if (isDailyMode) {
       const repRes = await bumpDailyRep(question.id)
       if (!repRes.ok) {
         toast.error(`Couldn't save daily rep: ${repRes.error ?? 'unknown error'}`)
@@ -381,7 +501,7 @@ export default function PracticePage() {
           daily_rep_date: todayISOChicago(),
         },
       }
-    } else {
+    } else if (!flowSet) {
       const res = await addMasteryRunEvent(question.id, 1)
       if (!res.ok) {
         toast.error(`Couldn't save mastery run: ${res.error ?? 'unknown error'}`)
@@ -390,14 +510,20 @@ export default function PracticePage() {
     }
     const after = Math.min(before + 1, targetReps)
     setModeRuns(prev => ({ ...prev, [String(question.id)]: (prev[String(question.id)] ?? 0) + 1 }))
-    if (activeReviewFlow) writeReviewSessionRep(question.id, after)
+    if (activeReviewFlow) writeReviewSessionRep(question.id, after, flowSet ?? undefined)
 
     const modeLabel = isDailyMode ? 'Daily' : 'Review'
     let autoAdvanceId: number | null = null
 
     if (after >= targetReps) {
+      const incomplete = incompleteQueueItems({ id: question.id, reps: after })
       if (isDailyMode) {
-        if (!dailyDoneToday) {
+        if (flowSet) {
+          completeSetDailyQuestion(flowSet, question.id)
+          setSolved(true)
+          setSetProgRow(getSetQProgressRow(flowSet, question.id))
+          setDailyDoneToday(true)
+        } else if (!dailyDoneToday) {
           await markDailyCompleteToday(question.id)
           setDailyDoneToday(true)
           await setDailyRep(question.id, targetReps)
@@ -411,26 +537,22 @@ export default function PracticePage() {
             },
           }
         }
-        const remainingQueue = planOrder.filter(qid => qid !== question.id)
-        sessionStorage.setItem('lm_daily_queue', JSON.stringify(remainingQueue))
-        autoAdvanceId = remainingQueue[0] ?? null
+        persistFlowQueue(dailyQueueKey(flowSet), incomplete)
+        autoAdvanceId = incomplete[0] ?? null
         setQueuedNextId(autoAdvanceId)
       } else if (activeReviewFlow) {
-        const remainingQueue = planOrder.filter(qid => qid !== question.id)
-        sessionStorage.setItem('lm_review_queue', JSON.stringify(remainingQueue))
-        autoAdvanceId = remainingQueue[0] ?? null
+        persistFlowQueue(reviewQueueKey(flowSet), incomplete)
+        autoAdvanceId = incomplete[0] ?? null
         setQueuedNextId(autoAdvanceId)
       } else {
         const nextQuestionId = currentIdx >= 0 ? planOrder[currentIdx + 1] : null
         autoAdvanceId = nextQuestionId ?? null
         setQueuedNextId(autoAdvanceId)
       }
-      const toastNext = autoAdvanceId
-        ? allQuestions.find(q => q.id === autoAdvanceId) ?? null
-        : null
+      const toastNext = autoAdvanceId ? questionTitle(autoAdvanceId) : null
       toast.success(
         toastNext
-          ? `${modeLabel} complete: ${targetReps}/${targetReps}. ${toastNext.title} is next.`
+          ? `${modeLabel} complete: ${targetReps}/${targetReps}. ${toastNext} is next.`
           : `${modeLabel} complete: ${targetReps}/${targetReps}. All done!`,
         { duration: 4500 }
       )
@@ -439,48 +561,60 @@ export default function PracticePage() {
     }
 
     // Complete the review at target reps for due reviews
+    let reviewNavigated = false
     if (activeReviewFlow && due && !reviewDone && after >= targetReps) {
-      await handleCompleteReview()
+      reviewNavigated = await handleCompleteReview()
     }
 
-    if (autoAdvanceId) {
-      router.push(`/practice/${autoAdvanceId}${navSuffix}`)
-    } else if (isDailyMode && after >= targetReps) {
-      router.push('/daily')
+    if (!reviewNavigated) {
+      if (autoAdvanceId) {
+        router.push(`/practice/${autoAdvanceId}${navSuffix}`)
+      } else if (isDailyMode && after >= targetReps) {
+        exitFlowToHub('daily')
+      } else if (activeReviewFlow && after >= targetReps) {
+        exitFlowToHub('review')
+      }
     }
   }
 
   async function handleFailReview() {
     if (activeReviewFlow) await forceCurrentRunsComplete()
     if (reviewDone) return
-    let nextReviewId: number | null = null
+    const incomplete = incompleteQueueItems({ id, reps: targetReps })
+    const nextReviewId = incomplete[0] ?? null
     if (activeReviewFlow) {
-      const remainingQueue = planOrder.filter(qid => qid !== id)
-      sessionStorage.setItem('lm_review_queue', JSON.stringify(remainingQueue))
-      nextReviewId = remainingQueue[0] ?? null
+      persistFlowQueue(reviewQueueKey(flowSet), incomplete)
       setQueuedNextId(nextReviewId)
     }
     setReviewDone(true)
-    const result = await failReview(id)
-    if (result.error) {
-      toast.error(`Review save failed: ${result.error}`)
-      setReviewDone(false)
-      return
+    let savedNextReview: string | null = null
+    if (flowSet) {
+      const result = failSetReview(flowSet, id)
+      savedNextReview = result.next_review
+      setNextReview(result.next_review)
+      setSetProgRow(getSetQProgressRow(flowSet, id))
+    } else {
+      const result = await failReview(id)
+      if (result.error) {
+        toast.error(`Review save failed: ${result.error}`)
+        setReviewDone(false)
+        return
+      }
+      savedNextReview = result.next_review
+      setNextReview(result.next_review)
+      progressRef.current = {
+        ...progressRef.current,
+        [String(id)]: {
+          ...progressRef.current[String(id)],
+          review_count: result.review_count,
+          next_review: result.next_review,
+          last_reviewed: todayISOChicago(),
+        },
+      }
     }
-    setNextReview(result.next_review)
-    progressRef.current = {
-      ...progressRef.current,
-      [String(id)]: {
-        ...progressRef.current[String(id)],
-        review_count: result.review_count,
-        next_review: result.next_review,
-        last_reviewed: todayISOChicago(),
-      },
-    }
-    toast(`Again scheduled — next review: ${result.next_review}`)
+    toast(`Again scheduled — next review: ${savedNextReview}`)
     if (activeReviewFlow) {
-      if (nextReviewId) router.push(`/practice/${nextReviewId}?from=review`)
-      else router.push('/review')
+      advanceFlowTo('review', nextReviewId)
     }
   }
 
@@ -489,6 +623,16 @@ export default function PracticePage() {
     if (isDailyMode) {
       if (dailyDoneToday) {
         toast.success('Already done for today\'s Daily block')
+        return
+      }
+      if (flowSet) {
+        writeSetDailyRep(flowSet, id, targetReps)
+        completeSetDailyQuestion(flowSet, id)
+        setSolved(true)
+        setSetProgRow(getSetQProgressRow(flowSet, id))
+        setModeRuns(prev => ({ ...prev, [String(id)]: targetReps }))
+        setDailyDoneToday(true)
+        toast.success('Marked done for today\'s Daily', { duration: 3500 })
         return
       }
       await markDailyCompleteToday(id)
@@ -566,11 +710,25 @@ export default function PracticePage() {
         <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1.5 shrink overflow-visible">
           {/* Question list */}
           {planOrder.length > 0 && (() => {
-            const qMap = Object.fromEntries(allQuestions.map(q => [q.id, q]))
+            const qMap = Object.fromEntries([
+              ...allQuestions.map(q => [q.id, q] as const),
+              ...setQuestions.map(sq => [sq.id, {
+                id: sq.id,
+                title: sq.title,
+                slug: sq.slug,
+                difficulty: sq.difficulty,
+                tags: sq.tags,
+                source: [],
+              } satisfies Question] as const),
+            ])
             const currentIdx = planOrder.indexOf(id)
             const prevId = currentIdx > 0 ? planOrder[currentIdx - 1] : null
             const nextId = queuedNextId ?? (currentIdx >= 0 && currentIdx < planOrder.length - 1 ? planOrder[currentIdx + 1] : null)
-            const navSuffix = isDailyMode ? '?from=daily' : activeReviewFlow ? '?from=review' : ''
+            const navSuffix = isDailyMode
+              ? flowNavQuery(flowSet, 'daily')
+              : activeReviewFlow
+                ? flowNavQuery(flowSet, 'review')
+                : ''
             const practiceListItems = planOrder.map((qid) => {
               const lq = qMap[qid]
               if (!lq) return null
@@ -603,12 +761,12 @@ export default function PracticePage() {
               <div className="flex max-w-full flex-wrap items-center justify-end gap-1">
                 {isDailyMode && (
                   <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold shrink-0">
-                    📅 Daily
+                    📅 Daily{flowSet === 2 ? ' · Set 2' : flowSet === 3 ? ' · Set 3' : ''}
                   </span>
                 )}
                 {activeReviewFlow && (
                   <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-orange-50 border border-orange-200 text-orange-600 text-xs font-bold shrink-0">
-                    🔁 Review
+                    🔁 Review{flowSet === 2 ? ' · Set 2' : flowSet === 3 ? ' · Set 3' : ''}
                   </span>
                 )}
                 <button onClick={() => prevId && router.push(`/practice/${prevId}${navSuffix}`)} disabled={!prevId}
@@ -647,7 +805,16 @@ export default function PracticePage() {
             {formatTime(timer)}
           </div>
           <button
-            onClick={() => { const n = !starred; setStarred(n); updateProgress(id, { starred: n }) }}
+            onClick={() => {
+              const n = !starred
+              setStarred(n)
+              if (flowSet) {
+                updateSetQProgress(flowSet, id, { starred: n })
+                setSetProgRow(getSetQProgressRow(flowSet, id))
+              } else {
+                updateProgress(id, { starred: n })
+              }
+            }}
             disabled={!question}
             className={`flex min-h-11 min-w-11 items-center justify-center rounded-lg border transition-colors disabled:opacity-40 ${starred ? 'bg-yellow-50 border-yellow-200' : 'bg-[var(--bg-muted)] border-[var(--border)] hover:border-yellow-300'}`}
             aria-label={starred ? 'Unstar' : 'Star'}

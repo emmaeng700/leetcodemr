@@ -38,8 +38,11 @@ import {
   questionIdsForScheduleDay,
   resolveScheduleDay,
   learnHrefForSetQuestion,
+  dailyHrefForSetQuestion,
   reviewHrefForQuestion,
 } from '@/lib/dailyExtension'
+import { dailyQueueKey, practiceDailyHref } from '@/lib/setReviewFlow'
+import { readSetDailyReps, isSetQuestionDoneForDailyToday } from '@/lib/setDailyReps'
 
 interface Question {
   id: number
@@ -267,6 +270,8 @@ export default function DailyPage() {
   const [set3Questions, setSet3Questions] = useState<SetQuestion[]>([])
   const [set2Progress, setSet2Progress] = useState<Record<string, SetQProgress>>({})
   const [set3Progress, setSet3Progress] = useState<Record<string, SetQProgress>>({})
+  const [set2DailyReps, setSet2DailyReps] = useState<Record<string, number>>({})
+  const [set3DailyReps, setSet3DailyReps] = useState<Record<string, number>>({})
 
   const calendarDayIndex = useMemo(() => {
     if (!plan) return 0
@@ -368,6 +373,8 @@ export default function DailyPage() {
       setBreathers(getActiveBreathers())
       setSet2Progress(getSetProgress(2))
       setSet3Progress(getSetProgress(3))
+      setSet2DailyReps(readSetDailyReps(2))
+      setSet3DailyReps(readSetDailyReps(3))
     } catch {
       /* ignore — keep existing progress so rep dots don't vanish */
     }
@@ -379,6 +386,8 @@ export default function DailyPage() {
       setDueReviews(due)
       setSet2Progress(getSetProgress(2))
       setSet3Progress(getSetProgress(3))
+      setSet2DailyReps(readSetDailyReps(2))
+      setSet3DailyReps(readSetDailyReps(3))
     } catch {
       /* ignore */
     }
@@ -483,6 +492,8 @@ export default function DailyPage() {
       setSet3Questions(getSet3Questions(mainIds))
       setSet2Progress(getSetProgress(2))
       setSet3Progress(getSetProgress(3))
+      setSet2DailyReps(readSetDailyReps(2))
+      setSet3DailyReps(readSetDailyReps(3))
 
       setLoading(false)
 
@@ -741,6 +752,19 @@ export default function DailyPage() {
   }
   function isRepDone(id: number) {
     return isQuestionDoneForDailyToday(id, progress, todayISO(), dailyReps, repsPerQRef.current)
+  }
+
+  function getSetDailyRep(id: number, set: 2 | 3) {
+    const reps = set === 2 ? set2DailyReps : set3DailyReps
+    return reps[String(id)] ?? 0
+  }
+  function isSetRepDone(id: number, set: 2 | 3) {
+    const reps = set === 2 ? set2DailyReps : set3DailyReps
+    return isSetQuestionDoneForDailyToday(id, reps, repsPerQRef.current)
+  }
+  function isSetLearned(id: number, set: 2 | 3) {
+    const prog = set === 2 ? set2Progress : set3Progress
+    return !!prog[String(id)]?.solved
   }
 
   function saveRepsPerQ(n: number) {
@@ -1068,10 +1092,25 @@ export default function DailyPage() {
     totalDays,
   )
   const grandTotalDays = getGrandTotalDays(totalDays, extensionPhases)
-  const activeExtensionPhase = inExtensionMode ? getActiveExtensionPhase(extensionPhases, plan.per_day) : null
+  const activeExtensionPhase = inExtensionMode
+    ? getActiveExtensionPhase(
+        extensionPhases,
+        plan.per_day,
+        calendarDayIndex,
+        set2DailyReps,
+        set3DailyReps,
+        repsPerQ,
+      )
+    : null
   const extensionSet = activeExtensionPhase?.set ?? null
   const extensionActiveDay = activeExtensionPhase
-    ? findActiveExtensionDay(activeExtensionPhase, plan.per_day)
+    ? findActiveExtensionDay(
+        activeExtensionPhase,
+        plan.per_day,
+        calendarDayIndex,
+        extensionSet === 2 ? set2DailyReps : set3DailyReps,
+        repsPerQ,
+      )
     : null
   const extensionQsToday: SetQuestion[] = extensionActiveDay
     ? extensionActiveDay.questionIds
@@ -1079,7 +1118,13 @@ export default function DailyPage() {
         .filter(Boolean) as SetQuestion[]
     : []
   const extensionBlockDone = !activeExtensionPhase || extensionQsToday.length === 0 ||
-    extensionQsToday.every(q => !!activeExtensionPhase!.progress[String(q.id)]?.solved)
+    (extensionSet !== null && extensionQsToday.every(q => isSetRepDone(q.id, extensionSet)))
+  const extensionRepsDone = extensionSet !== null
+    ? extensionQsToday.filter(q => isSetRepDone(q.id, extensionSet)).length
+    : 0
+  const extensionNextFocusId = extensionSet !== null
+    ? (extensionQsToday.find(q => !isSetRepDone(q.id, extensionSet))?.id ?? null)
+    : null
   const extensionPool = activeExtensionPhase
     ? activeExtensionPhase.questions.filter(q => !activeExtensionPhase.progress[String(q.id)]?.solved)
     : []
@@ -1111,6 +1156,15 @@ export default function DailyPage() {
       // Ignore storage issues and still navigate.
     }
     router.push(`/practice/${qid}?from=daily`)
+  }
+
+  function launchSetDailyQuestion(qid: number, set: 2 | 3, queueIds: number[]) {
+    try {
+      sessionStorage.setItem(dailyQueueKey(set), JSON.stringify(queueIds))
+    } catch {
+      // Ignore storage issues and still navigate.
+    }
+    router.push(practiceDailyHref(qid, set))
   }
 
   const dailyListItems = todayQs.map(q => (
@@ -1813,27 +1867,41 @@ export default function DailyPage() {
             <span className={`shrink-0 text-[11px] font-bold px-2 py-1 rounded-full ${
               extensionBlockDone ? 'bg-green-100 text-green-700' : 'bg-indigo-100 text-indigo-700'
             }`}>
-              {extensionQsToday.filter(q => !!(extensionSet === 2 ? set2Progress : set3Progress)[String(q.id)]?.solved).length}/{extensionQsToday.length} done
+              {extensionRepsDone}/{extensionQsToday.length} done
             </span>
           </div>
           <p className="text-[10px] text-[var(--text-subtle)] mb-3">
             Set 1 complete 🎉 · Continuing with Set {extensionSet} · {extensionPool.length} questions remaining
+            {' · '}
+            <span className="text-green-600 font-semibold">Daily ✓</span> = today&apos;s reps done
+            {' · '}
+            <span className="text-indigo-500 font-semibold">Learn ✓</span> = marked solved on Learn
           </p>
           <div className="space-y-3">
             {extensionQsToday.map(q => {
-              const prog = extensionSet === 2 ? set2Progress : set3Progress
-              const solved = !!prog[String(q.id)]?.solved
+              const learned = isSetLearned(q.id, extensionSet!)
+              const repCount = getSetDailyRep(q.id, extensionSet!)
+              const repDone = isSetRepDone(q.id, extensionSet!)
+              const isFocus = q.id === extensionNextFocusId
               return (
                 <div key={q.id} className={`flex flex-col items-start gap-3 sm:flex-row sm:items-center p-3 rounded-xl border transition-all ${
-                  solved ? 'bg-green-50 border-green-200' : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-indigo-400/50'
+                  repDone
+                    ? 'bg-green-50 border-green-200'
+                    : isFocus
+                      ? 'bg-indigo-50/60 border-indigo-400 ring-2 ring-indigo-200/50'
+                      : 'bg-[var(--bg-input)] border-[var(--border)] hover:border-indigo-400/50'
                 }`}>
                   <div className="shrink-0">
-                    {solved ? <CheckCircle2 size={20} className="text-green-500" /> : <Circle size={20} className="text-[var(--text-subtle)]" />}
+                    {repDone
+                      ? <CheckCircle2 size={20} className="text-green-500" />
+                      : learned
+                        ? <CheckCircle2 size={20} className="text-indigo-400" />
+                        : <Circle size={20} className="text-[var(--text-subtle)]" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs text-[var(--text-subtle)] font-mono">#{q.id}</span>
-                      <span className={`text-sm font-semibold truncate ${solved ? 'text-green-600 line-through' : 'text-[var(--text)]'}`}>
+                      <span className={`text-sm font-semibold truncate ${repDone ? 'text-green-600 line-through' : 'text-[var(--text)]'}`}>
                         {q.title}
                       </span>
                       <a href={`https://leetcode.com/problems/${q.slug}/`} target="_blank" rel="noopener noreferrer"
@@ -1841,22 +1909,35 @@ export default function DailyPage() {
                         <ExternalLink size={11} />
                       </a>
                     </div>
-                    <div className="mt-1.5 flex items-center gap-2">
+                    <div className="mt-1.5 flex items-center gap-2 flex-wrap">
                       <DifficultyBadge difficulty={q.difficulty} />
                       <span className="text-[10px] text-[var(--text-subtle)]">{q.category}</span>
-                      {solved && <span className="text-[10px] font-semibold text-green-600">Solved ✓</span>}
+                      <RepDots done={repCount} total={repsPerQ} complete={repDone} />
+                      <span className={`text-[10px] font-bold ${repDone ? 'text-green-600' : repCount > 0 ? 'text-indigo-500' : 'text-[var(--text-subtle)]'}`}>
+                        {Math.min(repCount, repsPerQ)}/{repsPerQ}
+                      </span>
+                      {repDone && (
+                        <span className="text-[10px] font-semibold text-green-600">Daily ✓</span>
+                      )}
+                      {learned && (
+                        <span className="text-[10px] font-semibold text-indigo-500">Learn ✓</span>
+                      )}
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => router.push(learnHrefForSetQuestion(q.id, extensionSet!, set2Questions, set3Questions))}
+                    onClick={() => launchSetDailyQuestion(q.id, extensionSet!, extensionQsToday.map(x => x.id))}
                     className={`w-full sm:w-auto shrink-0 justify-center flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
-                      solved
+                      repDone
                         ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
                         : 'bg-indigo-600 text-white hover:bg-indigo-700'
                     }`}
                   >
-                    {solved ? <><RotateCcw size={11} /> Revisit</> : <>Solve <ArrowRight size={12} /></>}
+                    {repDone
+                      ? <><RotateCcw size={11} /> Revisit</>
+                      : repCount > 0
+                        ? <>Continue <ArrowRight size={12} /></>
+                        : <>Solve <ArrowRight size={12} /></>}
                   </button>
                 </div>
               )
@@ -1921,7 +2002,7 @@ export default function DailyPage() {
               const prevPri = prevTopic ? (PATTERN_PRIORITY[prevTopic] ?? null) : null
               const showRound = curPri && isNewRound(curPri, q.difficulty, prevPri, prev?.difficulty)
               const learnHref = previewScheduleDay.kind === 'extension'
-                ? learnHrefForSetQuestion(q.id, previewScheduleDay.phase.set, set2Questions, set3Questions)
+                ? dailyHrefForSetQuestion(q.id, previewScheduleDay.phase.set, set2Questions, set3Questions)
                 : `/practice/${q.id}`
               return (
                 <div key={q.id}>

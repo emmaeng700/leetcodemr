@@ -7,6 +7,7 @@ import {
   getSetProgress, updateSetQProgress, nextReviewDate, type SetQProgress,
 } from '@/lib/setProgress'
 import { getSet2Questions, getSet3Questions, type SetQuestion } from '@/lib/questionSets'
+import { practiceReviewHref } from '@/lib/setReviewFlow'
 import DifficultyBadge from '@/components/DifficultyBadge'
 
 interface Props { set: 2 | 3 }
@@ -16,8 +17,6 @@ function todayISO() {
 }
 
 export default function SetReviewPage({ set }: Props) {
-  const learnBase = set === 2 ? '/learn2' : '/learn3'
-
   const [questions, setQuestions] = useState<SetQuestion[]>([])
   const [progress,  setProgress]  = useState<Record<string, SetQProgress>>({})
   const [loading,   setLoading]   = useState(true)
@@ -113,9 +112,9 @@ export default function SetReviewPage({ set }: Props) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <Link href={`${learnBase}/${questions.findIndex(x => x.id === q.id)}`}
+                  <Link href={practiceReviewHref(q.id, set)}
                     className="text-[11px] text-indigo-400 hover:underline">
-                    Learn
+                    Practice
                   </Link>
                   <a href={`https://leetcode.com/problems/${q.slug}/`} target="_blank" rel="noopener noreferrer"
                     className="text-[var(--text-subtle)] hover:text-orange-400 transition-colors">
