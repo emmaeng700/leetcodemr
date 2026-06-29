@@ -1151,7 +1151,7 @@ function LearnInner() {
       <div className="relative z-30 isolate flex flex-wrap items-center gap-2 overflow-visible border-b border-gray-100 bg-white px-3 py-2 shrink-0">
 
         {/* Back to home */}
-        <button onClick={() => router.push('/')}
+        <button onClick={() => router.push('/questions')}
           className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
           title="Back to questions">
           <ChevronLeft size={15} />

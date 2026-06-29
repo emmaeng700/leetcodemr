@@ -47,7 +47,7 @@ export default function GrindConnectivityBanner({ questionId }: Props) {
             Daily
           </Link>
           <Link
-            href="/"
+            href="/questions"
             className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[var(--bg-card)] border border-green-300/50 text-green-800 dark:text-green-200"
           >
             Questions

@@ -1,0 +1,1819 @@
+'use client'
+import { useState, useEffect, useRef, useMemo, Suspense, Fragment } from 'react'
+import React from 'react'
+import Link from 'next/link'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { Star, CheckCircle2, Circle, Layers, BookOpen, CheckCircle, Target, Calendar, ChevronRight, Flame, Brain, ChevronDown, ChevronUp, TrendingUp, RotateCcw } from 'lucide-react'
+import { DISPLAY_PATTERN_ORDER, QUICK_PATTERNS } from '@/lib/constants'
+import { buildExclusivePatternMap } from '@/lib/patternUtils'
+import { getAppPatternCoverageStats, appPatternNameForSetQuestion, type AppPatternStat } from '@/lib/appPatternCoverage'
+
+const ORDERED_QUICK_PATTERNS = QUICK_PATTERNS
+  .slice()
+  .sort(
+    (a, b) =>
+      DISPLAY_PATTERN_ORDER.indexOf(a.name as typeof DISPLAY_PATTERN_ORDER[number]) -
+      DISPLAY_PATTERN_ORDER.indexOf(b.name as typeof DISPLAY_PATTERN_ORDER[number])
+  )
+import { getProgress, updateProgress, getActivityLog, getDueReviews, getReviewsCompletedToday, getInterviewDate, getStudyPlan, setInterviewDate, clearInterviewDate, getUserRevisionCap, getTodayDailyDoneCount, getDailyLog, syncDailyRepsFromLocal } from '@/lib/db'
+import {
+  computeDailyGoalsMetToday,
+  computePlanStreakDisplayNumber,
+  dailyRepsFromProgress,
+  isActiveDailyBlockComplete,
+  isDayComplete,
+  isQuestionDoneForDailyToday,
+  normalizeStudyPlanRow,
+} from '@/lib/streakGoals'
+import DifficultyBadge from '@/components/DifficultyBadge'
+import PriorityBadge from '@/components/PriorityBadge'
+import { QuestionCountHighlight, SetExclusiveCountLabel } from '@/components/QuestionCountHighlight'
+import { totalAppQuestionCount } from '@/lib/questionSets'
+import { countSolvedInQuestions, getSetProgress } from '@/lib/setProgress'
+import { learnHrefForSetQuestion } from '@/lib/dailyExtension'
+import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
+import toast from 'react-hot-toast'
+import { addToRebootQueue, getRebootQueue, removeFromRebootQueue } from '@/lib/rebootQueue'
+import { todayISOChicago } from '@/lib/studyPlanDay'
+import { clearReviewSessionReps } from '@/lib/reviewSessionReps'
+
+interface Question {
+  id: number
+  title: string
+  slug: string
+  difficulty: string
+  tags: string[]
+  source: string[]
+  python_solution?: string
+  cpp_solution?: string
+  description?: string
+}
+
+interface ProgressData {
+  solved: boolean
+  last_daily_done?: string | null
+  daily_rep_count?: number
+  daily_rep_date?: string | null
+  starred: boolean
+  notes: string
+  review_count?: number
+  next_review?: string | null
+}
+
+const DIFFICULTIES = ['All', 'Easy', 'Medium', 'Hard']
+const SOURCES = ['All', 'Grind 169', 'Denny Zhang', 'Premium 98', 'CodeSignal']
+
+
+function chicagoISO(d: Date) {
+  // Keep all streak/day keys consistent with the rest of the app (America/Chicago).
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
+}
+function computeStreak(log: Record<string, number>) {
+  let streak = 0
+  const d = new Date()
+  // If today isn't a "goals met" day yet, don't zero the streak — count backward from
+  // yesterday so the number stays "14 days through yesterday" while you finish today.
+  if (!log[chicagoISO(d)]) {
+    d.setDate(d.getDate() - 1)
+  }
+  while (true) {
+    const key = chicagoISO(d)
+    if (!log[key]) break
+    streak++
+    d.setDate(d.getDate() - 1)
+  }
+  return streak
+}
+function seededRandom(seed: string) {
+  let h = 0
+  for (let i = 0; i < seed.length; i++) h = Math.imul(31, h) + seed.charCodeAt(i) | 0
+  return Math.abs(h)
+}
+
+/** Returns the Monday (Chicago) of the current week as an ISO date string — used as the weekly freeze key. */
+function currentWeekKey(): string {
+  const d = new Date()
+  const day = d.getDay() // 0 = Sun
+  const monday = new Date(d)
+  monday.setDate(d.getDate() - ((day + 6) % 7))
+  return monday.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
+}
+
+const STREAK_MESSAGES: Record<string, string[]> = {
+  '0':  ['Start your streak today!', 'Day 1 begins with a single problem 💡', 'Every expert was once a beginner 🌱', 'Your future self will thank you 🙏'],
+  '1':  ['First step taken — keep going! 🚶', 'One day in, momentum is building 💪', 'You showed up. That\'s everything. ✅'],
+  '2':  ['Two days straight — you\'re building a habit! 🔥', 'Consistency beats intensity. Day 2! 💯', 'Two down, many more to go 🎯'],
+  '3':  ['Three days strong! 🔥🔥', 'The magic happens at day 3 ✨', 'Three days of showing up — that\'s discipline 💪'],
+  '5':  ['Halfway to a full week! 🎯', 'Five days in — you\'re on fire 🔥', 'Five-day grinder detected 🤖'],
+  '7':  ['One full week! 🎉', 'Seven days of pure dedication 🏆', 'A week of coding greatness — unstoppable! ⚡'],
+  '14': ['Two week warrior! ⚡', '14 days and counting — elite consistency 🥇', 'Two weeks? You\'re built different 🦾'],
+  '21': ['Three week streak — legendary! 🏅', '21 days = a fully formed habit 🧠', 'Three weeks straight — nothing stops you! 🚀'],
+  '30': ['30-day grinder — absolute beast! 🔥🏆', 'A month of dedication — FAANG ready! 🎯', '30 days! You\'re going to crush that interview 💼'],
+}
+
+function getStreakMessage(streak: number): string {
+  const msgs =
+    streak === 0 ? STREAK_MESSAGES['0'] :
+    streak === 1 ? STREAK_MESSAGES['1'] :
+    streak <= 2  ? STREAK_MESSAGES['2'] :
+    streak <= 4  ? STREAK_MESSAGES['3'] :
+    streak <= 6  ? STREAK_MESSAGES['5'] :
+    streak <= 13 ? STREAK_MESSAGES['7'] :
+    streak <= 20 ? STREAK_MESSAGES['14'] :
+    streak <= 29 ? STREAK_MESSAGES['21'] :
+                   STREAK_MESSAGES['30']
+  // pick one deterministically per day so it doesn't change on re-render
+  const seed = todayISOChicago() + streak
+  let h = 0; for (let i = 0; i < seed.length; i++) h = Math.imul(31, h) + seed.charCodeAt(i) | 0
+  return msgs[Math.abs(h) % msgs.length]
+}
+
+const STREAK_LEVELS = [
+  { min: 0,  max: 6,  level: 1, title: 'Rookie',   color: '#78716c' },
+  { min: 7,  max: 13, level: 2, title: 'Grinder',   color: '#16a34a' },
+  { min: 14, max: 20, level: 3, title: 'Warrior',   color: '#2563eb' },
+  { min: 21, max: 29, level: 4, title: 'Slayer',    color: '#7c3aed' },
+  { min: 30, max: Infinity, level: 5, title: 'Legend', color: '#d97706' },
+]
+function getStreakLevel(streak: number) {
+  const tier = STREAK_LEVELS.find(t => streak >= t.min && streak <= t.max) ?? STREAK_LEVELS[0]
+  const span = tier.max === Infinity ? 30 : tier.max - tier.min + 1
+  const xpPct = Math.min(100, Math.round(((streak - tier.min) / span) * 100))
+  return { ...tier, xpPct }
+}
+
+function StreakCard({
+  streak,
+  log,
+  goalsMetToday,
+}: {
+  streak: number
+  log: Record<string, number>
+  /** Today's dot uses live daily+SR rules; stale activity_log rows can't show "done" early. */
+  goalsMetToday: boolean
+}) {
+  // Build Mon→Sun for the current ISO week
+  const today = new Date()
+  const dayOfWeek = today.getDay() // 0=Sun
+  const monday = new Date(today)
+  monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7))
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    const key = chicagoISO(d)
+    const isToday = key === todayISOChicago()
+    const isFuture = d > today && !isToday
+    const active = isToday ? goalsMetToday : !!log[key]
+    return { label: ['M','T','W','T','F','S','S'][i], key, active, isToday, isFuture }
+  })
+
+  const weekActive = weekDays.filter(d => d.active).length
+  const message = getStreakMessage(streak)
+  const lvl = getStreakLevel(streak)
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl mb-3"
+      style={{
+        background: 'linear-gradient(135deg, #431407 0%, #7c2d12 45%, #9a3412 100%)',
+        boxShadow: '0 4px 28px rgba(234,88,12,0.25), 0 0 0 1.5px rgba(251,146,60,0.3)',
+      }}>
+      {/* Subtle shimmer overlay */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: 'linear-gradient(135deg, rgba(251,191,36,0.08) 0%, transparent 60%)' }} />
+
+      <div className="relative p-4">
+        {/* Top row: streak count + level badge */}
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <Flame size={20} className="text-orange-300 streak-glow" />
+              <span className="text-3xl font-black text-white leading-none">{streak}</span>
+              <span className="text-sm font-bold text-orange-300 leading-none">{streak === 1 ? 'day' : 'days'}</span>
+            </div>
+            <p className="text-xs text-orange-200 font-medium leading-snug max-w-[200px]">{message}</p>
+          </div>
+
+          {/* Level + week badge */}
+          <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-orange-300/40"
+              style={{ background: 'rgba(0,0,0,0.3)' }}>
+              <span className="text-[11px] font-black text-orange-300">LVL {lvl.level}</span>
+              <span className="text-[11px] font-bold text-orange-400/80">{lvl.title}</span>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-orange-300/70 mb-0">This week</p>
+              <p className="text-lg font-black text-white leading-none">
+                {weekActive}<span className="text-xs font-semibold text-orange-300/80"> / 7</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* XP bar */}
+        <div className="mb-3">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-[10px] font-bold text-orange-300/70 uppercase tracking-wide">XP to next level</span>
+            <span className="text-[10px] font-mono text-orange-300/70">{lvl.xpPct}%</span>
+          </div>
+          <div className="h-1.5 bg-black/30 rounded-full overflow-hidden">
+            <div
+              className="h-full xp-bar-fill rounded-full transition-all duration-700"
+              style={{ width: `${lvl.xpPct}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Week day dots */}
+        <div className="flex gap-1.5 justify-between">
+          {weekDays.map((d, i) => (
+            <div key={i} className="flex flex-col items-center gap-1 flex-1">
+              <div className={`w-full aspect-square rounded-full max-w-[28px] transition-all duration-300 ${
+                d.active
+                  ? 'shadow-[0_0_8px_rgba(251,146,60,0.7)]'
+                  : ''
+              }`}
+                style={{
+                  background: d.active
+                    ? 'linear-gradient(135deg,#fb923c,#f97316)'
+                    : d.isToday
+                      ? 'transparent'
+                      : d.isFuture
+                        ? 'rgba(255,255,255,0.08)'
+                        : 'rgba(255,255,255,0.12)',
+                  border: d.isToday && !d.active ? '2px solid rgba(251,146,60,0.7)' : 'none',
+                }}
+              />
+              <span className={`text-[10px] font-semibold ${d.isToday ? 'text-orange-300' : 'text-orange-200/50'}`}>{d.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PatternCoverageGrid({
+  set1Questions,
+  set2Questions,
+  set3Questions,
+  set1Progress,
+  set2Progress,
+  set3Progress,
+}: {
+  set1Questions: Question[]
+  set2Questions: import('@/lib/questionSets').SetQuestion[]
+  set3Questions: import('@/lib/questionSets').SetQuestion[]
+  set1Progress: Record<string, ProgressData>
+  set2Progress: Record<string, import('@/lib/setProgress').SetQProgress>
+  set3Progress: Record<string, import('@/lib/setProgress').SetQProgress>
+}) {
+  const [collapsed, setCollapsed] = useState(false)
+
+  const patternStats = useMemo(
+    () => getAppPatternCoverageStats(
+      set1Questions,
+      set2Questions,
+      set3Questions,
+      set1Progress,
+      set2Progress,
+      set3Progress,
+    ),
+    [set1Questions, set2Questions, set3Questions, set1Progress, set2Progress, set3Progress],
+  )
+
+  const learnHref = (p: AppPatternStat) =>
+    QUICK_PATTERNS.some(q => q.name === p.name)
+      ? `/learn/0?tags=${(p.tags as readonly string[]).join(',')}`
+      : '/patterns'
+
+  const weakest = [...patternStats].filter(p => p.total >= 3).sort((a, b) => a.pct - b.pct)[0]
+  const overallSolved = patternStats.reduce((s, p) => s + p.solved, 0)
+  const overallTotal = patternStats.reduce((s, p) => s + p.total, 0)
+  const overallPct = overallTotal ? Math.round((overallSolved / overallTotal) * 100) : 0
+  const crushing = [...patternStats].filter(p => p.pct >= 70 && p.pct < 100).sort((a, b) => b.pct - a.pct)[0]
+  const untouched = patternStats.filter(p => p.solved === 0)
+  const almostDone = [...patternStats].filter(p => p.pct >= 85 && p.pct < 100).sort((a, b) => b.pct - a.pct)[0]
+
+  return (
+    <div className="mb-5 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg overflow-hidden">
+      <button
+        onClick={() => setCollapsed(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-[var(--bg-muted)] transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <TrendingUp size={15} className="text-indigo-400" />
+          <span className="text-sm font-bold text-[var(--text)]">Pattern Coverage</span>
+          <span className="text-xs bg-indigo-50  text-indigo-600  border border-indigo-200  px-2 py-0.5 rounded-full font-mono">{overallPct}% overall</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {weakest && collapsed && (
+            <span className="text-xs text-amber-500 font-semibold hidden sm:inline">Focus: {weakest.name} ({weakest.pct}%)</span>
+          )}
+          {collapsed ? <ChevronDown size={15} className="text-[var(--text-subtle)]" /> : <ChevronUp size={15} className="text-[var(--text-subtle)]" />}
+        </div>
+      </button>
+
+      {!collapsed && (
+        <div className="px-4 pb-4">
+          {/* Motivational messages */}
+          <div className="space-y-2 mb-3">
+            {almostDone && (
+              <div className="flex items-center gap-2 bg-green-50  border border-green-200  rounded-lg px-3 py-2">
+                <span className="text-base shrink-0">🏆</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-green-700 ">{almostDone.name} is almost conquered!</p>
+                  <p className="text-xs text-green-600 ">Just {almostDone.total - almostDone.solved} more question{almostDone.total - almostDone.solved !== 1 ? 's' : ''} — finish it off, these will feel like a breeze 🔥</p>
+                </div>
+                <Link href={learnHref(almostDone)}
+                  className="text-xs font-semibold text-green-700  bg-green-100  border border-green-300  px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
+                  Finish →
+                </Link>
+              </div>
+            )}
+            {crushing && !almostDone && (
+              <div className="flex items-center gap-2 bg-indigo-50  border border-indigo-200  rounded-lg px-3 py-2">
+                <span className="text-base shrink-0">🔥</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-indigo-700 ">You&apos;re crushing {crushing.name}!</p>
+                  <p className="text-xs text-indigo-600 ">{crushing.pct}% done — these questions will feel like a breeze. Try a harder one 💪</p>
+                </div>
+                <Link href={learnHref(crushing)}
+                  className="text-xs font-semibold text-indigo-700  bg-indigo-100  border border-indigo-300  px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
+                  Keep going →
+                </Link>
+              </div>
+            )}
+            {untouched.length > 0 && (
+              <div className="flex items-center gap-2 bg-violet-50  border border-violet-200  rounded-lg px-3 py-2">
+                <span className="text-base shrink-0">🧩</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-violet-700 ">Try a never-seen topic: {untouched[0].name}</p>
+                  <p className="text-xs text-violet-600 ">{untouched.length} pattern{untouched.length !== 1 ? 's' : ''} untouched — explore something new today!</p>
+                </div>
+                <Link href={learnHref(untouched[0])}
+                  className="text-xs font-semibold text-violet-700  bg-violet-100  border border-violet-300  px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
+                  Explore →
+                </Link>
+              </div>
+            )}
+            {weakest && (
+              <div className="flex items-center justify-between gap-3 bg-amber-50  border border-amber-200  rounded-lg px-3 py-2.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base shrink-0">🎯</span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-amber-700 ">Focus next — weakest pattern</p>
+                    <p className="text-xs text-amber-800  font-semibold truncate">{weakest.name} — {weakest.solved}/{weakest.total} solved ({weakest.pct}%)</p>
+                  </div>
+                </div>
+                <Link
+                  href={learnHref(weakest)}
+                  className="text-xs font-semibold text-amber-700  bg-amber-100  border border-amber-300  px-3 py-1.5 rounded-full hover:bg-amber-200  transition-colors shrink-0 whitespace-nowrap"
+                >
+                  Study now →
+                </Link>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            {patternStats.map(p => {
+              const barColor = p.pct === 100 ? 'bg-green-500' : p.pct >= 60 ? 'bg-indigo-500' : p.pct >= 25 ? 'bg-amber-500' : 'bg-red-400'
+              const pctColor = p.pct === 100 ? 'text-green-500' : p.pct >= 60 ? 'text-indigo-400' : p.pct >= 25 ? 'text-amber-500' : 'text-red-400'
+              const isWeakest = weakest?.name === p.name
+              return (
+                <Link
+                  key={p.name}
+                  href={learnHref(p)}
+                  className={`flex flex-col gap-1 px-3 py-2 rounded-lg border transition-all hover:border-indigo-400/60 hover:bg-[var(--bg-muted)] ${
+                    isWeakest
+                      ? 'border-amber-300  bg-amber-50/50 '
+                      : 'border-[var(--border-soft)]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-xs font-semibold text-[var(--text)] truncate">{p.name}</span>
+                      <PriorityBadge pattern={p.name} />
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[11px] font-mono text-[var(--text-subtle)]">{p.solved}/{p.total}</span>
+                      <span className={`text-[11px] font-bold ${pctColor}`}>{p.pct}%</span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: p.pct + '%' }} />
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function InterviewCountdownWidget({ questions, progress }: { questions: Question[]; progress: Record<string, ProgressData> }) {
+  const router = useRouter()
+  const [date, setDate] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [activityLog, setActivityLog] = useState<Record<string, number>>({})
+  const [studyPlan, setStudyPlan] = useState<Awaited<ReturnType<typeof getStudyPlan>>>(null)
+  const [dueReviews, setDueReviews] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
+  const [reviewsCompletedToday, setReviewsCompletedToday] = useState(0)
+  const [dailyDoneTodayCount, setDailyDoneTodayCount] = useState(0)
+  const [dailyLog, setDailyLog] = useState<Record<string, number>>({})
+  const [dailyQ, setDailyQ] = useState<Question | null>(null)
+  const [loaded, setLoaded] = useState(false)
+  const [showAllReviews, setShowAllReviews] = useState(false)
+  const streakHydratedRef = useRef(false)
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const [log, interviewData, plan, due, reviewsDone, dailyDoneToday, dailyLogData] = await Promise.all([
+        getActivityLog(),
+        getInterviewDate(),
+        getStudyPlan(),
+        getDueReviews(),
+        getReviewsCompletedToday(),
+        getTodayDailyDoneCount(),
+        getDailyLog(),
+      ])
+      if (cancelled) return
+      setActivityLog(log)
+      setStudyPlan(plan)
+      setDueReviews(due)
+      setReviewsCompletedToday(reviewsDone)
+      setDailyDoneTodayCount(dailyDoneToday)
+      setDailyLog(dailyLogData)
+      if (interviewData?.target_date) setDate(interviewData.target_date)
+      setLoaded(true)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+  useEffect(() => {
+    if (!loaded) return
+    if (!streakHydratedRef.current) {
+      streakHydratedRef.current = true
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const [log, due, reviewsDone, dailyDoneToday, dailyLogData] = await Promise.all([
+        getActivityLog(),
+        getDueReviews(),
+        getReviewsCompletedToday(),
+        getTodayDailyDoneCount(),
+        getDailyLog(),
+      ])
+      if (cancelled) return
+      setActivityLog(log)
+      setDueReviews(due)
+      setReviewsCompletedToday(reviewsDone)
+      setDailyDoneTodayCount(dailyDoneToday)
+      setDailyLog(dailyLogData)
+    })()
+    return () => { cancelled = true }
+  }, [progress, loaded])
+
+  const planNorm = normalizeStudyPlanRow(studyPlan)
+  // Avoid type drift issues (mode may not exist in older StudyPlanForStreak typings).
+  const planMode = (studyPlan as any)?.mode ?? (planNorm as any)?.mode
+  const isRandomPlan = planMode === 'random'
+
+  const repsPerQHome = (() => {
+    try {
+      const n = Number.parseInt(localStorage.getItem('lm_reps_per_q') ?? '2', 10)
+      return Number.isFinite(n) && n > 0 ? n : 2
+    } catch { return 2 }
+  })()
+  const dailyGoalsOpts = {
+    mode: planMode,
+    dailyDoneTodayCount: dailyDoneTodayCount,
+    dailyReps: dailyRepsFromProgress(progress, todayISOChicago()),
+    repsPerQ: repsPerQHome,
+  }
+  const goalsMetToday = planNorm
+    ? computeDailyGoalsMetToday(studyPlan, progress, dueReviews.length, dailyGoalsOpts)
+    : dueReviews.length === 0
+
+  // Only show activity log dots from the current plan's start date onwards.
+  // Old plan entries shouldn't bleed into a freshly generated plan's week view.
+  const planFilteredLog = planNorm?.start_date
+    ? Object.fromEntries(Object.entries(activityLog).filter(([date]) => date >= planNorm.start_date))
+    : activityLog
+  const streakDisplay = planNorm
+    ? (computePlanStreakDisplayNumber(studyPlan, progress, dueReviews.length) ?? 0)
+    : computeStreak(planFilteredLog)
+  useEffect(() => {
+    if (!questions.length) return
+    const todayKey = 'daily_q_' + todayISOChicago()
+    const stored = localStorage.getItem(todayKey)
+    if (stored) { try { setDailyQ(JSON.parse(stored)); return } catch {} }
+    const unsolved = questions.filter(q => !progress[String(q.id)]?.solved)
+    const pool = unsolved.length ? unsolved : questions
+    const seed = new Date().toDateString()
+    const idx = seededRandom(seed) % pool.length
+    const q = pool[idx]
+    localStorage.setItem(todayKey, JSON.stringify({ id: q.id, title: q.title, difficulty: q.difficulty }))
+    setDailyQ(q)
+  }, [questions, progress])
+  const handleDateSave = async (val: string) => {
+    setDate(val)
+    await setInterviewDate(val, '')
+    setEditing(false)
+  }
+  const handleDateClear = async () => {
+    setDate('')
+    await clearInterviewDate()
+    setEditing(false)
+  }
+  // eslint-disable-next-line react-compiler/react-compiler
+  const daysLeft = date ? Math.ceil((new Date(date + 'T12:00:00').getTime() - Date.now()) / 86400000) : null
+  const diffColor: Record<string, string> = {
+    Easy: 'bg-green-100  text-green-700  border-green-300 ',
+    Medium: 'bg-yellow-100  text-yellow-700  border-yellow-300 ',
+    Hard: 'bg-red-100  text-red-700  border-red-300 ',
+  }
+
+  const todayTopicMap = useMemo(() => buildExclusivePatternMap(questions), [questions])
+
+  // ── Today's daily questions ──────────────────────────────────────────────
+  const todayDailyCard = (() => {
+    if (!planNorm) return null
+    const today = todayISOChicago()
+
+    if (planMode === 'random') {
+      const yd = new Date(today + 'T12:00:00')
+      yd.setDate(yd.getDate() - 1)
+      const isoYesterday = yd.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
+      const planIncludesYesterday = isoYesterday >= planNorm.start_date
+      const ydSolved = planIncludesYesterday ? Math.min((dailyLog[isoYesterday] ?? 0) as number, planNorm.per_day) : planNorm.per_day
+      const tdSolved = Math.min(dailyDoneTodayCount, planNorm.per_day)
+      const yesterdayDone = ydSolved >= planNorm.per_day
+      const todayDone     = tdSolved  >= planNorm.per_day
+      const dailyDone     = isActiveDailyBlockComplete(planNorm, progress, dailyGoalsOpts)
+      const allDone       = isDayComplete(studyPlan, progress, dueReviews.length, dailyGoalsOpts)
+      return (
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-5">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold text-[var(--text)] flex items-center gap-1.5">
+              <Calendar size={14} className="text-purple-500" /> Daily Progress
+            </h2>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+              allDone ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+            }`}>{allDone ? '✓ Done' : 'In progress'}</span>
+          </div>
+
+          {/* Yesterday row — only if plan was running yesterday */}
+          {planIncludesYesterday && (
+            <div className={`flex items-center justify-between py-2 border-b border-[var(--border-soft)] mb-2`}>
+              <span className="text-xs text-[var(--text-subtle)]">Yesterday</span>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold ${yesterdayDone ? 'text-green-600' : 'text-orange-500'}`}>
+                  {ydSolved}/{planNorm.per_day}
+                </span>
+                {yesterdayDone
+                  ? <CheckCircle2 size={13} className="text-green-500" />
+                  : <Link href="/daily" className="text-xs font-semibold text-indigo-600 hover:underline">Go complete →</Link>
+                }
+              </div>
+            </div>
+          )}
+
+          {/* Today row */}
+          <div className="flex items-center justify-between py-2">
+            <span className="text-xs font-semibold text-[var(--text)]">Today</span>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-bold ${todayDone ? 'text-green-600' : 'text-[var(--text-subtle)]'}`}>
+                {tdSolved}/{planNorm.per_day}
+              </span>
+              {todayDone
+                ? <CheckCircle2 size={13} className="text-green-500" />
+                : <Link href="/daily" className="text-xs font-semibold text-indigo-600 hover:underline">Go complete →</Link>
+              }
+            </div>
+          </div>
+
+          {/* Status message */}
+          <div className="mt-3 pt-3 border-t border-[var(--border-soft)]">
+            {allDone ? (
+              <p className="text-sm font-bold text-green-500">All done — day complete! 🎉</p>
+            ) : dailyDone && dueReviews.length > 0 ? (
+              <>
+                <p className="text-xs text-[var(--text-subtle)] mb-1">Daily quota done — clear your reviews to finish the day.</p>
+                <Link href="/review" className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:underline">
+                  Open reviews <ChevronRight size={12} />
+                </Link>
+              </>
+            ) : todayDone ? (
+              <p className="text-xs text-[var(--text-subtle)]">Quota hit — mark questions solved in Daily to lock in today.</p>
+            ) : (
+              <p className="text-xs text-[var(--text-subtle)]">Solve your daily quota and mark questions done in the app.</p>
+            )}
+          </div>
+        </div>
+      )
+    }
+    const start = new Date(planNorm.start_date + 'T12:00:00')
+    const now = new Date(today + 'T12:00:00')
+    const diffDays = Math.round((now.getTime() - start.getTime()) / 86400000)
+    const totalDays = Math.ceil(planNorm.question_order.length / planNorm.per_day)
+    if (diffDays < 0 || diffDays >= totalDays) return null
+    // Find active day: first incomplete day up to today
+    let activeDayIndex = diffDays
+    for (let i = 0; i <= diffDays; i++) {
+      const ids = planNorm.question_order.slice(i * planNorm.per_day, (i + 1) * planNorm.per_day)
+      if (!ids.every((id: number) => progress[String(id)]?.solved)) { activeDayIndex = i; break }
+    }
+    const dayIds: number[] = planNorm.question_order.slice(activeDayIndex * planNorm.per_day, (activeDayIndex + 1) * planNorm.per_day)
+    const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
+    const dayQs = dayIds.map((id: number) => qMap[id]).filter(Boolean)
+    if (!dayQs.length) return null
+    const doneCnt = dayIds.filter((id: number) =>
+      isQuestionDoneForDailyToday(id, progress, today, dailyGoalsOpts.dailyReps)
+    ).length
+    const dailyDone = isActiveDailyBlockComplete(planNorm, progress, dailyGoalsOpts)
+    const allDone = isDayComplete(studyPlan, progress, dueReviews.length, dailyGoalsOpts)
+    const isOverdue = activeDayIndex < diffDays // active day is behind today's scheduled day
+    return (
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-sm p-4 mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold text-[var(--text)] flex items-center gap-1.5">
+            <Calendar size={14} className={isOverdue ? 'text-orange-500' : 'text-indigo-500'} />
+            {isOverdue ? <span className="text-orange-600">Overdue · Day {activeDayIndex + 1}</span> : 'Today'}
+          </h2>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+            allDone ? 'bg-green-100 text-green-700' : isOverdue ? 'bg-orange-100 text-orange-700' : 'bg-amber-100 text-amber-700'
+          }`}>{allDone ? '✓ Done' : `${doneCnt}/${dayIds.length} done`}</span>
+        </div>
+        {allDone ? (
+          <p className="text-sm font-bold text-green-500">All done — day complete! 🎉</p>
+        ) : dailyDone && dueReviews.length > 0 ? (
+          <>
+            <p className="text-xs text-[var(--text-subtle)] mb-2">Daily questions done — clear your reviews to finish the day.</p>
+            <Link href="/review" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
+              Open reviews <ChevronRight size={12} />
+            </Link>
+          </>
+        ) : doneCnt < dayIds.length ? (
+          <>
+            {isOverdue && (
+              <p className="text-xs font-semibold text-orange-500 mb-1">⚠️ Day {activeDayIndex + 1} is overdue — finish it to catch up</p>
+            )}
+            <p className="text-xs text-[var(--text-subtle)] mb-2">{doneCnt}/{dayIds.length} done on Daily today.</p>
+            <Link href="/daily" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
+              Go to Daily <ChevronRight size={12} />
+            </Link>
+          </>
+        ) : dailyDone && dueReviews.length > 0 ? (
+          <>
+            <p className="text-xs text-[var(--text-subtle)] mb-2">Questions done — clear your reviews to finish the day.</p>
+            <Link href="/review" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
+              Open reviews <ChevronRight size={12} />
+            </Link>
+          </>
+        ) : dailyDone ? (
+          <p className="text-sm font-bold text-green-500">Daily done — no reviews due today! 🎉</p>
+        ) : (
+          <>
+            <p className="text-xs text-[var(--text-subtle)] mb-2">{doneCnt}/{dayIds.length} done on Daily today.</p>
+            <Link href="/daily" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
+              Go to Daily <ChevronRight size={12} />
+            </Link>
+          </>
+        )}
+      </div>
+    )
+  })()
+
+  const today = todayISOChicago()
+  const overdueReviews = dueReviews.filter(q => q.next_review < today)
+  const randomImbibePattern = useMemo(() => {
+    const solvedPatterns = ORDERED_QUICK_PATTERNS.filter(pat =>
+      questions.some(q => todayTopicMap[q.id] === pat.name && !!progress[String(q.id)]?.solved)
+    )
+    if (!solvedPatterns.length) return null
+    const idx = seededRandom(`${todayISOChicago()}-imbibition`) % solvedPatterns.length
+    return solvedPatterns[idx]
+  }, [questions, progress, todayTopicMap])
+
+  if (!loaded) return (
+    <div className="animate-pulse px-4 py-6 space-y-4 max-w-2xl mx-auto">
+      {/* Streak card skeleton */}
+      <div className="h-28 rounded-2xl bg-[var(--bg-muted)]" />
+      {/* Today card skeleton */}
+      <div className="h-20 rounded-xl bg-[var(--bg-muted)]" />
+      {/* Reviews skeleton */}
+      <div className="h-16 rounded-xl bg-[var(--bg-muted)]" />
+      {/* Pattern coverage skeleton */}
+      <div className="h-10 rounded-xl bg-[var(--bg-muted)]" />
+      {/* Question list skeletons */}
+      {[1,2,3].map(i => (
+        <div key={i} className="h-14 rounded-xl bg-[var(--bg-muted)]" />
+      ))}
+    </div>
+  )
+  // ── "What should I do now?" smart CTA ──────────────────────────────────
+  const smartAction = (() => {
+    if (dueReviews.length > 0) {
+      return {
+        label: `🧠 Clear your ${dueReviews.length} review${dueReviews.length !== 1 ? 's' : ''} →`,
+        sub: 'Spaced repetition due now',
+        color: 'from-indigo-600 to-purple-600',
+        action: () => {
+          clearReviewSessionReps()
+          sessionStorage.setItem('lm_review_queue', JSON.stringify(dueReviews.map(d => d.id)))
+          router.push(`/practice/${dueReviews[0].id}?from=review`)
+        },
+      }
+    }
+    if (planNorm) {
+      const diffDays = Math.round((new Date(todayISOChicago() + 'T12:00:00').getTime() - new Date(planNorm.start_date + 'T12:00:00').getTime()) / 86400000)
+      const dayIds: number[] = planNorm.question_order.slice(diffDays * planNorm.per_day, (diffDays + 1) * planNorm.per_day)
+      const nextUnsolved = dayIds.find(id => !progress[String(id)]?.solved)
+      if (nextUnsolved) {
+        const q = questions.find(x => x.id === nextUnsolved)
+        return {
+          label: `📅 Start today's question →`,
+          sub: q ? q.title : `#${nextUnsolved}`,
+          color: 'from-emerald-600 to-teal-600',
+          action: () => router.push(`/practice/${nextUnsolved}`),
+        }
+      }
+    }
+    const nextQ = questions.find(q => !progress[String(q.id)]?.solved)
+    if (nextQ) {
+      return {
+        label: `🚀 Next question →`,
+        sub: nextQ.title,
+        color: 'from-orange-500 to-amber-500',
+        action: () => router.push(`/practice/${nextQ.id}`),
+      }
+    }
+    return null
+  })()
+
+  return (
+    <>
+      {/* Smart action button */}
+      {smartAction && (
+        <button
+          onClick={smartAction.action}
+          className={`w-full mb-4 bg-gradient-to-r ${smartAction.color} text-white rounded-2xl px-5 py-4 flex items-center justify-between gap-3 shadow-lg hover:brightness-110 active:scale-[0.98] transition-all`}
+        >
+          <div className="text-left min-w-0">
+            <p className="font-black text-base leading-tight">{smartAction.label}</p>
+            <p className="text-xs text-white/70 mt-0.5 truncate">{smartAction.sub}</p>
+          </div>
+          <ChevronRight size={22} className="shrink-0 text-white/80" />
+        </button>
+      )}
+
+      {overdueReviews.length > 0 && (
+        <Link href="/review" className="flex items-center gap-3 mb-4 px-4 py-3 rounded-xl bg-red-500 hover:bg-red-600 transition-colors shadow-lg">
+          <span className="text-xl shrink-0">⚠️</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-black text-sm">
+              {overdueReviews.length} overdue review{overdueReviews.length > 1 ? 's' : ''} — clear {overdueReviews.length > 1 ? 'them' : 'it'} now
+            </p>
+            <p className="text-red-100 text-xs mt-0.5">These are piling up. Tap to open your review queue.</p>
+          </div>
+          <ChevronRight size={18} className="text-white shrink-0" />
+        </Link>
+      )}
+      <StreakCard streak={streakDisplay} log={planFilteredLog} goalsMetToday={goalsMetToday} />
+      {todayDailyCard}
+      {planNorm && (
+        <div className="bg-indigo-50  border border-indigo-200  rounded-xl mb-5 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2">
+              <Brain size={15} className="text-indigo-600" />
+              <span className="text-sm font-bold text-indigo-700 ">
+                {dueReviews.length > 0 ? `Reviews due — ${dueReviews.length} question${dueReviews.length > 1 ? 's' : ''}` : 'Reviews — all caught up ✓'}
+              </span>
+            </div>
+            {dueReviews.length > 0 && (
+              <Link href="/review" className="text-xs font-semibold text-indigo-600  hover:underline flex items-center gap-1">
+                Open all <ChevronRight size={12} />
+              </Link>
+            )}
+          </div>
+          {dueReviews.length > 0 ? (
+            <div className="px-4 pb-3">
+              <div className="flex flex-wrap gap-2">
+                {(showAllReviews ? dueReviews : dueReviews.slice(0, 5)).map(q => {
+                  const qObj = questions.find(x => x.id === q.id)
+                  const [y, m, d] = q.next_review.split('-').map(Number)
+                  const diff = Math.round((new Date().setHours(0,0,0,0) - new Date(y, m-1, d).getTime()) / 86400000)
+                  const overdueTxt = diff === 0 ? 'due today' : diff === 1 ? '1 day overdue' : `${diff}d overdue`
+                  return (
+                    <Link key={q.id} href={`/practice/${q.id}`}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50  border border-indigo-200  rounded-lg text-xs hover:border-indigo-400 transition-all"
+                    >
+                      <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                      {qObj && <span className="text-[var(--text)] font-semibold truncate max-w-[120px]">{qObj.title}</span>}
+                      <span className="text-indigo-400 shrink-0">· #{q.review_count + 1} · {overdueTxt}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+              {dueReviews.length > 5 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllReviews(v => !v)}
+                  className="mt-2 text-xs font-semibold text-indigo-500 hover:text-indigo-400 transition-colors"
+                >
+                  {showAllReviews ? 'Show less ↑' : `Show ${dueReviews.length - 5} more ↓`}
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="px-4 pb-3 text-xs text-indigo-500 ">No reviews due today — solve questions to build your SR queue.</p>
+          )}
+        </div>
+      )}
+      <div className={`grid gap-3 mb-5 ${planNorm ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-bold text-[var(--text-muted)] flex items-center gap-1"><Target size={13} /> Interview Countdown</span>
+        </div>
+        {editing ? (
+          <div className="flex gap-2 items-center flex-wrap">
+            <input type="date" defaultValue={date} min={todayISOChicago()}
+              className="text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              onKeyDown={e => { if (e.key === 'Enter') handleDateSave((e.target as HTMLInputElement).value) }}
+              onBlur={e => { if (e.target.value) handleDateSave(e.target.value); else setEditing(false) }}
+              autoFocus />
+            <button onClick={() => setEditing(false)} className="text-xs text-[var(--text-subtle)] hover:text-[var(--text)]">Cancel</button>
+            {date && <button onClick={handleDateClear} className="text-xs text-red-400 hover:text-red-300">Remove</button>}
+          </div>
+        ) : date ? (
+          <div>
+            <div className={`text-3xl font-black mb-0.5 ${daysLeft !== null && daysLeft <= 7 ? 'text-red-400' : daysLeft !== null && daysLeft <= 14 ? 'text-orange-400' : 'text-indigo-400'}`}>
+              {daysLeft !== null && daysLeft <= 0 ? 'Today!' : daysLeft + 'd'}
+            </div>
+            <p className="text-xs text-[var(--text-subtle)]">{daysLeft !== null && daysLeft <= 0 ? 'Interview day!' : 'until your interview'}</p>
+            <div className="flex items-center gap-3 mt-1">
+              <button onClick={() => setEditing(true)} className="text-xs text-indigo-400 hover:underline">Change date</button>
+              <span className="text-[var(--border)] opacity-50">·</span>
+              <button onClick={handleDateClear} className="text-xs text-red-400 hover:text-red-300 hover:underline">Remove</button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <p className="text-xs text-[var(--text-subtle)] mb-2">Set your interview date to track countdown</p>
+            <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs font-semibold text-indigo-600  bg-indigo-50  border border-indigo-200  px-3 py-1.5 rounded-full hover:bg-indigo-100  transition-colors">
+              <Calendar size={12} /> Set date
+            </button>
+          </div>
+        )}
+      </div>
+      {/* Only show random daily question when no study plan is active — plan already answers "what should I do today" */}
+      {!planNorm && (
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg p-4">
+          <div className="text-xs font-bold text-[var(--text-muted)] mb-3 flex items-center gap-1">⭐ Today&apos;s Question</div>
+          {dailyQ ? (
+            <div>
+              <div className="flex items-start gap-2 mb-2">
+                <span className={'text-xs font-bold px-2 py-0.5 rounded-full border shrink-0 mt-0.5 ' + (diffColor[dailyQ.difficulty] || 'bg-slate-700 text-slate-400 border-white/10')}>{dailyQ.difficulty}</span>
+                <span className="text-sm font-semibold text-[var(--text)] leading-snug">{dailyQ.title}</span>
+              </div>
+              <button onClick={() => router.push('/practice/' + dailyQ.id)} className="flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">
+                Solve now <ChevronRight size={13} />
+              </button>
+            </div>
+          ) : <p className="text-xs text-[var(--text-subtle)]">Loading…</p>}
+        </div>
+      )}
+    </div>
+    </>
+  )
+}
+
+function DueReviewBanner() {
+  const router = useRouter()
+  const [due, setDue] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
+  const [open, setOpen] = useState(true)
+  const [showAllDue, setShowAllDue] = useState(false)
+  useEffect(() => { getDueReviews().then(setDue).catch(() => {}) }, [])
+  if (!due.length) return null
+  function daysOverdue(nr: string) {
+    const [y, m, d] = nr.split('-').map(Number)
+    const diff = Math.round((new Date().setHours(0,0,0,0) - new Date(y, m-1, d).getTime()) / 86400000)
+    if (diff === 0) return 'due today'
+    if (diff === 1) return '1 day overdue'
+    return diff + ' days overdue'
+  }
+  const visibleDue = showAllDue ? due : due.slice(0, 5)
+  return (
+    <div className="bg-indigo-50  border border-indigo-200  rounded-xl mb-5 overflow-hidden">
+      <button onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-900/30 transition-colors">
+        <div className="flex items-center gap-2">
+          <Brain size={16} className="text-indigo-400" />
+          <span className="text-sm font-bold text-indigo-700 ">🧠 Spaced Repetition — {due.length} question{due.length > 1 ? 's' : ''} due for review</span>
+        </div>
+        {open ? <ChevronUp size={15} className="text-indigo-400" /> : <ChevronDown size={15} className="text-indigo-400" />}
+      </button>
+      {open && (
+        <div className="px-4 pb-3">
+          <div className="flex flex-wrap gap-2">
+            {visibleDue.map(q => (
+              <button key={q.id} onClick={() => router.push('/practice/' + q.id)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white (--bg-card)] border border-indigo-200  rounded-lg text-xs hover:border-indigo-400  hover:shadow-sm transition-all text-left">
+                <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
+                <span className="text-indigo-600  text-xs">· Review #{q.review_count + 1} · {daysOverdue(q.next_review)}</span>
+              </button>
+            ))}
+          </div>
+          {due.length > 5 && (
+            <button
+              type="button"
+              onClick={() => setShowAllDue(v => !v)}
+              className="mt-2 text-xs font-semibold text-indigo-500 hover:text-indigo-400 transition-colors"
+            >
+              {showAllDue ? 'Show less ↑' : `Show ${due.length - 5} more ↓`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TodayPlanCard({ questions, progress }: { questions: Question[]; progress: Record<string, ProgressData> }) {
+  const router = useRouter()
+  const [due, setDue] = useState<Array<{ id: number; review_count: number; next_review: string }>>([])
+  const [reboot, setReboot] = useState<number[]>([])
+  const [showAllDuePick, setShowAllDuePick] = useState(false)
+  const [reviewSlots, setReviewSlots] = useState(3)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const [d, userCap] = await Promise.all([getDueReviews(), getUserRevisionCap()])
+      if (cancelled) return
+      setDue(d)
+      setReviewSlots(userCap)
+      setReboot(getRebootQueue())
+    })()
+    return () => { cancelled = true }
+  }, [progress])
+
+  const duePick = due.slice(0, reviewSlots)
+  const duePickSet = new Set(duePick.map(d => d.id))
+  const rebootPick = reboot.filter(id => !duePickSet.has(id)).slice(0, Math.max(0, reviewSlots - duePick.length))
+
+  const reviewSlotsUsed = rebootPick.length + duePick.length
+  const newSlots = 3
+
+  const titleFor = (id: number) => questions.find(q => q.id === id)?.title ?? `#${id}`
+
+  return (
+    <div className="mb-5 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg overflow-hidden">
+      <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap border-b border-[var(--border-soft)]">
+        <div className="flex items-center gap-2">
+          <Brain size={16} className="text-indigo-400" />
+          <span className="text-sm font-bold text-[var(--text)]">Today&apos;s plan</span>
+          <span className="text-xs text-[var(--text-subtle)] font-mono">{reviewSlotsUsed}/{reviewSlots} reviews · {newSlots} new</span>
+        </div>
+        <button
+          onClick={() => setReboot(getRebootQueue())}
+          className="text-xs font-semibold text-[var(--text-subtle)] hover:text-[var(--text)]"
+          title="Refresh reboot queue"
+        >
+          Refresh
+        </button>
+      </div>
+
+      <div className="p-4 space-y-4">
+        <div>
+          <div className="text-xs font-bold text-[var(--text-muted)] mb-2 flex items-center gap-2">
+            <RotateCcw size={13} className="text-amber-500" /> Reboot (fills leftover slots)
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {rebootPick.length ? rebootPick.map(id => (
+              <div key={id} className="flex items-center gap-2">
+                <button
+                  onClick={() => router.push('/practice/' + id)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50  border border-amber-200  text-amber-800  hover:border-amber-300 "
+                >
+                  {titleFor(id)}
+                </button>
+                <button
+                  onClick={() => { removeFromRebootQueue(id); setReboot(getRebootQueue()) }}
+                  className="text-xs text-[var(--text-subtle)] hover:text-red-400"
+                >
+                  remove
+                </button>
+              </div>
+            )) : (
+              <div className="text-xs text-[var(--text-subtle)]">No reboot items yet. Add any &quot;few days ago&quot; question IDs below.</div>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-xs font-bold text-[var(--text-muted)] mb-2">Due reviews (up to {reviewSlots})</div>
+          {duePick.length ? (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {(showAllDuePick ? duePick : duePick.slice(0, 5)).map(d => (
+                  <button
+                    key={d.id}
+                    onClick={() => router.push('/practice/' + d.id)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50  border border-indigo-200  text-indigo-800  hover:border-indigo-300 "
+                  >
+                    {titleFor(d.id)}
+                  </button>
+                ))}
+              </div>
+              {duePick.length > 5 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllDuePick(v => !v)}
+                  className="mt-2 text-xs font-semibold text-indigo-500 hover:text-indigo-400 transition-colors"
+                >
+                  {showAllDuePick ? 'Show less ↑' : `Show ${duePick.length - 5} more ↓`}
+                </button>
+              )}
+            </>
+          ) : (
+            <div className="text-xs text-[var(--text-subtle)]">No due reviews right now.</div>
+          )}
+        </div>
+
+        <div className="pt-3 border-t border-[var(--border-soft)]">
+          <div className="text-xs font-bold text-[var(--text-muted)] mb-2">Add to reboot queue</div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => {
+                const raw = prompt('Add question id to Reboot queue (example: 206 or #206)')
+                if (!raw) return
+                const id = Number(String(raw).trim().replace(/^#/, ''))
+                if (!Number.isFinite(id) || id <= 0) { toast.error('Invalid id'); return }
+                addToRebootQueue(id)
+                setReboot(getRebootQueue())
+                toast.success('Added to reboot queue')
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--bg-muted)] border border-[var(--border)] text-[var(--text)] hover:border-indigo-400/60"
+            >
+              + Add by id
+            </button>
+          </div>
+          <p className="text-[11px] text-[var(--text-subtle)] mt-2">
+            Fixed rule: weekdays 2 reviews/day. Weekends: 4 reviews/day total. 3 new/day stays constant.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function buildStudyParams(
+  difficulty: string,
+  source: string,
+  search: string,
+  showStarred: boolean,
+  showSolved: null | boolean,
+  patternTags?: string[],
+): string {
+  const p = new URLSearchParams()
+  if (difficulty !== 'All') p.set('diff', difficulty)
+  if (source !== 'All') p.set('source', source)
+  if (search) p.set('search', search)
+  if (showStarred) p.set('starred', '1')
+  if (showSolved === true) p.set('solved', 'true')
+  if (showSolved === false) p.set('solved', 'false')
+  if (patternTags && patternTags.length > 0) p.set('tags', patternTags.join(','))
+  return p.toString()
+}
+
+function buildSetStudyParams(
+  diff: string,
+  search: string,
+  showStarred: boolean,
+  showSolved: null | boolean,
+  patternName: string | null,
+): string {
+  const p = new URLSearchParams()
+  if (diff !== 'All') p.set('diff', diff)
+  if (search) p.set('search', search)
+  if (showStarred) p.set('starred', '1')
+  if (showSolved === true) p.set('solved', 'true')
+  if (showSolved === false) p.set('solved', 'false')
+  if (patternName) {
+    const tags = QUICK_PATTERNS.find(pat => pat.name === patternName)?.tags ?? []
+    if (tags.length) p.set('tags', tags.join(','))
+  }
+  return p.toString()
+}
+
+function SetExternalQuestions({
+  set,
+  questions,
+  progress,
+  onProgressChange,
+}: {
+  set: 2 | 3
+  questions: import('@/lib/questionSets').SetQuestion[]
+  progress: Record<string, import('@/lib/setProgress').SetQProgress>
+  onProgressChange: (p: Record<string, import('@/lib/setProgress').SetQProgress>) => void
+}) {
+  const learnBase = set === 2 ? '/learn2' : '/learn3'
+  const exclusiveLabel = SetExclusiveCountLabel(set, questions.length)
+  const [search, setSearch]           = React.useState('')
+  const [difficulty, setDifficulty]   = React.useState('All')
+  const [showStarred, setShowStarred] = React.useState(false)
+  const [showSolved, setShowSolved]     = React.useState<null | boolean>(null)
+  const [activePattern, setActivePattern] = React.useState<string | null>(null)
+
+  const exclusiveMap = useMemo(
+    () => buildExclusivePatternMap(questions),
+    [questions],
+  )
+
+  function patchProgress(qid: number, patch: Partial<import('@/lib/setProgress').SetQProgress>) {
+    const { updateSetQProgress } = require('@/lib/setProgress')
+    const next = updateSetQProgress(set, qid, patch)
+    onProgressChange({ ...progress, [String(qid)]: next })
+  }
+
+  const filtered = useMemo(() => questions.filter(q => {
+    if (difficulty !== 'All' && q.difficulty !== difficulty) return false
+    if (activePattern && exclusiveMap[q.id] !== activePattern) return false
+    if (search && !matchesQuestionSearch(q, search)) return false
+    const p = progress[String(q.id)] || {}
+    if (showStarred && !p.starred) return false
+    if (showSolved === true && !p.solved) return false
+    if (showSolved === false && p.solved) return false
+    return true
+  }), [questions, difficulty, activePattern, exclusiveMap, search, showStarred, showSolved, progress])
+
+  const studyQs = buildSetStudyParams(difficulty, search, showStarred, showSolved, activePattern)
+  const solvedInSet = countSolvedInQuestions(questions, progress)
+
+  return (
+    <div className="mb-6">
+      <div className="flex flex-wrap items-center gap-3 mb-3 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] px-4 py-3 shadow-sm">
+        <QuestionCountHighlight
+          value={exclusiveLabel.value}
+          label={exclusiveLabel.label}
+          variant="exclusive"
+        />
+        <CheckCircle size={15} className="text-green-400 shrink-0" />
+        <span className="text-sm font-bold text-[var(--text)]">{solvedInSet}/{questions.length} solved</span>
+        <div className="flex-1 min-w-[120px] h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all"
+            style={{ width: `${questions.length ? Math.round((solvedInSet / questions.length) * 100) : 0}%` }} />
+        </div>
+      </div>
+
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 mb-4 shadow-lg">
+        <div className="flex flex-wrap gap-1">
+          {DIFFICULTIES.map(d => (
+            <button key={d} onClick={() => setDifficulty(d)}
+              className={'px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (difficulty === d ? 'bg-indigo-600 text-white shadow-[0_0_10px_rgba(99,102,241,0.3)]' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 border border-[var(--border-soft)]')}>
+              {d}
+            </button>
+          ))}
+          <span className="w-px bg-[var(--border)] mx-0.5 shrink-0" />
+          <button onClick={() => setShowStarred(v => !v)}
+            className={'flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (showStarred ? 'bg-yellow-500 text-white shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 border border-[var(--border-soft)]')}>
+            <Star size={12} /> Starred
+          </button>
+          <button onClick={() => setShowSolved(v => v === null ? false : v === false ? true : null)}
+            className={'flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (showSolved === false ? 'bg-orange-500 text-white' : showSolved === true ? 'bg-green-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 border border-[var(--border-soft)]')}>
+            <CheckCircle2 size={12} />
+            {showSolved === false ? 'Unsolved' : showSolved === true ? 'Solved' : 'All'}
+          </button>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
+            className="w-full sm:w-36 px-3 py-1.5 rounded-full text-xs bg-[var(--bg-muted)] border border-[var(--border-soft)] text-[var(--text)] outline-none focus:border-indigo-400 sm:ml-auto" />
+        </div>
+
+        <div className="flex flex-wrap gap-1 pt-2 border-t border-[var(--border-soft)] mt-2">
+          <span className="text-xs text-[var(--text-subtle)] self-center shrink-0 mr-1">Pattern:</span>
+          {activePattern && (
+            <button onClick={() => setActivePattern(null)}
+              className="px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 transition-colors border border-[var(--border)]">
+              ✕ Clear
+            </button>
+          )}
+          {ORDERED_QUICK_PATTERNS.map(pat => {
+            const count = questions.filter(q => exclusiveMap[q.id] === pat.name).length
+            if (count === 0) return null
+            const active = activePattern === pat.name
+            return (
+              <button key={pat.name}
+                onClick={() => setActivePattern(active ? null : pat.name)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 border ${
+                  active
+                    ? 'bg-cyan-700 text-white border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.25)]'
+                    : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:border-cyan-500/50 hover:text-cyan-300'
+                }`}>
+                {pat.name}
+                <PriorityBadge pattern={pat.name} active={active} />
+                <span className="opacity-50">·{count}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-xs text-[var(--text-subtle)]">{filtered.length} questions{activePattern ? ` · ${activePattern}` : ''}</span>
+          {(activePattern || difficulty !== 'All' || showStarred || showSolved !== null || search) && (
+            <button
+              onClick={() => { setActivePattern(null); setDifficulty('All'); setShowStarred(false); setShowSolved(null); setSearch('') }}
+              className="text-xs text-[var(--text-subtle)] hover:text-red-400 transition-colors">
+              Clear all filters
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[var(--border)]">
+          <span className="text-xs text-[var(--text-subtle)] self-center">Study {filtered.length} as:</span>
+          <Link href={`/flashcards?set=${set}${studyQs ? `&${studyQs}` : ''}`}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 transition-colors">
+            <Layers size={12} /> Flashcards
+          </Link>
+          <Link href={`${learnBase}/0${studyQs ? `?${studyQs}` : ''}`}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors">
+            <BookOpen size={12} /> Learn mode
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {filtered.map((q, i) => {
+          const p = progress[String(q.id)]
+          const patternName = exclusiveMap[q.id] ?? null
+          return (
+            <div key={q.id}
+              className={`group rounded-xl border p-4 transition-all duration-150 hover:shadow-xl hover:shadow-indigo-900/20 hover:border-indigo-500/50 ${p?.solved ? 'bg-green-50 border-green-300' : 'bg-[var(--bg-card)] border-[var(--border-soft)]'}`}>
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{q.id}</span>
+                  <a href={`https://leetcode.com/problems/${q.slug}/`} target="_blank" rel="noopener noreferrer"
+                    className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-400 transition-colors">
+                    {q.title}
+                  </a>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => patchProgress(q.id, { starred: !p?.starred })}
+                    className={`transition-colors ${p?.starred ? 'text-yellow-400' : 'text-[var(--text-subtle)] hover:text-yellow-400'}`}>
+                    <Star size={14} className={p?.starred ? 'fill-yellow-400' : ''} />
+                  </button>
+                  <button onClick={() => patchProgress(q.id, { solved: !p?.solved })}
+                    className={`transition-colors ${p?.solved ? 'text-green-400' : 'text-[var(--text-subtle)] hover:text-green-400'}`}>
+                    {p?.solved ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <DifficultyBadge difficulty={q.difficulty} />
+                {patternName && <PriorityBadge pattern={patternName} />}
+                {patternName && (
+                  <span className="text-[11px] text-[var(--text-subtle)] truncate">{patternName}</span>
+                )}
+                <span className="text-[11px] text-[var(--text-subtle)] truncate">{q.category}</span>
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <Link href={`${learnBase}/${i}${studyQs ? `?${studyQs}` : ''}`}
+                  className="text-[11px] text-indigo-400 hover:underline">
+                  Learn mode
+                </Link>
+                <a href={`https://leetcode.com/problems/${q.slug}/`} target="_blank" rel="noopener noreferrer"
+                  className="text-[11px] text-orange-400 hover:underline">
+                  LeetCode ↗
+                </a>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {filtered.length === 0 && (
+        <p className="text-center py-10 text-[var(--text-subtle)] text-sm">No questions match your filters.</p>
+      )}
+    </div>
+  )
+}
+
+type AppQuestionRow = {
+  set: 1 | 2 | 3
+  id: number
+  title: string
+  slug: string
+  difficulty: string
+  tags?: string[]
+  category?: string
+  python_solution?: string
+  cpp_solution?: string
+  solved: boolean
+  starred: boolean
+  notes?: string
+}
+
+const SET_LABELS: Record<1 | 2 | 3, string> = {
+  1: 'Set 1 · Main 331',
+  2: 'Set 2 · NeetCode 250',
+  3: 'Set 3 · AlgoMaster 600',
+}
+
+const SET_BADGE_CLASS: Record<1 | 2 | 3, string> = {
+  1: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  2: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  3: 'bg-purple-100 text-purple-700 border-purple-200',
+}
+
+const SET_CARD_CLASS: Record<1 | 2 | 3, string> = {
+  1: 'border-l-4 border-l-indigo-500',
+  2: 'border-l-4 border-l-emerald-500',
+  3: 'border-l-4 border-l-purple-500',
+}
+
+function HomeInner() {
+  const sp = useSearchParams()
+  const pathname = usePathname()
+  const prevPathRef = useRef<string | null>(null)
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [progress, setProgress] = useState<Record<string, ProgressData>>({})
+  const [loading, setLoading] = useState(true)
+  const [difficulty, setDifficulty] = useState('All')
+  const [source, setSource] = useState('All')
+  const [showStarred, setShowStarred] = useState(false)
+  const [showSolved, setShowSolved] = useState<null | boolean>(null)
+  const [activePattern, setActivePattern] = useState<string | null>(null)
+  const [qPage, setQPage] = useState(1)
+  const search = sp.get('search') || ''
+  const [questionSet, setQuestionSet] = useState<'all' | 1 | 2 | 3>('all')
+  const [set2Questions, setSet2Questions] = useState<import('@/lib/questionSets').SetQuestion[]>([])
+  const [set3Questions, setSet3Questions] = useState<import('@/lib/questionSets').SetQuestion[]>([])
+  const [setProgress2, setSetProgress2] = useState<Record<string, import('@/lib/setProgress').SetQProgress>>({})
+  const [setProgress3, setSetProgress3] = useState<Record<string, import('@/lib/setProgress').SetQProgress>>({})
+
+  const PAGE_SIZE = 10
+
+  useEffect(() => {
+    async function load() {
+      const [qs] = await Promise.all([
+        fetch('/questions_full.json').then(r => r.json()),
+        getProgress(),
+      ])
+      await syncDailyRepsFromLocal()
+      const prog = await getProgress()
+      setQuestions(qs)
+      if (prog !== null) setProgress(prog)
+      // Compute Set 2/3 question lists
+      const { getSet2Questions, getSet3Questions } = await import('@/lib/questionSets')
+      const mainIds = new Set((qs as { id: number }[]).map(q => q.id))
+      setSet2Questions(getSet2Questions(mainIds, qs))
+      setSet3Questions(getSet3Questions(mainIds, qs))
+      setSetProgress2(getSetProgress(2))
+      setSetProgress3(getSetProgress(3))
+      setLoading(false)
+    }
+    void load()
+  }, [])
+
+  // Supabase is source of truth — reload is safe. Re-sync client state when returning to this page
+  // or the tab so streak/progress match DB without requiring a full refresh.
+  useEffect(() => {
+    const prev = prevPathRef.current
+    prevPathRef.current = pathname
+    if (pathname === '/questions' && prev !== null && prev !== '/questions') {
+      getProgress().then(prog => { if (prog) setProgress(prog) }).catch(() => {})
+      setSetProgress2(getSetProgress(2))
+      setSetProgress3(getSetProgress(3))
+    }
+  }, [pathname])
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || pathname !== '/questions') return
+      getProgress().then(prog => { if (prog) setProgress(prog) }).catch(() => {})
+      setSetProgress2(getSetProgress(2))
+      setSetProgress3(getSetProgress(3))
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [pathname])
+
+  const DIFF_ORDER: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
+
+  // Exclusive map for accurate per-pattern counts and filtering (no repetition)
+  const exclusiveMapHome = useMemo(() => buildExclusivePatternMap(questions), [questions])
+
+  const isSearching = !!search.trim()
+  const effectiveSet = isSearching ? 'all' as const : questionSet
+
+  const filteredRows = useMemo((): AppQuestionRow[] => {
+    const out: AppQuestionRow[] = []
+
+    if (effectiveSet === 'all' || effectiveSet === 1) {
+      for (const q of questions) {
+        if (difficulty !== 'All' && q.difficulty !== difficulty) continue
+        if (source !== 'All' && !(q.source || []).includes(source)) continue
+        if (search && !matchesQuestionSearch(q, search)) continue
+        if (activePattern && exclusiveMapHome[q.id] !== activePattern) continue
+        const p = progress[String(q.id)] || {}
+        if (showStarred && !p.starred) continue
+        if (showSolved === true && !p.solved) continue
+        if (showSolved === false && p.solved) continue
+        out.push({
+          set: 1,
+          id: q.id,
+          title: q.title,
+          slug: q.slug,
+          difficulty: q.difficulty,
+          tags: q.tags,
+          python_solution: q.python_solution,
+          cpp_solution: q.cpp_solution,
+          solved: !!p.solved,
+          starred: !!p.starred,
+          notes: p.notes,
+        })
+      }
+    }
+
+    if (effectiveSet === 'all' || effectiveSet === 2) {
+      for (const q of set2Questions) {
+        if (difficulty !== 'All' && q.difficulty !== difficulty) continue
+        if (search && !matchesQuestionSearch(q, search)) continue
+        if (activePattern && appPatternNameForSetQuestion(q, 2) !== activePattern) continue
+        const p = setProgress2[String(q.id)] || {}
+        if (showStarred && !p.starred) continue
+        if (showSolved === true && !p.solved) continue
+        if (showSolved === false && p.solved) continue
+        out.push({
+          set: 2,
+          id: q.id,
+          title: q.title,
+          slug: q.slug,
+          difficulty: q.difficulty,
+          tags: q.tags,
+          category: q.category,
+          solved: !!p.solved,
+          starred: !!p.starred,
+          notes: p.notes,
+        })
+      }
+    }
+
+    if (effectiveSet === 'all' || effectiveSet === 3) {
+      for (const q of set3Questions) {
+        if (difficulty !== 'All' && q.difficulty !== difficulty) continue
+        if (search && !matchesQuestionSearch(q, search)) continue
+        if (activePattern && appPatternNameForSetQuestion(q, 3) !== activePattern) continue
+        const p = setProgress3[String(q.id)] || {}
+        if (showStarred && !p.starred) continue
+        if (showSolved === true && !p.solved) continue
+        if (showSolved === false && p.solved) continue
+        out.push({
+          set: 3,
+          id: q.id,
+          title: q.title,
+          slug: q.slug,
+          difficulty: q.difficulty,
+          tags: q.tags,
+          category: q.category,
+          solved: !!p.solved,
+          starred: !!p.starred,
+          notes: p.notes,
+        })
+      }
+    }
+
+    return out.sort(
+      (a, b) => a.set - b.set || (DIFF_ORDER[a.difficulty] ?? 1) - (DIFF_ORDER[b.difficulty] ?? 1) || a.id - b.id,
+    )
+  }, [
+    effectiveSet,
+    search,
+    questions,
+    set2Questions,
+    set3Questions,
+    difficulty,
+    source,
+    activePattern,
+    exclusiveMapHome,
+    progress,
+    setProgress2,
+    setProgress3,
+    showStarred,
+    showSolved,
+    DIFF_ORDER,
+  ])
+
+  const visibleCount = filteredRows.length
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setQPage(1) }, [difficulty, source, search, activePattern, showStarred, showSolved, questionSet])
+
+  const totalQPages = Math.ceil(visibleCount / PAGE_SIZE)
+  const paginated = filteredRows.slice((qPage - 1) * PAGE_SIZE, qPage * PAGE_SIZE)
+
+  const solvedSet1 = useMemo(
+    () => countSolvedInQuestions(questions, progress),
+    [questions, progress],
+  )
+  const solvedSet2 = useMemo(
+    () => countSolvedInQuestions(set2Questions, setProgress2),
+    [set2Questions, setProgress2],
+  )
+  const solvedSet3 = useMemo(
+    () => countSolvedInQuestions(set3Questions, setProgress3),
+    [set3Questions, setProgress3],
+  )
+  const appTotalQuestions = totalAppQuestionCount(
+    questions.length,
+    set2Questions.length,
+    set3Questions.length,
+  )
+  const totalSolved = solvedSet1 + solvedSet2 + solvedSet3
+  const totalPct = appTotalQuestions ? Math.round((totalSolved / appTotalQuestions) * 100) : 0
+
+  async function toggleSolved(e: React.MouseEvent, q: Question) {
+    e.preventDefault()
+    const p = progress[String(q.id)] || { solved: false, starred: false, notes: '' }
+    const newSolved = !p.solved
+    setProgress(prev => ({ ...prev, [String(q.id)]: { ...p, solved: newSolved } }))
+    await updateProgress(q.id, { solved: newSolved })
+    toast.success(newSolved ? 'Marked solved!' : 'Unmarked')
+  }
+
+  async function toggleStarred(e: React.MouseEvent, q: Question) {
+    e.preventDefault()
+    const p = progress[String(q.id)] || { solved: false, starred: false, notes: '' }
+    const newStarred = !p.starred
+    setProgress(prev => ({ ...prev, [String(q.id)]: { ...p, starred: newStarred } }))
+    await updateProgress(q.id, { starred: newStarred })
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      {!loading && appTotalQuestions > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <QuestionCountHighlight
+            value={appTotalQuestions}
+            label="total questions in app"
+            variant="total"
+          />
+          <span className="text-xs text-[var(--text-subtle)]">
+            Set 1 ({questions.length}) + Set 2 ({set2Questions.length}) + Set 3 ({set3Questions.length})
+          </span>
+        </div>
+      )}
+      <div className="flex flex-col gap-2 mb-5 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-lg px-4 sm:px-5 py-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 shrink-0">
+            <CheckCircle size={16} className="text-green-400" />
+            <span className="text-sm font-bold text-[var(--text)]">{totalSolved} / {appTotalQuestions} solved</span>
+          </div>
+          <div className="flex-1 min-w-[120px] h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
+              style={{ width: `${totalPct}%` }} />
+          </div>
+          <span className="text-sm font-semibold text-indigo-400">{totalPct}%</span>
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-subtle)]">
+          <span>Set 1: <span className="font-semibold text-[var(--text-muted)]">{solvedSet1}/{questions.length}</span></span>
+          <span>Set 2: <span className="font-semibold text-[var(--text-muted)]">{solvedSet2}/{set2Questions.length}</span></span>
+          <span>Set 3: <span className="font-semibold text-[var(--text-muted)]">{solvedSet3}/{set3Questions.length}</span></span>
+        </div>
+      </div>
+
+      {!loading && <InterviewCountdownWidget questions={questions} progress={progress} />}
+      {!loading && <TodayPlanCard questions={questions} progress={progress} />}
+      <DueReviewBanner />
+      {!loading && (
+        <PatternCoverageGrid
+          set1Questions={questions}
+          set2Questions={set2Questions}
+          set3Questions={set3Questions}
+          set1Progress={progress}
+          set2Progress={setProgress2}
+          set3Progress={setProgress3}
+        />
+      )}
+
+      {/* Question Set Switcher — hidden while searching all sets */}
+      {!isSearching && (
+      <div className="flex items-center gap-1 mb-3 overflow-x-auto scrollbar-none pb-1">
+        {(['all', 1, 2, 3] as const).map(s => (
+          <button key={String(s)} onClick={() => setQuestionSet(s)}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors border whitespace-nowrap shrink-0 ${
+              questionSet === s
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-[0_0_8px_rgba(99,102,241,0.3)]'
+                : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:brightness-110'
+            }`}>
+            {s === 'all' ? (
+              <>
+                <span className="sm:hidden">All ({appTotalQuestions})</span>
+                <span className="hidden sm:inline">All sets ({appTotalQuestions})</span>
+              </>
+            ) : s === 1 ? (
+              <>
+                <span className="sm:hidden">Set 1 ({questions.length})</span>
+                <span className="hidden sm:inline">Questions Set 1 ({questions.length})</span>
+              </>
+            ) : s === 2 ? (
+              <>
+                <span className="sm:hidden">Set 2 ({set2Questions.length})</span>
+                <span className="hidden sm:inline">Questions Set 2 ({set2Questions.length})</span>
+              </>
+            ) : (
+              <>
+                <span className="sm:hidden">Set 3 ({set3Questions.length})</span>
+                <span className="hidden sm:inline">Questions Set 3 ({set3Questions.length})</span>
+              </>
+            )}
+          </button>
+        ))}
+      </div>
+      )}
+
+      {isSearching && (
+        <p className="text-xs text-indigo-500 font-semibold mb-3">
+          Search results across Set 1, Set 2, and Set 3 · {visibleCount} match{visibleCount !== 1 ? 'es' : ''}
+        </p>
+      )}
+
+      <div>
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 mb-6 shadow-lg">
+        <div className="flex flex-wrap gap-1">
+          {DIFFICULTIES.map(d => (
+            <button key={d} onClick={() => setDifficulty(d)}
+              className={'px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (difficulty === d ? 'bg-indigo-600 text-white shadow-[0_0_10px_rgba(99,102,241,0.3)]' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 border border-[var(--border-soft)]')}>{d}</button>
+          ))}
+          <span className="w-px bg-[var(--border)] mx-0.5 shrink-0" />
+          {SOURCES.map(s => (
+            <button key={s} onClick={() => setSource(s)}
+              className={'px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (source === s ? 'bg-purple-600 text-white shadow-[0_0_10px_rgba(147,51,234,0.3)]' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 border border-[var(--border-soft)]')}>{s}</button>
+          ))}
+          <span className="w-px bg-white/10 mx-0.5 shrink-0" />
+          <button onClick={() => setShowStarred(v => !v)}
+            className={'flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (showStarred ? 'bg-yellow-500 text-white shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 border border-[var(--border-soft)]')}>
+            <Star size={12} /> Starred
+          </button>
+          <button onClick={() => setShowSolved(v => v === null ? false : v === false ? true : null)}
+            className={'flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 ' + (showSolved === false ? 'bg-orange-500 text-white' : showSolved === true ? 'bg-green-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 border border-[var(--border-soft)]')}>
+            <CheckCircle2 size={12} />
+            {showSolved === false ? 'Unsolved' : showSolved === true ? 'Solved' : 'All'}
+          </button>
+        </div>
+
+        {/* Pattern / category filter row */}
+        <div className="flex flex-wrap gap-1 pt-2 border-t border-[var(--border-soft)] mt-2">
+          <span className="text-xs text-[var(--text-subtle)] self-center shrink-0 mr-1">Pattern:</span>
+          {activePattern && (
+            <button onClick={() => setActivePattern(null)}
+              className="px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 bg-[var(--bg-muted)] text-[var(--text-muted)] hover:brightness-110 transition-colors border border-[var(--border)]">
+              ✕ Clear
+            </button>
+          )}
+          {ORDERED_QUICK_PATTERNS.map(pat => {
+            const count = questions.filter(q => exclusiveMapHome[q.id] === pat.name).length
+            const active = activePattern === pat.name
+            return (
+              <button key={pat.name}
+                onClick={() => setActivePattern(active ? null : pat.name)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0 border ${
+                  active
+                    ? 'bg-cyan-700 text-white border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.25)]'
+                    : 'bg-[var(--bg-muted)] text-[var(--text-muted)] border-[var(--border-soft)] hover:border-cyan-500/50 hover:text-cyan-300'
+                }`}>
+                {pat.name} <span className="opacity-50">·{count}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-xs text-[var(--text-subtle)]">{visibleCount} questions{activePattern ? ` · ${activePattern}` : ''}{isSearching ? ' · all sets' : ''}</span>
+          {(activePattern || difficulty !== 'All' || source !== 'All' || showStarred || showSolved !== null || search) && (
+            <button
+              onClick={() => {
+                const p = new URLSearchParams(sp.toString())
+                p.delete('search')
+                window.history.replaceState(null, '', p.toString() ? `/questions?${p.toString()}` : '/questions')
+                setActivePattern(null); setDifficulty('All'); setSource('All'); setShowStarred(false); setShowSolved(null)
+              }}
+              className="text-xs text-[var(--text-subtle)] hover:text-red-400 transition-colors">
+              Clear all filters
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[var(--border)]">
+          <span className="text-xs text-[var(--text-subtle)] self-center">Study {visibleCount} as:</span>
+          <Link href={`/flashcards?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePattern ? ([...(QUICK_PATTERNS.find(p => p.name === activePattern)?.tags ?? [])]) : [])}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-50  text-indigo-600  border border-indigo-200  hover:bg-indigo-100  transition-colors">
+            <Layers size={12} /> Flashcards
+          </Link>
+          <Link href={`/learn/0?${buildStudyParams(difficulty, source, search, showStarred, showSolved, activePattern ? ([...(QUICK_PATTERNS.find(p => p.name === activePattern)?.tags ?? [])]) : [])}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50  text-emerald-600  border border-emerald-200  hover:bg-emerald-100  transition-colors">
+            <BookOpen size={12} /> Learn mode
+          </Link>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-20 text-[var(--text-subtle)] text-sm animate-pulse">Loading questions...</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {paginated.map((row, idx) => {
+            const pageStart = (qPage - 1) * PAGE_SIZE
+            const globalIdx = pageStart + idx
+            const prevRow = globalIdx > 0 ? filteredRows[globalIdx - 1] : null
+            const showSetHeader = !prevRow || prevRow.set !== row.set
+            const href = row.set === 1
+              ? `/practice/${row.id}`
+              : learnHrefForSetQuestion(row.id, row.set, set2Questions, set3Questions)
+            return (
+              <Fragment key={`${row.set}-${row.id}`}>
+                {showSetHeader && (
+                  <div className={`col-span-full flex items-center gap-2 px-1 py-2 mt-1 first:mt-0 rounded-lg border ${
+                    row.set === 1
+                      ? 'bg-indigo-50/80 border-indigo-200 text-indigo-800'
+                      : row.set === 2
+                        ? 'bg-emerald-50/80 border-emerald-200 text-emerald-800'
+                        : 'bg-purple-50/80 border-purple-200 text-purple-800'
+                  }`}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${SET_BADGE_CLASS[row.set]}`}>
+                      Set {row.set}
+                    </span>
+                    <span className="text-xs font-bold">{SET_LABELS[row.set]}</span>
+                  </div>
+                )}
+                <Link href={href}
+                  className={`group block rounded-xl border p-4 transition-all duration-150 hover:shadow-xl hover:shadow-indigo-900/20 hover:border-indigo-500/50 ${SET_CARD_CLASS[row.set]} ${row.solved ? 'bg-green-50 border-green-300' : 'bg-[var(--bg-card)] border-[var(--border-soft)]'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {(effectiveSet === 'all' || isSearching) && (
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${SET_BADGE_CLASS[row.set]}`}>
+                          Set {row.set}
+                        </span>
+                      )}
+                      <span className="text-xs text-[var(--text-subtle)] font-mono shrink-0">#{row.id}</span>
+                      <h3 className="font-semibold text-[var(--text)] text-sm truncate group-hover:text-indigo-400 transition-colors">{row.title}</h3>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {row.starred && <Star size={14} className="text-yellow-400 fill-yellow-400" />}
+                      {row.solved && <CheckCircle size={14} className="text-green-400" />}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <DifficultyBadge difficulty={row.difficulty} />
+                    {(row.tags || []).slice(0, row.set === 1 ? 3 : 2).map(tag => (
+                      <span key={tag} className="text-xs bg-[var(--bg-muted)] text-[var(--text-subtle)] px-2 py-0.5 rounded-full">{tag}</span>
+                    ))}
+                    {row.category && (
+                      <span className="text-xs text-[var(--text-subtle)] truncate">{row.category}</span>
+                    )}
+                    {row.python_solution && <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Py ✓</span>}
+                    {row.cpp_solution && <span className="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full">C++ ✓</span>}
+                  </div>
+                  {row.notes && <p className="text-xs text-[var(--text-subtle)] mt-2 italic truncate">📝 {row.notes}</p>}
+                </Link>
+              </Fragment>
+            )
+          })}
+          {paginated.length === 0 && (
+            <p className="col-span-full text-center py-10 text-[var(--text-subtle)] text-sm">No questions match your filters.</p>
+          )}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && totalQPages > 1 && (
+        <div className="flex items-center justify-between mt-4 px-1">
+          <button
+            onClick={() => setQPage(p => Math.max(1, p - 1))}
+            disabled={qPage === 1}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] text-sm font-semibold text-[var(--text-muted)] hover:border-indigo-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+            ← Prev
+          </button>
+          <span className="text-xs text-[var(--text-subtle)] font-mono">
+            {(qPage - 1) * PAGE_SIZE + 1}–{Math.min(qPage * PAGE_SIZE, visibleCount)} of {visibleCount}
+          </span>
+          <button
+            onClick={() => setQPage(p => Math.min(totalQPages, p + 1))}
+            disabled={qPage === totalQPages}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] text-sm font-semibold text-[var(--text-muted)] hover:border-indigo-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+            Next →
+          </button>
+        </div>
+      )}
+      </div>
+    </div>
+  )
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div className="text-center py-20 text-[var(--text-subtle)] text-sm animate-pulse">Loading…</div>}>
+      <HomeInner />
+    </Suspense>
+  )
+}

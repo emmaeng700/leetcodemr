@@ -13,7 +13,7 @@ export default function QuestionSearch({ className = '' }: { className?: string 
   const router = useRouter()
   const pathname = usePathname()
   const supportsFiltering =
-    pathname === '/' || pathname === '/flashcards' || pathname === '/sr-queue' || pathname.startsWith('/learn')
+    pathname === '/questions' || pathname === '/flashcards' || pathname === '/sr-queue' || pathname.startsWith('/learn')
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [questions, setQuestions] = useState<SearchQ[] | null>(null)

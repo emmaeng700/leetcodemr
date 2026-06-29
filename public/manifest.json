@@ -2,7 +2,7 @@
   "name": "LeetMastery",
   "short_name": "LeetMastery",
   "description": "Personal LeetCode study app — spaced repetition, practice, and learn.",
-  "start_url": "/",
+  "start_url": "/grind",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#1a1a2e",

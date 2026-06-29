@@ -7,7 +7,7 @@ export default function QuestionSearchGate() {
   const pathname = usePathname()
   const isLearnDetail = /^\/learn\/\d+/.test(pathname)
   const show = !isLearnDetail && (
-    pathname === '/' || pathname === '/flashcards' || pathname === '/sr-queue'
+    pathname === '/questions' || pathname === '/flashcards' || pathname === '/sr-queue'
     || pathname === '/learn' || pathname.startsWith('/learn/')
     || pathname.startsWith('/learn2') || pathname.startsWith('/learn3')
   )

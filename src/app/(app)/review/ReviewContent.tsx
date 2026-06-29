@@ -203,7 +203,7 @@ export default function ReviewPage() {
               <h3 className="text-lg font-black text-green-700 mb-1">All done for today!</h3>
               <p className="text-sm text-green-600 mb-5">You cleared all {due.length} review{due.length !== 1 ? 's' : ''}. Great work — your memory is getting stronger.</p>
               <button
-                onClick={() => router.push('/')}
+                onClick={() => router.push('/questions')}
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-colors"
               >
                 <Home size={15} /> Back to Dashboard

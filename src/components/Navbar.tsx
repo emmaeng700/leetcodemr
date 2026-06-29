@@ -23,6 +23,7 @@ type NavLink = { href: string; label: string; icon: React.ElementType; also?: st
 
 // ── Starred (core daily-use pages) ───────────────────────────────────────────
 const STARRED_LINKS: NavLink[] = [
+  { href: '/grind',  label: 'Grind',     icon: Code2 },
   { href: '/daily',  label: '★ Daily',   icon: Calendar },
   { href: '/review', label: '★ Reviews', icon: Brain,    also: ['/quick-review', '/sr-queue', '/pattern-review', '/best-solutions'] },
 ]
@@ -31,7 +32,7 @@ const LEARN_CHILDREN: LearnSet[] = [1, 2, 3]
 
 // ── Secondary (practice & reference) ─────────────────────────────────────────
 const STUDY_LINKS: NavLink[] = [
-  { href: '/',          label: 'Questions', icon: Home, also: ['/practice', '/question'] },
+  { href: '/questions', label: 'Questions', icon: Home, also: ['/practice', '/question'] },
 ]
 const MCP_CHILDREN: { tab: McpTab; label: string; icon: React.ElementType }[] = [
   { tab: 'mock',      label: 'Mock',      icon: Timer },
@@ -40,7 +41,6 @@ const MCP_CHILDREN: { tab: McpTab; label: string; icon: React.ElementType }[] = 
 ]
 
 const DRILL_LINKS: NavLink[] = [
-  { href: '/grind',      label: 'Grind',      icon: Code2 },
   { href: '/flashcards', label: 'Flashcards', icon: Layers },
   { href: '/cycles',     label: 'Cycles',     icon: RefreshCw },
 ]
@@ -205,7 +205,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-14">
 
           {/* Logo */}
-          <Link href="/daily" className="flex items-center gap-2.5 shrink-0 group">
+          <Link href="/grind" className="flex items-center gap-2.5 shrink-0 group">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-[0_2px_8px_rgba(99,102,241,0.4)] group-hover:shadow-[0_4px_14px_rgba(99,102,241,0.55)] transition-shadow duration-200">
               <Swords size={16} className="text-white" />
             </div>
