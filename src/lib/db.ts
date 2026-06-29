@@ -79,6 +79,7 @@ export async function getProgress(): Promise<Record<string, any> | null> {
         review_count: row.review_count,
         next_review: row.next_review,
         last_reviewed: row.last_reviewed,
+        review_carry_date: row.review_carry_date ?? null,
         last_daily_done: normalizeRepDate(row.last_daily_done),
         daily_rep_count: row.daily_rep_count ?? 0,
         daily_rep_date: normalizeRepDate(row.daily_rep_date),
@@ -100,6 +101,7 @@ function progressUpsertBase(existing: Record<string, unknown> | null | undefined
     review_count: Number(existing?.review_count ?? 0),
     next_review: (existing?.next_review as string | null | undefined) ?? null,
     last_reviewed: (existing?.last_reviewed as string | null | undefined) ?? null,
+    review_carry_date: (existing?.review_carry_date as string | null | undefined) ?? null,
     last_daily_done: (existing?.last_daily_done as string | null | undefined) ?? null,
     daily_rep_count: Number(existing?.daily_rep_count ?? 0),
     daily_rep_date: normalizeRepDate(existing?.daily_rep_date),
@@ -1005,12 +1007,30 @@ export async function completeReview(questionId: number) {
     review_count: newCount,
     next_review: nextReview,
     last_reviewed: todayCT,
+    review_carry_date: null,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,question_id' })
 
   if (upsertErr) {
-    console.error('[db] completeReview upsert:', upsertErr.message)
-    return { error: upsertErr.message, review_count: newCount, next_review: nextReview }
+    if (isMissingColumnError(upsertErr.message)) {
+      const { error: retryErr } = await supabase.from('progress').upsert({
+        user_id: USER_ID,
+        question_id: questionId,
+        ...base,
+        solved: true,
+        review_count: newCount,
+        next_review: nextReview,
+        last_reviewed: todayCT,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,question_id' })
+      if (retryErr) {
+        console.error('[db] completeReview upsert:', retryErr.message)
+        return { error: retryErr.message, review_count: newCount, next_review: nextReview }
+      }
+    } else {
+      console.error('[db] completeReview upsert:', upsertErr.message)
+      return { error: upsertErr.message, review_count: newCount, next_review: nextReview }
+    }
   }
 
   try {
@@ -1052,12 +1072,30 @@ export async function failReview(questionId: number) {
     review_count: newCount,
     next_review: nextReview,
     last_reviewed: todayCT,
+    review_carry_date: null,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,question_id' })
 
   if (upsertErr) {
-    console.error('[db] failReview upsert:', upsertErr.message)
-    return { error: upsertErr.message, review_count: newCount, next_review: nextReview }
+    if (isMissingColumnError(upsertErr.message)) {
+      const { error: retryErr } = await supabase.from('progress').upsert({
+        user_id: USER_ID,
+        question_id: questionId,
+        ...base,
+        solved: true,
+        review_count: newCount,
+        next_review: nextReview,
+        last_reviewed: todayCT,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,question_id' })
+      if (retryErr) {
+        console.error('[db] failReview upsert:', retryErr.message)
+        return { error: retryErr.message, review_count: newCount, next_review: nextReview }
+      }
+    } else {
+      console.error('[db] failReview upsert:', upsertErr.message)
+      return { error: upsertErr.message, review_count: newCount, next_review: nextReview }
+    }
   }
 
   try {
@@ -1150,23 +1188,121 @@ export async function fixFirstReviewDates(): Promise<void> {
   }
 }
 
-export async function getDueReviews(): Promise<Array<{ id: number; review_count: number; next_review: string }>> {
-  await fixFirstReviewDates()   // correct any review_count=0 rows set too soon
-  // recalibrateSRDates() intentionally NOT called here — it resets dates to last_reviewed+interval
-  // which undoes the spreads that rebalanceReviews() set. Calibration runs before rebalance instead.
-  const cap = await getUserRevisionCap()
-  await spreadOverdueReviews({ maxPerDay: cap })
+function isReviewIncompleteOnDueDate(
+  dueDate: string,
+  lastReviewed: string | null | undefined,
+): boolean {
+  if (!lastReviewed) return true
+  return lastReviewed < dueDate
+}
+
+/**
+ * Roll incomplete reviews forward to today (Chicago), like daily catch-up.
+ * Marks rolled items with review_carry_date so they bypass the daily SR cap.
+ */
+export async function rolloverIncompleteReviews(): Promise<void> {
   const today = todayISOChicago()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('progress')
-    .select('question_id,next_review,review_count')
+    .select('question_id,next_review,last_reviewed')
+    .eq('user_id', USER_ID)
+    .eq('solved', true)
+    .not('next_review', 'is', null)
+    .lt('next_review', today)
+
+  if (error) {
+    if (!isMissingColumnError(error.message)) {
+      console.error('[db] rolloverIncompleteReviews read:', error.message)
+    }
+    return
+  }
+
+  for (const row of data ?? []) {
+    const dueDate = row.next_review as string
+    if (!isReviewIncompleteOnDueDate(dueDate, row.last_reviewed as string | null)) continue
+
+    const withCarry = { next_review: today, review_carry_date: today }
+    const { error: upErr } = await supabase
+      .from('progress')
+      .update(withCarry)
+      .eq('user_id', USER_ID)
+      .eq('question_id', row.question_id)
+
+    if (upErr && isMissingColumnError(upErr.message)) {
+      await supabase
+        .from('progress')
+        .update({ next_review: today })
+        .eq('user_id', USER_ID)
+        .eq('question_id', row.question_id)
+    } else if (upErr) {
+      console.error('[db] rolloverIncompleteReviews update:', upErr.message)
+    }
+  }
+}
+
+type DueReviewRow = {
+  question_id: number
+  review_count: number
+  next_review: string
+  review_carry_date?: string | null
+}
+
+async function fetchDueReviewRows(includeCarryDate: boolean): Promise<{
+  rows: DueReviewRow[]
+  error: string | null
+}> {
+  const today = todayISOChicago()
+  const cols = includeCarryDate
+    ? 'question_id,next_review,review_count,review_carry_date'
+    : 'question_id,next_review,review_count'
+  const { data, error } = await supabase
+    .from('progress')
+    .select(cols)
     .eq('user_id', USER_ID)
     .eq('solved', true)
     .lte('next_review', today)
     .order('next_review', { ascending: true })
 
-  // Hard cap: never return more than the daily limit even if spread didn't catch everything.
-  return (data ?? []).slice(0, cap).map((r: any) => ({ id: r.question_id, review_count: r.review_count, next_review: r.next_review }))
+  if (error) {
+    return { rows: [], error: error.message }
+  }
+  return { rows: (data ?? []) as unknown as DueReviewRow[], error: null }
+}
+
+export async function getDueReviews(): Promise<Array<{ id: number; review_count: number; next_review: string }>> {
+  await fixFirstReviewDates()
+  await rolloverIncompleteReviews()
+  const cap = await getUserRevisionCap()
+
+  let { rows, error } = await fetchDueReviewRows(true)
+  if (error && isMissingColumnError(error)) {
+    await spreadOverdueReviews({ maxPerDay: cap })
+    const fallback = await fetchDueReviewRows(false)
+    rows = fallback.rows
+    error = fallback.error
+    if (error) {
+      console.error('[db] getDueReviews:', error)
+      return []
+    }
+    return rows.slice(0, cap).map(r => ({
+      id: r.question_id,
+      review_count: r.review_count,
+      next_review: r.next_review,
+    }))
+  }
+  if (error) {
+    console.error('[db] getDueReviews:', error)
+    return []
+  }
+
+  const carried = rows.filter(r => !!r.review_carry_date)
+  const natural = rows.filter(r => !r.review_carry_date)
+  const due = [...carried, ...natural.slice(0, cap)]
+  return due.map(r => ({
+    id: r.question_id,
+    review_count: r.review_count,
+    next_review: r.next_review,
+  }))
 }
 
 /**
@@ -1347,14 +1483,19 @@ export async function rebalanceReviews(horizonDays = 60): Promise<void> {
   // All reviews up to and including the horizon (overdue + future-within-window)
   const { data } = await supabase
     .from('progress')
-    .select('question_id,next_review,review_count')
+    .select('question_id,next_review,review_count,review_carry_date')
     .eq('user_id', USER_ID)
     .eq('solved', true)
     .not('next_review', 'is', null)
     .lte('next_review', horizonDate)
     .order('next_review', { ascending: true })
 
-  const rows = (data ?? []) as Array<{ question_id: number; next_review: string; review_count: number }>
+  const rows = (data ?? []) as Array<{
+    question_id: number
+    next_review: string
+    review_count: number
+    review_carry_date?: string | null
+  }>
   if (!rows.length) return
 
   // Seed counts with reviews already beyond the horizon (they hold their slot)
@@ -1375,6 +1516,13 @@ export async function rebalanceReviews(horizonDays = 60): Promise<void> {
   const updates: Array<{ question_id: number; next_review: string }> = []
 
   for (const row of rows) {
+    // Carried-forward reviews stay on their assigned day until completed.
+    if (row.review_carry_date) {
+      const day = row.next_review
+      if (day) counts[day] = (counts[day] ?? 0) + 1
+      continue
+    }
+
     let placed = false
     // Search from today forward for the earliest day with capacity
     for (let offset = 0; offset <= horizonDays + 60; offset++) {
@@ -1416,23 +1564,14 @@ export async function syncStreakActivityFromGoals(modeOverride?: string): Promis
     ? (localStorage.getItem('lm_plan_mode_v1') ?? null)
     : null
 
-  // Lightweight due-review count — plain SELECT count, no recalibrate/spread
-  // side effects. getDueReviews() is too heavy here and can mis-report after
-  // spreading reviews mid-flight, causing the streak to silently not get marked.
-  const [plan, { count: rawDueCount }, progressRaw, dailyDoneToday] = await Promise.all([
+  const [plan, dueReviews, progressRaw, dailyDoneToday] = await Promise.all([
     getStudyPlan(),
-    supabase
-      .from('progress')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', USER_ID)
-      .eq('solved', true)
-      .not('next_review', 'is', null)
-      .lte('next_review', today),
+    getDueReviews(),
     getProgress(),
     getTodayDailyDoneCount(),
   ])
   const progress = progressRaw ?? {}
-  const dueCount = rawDueCount ?? 0
+  const dueCount = dueReviews.length
 
   // Priority: explicit override → localStorage → plan.mode from DB → 'strict'
   const mode = modeOverride ?? localMode ?? (plan as any)?.mode ?? 'strict'

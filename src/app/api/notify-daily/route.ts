@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { findActiveDayIndex, isQuestionDoneForDailyToday } from '@/lib/dailyCompletion'
+import { getDueReviews, rolloverIncompleteReviews } from '@/lib/db'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 
 const USER_ID = 'emmanuel'
@@ -178,17 +179,14 @@ export async function GET(req: NextRequest) {
   // per_day: user's configured daily question target; falls back to today's slice size
   const perDay: number = (planMeta.data?.per_day as number | null) ?? totalCount
 
-  // ── Due SR reviews (already completed ones have next_review pushed to future) ─
-  const { data: srRows } = await supabase
-    .from('progress')
-    .select('question_id,review_count,next_review')
-    .eq('user_id', USER_ID)
-    .eq('solved', true)
-    .not('next_review', 'is', null)
-    .lte('next_review', todayStr)
-    .order('next_review', { ascending: true })
-
-  const dueReviews    = (srRows ?? []) as Array<{ question_id: number; review_count: number; next_review: string }>
+  // ── Due SR reviews (incomplete roll to today; carried items bypass daily cap) ─
+  await rolloverIncompleteReviews()
+  const dueReviewsMapped = await getDueReviews()
+  const dueReviews = dueReviewsMapped.map(r => ({
+    question_id: r.id,
+    review_count: r.review_count,
+    next_review: r.next_review,
+  }))
   const reviewsActive = dueReviews.length > 0
 
   // Count how many reviews were completed today (for display context)

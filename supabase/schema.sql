@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS progress (
   notes TEXT DEFAULT '',
   review_count INTEGER DEFAULT 0,
   next_review DATE,
+  review_carry_date DATE,
   last_reviewed DATE,
   last_daily_done DATE,
   daily_rep_count INTEGER DEFAULT 0,
