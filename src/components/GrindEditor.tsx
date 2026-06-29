@@ -4,22 +4,20 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import { RotateCcw, Code2, Wifi, WifiOff, Cloud, CloudOff } from 'lucide-react'
-import { getGrindSession, saveGrindSession } from '@/lib/db'
+import { saveGrindSession } from '@/lib/db'
 import {
-  readGrindDraft,
   writeGrindDraft,
   clearGrindStartedAt,
   type GrindLang,
 } from '@/lib/grindStorage'
 import {
   applyGrindStampOnEdit,
-  ensureGrindStampOnLoad,
-  normalizeGrindCode,
 } from '@/lib/grindStamp'
 import {
   ensureGrindStarterCached,
   resolveGrindStarterSync,
 } from '@/lib/grindStarter'
+import { resolveGrindCodeForLoad } from '@/lib/grindSync'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
@@ -97,42 +95,19 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
       const syncStarter = resolveGrindStarterSync(question, lang)
       setStarter(syncStarter)
 
-      const localDraft = readGrindDraft(question.id, lang)
-      const draftNorm = localDraft !== null ? normalizeGrindCode(localDraft) : null
-      setCode(draftNorm ?? syncStarter)
-
       const resolvedStarter = await ensureGrindStarterCached(question, lang)
       if (cancelled || gen !== loadGenRef.current) return
       setStarter(resolvedStarter)
 
-      let initial = draftNorm ?? resolvedStarter
-      if (draftNorm !== null) {
-        initial = ensureGrindStampOnLoad(question.id, lang, draftNorm)
-      }
+      const loaded = await resolveGrindCodeForLoad(question.id, lang, resolvedStarter)
+      if (cancelled || gen !== loadGenRef.current) return
 
-      const online = typeof navigator !== 'undefined' && navigator.onLine
-      if (online && localDraft === null) {
-        try {
-          const remote = await getGrindSession(question.id, lang)
-          if (cancelled || gen !== loadGenRef.current) return
-          if (remote?.code) {
-            initial = remote.code
-            writeGrindDraft(question.id, lang, remote.code)
-            setSyncState('synced')
-          } else {
-            setSyncState('local')
-          }
-        } catch {
-          setSyncState('offline')
-        }
-      } else if (online && localDraft !== null) {
-        setSyncState('local')
-        saveGrindSession(question.id, lang, localDraft).catch(() => {})
-      } else {
+      setCode(loaded.code)
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
         setSyncState('offline')
+      } else {
+        setSyncState(loaded.synced ? 'synced' : 'local')
       }
-
-      setCode(initial)
       setLoading(false)
     }
 
@@ -165,6 +140,25 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
       window.removeEventListener('offline', onOffline)
     }
   }, [question.id, lang])
+
+  useEffect(() => {
+    const refreshIfNewer = async () => {
+      if (document.visibilityState !== 'visible' || !navigator.onLine || loading) return
+      const base = starter || resolveGrindStarterSync(question, lang)
+      const loaded = await resolveGrindCodeForLoad(question.id, lang, base)
+      if (loaded.code !== codeRef.current) {
+        codeRef.current = loaded.code
+        setCode(loaded.code)
+        setSyncState(loaded.synced ? 'synced' : 'local')
+      }
+    }
+    document.addEventListener('visibilitychange', refreshIfNewer)
+    window.addEventListener('focus', refreshIfNewer)
+    return () => {
+      document.removeEventListener('visibilitychange', refreshIfNewer)
+      window.removeEventListener('focus', refreshIfNewer)
+    }
+  }, [question.id, lang, starter, loading, question])
 
   const handleChange = useCallback(
     (val: string) => {

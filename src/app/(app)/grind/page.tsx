@@ -23,20 +23,30 @@ function GrindInner() {
   const router = useRouter()
   const [questions, setQuestions] = useState<GrindQuestion[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState(() => sp.get('search') || '')
+  const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState(() => Number(sp.get('id') || '0'))
   const [listOpen, setListOpen] = useState(false)
   const prefetchRef = useRef(false)
 
   const spKey = sp.toString()
 
+  function grindHref(id: number) {
+    return `/grind?id=${id}`
+  }
+
+  // Search is local-only; strip legacy ?search= from shared/bookmarked URLs.
+  useEffect(() => {
+    if (!sp.get('search')) return
+    setSearch('')
+    const id = sp.get('id')
+    const href = id ? grindHref(Number(id)) : '/grind'
+    window.history.replaceState(window.history.state, '', href)
+    router.replace(href, { scroll: false })
+  }, [spKey, sp, router])
+
   useEffect(() => {
     const fromUrl = Number(sp.get('id') || '0')
     if (fromUrl > 0) setSelectedId(fromUrl)
-  }, [spKey, sp])
-
-  useEffect(() => {
-    setSearch(sp.get('search') || '')
   }, [spKey, sp])
 
   useEffect(() => {
@@ -68,7 +78,11 @@ function GrindInner() {
     return filtered[0] ?? questions[0] ?? null
   }, [questions, filtered, selectedId])
 
-  const navList = search.trim() ? filtered : questions
+  const navList = useMemo(() => {
+    if (!search.trim()) return questions
+    if (selected && !filtered.some(q => q.id === selected.id)) return questions
+    return filtered
+  }, [search, filtered, questions, selected])
   const navIndex = selected ? navList.findIndex(q => q.id === selected.id) : -1
 
   useEffect(() => {
@@ -76,9 +90,7 @@ function GrindInner() {
     const first = filtered[0] ?? questions[0]
     if (!first) return
     setSelectedId(first.id)
-    const params = new URLSearchParams(spKey)
-    params.set('id', String(first.id))
-    router.replace(`/grind?${params.toString()}`, { scroll: false })
+    router.replace(grindHref(first.id), { scroll: false })
   }, [loading, questions, filtered, selectedId, spKey, router])
 
   useEffect(() => {
@@ -104,9 +116,7 @@ function GrindInner() {
 
   function navigateToQuestion(q: GrindQuestion) {
     setSelectedId(q.id)
-    const params = new URLSearchParams(sp.toString())
-    params.set('id', String(q.id))
-    const href = `/grind?${params.toString()}`
+    const href = grindHref(q.id)
     window.history.replaceState(window.history.state, '', href)
     router.replace(href, { scroll: false })
   }
@@ -124,17 +134,8 @@ function GrindInner() {
 
   function onSearchSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const params = new URLSearchParams(sp.toString())
-    if (search.trim()) params.set('search', search.trim())
-    else params.delete('search')
     const first = filtered[0]
-    if (first) {
-      setSelectedId(first.id)
-      params.set('id', String(first.id))
-    }
-    const href = `/grind?${params.toString()}`
-    window.history.replaceState(window.history.state, '', href)
-    router.replace(href, { scroll: false })
+    if (first) setSelectedId(first.id)
   }
 
   if (loading) {
