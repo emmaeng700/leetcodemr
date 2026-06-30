@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import { RotateCcw, Code2, Wifi, WifiOff, Cloud, CloudOff } from 'lucide-react'
-import { useVisualViewportHeight } from '@/hooks/useVisualViewportHeight'
+import { useMobileViewport } from '@/hooks/useMobileViewport'
 import { saveGrindSession } from '@/lib/db'
 import {
   writeGrindDraft,
@@ -32,7 +32,7 @@ interface GrindEditorProps {
 }
 
 export default function GrindEditor({ question, className = '' }: GrindEditorProps) {
-  const vvHeight = useVisualViewportHeight()
+  const { height: vvHeight, offsetTop: vvTop, keyboardOpen } = useMobileViewport()
   const [lang, setLang] = useState<GrindLang>('python3')
   const [code, setCode] = useState('')
   const [starter, setStarter] = useState('')
@@ -349,8 +349,26 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
 
   const mobilePortalStyle =
     vvHeight != null
-      ? { zIndex: 9999, top: 0, left: 0, right: 0, height: vvHeight, bottom: 'auto' as const }
+      ? { zIndex: 9999, top: vvTop, left: 0, right: 0, height: vvHeight, bottom: 'auto' as const }
       : { zIndex: 9999 }
+
+  useEffect(() => {
+    if (!keyboardOpen || typeof document === 'undefined') return
+    document.body.classList.add('grind-kbd-open')
+    return () => { document.body.classList.remove('grind-kbd-open') }
+  }, [keyboardOpen])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onFocusIn = (e: FocusEvent) => {
+      if (!window.matchMedia('(max-width: 767px)').matches) return
+      if (editorExpanded) return
+      const t = e.target as HTMLElement | null
+      if (t?.closest?.('.cm-editor')) setEditorExpanded(true)
+    }
+    document.addEventListener('focusin', onFocusIn)
+    return () => document.removeEventListener('focusin', onFocusIn)
+  }, [editorExpanded])
 
   return (
     <>
@@ -383,7 +401,8 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
               type="button"
               onPointerDown={e => e.preventDefault()}
               onClick={() => setEditorExpanded(v => !v)}
-              className="md:hidden px-2 py-1 rounded-md text-xs font-mono bg-[#313244] text-indigo-300 border border-[#585b70]"
+              aria-label={editorExpanded ? 'Close full screen editor' : 'Open full screen editor'}
+              className="md:hidden px-2 py-1 rounded-md text-xs font-mono bg-[#313244] text-indigo-300 border border-[#585b70] min-h-[44px] min-w-[44px]"
             >
               {editorExpanded ? 'Close' : 'Full'}
             </button>
@@ -396,11 +415,16 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
         {!editorExpanded && footerBar}
       </div>
 
-        <div className="bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden shrink-0">
+        {!keyboardOpen && (
+        <div
+          className="bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden shrink-0"
+          role="region"
+          aria-label="Problem description"
+        >
           <div className="px-4 py-2 bg-[#181825] border-b border-gray-700">
             <span className="text-xs font-bold text-gray-200">Problem Description</span>
           </div>
-          <div className="px-4 py-3 h-48 overflow-y-auto overscroll-contain">
+          <div className="px-4 py-3 h-40 sm:h-48 overflow-y-auto overscroll-contain">
             {descriptionHtml ? (
               <div
                 className="grind-desc lc-description text-xs leading-relaxed"
@@ -413,6 +437,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
             )}
           </div>
         </div>
+        )}
       </div>
 
       {editorExpanded &&

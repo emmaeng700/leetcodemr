@@ -12,7 +12,7 @@ import { grindListWithDividers } from '@/lib/grindList'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter, readGrindLastQuestionId, writeGrindLastQuestionId } from '@/lib/grindStorage'
-import { useVisualViewportHeight } from '@/hooks/useVisualViewportHeight'
+import { useMobileViewport } from '@/hooks/useMobileViewport'
 
 const SET_BADGE: Record<1 | 2 | 3, string> = {
   1: 'bg-indigo-100 text-indigo-700 border-indigo-200',
@@ -21,7 +21,7 @@ const SET_BADGE: Record<1 | 2 | 3, string> = {
 }
 
 function GrindInner() {
-  const vvHeight = useVisualViewportHeight()
+  const { height: vvHeight, offsetTop: vvTop, keyboardOpen } = useMobileViewport()
   const sp = useSearchParams()
   const router = useRouter()
   const [questions, setQuestions] = useState<GrindQuestion[]>([])
@@ -183,14 +183,33 @@ function GrindInner() {
     )
   }
 
+  const mobileShellStyle =
+    vvHeight != null
+      ? {
+          position: 'fixed' as const,
+          top: vvTop,
+          left: 0,
+          right: 0,
+          height: vvHeight,
+          maxHeight: vvHeight,
+          overflow: 'hidden',
+          zIndex: 30,
+          paddingTop: 12,
+          paddingBottom: 8,
+          paddingLeft: 12,
+          paddingRight: 12,
+          background: 'var(--bg)',
+        }
+      : undefined
+
   return (
     <div
       className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex flex-col gap-3 h-[calc(100dvh-3.5rem)]"
-      style={vvHeight != null ? { height: `calc(${vvHeight}px - 3.5rem)` } : undefined}
+      style={vvHeight != null && !keyboardOpen ? { height: `calc(${vvHeight}px - 3.5rem)` } : mobileShellStyle}
     >
       <GrindConnectivityBanner questionId={selected?.id} />
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 shrink-0 relative z-[45]">
+      <div className={`flex flex-col sm:flex-row sm:items-center gap-2 shrink-0 relative z-[45] ${keyboardOpen ? 'hidden' : ''}`}>
         <div className="flex items-center gap-2 min-w-0">
           <PenLine size={18} className="text-indigo-500 shrink-0" />
           <div className="min-w-0">
