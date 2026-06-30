@@ -350,6 +350,30 @@
       return base + '\n\n\n\n' + marker + '\n' + commented + '\n'
     }
 
+    function extractInterviewSection(starter) {
+      var marker = interviewMarker()
+      var markerIdx = starter.indexOf(marker)
+      if (markerIdx >= 0) return starter.slice(markerIdx).replace(/\s+$/, '')
+      var phase = lang === 'python3' ? '# PHASE 1' : '// PHASE 1'
+      var phaseIdx = starter.indexOf(phase)
+      if (phaseIdx >= 0) return starter.slice(phaseIdx).replace(/\s+$/, '')
+      return ''
+    }
+
+    function upgradeCodeWithInterview(code, starter, script) {
+      if (starterHasInterview(code)) return code
+      var tail = extractInterviewSection(starter)
+      if (!tail && script && String(script).trim()) {
+        tail = interviewMarker() + '\n' + interviewScriptForLang(script)
+        tail = tail.replace(/\s+$/, '')
+      }
+      if (!tail) return code
+      var base = code.replace(/\s+$/, '')
+      var lastCheck = findLastCheckLineIndex(base)
+      if (lastCheck >= 0) base = base.split('\n').slice(0, lastCheck + 1).join('\n')
+      return base + '\n\n\n\n' + tail + '\n'
+    }
+
     function starterFor(q) {
       var bundled = lang === 'python3' ? q.starterPython : q.starterCpp
       if (bundled) {
@@ -366,11 +390,19 @@
     }
 
     function loadCode(q) {
+      var starter = starterFor(q)
       try {
         var d = localStorage.getItem(draftKey(q.id))
-        if (d !== null) return ensureGrindStampOnLoad(q.id, d)
+        if (d !== null) {
+          var stamped = ensureGrindStampOnLoad(q.id, d)
+          var upgraded = upgradeCodeWithInterview(stamped, starter, q.interviewApproach)
+          if (upgraded !== stamped) {
+            try { localStorage.setItem(draftKey(q.id), upgraded) } catch (e) {}
+          }
+          return upgraded
+        }
       } catch (e) {}
-      return starterFor(q)
+      return starter
     }
 
     function saveCode(id, code) {

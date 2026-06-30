@@ -35,6 +35,43 @@ export function interviewScriptForLang(script: string, lang: GrindLang): string 
     .join('\n')
 }
 
+/** Pull the interview tail from a full starter (marker + STAR-LC script). */
+export function extractInterviewSection(starter: string, lang: GrindLang): string | null {
+  const marker = interviewMarker(lang)
+  const markerIdx = starter.indexOf(marker)
+  if (markerIdx >= 0) return starter.slice(markerIdx).trimEnd()
+
+  const phase = lang === 'python3' ? '# PHASE 1' : '// PHASE 1'
+  const phaseIdx = starter.indexOf(phase)
+  if (phaseIdx >= 0) return starter.slice(phaseIdx).trimEnd()
+
+  return null
+}
+
+/** Ensure saved drafts pick up interview scripts added after the user first opened a question. */
+export function upgradeCodeWithInterview(
+  code: string,
+  starter: string,
+  lang: GrindLang,
+  script?: string,
+): string {
+  if (starterHasInterviewApproach(code, lang)) return code
+
+  let tail = extractInterviewSection(starter, lang)
+  if (!tail && script?.trim()) {
+    tail = `${interviewMarker(lang)}\n${interviewScriptForLang(script, lang)}`.trimEnd()
+  }
+  if (!tail) return code
+
+  let base = code.replace(/\s+$/, '')
+  const lastCheckIdx = findLastCheckLineIndex(base)
+  if (lastCheckIdx >= 0) {
+    base = base.split('\n').slice(0, lastCheckIdx + 1).join('\n')
+  }
+
+  return `${base}\n\n\n\n${tail}\n`
+}
+
 /** Append STAR-LC script after the last _check line (or at end) with blank lines before it. */
 export function appendInterviewApproachToStarter(
   starter: string,
