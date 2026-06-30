@@ -327,7 +327,7 @@
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
-    <span id="offline-version" hidden>v20</span>
+    <span id="offline-version" hidden>v21</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
@@ -347,8 +347,8 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v20'
-    var SW_CACHE = 'lm-v20'
+    var OFFLINE_VERSION = 'v21'
+    var SW_CACHE = 'lm-v21'
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v1'
     var filtered = []
     var selectedId = 0
@@ -534,6 +534,22 @@
       return code
     }
 
+    function stripDescriptionSection(code) {
+      var marker = descriptionMarker()
+      var start = code.indexOf(marker)
+      if (start < 0) return code
+      var tail = code.slice(start)
+      var iaIdx = tail.indexOf(interviewMarker())
+      var phaseIdx = tail.indexOf(lang === 'python3' ? '# PHASE 1' : '// PHASE 1')
+      var end = tail.length
+      if (iaIdx > 0) end = Math.min(end, iaIdx)
+      if (phaseIdx > 0) end = Math.min(end, phaseIdx)
+      var before = code.slice(0, start).replace(/\s+$/, '')
+      var after = tail.slice(end).replace(/^\s+/, '')
+      if (!after) return before
+      return before + '\n\n' + after
+    }
+
     function codeBaseForLearningInsert(code) {
       var stripped = stripLearningSections(code)
       if (stripped.length < code.length) return stripped
@@ -623,7 +639,8 @@
     }
 
     function upgradeCodeWithInterview(code, starter, script) {
-      return upgradeCodeWithLearning(code, starter, null, script)
+      var stripped = stripDescriptionSection(code)
+      return upgradeCodeWithLearning(stripped, starter, null, script)
     }
 
     function codeBaseForInterviewInsert(code) {
@@ -649,7 +666,7 @@
 
     function migrateAllDrafts() {
       try {
-        if (localStorage.getItem('lm_grind_learning_all_v3')) return
+        if (localStorage.getItem('lm_grind_strip_desc_v1')) return
       } catch (e) { return }
       var langs = ['python3', 'cpp']
       for (var qi = 0; qi < questions.length; qi++) {
@@ -661,14 +678,19 @@
             var d = localStorage.getItem(draftKey(q.id))
             if (d !== null) {
               var starter = starterFor(q)
-              var next = upgradeCodeWithLearning(d, starter, q.description, q.interviewApproach)
+              var next = upgradeCodeWithInterview(d, starter, q.interviewApproach)
               if (next !== d) localStorage.setItem(draftKey(q.id), next)
+            }
+            var cachedStarter = localStorage.getItem(starterKey(q.id))
+            if (cachedStarter !== null) {
+              var cleanedStarter = upgradeCodeWithInterview(cachedStarter, cachedStarter, q.interviewApproach)
+              if (cleanedStarter !== cachedStarter) localStorage.setItem(starterKey(q.id), cleanedStarter)
             }
           } catch (e) {}
           lang = savedLang
         }
       }
-      try { localStorage.setItem('lm_grind_learning_all_v3', String(Date.now())) } catch (e) {}
+      try { localStorage.setItem('lm_grind_strip_desc_v1', String(Date.now())) } catch (e) {}
     }
 
     function starterFor(q) {
@@ -677,13 +699,13 @@
         bundled = normalizeGrindCode(bundled)
         var c = titleComment(q)
         if (bundled.indexOf(c) !== 0) bundled = c + '\n' + bundled
-        return appendGrindLearning(bundled, q.description, q.interviewApproach)
+        return appendInterviewApproach(bundled, q.interviewApproach)
       }
       try {
         var cached = localStorage.getItem(starterKey(q.id))
-        if (cached) return appendGrindLearning(cached, q.description, q.interviewApproach)
+        if (cached) return appendInterviewApproach(cached, q.interviewApproach)
       } catch (e) {}
-      return appendGrindLearning(genericStarter(q), q.description, q.interviewApproach)
+      return appendInterviewApproach(genericStarter(q), q.interviewApproach)
     }
 
     function loadCode(q) {
@@ -692,7 +714,7 @@
         var d = localStorage.getItem(draftKey(q.id))
         if (d !== null) {
           var stamped = ensureGrindStampOnLoad(q.id, d)
-          var upgraded = upgradeCodeWithLearning(stamped, starter, q.description, q.interviewApproach)
+          var upgraded = upgradeCodeWithInterview(stamped, starter, q.interviewApproach)
           if (upgraded !== stamped) {
             try { localStorage.setItem(draftKey(q.id), upgraded) } catch (e) {}
           }

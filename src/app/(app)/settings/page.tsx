@@ -76,7 +76,7 @@ export default function SettingsPage() {
         const reg = await navigator.serviceWorker.getRegistration()
         if (reg?.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' })
         await fetch(`/sw.js?reload=${Date.now()}`, { cache: 'no-store' }).catch(() => {})
-        await fetch(`/sw-v20.js?reload=${Date.now()}`, { cache: 'no-store' }).catch(() => {})
+        await fetch(`/sw-v21.js?reload=${Date.now()}`, { cache: 'no-store' }).catch(() => {})
         void reg?.update()
       }
       window.location.href = window.location.href
