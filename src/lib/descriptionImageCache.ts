@@ -13,7 +13,7 @@ export async function loadDescriptionImagePaths(): Promise<string[]> {
   }
 
   if (typeof caches !== 'undefined') {
-    for (const cacheName of ['lm-v17', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']) {
+    for (const cacheName of ['lm-v18', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']) {
       try {
         const cache = await caches.open(cacheName)
         const cached = await cache.match(DESC_IMAGES_MANIFEST, { ignoreSearch: true })

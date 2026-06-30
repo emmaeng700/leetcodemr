@@ -79,6 +79,16 @@
       --indent-marker-bg-color: rgba(120, 140, 190, 0.35);
       --indent-marker-active-bg-color: rgba(150, 175, 255, 0.55);
     }
+    #editor-host, #editor-host-fs {
+      flex: 1 1 0%; min-height: 0; width: 100%; height: 100%; overflow: hidden;
+    }
+    .practice-cm-wrap .cm-editor {
+      height: 100% !important;
+      max-height: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+    }
     .practice-fs-portal {
       --indent-marker-bg-color: rgba(120, 140, 190, 0.35);
       --indent-marker-active-bg-color: rgba(150, 175, 255, 0.55);
@@ -94,8 +104,13 @@
     }
     .practice-cm-wrap .cm-scroller,
     .practice-fs-portal .cm-scroller {
+      flex: 1 1 0% !important;
+      min-height: 0 !important;
       overflow-x: hidden !important;
       overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      touch-action: pan-y;
     }
     .practice-cm-wrap .cm-content,
     .practice-cm-wrap .cm-line,
@@ -222,7 +237,7 @@
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
-    <span id="offline-version" hidden>v17</span>
+    <span id="offline-version" hidden>v18</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
@@ -242,8 +257,8 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v17'
-    var SW_CACHE = 'lm-v17'
+    var OFFLINE_VERSION = 'v18'
+    var SW_CACHE = 'lm-v18'
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v1'
     var filtered = []
     var selectedId = 0
@@ -731,10 +746,22 @@
       if (fsCpp) fsCpp.className = cppOn
     }
 
+    function syncEditorHeight() {
+      var host = document.getElementById(editorHostId)
+      if (!host) return
+      var pane = editorExpanded
+        ? document.querySelector('.fs-editor')
+        : host.closest('.editor-code-pane')
+      if (!pane) return
+      var h = pane.clientHeight
+      if (h > 0) host.style.height = h + 'px'
+    }
+
     function initEditor() {
       var q = currentQuestion()
       var host = document.getElementById(editorHostId)
       if (!q || !host || !window.GrindOfflineEditor) return
+      syncEditorHeight()
       if (editorHandle) editorHandle.destroy()
       editorHandle = window.GrindOfflineEditor.create(host, {
         lang: lang,
@@ -745,6 +772,7 @@
           saveTimer = setTimeout(function() { saveCode(id, val) }, 300)
         }
       })
+      requestAnimationFrame(syncEditorHeight)
     }
 
     function stripDescScripts(html) {
@@ -917,6 +945,7 @@
       vv.addEventListener('scroll', update)
       window.addEventListener('resize', update)
       update()
+      syncEditorHeight()
     }
 
     function buildUI() {

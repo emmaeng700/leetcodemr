@@ -59,11 +59,16 @@ export function createGrindEditor(
         EditorView.theme({
           '&': {
             height: '100%',
+            maxHeight: '100%',
+            display: 'flex',
+            flexDirection: 'column',
             fontSize: '9px',
             '--indent-marker-bg-color': 'rgba(120, 140, 190, 0.35)',
             '--indent-marker-active-bg-color': 'rgba(150, 175, 255, 0.55)',
           },
           '.cm-scroller': {
+            flex: '1 1 0',
+            minHeight: 0,
             overflow: 'auto',
             fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
           },
