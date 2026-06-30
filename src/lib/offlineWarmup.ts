@@ -13,7 +13,7 @@ import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter } from '@/lib/grindStorage'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 
-export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v15'
+export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v16'
 
 export type WarmupPhase = 'pages' | 'questions' | 'starters' | 'done'
 

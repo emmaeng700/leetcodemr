@@ -20,6 +20,16 @@ async function main() {
     getSet3Questions(mainIds, qs),
     playbookMap,
   )
+
+  type DescEntry = { description?: string; description_html?: string }
+  const descAll = JSON.parse(readFileSync('public/questions_data_all.json', 'utf8')) as Record<string, DescEntry>
+  for (const row of rows) {
+    const d = descAll[String(row.id)]
+    if (!d) continue
+    if (d.description) row.description = d.description
+    if (d.description_html) row.descriptionHtml = d.description_html
+  }
+
   writeFileSync('public/grind_questions.json', JSON.stringify(rows))
 
   const withIa = rows.filter(r => r.interviewApproach).length

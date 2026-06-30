@@ -22,6 +22,10 @@ export type GrindQuestion = {
   starterCpp?: string
   /** STAR-LC interview approach script, baked in so it works fully offline. */
   interviewApproach?: string
+  /** Plain problem description (offline). */
+  description?: string
+  /** HTML description with local /description-images paths (offline). */
+  descriptionHtml?: string
 }
 
 type Set1Row = {
@@ -145,7 +149,7 @@ export function buildGrindQuestions(
   return rows
 }
 
-const SW_CACHE_FALLBACKS = ['lm-v13', 'lm-v12', 'lm-v11', 'lm-v10', 'lm-v9', 'lm-v8']
+const SW_CACHE_FALLBACKS = ['lm-v16', 'lm-v15', 'lm-v14', 'lm-v13', 'lm-v12', 'lm-v11', 'lm-v10', 'lm-v9', 'lm-v8']
 
 /** Load questions_full.json - uses service worker cache when offline. */
 export async function loadQuestionsFullJson(): Promise<Set1Row[]> {
@@ -233,14 +237,33 @@ type QuestionsDataEntry = {
   slug: string
   difficulty: string
   description: string
+  description_html?: string
   tags?: string[]
 }
 
-/** Load questions_data_all.json (all 727 descriptions) - uses SW cache when offline. */
+export type QuestionsDataRow = {
+  description: string
+  descriptionHtml: string
+}
+
+/** Load questions_data_all.json - uses service worker cache when offline. */
 export async function loadQuestionsDataAll(): Promise<Record<number, string>> {
-  const toMap = (json: Record<string, QuestionsDataEntry>): Record<number, string> => {
-    const out: Record<number, string> = {}
-    for (const [id, entry] of Object.entries(json)) out[Number(id)] = entry.description
+  const full = await loadQuestionsDataAllRows()
+  const out: Record<number, string> = {}
+  for (const [id, row] of Object.entries(full)) out[Number(id)] = row.description
+  return out
+}
+
+/** Load full description rows (plain + HTML) with SW cache fallback. */
+export async function loadQuestionsDataAllRows(): Promise<Record<number, QuestionsDataRow>> {
+  const toMap = (json: Record<string, QuestionsDataEntry>): Record<number, QuestionsDataRow> => {
+    const out: Record<number, QuestionsDataRow> = {}
+    for (const [id, entry] of Object.entries(json)) {
+      out[Number(id)] = {
+        description: entry.description ?? '',
+        descriptionHtml: entry.description_html?.trim() ?? '',
+      }
+    }
     return out
   }
 

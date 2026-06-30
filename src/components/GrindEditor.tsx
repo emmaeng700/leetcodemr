@@ -21,6 +21,7 @@ import {
 import { resolveGrindCodeForLoad } from '@/lib/grindSync'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 import { formatDescriptionPlain } from '@/lib/formatDescription'
+import { loadQuestionsDataAllRows } from '@/lib/grindQuestions'
 import { stripScripts } from '@/lib/utils'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
@@ -132,6 +133,20 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
   useEffect(() => {
     let cancelled = false
     async function loadDescription() {
+      const bakedHtml = question.descriptionHtml?.trim() ?? ''
+      const bakedPlain = question.description?.trim()
+        ? formatDescriptionPlain(question.description)
+        : ''
+      if (bakedHtml || bakedPlain) {
+        const entry = { plain: bakedPlain, html: bakedHtml }
+        descCacheRef.current[question.id] = entry
+        if (!cancelled) {
+          setDescription(entry.plain)
+          setDescriptionHtml(entry.html)
+        }
+        return
+      }
+
       const cached = descCacheRef.current[question.id]
       if (cached != null) {
         setDescription(cached.plain)
@@ -139,12 +154,10 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
         return
       }
       try {
-        const res = await fetch('/questions_data_all.json')
-        if (!res.ok) throw new Error('bad')
-        const json = (await res.json()) as Record<string, { description?: string; description_html?: string }>
-        const row = json[String(question.id)]
+        const all = await loadQuestionsDataAllRows()
+        const row = all[question.id]
         const plain = formatDescriptionPlain(row?.description ?? '')
-        const html = row?.description_html?.trim() ?? ''
+        const html = row?.descriptionHtml ?? ''
         descCacheRef.current[question.id] = { plain, html }
         if (!cancelled) {
           setDescription(plain)
@@ -159,7 +172,14 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     }
     void loadDescription()
     return () => { cancelled = true }
-  }, [question.id])
+  }, [question.id, question.description, question.descriptionHtml])
+
+  useEffect(() => {
+    if (!descriptionHtml || typeof navigator === 'undefined' || !navigator.onLine) return
+    for (const m of descriptionHtml.matchAll(/\/description-images\/[a-zA-Z0-9._-]+/g)) {
+      fetch(m[0], { cache: 'reload' }).catch(() => {})
+    }
+  }, [descriptionHtml])
 
   useEffect(() => {
     const onOnline = () => {

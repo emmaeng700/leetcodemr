@@ -220,7 +220,7 @@
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
-    <span id="offline-version" hidden>v15</span>
+    <span id="offline-version" hidden>v16</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
@@ -240,8 +240,8 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v15'
-    var SW_CACHE = 'lm-v15'
+    var OFFLINE_VERSION = 'v16'
+    var SW_CACHE = 'lm-v16'
     var filtered = []
     var selectedId = 0
     var lang = 'python3'
@@ -778,13 +778,13 @@
       var q = currentQuestion()
       if (!q) { el.innerHTML = '<div class="desc-empty">No question selected.</div>'; return }
       var row = descriptions[String(q.id)] || {}
-      var html = row.description_html
-      if (html && String(html).trim()) {
+      var html = (q.descriptionHtml || row.description_html || '').trim()
+      if (html) {
         el.innerHTML = stripDescScripts(html)
         prefetchDescriptionImages(html)
         return
       }
-      var plain = row.description
+      var plain = q.description || row.description
       if (plain && String(plain).trim()) {
         el.textContent = plain
         return
@@ -937,9 +937,20 @@
 
     function fetchCached(url) {
       if (!('caches' in window)) return Promise.reject(new Error('no cache'))
+      var names = [SW_CACHE, 'lm-v15', 'lm-v14', 'lm-v13']
+      var i = 0
+      function tryNext() {
+        if (i >= names.length) return Promise.reject(new Error('missing'))
+        var name = names[i++]
+        return caches.open(name).then(function(cache) {
+          return cache.match(url, { ignoreSearch: true })
+        }).then(function(r) {
+          if (r) return r
+          return tryNext()
+        })
+      }
       return caches.match(url, { ignoreSearch: true }).then(function(r) {
-        if (!r) throw new Error('missing')
-        return r
+        return r || tryNext()
       })
     }
 
