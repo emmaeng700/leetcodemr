@@ -1,10 +1,6 @@
-import { execSync } from 'child_process'
 import { readFileSync, writeFileSync } from 'fs'
 
 async function main() {
-  execSync('python3 scripts/rebuild_questions_data_descriptions.py', { stdio: 'inherit' })
-  execSync('python3 scripts/enrich_all_grind_starters.py', { stdio: 'inherit' })
-
   const { getSet2Questions, getSet3Questions } = await import('../src/lib/questionSets')
   const { buildGrindQuestions } = await import('../src/lib/grindQuestions')
 
