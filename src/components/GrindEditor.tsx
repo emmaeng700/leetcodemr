@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import { RotateCcw, Code2, Wifi, WifiOff, Cloud, CloudOff } from 'lucide-react'
-import GrindInterviewApproach from '@/components/GrindInterviewApproach'
 import { useVisualViewportHeight } from '@/hooks/useVisualViewportHeight'
 import { saveGrindSession } from '@/lib/db'
 import {
@@ -252,10 +251,6 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     </div>
   )
 
-  const interviewPanel = question.interviewApproach
-    ? <GrindInterviewApproach script={question.interviewApproach} />
-    : null
-
   const editorBody = (height: string, isPortal: boolean) => (
     <>
       {loading && (
@@ -297,7 +292,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
 
   return (
     <>
-      <div className={`grind-editor-card flex flex-col h-full min-h-0 bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden ${className}`}>
+      <div className={`flex flex-col h-full min-h-0 bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden ${className}`}>
         <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#181825] border-b border-gray-700 flex-wrap shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <Code2 size={14} className="text-indigo-400 shrink-0" />
@@ -332,20 +327,17 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
           </div>
         </div>
 
-        <div className={`grind-editor-body flex-1 min-h-0 flex flex-col ${editorExpanded ? 'invisible' : ''}`}>
-          <div className="practice-cm-wrap relative flex-1 min-h-0">
-            {editorBody('100%', false)}
-          </div>
-          {footerBar}
-          {interviewPanel}
+        <div className={`practice-cm-wrap relative flex-1 min-h-0 ${editorExpanded ? 'invisible' : ''}`}>
+          {editorBody('100%', false)}
         </div>
+        {!editorExpanded && footerBar}
       </div>
 
       {editorExpanded &&
         typeof document !== 'undefined' &&
         createPortal(
           <div
-            className="practice-fs-portal grind-editor-card fixed inset-0 flex flex-col bg-[#1e1e2e]"
+            className="practice-fs-portal fixed inset-0 flex flex-col bg-[#1e1e2e]"
             style={mobilePortalStyle}
           >
             <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#181825] border-b border-gray-700 shrink-0">
@@ -363,11 +355,8 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
                 </button>
               </div>
             </div>
-            <div className="grind-editor-body flex-1 min-h-0 flex flex-col">
-              <div className="practice-cm-wrap relative flex-1 min-h-0">{editorBody('100%', true)}</div>
-              {footerBar}
-              {interviewPanel}
-            </div>
+            <div className="relative flex-1 min-h-0">{editorBody('100%', true)}</div>
+            {footerBar}
           </div>,
           document.body,
         )}

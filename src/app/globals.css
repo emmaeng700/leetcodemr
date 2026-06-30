@@ -275,25 +275,6 @@ body {
   --indent-marker-active-bg-color: rgba(150, 175, 255, 0.55);
 }
 
-/* Grind mobile: cap editor height so footer + interview stay on screen above the keyboard */
-@media (max-width: 767px) {
-  .grind-editor-body {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    overscroll-behavior: contain;
-  }
-
-  .grind-editor-body > .practice-cm-wrap {
-    flex: 0 0 auto;
-    height: clamp(130px, 30svh, 240px);
-    min-height: 130px;
-    max-height: 34svh;
-  }
-}
-
 @media (min-width: 768px) {
   .practice-cm-wrap .cm-editor,
   .practice-cm-wrap .cm-content,

@@ -5,6 +5,9 @@ import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { studyOrder } from '@/lib/studyOrder'
 import ncExtraQuestions from '../../neetcode_extra_questions.json'
 import am600ExtraQuestions from '../../am600_extra_questions.json'
+import {
+  appendInterviewApproachToStarter,
+} from '@/lib/grindInterviewInStarter'
 
 export type GrindQuestion = {
   set: 1 | 2 | 3
@@ -63,6 +66,13 @@ function toGrindRow(
   playbookMap?: Record<number, string>,
 ): GrindQuestion {
   const pattern = patternMap[q.id] ?? null
+  const interviewApproach = playbookMap?.[q.id]
+  let starterPython = q.starter_python ?? extraStarters?.starterPython
+  let starterCpp = q.starter_cpp ?? extraStarters?.starterCpp
+  if (interviewApproach) {
+    if (starterPython) starterPython = appendInterviewApproachToStarter(starterPython, interviewApproach, 'python3')
+    if (starterCpp) starterCpp = appendInterviewApproachToStarter(starterCpp, interviewApproach, 'cpp')
+  }
   return {
     set,
     id: q.id,
@@ -71,9 +81,9 @@ function toGrindRow(
     difficulty: q.difficulty,
     pattern,
     section: sectionLabel(pattern, q.difficulty),
-    starterPython: q.starter_python ?? extraStarters?.starterPython,
-    starterCpp: q.starter_cpp ?? extraStarters?.starterCpp,
-    interviewApproach: playbookMap?.[q.id],
+    starterPython,
+    starterCpp,
+    interviewApproach,
   }
 }
 

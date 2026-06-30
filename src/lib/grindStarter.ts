@@ -2,6 +2,10 @@ import type { GrindLang } from '@/lib/grindStorage'
 import { normalizeGrindCode } from '@/lib/grindStamp'
 import { readCachedStarter, writeCachedStarter } from '@/lib/grindStorage'
 import type { GrindQuestion } from '@/lib/grindQuestions'
+import {
+  appendInterviewApproachToStarter,
+  starterHasInterviewApproach,
+} from '@/lib/grindInterviewInStarter'
 
 const LC_SNIPPET_QUERY =
   'query($s:String!){question(titleSlug:$s){codeSnippets{langSlug code}}}'
@@ -38,10 +42,16 @@ public:
   return ensureGrindTitleComment(body, lang, title)
 }
 
+function withInterviewApproach(code: string, q: GrindQuestion, lang: GrindLang): string {
+  if (!q.interviewApproach || starterHasInterviewApproach(code, lang)) return code
+  return appendInterviewApproachToStarter(code, q.interviewApproach, lang)
+}
+
 function starterFromQuestion(q: GrindQuestion, lang: GrindLang): string | null {
   const raw = lang === 'python3' ? q.starterPython : q.starterCpp
   if (!raw) return null
-  return ensureGrindTitleComment(normalizeCode(raw), lang, q.title)
+  const withTitle = ensureGrindTitleComment(normalizeCode(raw), lang, q.title)
+  return withInterviewApproach(withTitle, q, lang)
 }
 
 /** Resolve starter code: bundled JSON ? cached LC snippet ? generic template. */
@@ -49,8 +59,8 @@ export function resolveGrindStarterSync(q: GrindQuestion, lang: GrindLang): stri
   const bundled = starterFromQuestion(q, lang)
   if (bundled) return bundled
   const cached = readCachedStarter(q.id, lang)
-  if (cached) return cached
-  return genericStarter(lang, q.title)
+  if (cached) return withInterviewApproach(cached, q, lang)
+  return withInterviewApproach(genericStarter(lang, q.title), q, lang)
 }
 
 export async function fetchLcGrindStarter(slug: string, lang: GrindLang): Promise<string | null> {
@@ -78,20 +88,21 @@ export async function ensureGrindStarterCached(q: GrindQuestion, lang: GrindLang
   if (bundled) return bundled
 
   const cached = readCachedStarter(q.id, lang)
-  if (cached) return cached
+  if (cached) return withInterviewApproach(cached, q, lang)
 
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    return genericStarter(lang, q.title)
+    return withInterviewApproach(genericStarter(lang, q.title), q, lang)
   }
 
   const fetched = await fetchLcGrindStarter(q.slug, lang)
   if (fetched) {
     const withTitle = ensureGrindTitleComment(fetched, lang, q.title)
-    writeCachedStarter(q.id, lang, withTitle)
-    return withTitle
+    const withInterview = withInterviewApproach(withTitle, q, lang)
+    writeCachedStarter(q.id, lang, withInterview)
+    return withInterview
   }
 
-  const fallback = genericStarter(lang, q.title)
+  const fallback = withInterviewApproach(genericStarter(lang, q.title), q, lang)
   writeCachedStarter(q.id, lang, fallback)
   return fallback
 }

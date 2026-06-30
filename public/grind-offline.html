@@ -106,43 +106,6 @@
     }
     .editor-hint { font-size: 0.58rem; color: #6c7086; }
     .editor-footer .chip-btn { font-size: 0.65rem; white-space: nowrap; }
-    .ia-panel { border-top: 1px solid #313244; background: #181825; flex-shrink: 0; display: flex; flex-direction: column; max-height: min(38vh, 300px); min-height: 0; }
-    .ia-header {
-      padding: 0.45rem 0.6rem; border-bottom: 1px solid #313244; flex-shrink: 0;
-    }
-    @media (max-width: 767px) {
-      .grind-editor-body {
-        flex: 1; min-height: 0; display: flex; flex-direction: column;
-        overflow: hidden; overscroll-behavior: contain;
-      }
-      .grind-editor-body > .practice-cm-wrap {
-        flex: 0 0 auto;
-        height: clamp(130px, 30svh, 240px);
-        min-height: 130px;
-        max-height: 34svh;
-      }
-      .grind-editor-body > .ia-panel {
-        flex: 1 1 auto;
-        min-height: clamp(96px, 22svh, 200px);
-        max-height: none;
-      }
-    }
-    .ia-header .label {
-      font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-      color: #c4b5fd;
-    }
-    .ia-body {
-      overflow-y: auto; flex: 1; min-height: 0; background: #1e1e2e;
-      padding: 0.6rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.62rem; line-height: 1.55; white-space: pre-wrap; word-break: break-word;
-    }
-    .ia-body.hidden { display: none; }
-    .ia-line-phase { color: #c4b5fd; font-weight: 700; display: block; }
-    .ia-line-quote { color: #fde68a; display: block; }
-    .ia-line-code { color: #7dd3fc; display: block; }
-    .ia-line-comment { color: #9ca3af; display: block; }
-    .ia-line { color: #cdd6f4; display: block; }
-    .ia-empty { color: #6c7086; font-style: italic; padding: 0.5rem 0; font-size: 0.62rem; }
     footer {
       padding: 0.35rem 0.6rem; font-size: 0.6rem; color: #6c7086; background: #181825;
       border-top: 1px solid #313244; flex-shrink: 0;
@@ -346,19 +309,60 @@
       return titleComment(q) + '\n' + body
     }
 
+    var INTERVIEW_MARKER_PY = '# -- Interview Approach - STAR-LC --'
+    var INTERVIEW_MARKER_CPP = '// -- Interview Approach - STAR-LC --'
+
+    function interviewMarker() {
+      return lang === 'python3' ? INTERVIEW_MARKER_PY : INTERVIEW_MARKER_CPP
+    }
+
+    function starterHasInterview(starter) {
+      var marker = interviewMarker()
+      return starter.indexOf(marker) >= 0 || starter.indexOf('# PHASE 1') >= 0 || starter.indexOf('// PHASE 1') >= 0
+    }
+
+    function findLastCheckLineIndex(code) {
+      var lines = code.split('\n')
+      var last = -1
+      for (var i = 0; i < lines.length; i++) {
+        if (lines[i].trim().indexOf('_check(') === 0) last = i
+      }
+      return last
+    }
+
+    function interviewScriptForLang(script) {
+      if (lang === 'python3') return script.replace(/\s+$/, '')
+      return script.replace(/\s+$/, '').split('\n').map(function(line) {
+        if (!line) return ''
+        if (line.indexOf('#') === 0) return '//' + line.slice(1)
+        return '// ' + line
+      }).join('\n')
+    }
+
+    function appendInterviewApproach(starter, script) {
+      if (!script || !String(script).trim()) return starter
+      if (starterHasInterview(starter)) return starter
+      var marker = interviewMarker()
+      var commented = interviewScriptForLang(script)
+      var base = starter.replace(/\s+$/, '')
+      var lastCheck = findLastCheckLineIndex(base)
+      if (lastCheck >= 0) base = base.split('\n').slice(0, lastCheck + 1).join('\n')
+      return base + '\n\n\n\n' + marker + '\n' + commented + '\n'
+    }
+
     function starterFor(q) {
       var bundled = lang === 'python3' ? q.starterPython : q.starterCpp
       if (bundled) {
         bundled = normalizeGrindCode(bundled)
         var c = titleComment(q)
-        if (bundled.indexOf(c) === 0) return bundled
-        return c + '\n' + bundled
+        if (bundled.indexOf(c) !== 0) bundled = c + '\n' + bundled
+        return appendInterviewApproach(bundled, q.interviewApproach)
       }
       try {
         var cached = localStorage.getItem(starterKey(q.id))
-        if (cached) return cached
+        if (cached) return appendInterviewApproach(cached, q.interviewApproach)
       } catch (e) {}
-      return genericStarter(q)
+      return appendInterviewApproach(genericStarter(q), q.interviewApproach)
     }
 
     function loadCode(q) {
@@ -447,36 +451,6 @@
       if (meta) meta.textContent = text
       var fsMeta = document.getElementById('fs-meta')
       if (fsMeta) fsMeta.textContent = text
-      renderInterviewApproach()
-    }
-
-    function renderInterviewApproach() {
-      var q = currentQuestion()
-      var body = document.getElementById('ia-body')
-      var panel = document.getElementById('ia-panel')
-      if (!body || !panel) return
-      if (!q || !q.interviewApproach) {
-        panel.style.display = 'none'
-        return
-      }
-      panel.style.display = ''
-      body.classList.remove('hidden')
-      var lines = q.interviewApproach.split('\n')
-      var html = ''
-      for (var i = 0; i < lines.length; i++) {
-        var line = lines[i]
-        var cls = 'ia-line'
-        if (/^# PHASE \d+ [-—]/.test(line)) cls = 'ia-line-phase'
-        else if (/^# "(.*)"/.test(line) || /^#  /.test(line)) cls = 'ia-line-quote'
-        else if (/^class /.test(line) || /^    def /.test(line)) cls = 'ia-line-code'
-        else if (/^#/.test(line)) cls = 'ia-line-comment'
-        html += '<span class="' + cls + '">' + escapeHtml(line) + '</span>\n'
-      }
-      body.innerHTML = html
-    }
-
-    function escapeHtml(s) {
-      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     }
 
     function setDividerLabel(setNum) {
@@ -571,16 +545,14 @@
       if (!q) return
       editorExpanded = open
       var portal = document.getElementById('fs-portal')
-      var inlineWrap = document.querySelector('.editor .grind-editor-body .practice-cm-wrap')
-      var inlineFooter = document.querySelector('.editor .grind-editor-body .editor-footer')
-      var inlineIA = document.querySelector('.editor .grind-editor-body .ia-panel')
+      var inlineWrap = document.querySelector('.editor .practice-cm-wrap')
+      var inlineFooter = document.querySelector('.editor .editor-footer')
       if (open) {
         setListOpen(false)
         editorHostId = 'editor-host-fs'
         portal.classList.add('open')
         if (inlineWrap) inlineWrap.style.visibility = 'hidden'
         if (inlineFooter) inlineFooter.style.display = 'none'
-        if (inlineIA) inlineIA.style.display = 'none'
         initEditor()
         updateMeta()
       } else {
@@ -588,9 +560,7 @@
         portal.classList.remove('open')
         if (inlineWrap) inlineWrap.style.visibility = ''
         if (inlineFooter) inlineFooter.style.display = ''
-        if (inlineIA) inlineIA.style.display = ''
         initEditor()
-        updateMeta()
       }
     }
 
@@ -638,18 +608,10 @@
             '<span id="meta-text"></span>' +
             '<button type="button" class="chip-btn mob-only" id="btn-full">Full</button>' +
           '</div>' +
-          '<div class="grind-editor-body">' +
-            '<div class="practice-cm-wrap"><div id="editor-host"></div></div>' +
-            '<div class="editor-footer">' +
-              '<span class="editor-hint">no submit - write from memory</span>' +
-              '<button type="button" class="chip-btn" id="btn-reset">Reset to starter</button>' +
-            '</div>' +
-            '<div class="ia-panel" id="ia-panel">' +
-              '<div class="ia-header">' +
-                '<span class="label">Interview Approach | STAR-LC</span>' +
-              '</div>' +
-              '<div class="ia-body" id="ia-body"></div>' +
-            '</div>' +
+          '<div class="practice-cm-wrap"><div id="editor-host"></div></div>' +
+          '<div class="editor-footer">' +
+            '<span class="editor-hint">no submit - write from memory</span>' +
+            '<button type="button" class="chip-btn" id="btn-reset">Reset to starter</button>' +
           '</div>' +
         '</section>'
       document.getElementById('list-backdrop').onclick = function() { setListOpen(false) }

@@ -16,4 +16,5 @@ const rows = buildGrindQuestions(qs, getSet2Questions(mainIds, qs), getSet3Quest
 writeFileSync('public/grind_questions.json', JSON.stringify(rows))
 
 const withIa = rows.filter(r => r.interviewApproach).length
-console.log(`Wrote public/grind_questions.json (${rows.length} questions, ${withIa} with interview approach)`)
+const pyWithIaInStarter = rows.filter(r => r.starterPython && r.starterPython.includes('Interview Approach')).length
+console.log(`Wrote public/grind_questions.json (${rows.length} questions, ${withIa} with interview approach, ${pyWithIaInStarter} python starters include it)`)
