@@ -2,6 +2,33 @@ import { normalizeGrindCode } from '@/lib/grindStamp'
 
 export type GrindLang = 'python3' | 'cpp'
 
+export const GRIND_LAST_QUESTION_KEY = 'lm_grind_last_question_id'
+
+export function readGrindLastQuestionId(): number | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const id = Number.parseInt(localStorage.getItem(GRIND_LAST_QUESTION_KEY) ?? '', 10)
+    return Number.isFinite(id) && id > 0 ? id : null
+  } catch {
+    return null
+  }
+}
+
+export function writeGrindLastQuestionId(questionId: number): void {
+  if (typeof window === 'undefined') return
+  if (!Number.isFinite(questionId) || questionId <= 0) return
+  try {
+    localStorage.setItem(GRIND_LAST_QUESTION_KEY, String(questionId))
+  } catch {
+    /* quota */
+  }
+}
+
+export function grindHrefForLastQuestion(): string {
+  const id = readGrindLastQuestionId()
+  return id ? `/grind?id=${id}` : '/grind'
+}
+
 export function grindDraftKey(questionId: number, lang: GrindLang): string {
   return `lm_grind_${questionId}_${lang}`
 }

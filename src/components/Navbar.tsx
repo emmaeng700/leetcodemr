@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { getOpenQuestionContext } from '@/lib/openQuestionContext'
+import { grindHrefForLastQuestion } from '@/lib/grindStorage'
 import {
   Menu, X, Home, BarChart2, Brain,
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
@@ -73,6 +74,12 @@ function buildAnswersNavHref(): string {
   if (!ctx) return '/answers'
   const t = ctx.title ? `&title=${encodeURIComponent(ctx.title)}` : ''
   return `/answers?id=${ctx.id}&slug=${encodeURIComponent(ctx.slug)}${t}`
+}
+
+function resolveNavHref(href: string, grindNavHref: string, answersNavHref: string): string {
+  if (href === '/grind') return grindNavHref
+  if (href === '/answers') return answersNavHref
+  return href
 }
 
 function navLinkClass(active: boolean) {
@@ -174,11 +181,13 @@ export default function Navbar() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [answersNavHref, setAnswersNavHref] = useState('/answers')
+  const [grindNavHref, setGrindNavHref] = useState('/grind')
   const build = process.env.NEXT_PUBLIC_COMMIT_SHA
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'uptodate'>('idle')
 
   useEffect(() => {
     setAnswersNavHref(buildAnswersNavHref())
+    setGrindNavHref(grindHrefForLastQuestion())
   }, [pathname])
 
   const checkForUpdate = useCallback(async () => {
@@ -205,7 +214,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-14">
 
           {/* Logo */}
-          <Link href="/grind" className="flex items-center gap-2.5 shrink-0 group">
+          <Link href={grindNavHref} className="flex items-center gap-2.5 shrink-0 group">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-[0_2px_8px_rgba(99,102,241,0.4)] group-hover:shadow-[0_4px_14px_rgba(99,102,241,0.55)] transition-shadow duration-200">
               <Swords size={16} className="text-white" />
             </div>
@@ -271,7 +280,7 @@ export default function Navbar() {
                     const active = (href === '/' ? pathname === '/' : pathname.startsWith(base))
                       || (also ?? []).some(p => pathname.startsWith(p))
                     return (
-                      <Link key={href} href={href} className={navLinkClass(active)}>{label}</Link>
+                      <Link key={href} href={resolveNavHref(href, grindNavHref, answersNavHref)} className={navLinkClass(active)}>{label}</Link>
                     )
                   })}
                   <LearnNavDropdown pathname={pathname} />
@@ -303,7 +312,7 @@ export default function Navbar() {
                 return (
                   <Link
                     key={href}
-                    href={href === '/answers' ? answersNavHref : href}
+                    href={resolveNavHref(href, grindNavHref, answersNavHref)}
                     className={navLinkClass(active)}
                   >
                     {label}
@@ -347,7 +356,7 @@ export default function Navbar() {
                       const base = '/' + href.split('/')[1]
                       const active = pathname.startsWith(base) || (also ?? []).some(p => pathname.startsWith(p))
                       return (
-                        <Link key={href} href={href} onClick={() => setOpen(false)}
+                        <Link key={href} href={resolveNavHref(href, grindNavHref, answersNavHref)} onClick={() => setOpen(false)}
                           className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                             active ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
                           }`}>
@@ -433,7 +442,7 @@ export default function Navbar() {
                   return (
                     <Link
                       key={href}
-                      href={href === '/answers' ? answersNavHref : href}
+                      href={resolveNavHref(href, grindNavHref, answersNavHref)}
                       onClick={() => setOpen(false)}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                         active

@@ -10,7 +10,7 @@ import { buildGrindQuestions, loadQuestionsFullJson, type GrindQuestion } from '
 import { grindListWithDividers } from '@/lib/grindList'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
-import { readCachedStarter } from '@/lib/grindStorage'
+import { readCachedStarter, readGrindLastQuestionId, writeGrindLastQuestionId } from '@/lib/grindStorage'
 
 const SET_BADGE: Record<1 | 2 | 3, string> = {
   1: 'bg-indigo-100 text-indigo-700 border-indigo-200',
@@ -24,7 +24,11 @@ function GrindInner() {
   const [questions, setQuestions] = useState<GrindQuestion[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [selectedId, setSelectedId] = useState(() => Number(sp.get('id') || '0'))
+  const [selectedId, setSelectedId] = useState(() => {
+    const fromUrl = Number(sp.get('id') || '0')
+    if (fromUrl > 0) return fromUrl
+    return readGrindLastQuestionId() ?? 0
+  })
   const [listOpen, setListOpen] = useState(false)
   const prefetchRef = useRef(false)
 
@@ -46,8 +50,32 @@ function GrindInner() {
 
   useEffect(() => {
     const fromUrl = Number(sp.get('id') || '0')
-    if (fromUrl > 0) setSelectedId(fromUrl)
+    if (fromUrl > 0) {
+      setSelectedId(fromUrl)
+      writeGrindLastQuestionId(fromUrl)
+    }
   }, [spKey, sp])
+
+  useEffect(() => {
+    if (loading || questions.length === 0) return
+
+    const urlId = Number(sp.get('id') || '0')
+    const savedId = readGrindLastQuestionId()
+    let targetId = urlId > 0 ? urlId : (savedId ?? 0)
+
+    if (targetId > 0 && !questions.some(q => q.id === targetId)) {
+      targetId = questions[0]?.id ?? 0
+    } else if (targetId <= 0) {
+      targetId = questions[0]?.id ?? 0
+    }
+    if (targetId <= 0) return
+
+    writeGrindLastQuestionId(targetId)
+    setSelectedId(targetId)
+    if (urlId !== targetId) {
+      router.replace(grindHref(targetId), { scroll: false })
+    }
+  }, [loading, questions, spKey, router])
 
   useEffect(() => {
     async function load() {
@@ -86,14 +114,6 @@ function GrindInner() {
   const navIndex = selected ? navList.findIndex(q => q.id === selected.id) : -1
 
   useEffect(() => {
-    if (loading || questions.length === 0 || selectedId > 0) return
-    const first = filtered[0] ?? questions[0]
-    if (!first) return
-    setSelectedId(first.id)
-    router.replace(grindHref(first.id), { scroll: false })
-  }, [loading, questions, filtered, selectedId, spKey, router])
-
-  useEffect(() => {
     if (loading || !selected || prefetchRef.current) return
     if (typeof navigator !== 'undefined' && !navigator.onLine) return
     prefetchRef.current = true
@@ -115,6 +135,7 @@ function GrindInner() {
   }, [loading, questions, selected])
 
   function navigateToQuestion(q: GrindQuestion) {
+    writeGrindLastQuestionId(q.id)
     setSelectedId(q.id)
     const href = grindHref(q.id)
     window.history.replaceState(window.history.state, '', href)
@@ -135,7 +156,7 @@ function GrindInner() {
   function onSearchSubmit(e: React.FormEvent) {
     e.preventDefault()
     const first = filtered[0]
-    if (first) setSelectedId(first.id)
+    if (first) navigateToQuestion(first)
   }
 
   if (loading) {
