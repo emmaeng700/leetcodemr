@@ -128,6 +128,8 @@
     }
     .editor-hint { font-size: 0.58rem; color: #6c7086; }
     .editor-footer .chip-btn { font-size: 0.65rem; white-space: nowrap; }
+    .editor-footer-actions { display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0; }
+    .editor-footer-actions .chip-btn.copied { color: #a6e3a1; border-color: #6c7086; }
     .desc-card {
       flex: 0 0 auto; height: clamp(6.5rem, 26vh, 11rem);
       margin: 0.25rem 0.35rem 0.3rem; background: #181825;
@@ -327,7 +329,7 @@
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
-    <span id="offline-version" hidden>v21</span>
+    <span id="offline-version" hidden>v22</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
@@ -341,14 +343,17 @@
     <div class="fs-editor practice-cm-wrap"><div id="editor-host-fs"></div></div>
     <div class="editor-footer">
       <span class="editor-hint">no submit - write from memory</span>
-      <button type="button" class="chip-btn" id="btn-reset-fs">Reset to starter</button>
+      <div class="editor-footer-actions">
+        <button type="button" class="chip-btn" id="btn-copy-fs" aria-label="Copy all code">Copy</button>
+        <button type="button" class="chip-btn" id="btn-reset-fs">Reset to starter</button>
+      </div>
     </div>
   </div>
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v21'
-    var SW_CACHE = 'lm-v21'
+    var OFFLINE_VERSION = 'v22'
+    var SW_CACHE = 'lm-v22'
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v1'
     var filtered = []
     var selectedId = 0
@@ -359,6 +364,46 @@
     var listOpen = false
     var editorExpanded = false
     var wasOffline = !navigator.onLine
+    var copyFlashTimer = null
+
+    function flashCopyButton(btn) {
+      if (!btn) return
+      btn.textContent = 'Copied!'
+      btn.classList.add('copied')
+      if (copyFlashTimer) clearTimeout(copyFlashTimer)
+      copyFlashTimer = setTimeout(function() {
+        btn.textContent = 'Copy'
+        btn.classList.remove('copied')
+      }, 2000)
+    }
+
+    function fallbackCopyText(text) {
+      var ta = document.createElement('textarea')
+      ta.value = text
+      ta.setAttribute('readonly', '')
+      ta.style.position = 'fixed'
+      ta.style.left = '-9999px'
+      document.body.appendChild(ta)
+      ta.select()
+      try { document.execCommand('copy') } catch (e) {}
+      document.body.removeChild(ta)
+    }
+
+    function copyEditorCode(btn) {
+      if (!editorHandle) return
+      var text = editorHandle.getDoc()
+      if (!text) return
+      var done = function() { flashCopyButton(btn) }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(function() {
+          fallbackCopyText(text)
+          done()
+        })
+      } else {
+        fallbackCopyText(text)
+        done()
+      }
+    }
 
     function updateConnectivityUI() {
       var online = navigator.onLine
@@ -1161,7 +1206,10 @@
           '</div>' +
           '<div class="editor-footer">' +
             '<span class="editor-hint">no submit - write from memory</span>' +
-            '<button type="button" class="chip-btn" id="btn-reset" aria-label="Reset to starter code">Reset to starter</button>' +
+            '<div class="editor-footer-actions">' +
+              '<button type="button" class="chip-btn" id="btn-copy" aria-label="Copy all code">Copy</button>' +
+              '<button type="button" class="chip-btn" id="btn-reset" aria-label="Reset to starter code">Reset to starter</button>' +
+            '</div>' +
           '</div>' +
         '</section>'
       document.getElementById('list-backdrop').onclick = function() { setListOpen(false) }
@@ -1172,6 +1220,8 @@
       var writeBtn = document.getElementById('btn-write-code')
       if (writeBtn) writeBtn.onclick = function() { setEditorExpanded(true) }
       document.getElementById('btn-reset').onclick = function() { resetToStarter() }
+      var copyBtn = document.getElementById('btn-copy')
+      if (copyBtn) copyBtn.onclick = function() { copyEditorCode(copyBtn) }
       var descToggle = document.getElementById('btn-desc-toggle')
       if (descToggle) {
         descToggle.onclick = function() { setDescCollapsed(!descCollapsed) }
@@ -1206,6 +1256,9 @@
     document.getElementById('btn-py').onclick = function() { setLang('python3') }
     document.getElementById('btn-cpp').onclick = function() { setLang('cpp') }
     document.getElementById('btn-reset-fs').onclick = function() { resetToStarter() }
+    document.getElementById('btn-copy-fs').onclick = function() {
+      copyEditorCode(document.getElementById('btn-copy-fs'))
+    }
     document.getElementById('search').addEventListener('input', function(e) {
       var s = e.target.value
       filtered = questions.filter(function(q) { return matches(q, s) })

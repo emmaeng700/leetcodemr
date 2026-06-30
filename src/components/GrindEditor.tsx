@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
-import { RotateCcw, Code2, Wifi, WifiOff, Cloud, CloudOff } from 'lucide-react'
+import { RotateCcw, Code2, Wifi, WifiOff, Cloud, CloudOff, Copy, Check } from 'lucide-react'
 import { useMobileViewport } from '@/hooks/useMobileViewport'
 import { saveGrindSession } from '@/lib/db'
 import {
@@ -38,6 +38,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
   const [starter, setStarter] = useState('')
   const [loading, setLoading] = useState(true)
   const [savedFlash, setSavedFlash] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [syncState, setSyncState] = useState<'local' | 'synced' | 'offline'>('local')
   const [editorExpanded, setEditorExpanded] = useState(false)
   const [extensions, setExtensions] = useState<any[]>([])
@@ -256,6 +257,18 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     setSyncState(typeof navigator !== 'undefined' && navigator.onLine ? 'synced' : 'offline')
   }, [starter, question.id, lang])
 
+  const copyCode = useCallback(async () => {
+    const text = codeRef.current
+    if (!text) return
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
   const langToggle = (
     <div className="flex items-center gap-1 bg-[#313244] rounded-lg p-0.5">
       {(['python3', 'cpp'] as const).map(l => (
@@ -303,13 +316,23 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
         {syncLabel}
         <span className="text-[10px] text-gray-600 hidden sm:inline">no submit - write from memory</span>
       </div>
-      <button
-        type="button"
-        onClick={reset}
-        className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs text-gray-300 bg-[#313244] hover:bg-[#45475a] transition-colors"
-      >
-        <RotateCcw size={11} /> Reset to starter
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void copyCode()}
+          className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs text-gray-300 bg-[#313244] hover:bg-[#45475a] transition-colors"
+        >
+          {copied ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+        <button
+          type="button"
+          onClick={reset}
+          className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs text-gray-300 bg-[#313244] hover:bg-[#45475a] transition-colors"
+        >
+          <RotateCcw size={11} /> Reset to starter
+        </button>
+      </div>
     </div>
   )
 
