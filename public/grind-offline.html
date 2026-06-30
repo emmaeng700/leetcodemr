@@ -61,7 +61,7 @@
       padding: 0.35rem 0.5rem; font-size: 0.55rem; font-weight: 600; color: #6c7086;
       background: #181825; border-bottom: 1px solid #313244; position: sticky; top: 0; z-index: 1;
     }
-    .editor { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #1e1e2e; overflow-y: auto; }
+    .editor { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #1e1e2e; overflow: hidden; }
     .meta {
       padding: 0.35rem 0.5rem; font-size: 0.65rem; color: #a6adc8; background: #181825;
       border-bottom: 1px solid #313244; flex-shrink: 0;
@@ -115,7 +115,7 @@
       background: #11111b; border-bottom: 1px solid #313244;
     }
     .desc-card-body {
-      padding: 0.45rem 0.55rem; max-height: 9rem; overflow-y: auto;
+      padding: 0.45rem 0.55rem; max-height: 12rem; overflow-y: auto;
       font-size: 0.68rem; line-height: 1.55; color: #cdd6f4;
     }
     .desc-card-body p { margin: 0.35rem 0; }
@@ -176,7 +176,15 @@
       .list-wrap.open { display: flex; }
       .list-wrap.open + .list-backdrop,
       .list-backdrop.open { display: block; }
-      .editor { width: 100%; }
+      .editor {
+        width: 100%;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) minmax(8.5rem, 30vh) auto;
+        overflow: hidden;
+      }
+      .practice-cm-wrap { flex: none; min-height: 0; overflow: hidden; }
+      .desc-card { margin: 0.2rem 0.35rem 0.25rem; min-height: 8.5rem; }
+      .desc-card-body { max-height: none; min-height: 6rem; }
     }
   </style>
 </head>
@@ -212,6 +220,7 @@
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
+    <span id="offline-version" hidden>v15</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
@@ -231,6 +240,8 @@
   <script>
     var questions = []
     var descriptions = {}
+    var OFFLINE_VERSION = 'v15'
+    var SW_CACHE = 'lm-v15'
     var filtered = []
     var selectedId = 0
     var lang = 'python3'
@@ -738,6 +749,29 @@
       return String(html).replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     }
 
+    function prefetchDescriptionImages(html) {
+      if (!html || !navigator.onLine) return
+      var paths = []
+      var re = /\/description-images\/[a-zA-Z0-9._-]+/g
+      var m
+      while ((m = re.exec(html))) paths.push(m[0])
+      paths.forEach(function(p) {
+        fetch(p, { cache: 'reload' }).catch(function() {})
+      })
+    }
+
+    function cacheOfflineBundle() {
+      if (!navigator.onLine || !('caches' in window)) return Promise.resolve()
+      return caches.open(SW_CACHE).then(function(cache) {
+        var urls = ['/grind-offline.html', '/questions_data_all.json', '/grind_questions.json']
+        return Promise.all(urls.map(function(url) {
+          return fetch(url, { cache: 'reload' }).then(function(r) {
+            if (r.ok) return cache.put(url, r.clone())
+          }).catch(function() {})
+        }))
+      })
+    }
+
     function renderDescription() {
       var el = document.getElementById('desc-body')
       if (!el) return
@@ -747,6 +781,7 @@
       var html = row.description_html
       if (html && String(html).trim()) {
         el.innerHTML = stripDescScripts(html)
+        prefetchDescriptionImages(html)
         return
       }
       var plain = row.description
@@ -953,17 +988,24 @@
 
     loadEditorScript()
       .then(function() {
-        return Promise.all([loadQuestions(), loadDescriptions()])
+        return loadQuestions()
       })
-      .then(function(results) {
-        questions = results[0]
-        descriptions = results[1] || {}
+      .then(function(qs) {
+        questions = qs
+        return loadDescriptions().catch(function() { return {} })
+      })
+      .then(function(desc) {
+        descriptions = desc || {}
         migrateAllDrafts()
         buildUI()
         updateConnectivityUI()
-        document.getElementById('status').textContent = navigator.onLine
-          ? questions.length + ' questions'
-          : 'Offline mode ? saved locally'
+        var status = document.getElementById('status')
+        if (status) {
+          status.textContent = navigator.onLine
+            ? questions.length + ' questions · ' + OFFLINE_VERSION
+            : 'Offline · ' + OFFLINE_VERSION + ' · saved locally'
+        }
+        return cacheOfflineBundle()
       })
       .catch(function() {
         document.getElementById('body').innerHTML =
