@@ -6,7 +6,7 @@ import { studyOrder } from '@/lib/studyOrder'
 import ncExtraQuestions from '../../neetcode_extra_questions.json'
 import am600ExtraQuestions from '../../am600_extra_questions.json'
 import grindMissingStarters from '../../grind_missing_starters.json'
-import { appendGrindLearningToStarter } from '@/lib/grindInterviewInStarter'
+import { appendInterviewApproachToStarter } from '@/lib/grindInterviewInStarter'
 
 export type GrindQuestion = {
   set: 1 | 2 | 3
@@ -20,8 +20,6 @@ export type GrindQuestion = {
   section: string | null
   starterPython?: string
   starterCpp?: string
-  /** Problem statement text, baked in for offline reading in the editor. */
-  description?: string
   /** STAR-LC interview approach script, baked in so it works fully offline. */
   interviewApproach?: string
 }
@@ -82,20 +80,14 @@ function toGrindRow(
   patternMap: Record<number, string>,
   extraStarters?: { starterPython?: string; starterCpp?: string },
   playbookMap?: Record<number, string>,
-  descriptionMap?: Record<number, string>,
 ): GrindQuestion {
   const pattern = patternMap[q.id] ?? null
-  const description = descriptionMap?.[q.id]
   const interviewApproach = playbookMap?.[q.id]
   let starterPython = ENRICHED_STARTERS[q.id] ?? q.starter_python ?? extraStarters?.starterPython
   let starterCpp = q.starter_cpp ?? extraStarters?.starterCpp
-  if (description || interviewApproach) {
-    if (starterPython) {
-      starterPython = appendGrindLearningToStarter(starterPython, description, interviewApproach, 'python3')
-    }
-    if (starterCpp) {
-      starterCpp = appendGrindLearningToStarter(starterCpp, description, interviewApproach, 'cpp')
-    }
+  if (interviewApproach) {
+    if (starterPython) starterPython = appendInterviewApproachToStarter(starterPython, interviewApproach, 'python3')
+    if (starterCpp) starterCpp = appendInterviewApproachToStarter(starterCpp, interviewApproach, 'cpp')
   }
   return {
     set,
@@ -107,7 +99,6 @@ function toGrindRow(
     section: sectionLabel(pattern, q.difficulty),
     starterPython,
     starterCpp,
-    description,
     interviewApproach,
   }
 }
@@ -121,7 +112,6 @@ export function buildGrindQuestions(
   set2: SetQuestion[],
   set3: SetQuestion[],
   playbookMap: Record<number, string> = {},
-  descriptionMap: Record<number, string> = {},
 ): GrindQuestion[] {
   const tagMap = buildSetTagMap(set1)
   const rows: GrindQuestion[] = []
@@ -137,19 +127,19 @@ export function buildGrindQuestions(
   const set1ById = Object.fromEntries(set1Tagged.map(q => [q.id, q]))
   for (const id of set1Order) {
     const q = set1ById[id]
-    if (q) rows.push(toGrindRow(1, q, set1PatternMap, undefined, playbookMap, descriptionMap))
+    if (q) rows.push(toGrindRow(1, q, set1PatternMap, undefined, playbookMap))
   }
 
   const set2Tagged = set2.map(q => ({ ...q, tags: tagMap[q.id] ?? q.tags ?? [] }))
   const set2PatternMap = buildExclusivePatternMap(set2Tagged)
   for (const q of set2) {
-    rows.push(toGrindRow(2, q, set2PatternMap, EXTRA_STARTERS[q.id], playbookMap, descriptionMap))
+    rows.push(toGrindRow(2, q, set2PatternMap, EXTRA_STARTERS[q.id], playbookMap))
   }
 
   const set3Tagged = set3.map(q => ({ ...q, tags: tagMap[q.id] ?? q.tags ?? [] }))
   const set3PatternMap = buildExclusivePatternMap(set3Tagged)
   for (const q of set3) {
-    rows.push(toGrindRow(3, q, set3PatternMap, EXTRA_STARTERS[q.id], playbookMap, descriptionMap))
+    rows.push(toGrindRow(3, q, set3PatternMap, EXTRA_STARTERS[q.id], playbookMap))
   }
 
   return rows

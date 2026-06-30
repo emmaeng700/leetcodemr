@@ -7,7 +7,6 @@ import {
   buildGrindQuestions,
   loadGrindQuestionsBundle,
   loadPlaybookMap,
-  loadQuestionsDataAll,
   loadQuestionsFullJson,
 } from '@/lib/grindQuestions'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
@@ -127,13 +126,11 @@ export async function runOfflineWarmup(
     const { getSet2Questions, getSet3Questions } = await import('@/lib/questionSets')
     const mainIds = new Set(qs.map(q => q.id))
     const playbookMap = await loadPlaybookMap()
-    const descriptionMap = await loadQuestionsDataAll()
     grindQuestions = buildGrindQuestions(
       qs,
       getSet2Questions(mainIds, qs),
       getSet3Questions(mainIds, qs),
       playbookMap,
-      descriptionMap,
     )
   }
   const needStarters = startersNeedingFetch(grindQuestions)

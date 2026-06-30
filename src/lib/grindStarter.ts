@@ -3,8 +3,7 @@ import { normalizeGrindCode } from '@/lib/grindStamp'
 import { readCachedStarter, writeCachedStarter } from '@/lib/grindStorage'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 import {
-  appendGrindLearningToStarter,
-  starterHasDescription,
+  appendInterviewApproachToStarter,
   starterHasInterviewApproach,
 } from '@/lib/grindInterviewInStarter'
 
@@ -43,19 +42,16 @@ public:
   return ensureGrindTitleComment(body, lang, title)
 }
 
-function withLearningContent(code: string, q: GrindQuestion, lang: GrindLang): string {
-  const hasDesc = starterHasDescription(code, lang)
-  const hasIa = starterHasInterviewApproach(code, lang)
-  if (hasDesc && hasIa) return code
-  if (!q.description && !q.interviewApproach) return code
-  return appendGrindLearningToStarter(code, q.description, q.interviewApproach, lang)
+function withInterviewApproach(code: string, q: GrindQuestion, lang: GrindLang): string {
+  if (!q.interviewApproach || starterHasInterviewApproach(code, lang)) return code
+  return appendInterviewApproachToStarter(code, q.interviewApproach, lang)
 }
 
 function starterFromQuestion(q: GrindQuestion, lang: GrindLang): string | null {
   const raw = lang === 'python3' ? q.starterPython : q.starterCpp
   if (!raw) return null
   const withTitle = ensureGrindTitleComment(normalizeCode(raw), lang, q.title)
-  return withLearningContent(withTitle, q, lang)
+  return withInterviewApproach(withTitle, q, lang)
 }
 
 /** Resolve starter code: bundled JSON ? cached LC snippet ? generic template. */
@@ -63,8 +59,8 @@ export function resolveGrindStarterSync(q: GrindQuestion, lang: GrindLang): stri
   const bundled = starterFromQuestion(q, lang)
   if (bundled) return bundled
   const cached = readCachedStarter(q.id, lang)
-  if (cached) return withLearningContent(cached, q, lang)
-  return withLearningContent(genericStarter(lang, q.title), q, lang)
+  if (cached) return withInterviewApproach(cached, q, lang)
+  return withInterviewApproach(genericStarter(lang, q.title), q, lang)
 }
 
 export async function fetchLcGrindStarter(slug: string, lang: GrindLang): Promise<string | null> {
@@ -92,21 +88,21 @@ export async function ensureGrindStarterCached(q: GrindQuestion, lang: GrindLang
   if (bundled) return bundled
 
   const cached = readCachedStarter(q.id, lang)
-  if (cached) return withLearningContent(cached, q, lang)
+  if (cached) return withInterviewApproach(cached, q, lang)
 
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    return withLearningContent(genericStarter(lang, q.title), q, lang)
+    return withInterviewApproach(genericStarter(lang, q.title), q, lang)
   }
 
   const fetched = await fetchLcGrindStarter(q.slug, lang)
   if (fetched) {
     const withTitle = ensureGrindTitleComment(fetched, lang, q.title)
-    const withLearning = withLearningContent(withTitle, q, lang)
-    writeCachedStarter(q.id, lang, withLearning)
-    return withLearning
+    const withInterview = withInterviewApproach(withTitle, q, lang)
+    writeCachedStarter(q.id, lang, withInterview)
+    return withInterview
   }
 
-  const fallback = withLearningContent(genericStarter(lang, q.title), q, lang)
+  const fallback = withInterviewApproach(genericStarter(lang, q.title), q, lang)
   writeCachedStarter(q.id, lang, fallback)
   return fallback
 }

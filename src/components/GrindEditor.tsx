@@ -20,6 +20,7 @@ import {
 } from '@/lib/grindStarter'
 import { resolveGrindCodeForLoad } from '@/lib/grindSync'
 import type { GrindQuestion } from '@/lib/grindQuestions'
+import { formatDescriptionPlain } from '@/lib/formatDescription'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
 
@@ -39,6 +40,8 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
   const [editorExpanded, setEditorExpanded] = useState(false)
   const [extensions, setExtensions] = useState<any[]>([])
   const [editorTheme, setEditorTheme] = useState<any>(null)
+  const [description, setDescription] = useState<string>('')
+  const descCacheRef = useRef<Record<number, string>>({})
   const editorViewRef = useRef<unknown>(null)
   const portalViewRef = useRef<unknown>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -105,7 +108,6 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
         question.id,
         lang,
         resolvedStarter,
-        question.description,
         question.interviewApproach,
       )
       if (cancelled || gen !== loadGenRef.current) return
@@ -123,7 +125,30 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     return () => {
       cancelled = true
     }
-  }, [question.id, question.slug, question.title, question.set, lang, question.starterPython, question.starterCpp, question.description, question.interviewApproach])
+  }, [question.id, question.slug, question.title, question.set, lang, question.starterPython, question.starterCpp, question.interviewApproach])
+  
+  useEffect(() => {
+    let cancelled = false
+    async function loadDescription() {
+      const cached = descCacheRef.current[question.id]
+      if (cached != null) {
+        setDescription(cached)
+        return
+      }
+      try {
+        const res = await fetch('/questions_data_all.json')
+        if (!res.ok) throw new Error('bad')
+        const json = (await res.json()) as Record<string, { description?: string }>
+        const text = formatDescriptionPlain(json[String(question.id)]?.description ?? '')
+        descCacheRef.current[question.id] = text
+        if (!cancelled) setDescription(text)
+      } catch {
+        if (!cancelled) setDescription('')
+      }
+    }
+    void loadDescription()
+    return () => { cancelled = true }
+  }, [question.id])
 
   useEffect(() => {
     const onOnline = () => {
@@ -153,7 +178,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     const refreshIfNewer = async () => {
       if (document.visibilityState !== 'visible' || !navigator.onLine || loading) return
       const base = starter || resolveGrindStarterSync(question, lang)
-      const loaded = await resolveGrindCodeForLoad(question.id, lang, base, question.description, question.interviewApproach)
+      const loaded = await resolveGrindCodeForLoad(question.id, lang, base, question.interviewApproach)
       if (loaded.code !== codeRef.current) {
         codeRef.current = loaded.code
         setCode(loaded.code)
@@ -298,7 +323,8 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
 
   return (
     <>
-      <div className={`flex flex-col h-full min-h-0 bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden ${className}`}>
+      <div className={`flex flex-col h-full min-h-0 gap-3 ${className}`}>
+        <div className="flex flex-col h-full min-h-0 bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#181825] border-b border-gray-700 flex-wrap shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <Code2 size={14} className="text-indigo-400 shrink-0" />
@@ -337,6 +363,20 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
           {editorBody('100%', false)}
         </div>
         {!editorExpanded && footerBar}
+      </div>
+
+        <div className="bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden">
+          <div className="px-4 py-2 bg-[#181825] border-b border-gray-700">
+            <span className="text-xs font-bold text-gray-200">Problem Description</span>
+          </div>
+          <div className="px-4 py-3">
+            {description ? (
+              <pre className="whitespace-pre-wrap text-xs leading-5 text-gray-200 font-sans">{description}</pre>
+            ) : (
+              <div className="text-xs text-gray-500">Description not cached yet.</div>
+            )}
+          </div>
+        </div>
       </div>
 
       {editorExpanded &&

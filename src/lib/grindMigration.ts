@@ -1,11 +1,11 @@
 import type { GrindQuestion } from '@/lib/grindQuestions'
-import { upgradeCodeWithLearning } from '@/lib/grindInterviewInStarter'
+import { upgradeCodeWithInterview } from '@/lib/grindInterviewInStarter'
 import { resolveGrindStarterSync } from '@/lib/grindStarter'
 import { readGrindDraft, writeGrindDraft, type GrindLang } from '@/lib/grindStorage'
 
-const MIGRATION_KEY = 'lm_grind_learning_all_v3'
+const MIGRATION_KEY = 'lm_grind_strip_desc_v1'
 
-/** One-time upgrade of every saved draft so template, description, and STAR-LC blocks are complete. */
+/** One-time upgrade: remove embedded descriptions; keep interview script. */
 export function migrateAllGrindDrafts(questions: GrindQuestion[]): number {
   if (typeof window === 'undefined') return 0
   try {
@@ -20,13 +20,7 @@ export function migrateAllGrindDrafts(questions: GrindQuestion[]): number {
       const draft = readGrindDraft(q.id, lang)
       if (draft === null) continue
       const starter = resolveGrindStarterSync(q, lang)
-      const next = upgradeCodeWithLearning(
-        draft,
-        starter,
-        lang,
-        q.description,
-        q.interviewApproach,
-      )
+      const next = upgradeCodeWithInterview(draft, starter, lang, q.interviewApproach)
       if (next !== draft) {
         writeGrindDraft(q.id, lang, next)
         upgraded++

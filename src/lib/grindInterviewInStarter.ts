@@ -18,6 +18,24 @@ function interviewMarker(lang: GrindLang): string {
   return lang === 'python3' ? INTERVIEW_MARKER_PY : INTERVIEW_MARKER_CPP
 }
 
+export function stripDescriptionSection(code: string, lang: GrindLang): string {
+  const marker = descriptionMarker(lang)
+  const start = code.indexOf(marker)
+  if (start < 0) return code
+
+  const tail = code.slice(start)
+  const iaIdx = tail.indexOf(interviewMarker(lang))
+  const phaseIdx = tail.indexOf(lang === 'python3' ? '# PHASE 1' : '// PHASE 1')
+  let end = tail.length
+  if (iaIdx > 0) end = Math.min(end, iaIdx)
+  if (phaseIdx > 0) end = Math.min(end, phaseIdx)
+
+  const before = code.slice(0, start).replace(/\s+$/, '')
+  const after = tail.slice(end).replace(/^\s+/, '')
+  if (!after) return before
+  return `${before}\n\n${after}`
+}
+
 /** Normalize HTML or plain-text problem statements for comment blocks. */
 export function htmlToPlainText(html: string): string {
   const raw = html.trim()
@@ -273,7 +291,8 @@ export function upgradeCodeWithInterview(
   lang: GrindLang,
   script?: string,
 ): string {
-  return upgradeCodeWithLearning(code, starter, lang, undefined, script)
+  const stripped = stripDescriptionSection(code, lang)
+  return upgradeCodeWithLearning(stripped, starter, lang, undefined, script)
 }
 
 /** @deprecated Use appendGrindLearningToStarter */

@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, Search, PenLine } from 'lucide-react'
 import GrindEditor from '@/components/GrindEditor'
 import GrindConnectivityBanner from '@/components/GrindConnectivityBanner'
 import DifficultyBadge from '@/components/DifficultyBadge'
-import { buildGrindQuestions, loadQuestionsFullJson, loadPlaybookMap, loadQuestionsDataAll, loadGrindQuestionsBundle, type GrindQuestion } from '@/lib/grindQuestions'
+import { buildGrindQuestions, loadQuestionsFullJson, loadPlaybookMap, loadGrindQuestionsBundle, type GrindQuestion } from '@/lib/grindQuestions'
 import { migrateAllGrindDrafts } from '@/lib/grindMigration'
 import { grindListWithDividers } from '@/lib/grindList'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
@@ -97,8 +97,7 @@ function GrindInner() {
         const set2 = getSet2Questions(mainIds, qs)
         const set3 = getSet3Questions(mainIds, qs)
         const playbookMap = await loadPlaybookMap()
-        const descriptionMap = await loadQuestionsDataAll()
-        const built = buildGrindQuestions(qs, set2, set3, playbookMap, descriptionMap)
+        const built = buildGrindQuestions(qs, set2, set3, playbookMap)
         migrateAllGrindDrafts(built)
         setQuestions(built)
       } catch {
