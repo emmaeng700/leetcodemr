@@ -110,6 +110,23 @@
     .ia-header {
       padding: 0.45rem 0.6rem; border-bottom: 1px solid #313244; flex-shrink: 0;
     }
+    @media (max-width: 767px) {
+      .grind-editor-body {
+        flex: 1; min-height: 0; display: flex; flex-direction: column;
+        overflow: hidden; overscroll-behavior: contain;
+      }
+      .grind-editor-body > .practice-cm-wrap {
+        flex: 0 0 auto;
+        height: clamp(130px, 30svh, 240px);
+        min-height: 130px;
+        max-height: 34svh;
+      }
+      .grind-editor-body > .ia-panel {
+        flex: 1 1 auto;
+        min-height: clamp(96px, 22svh, 200px);
+        max-height: none;
+      }
+    }
     .ia-header .label {
       font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
       color: #c4b5fd;
@@ -554,9 +571,9 @@
       if (!q) return
       editorExpanded = open
       var portal = document.getElementById('fs-portal')
-      var inlineWrap = document.querySelector('.editor .practice-cm-wrap')
-      var inlineFooter = document.querySelector('.editor .editor-footer')
-      var inlineIA = document.querySelector('.editor .ia-panel')
+      var inlineWrap = document.querySelector('.editor .grind-editor-body .practice-cm-wrap')
+      var inlineFooter = document.querySelector('.editor .grind-editor-body .editor-footer')
+      var inlineIA = document.querySelector('.editor .grind-editor-body .ia-panel')
       if (open) {
         setListOpen(false)
         editorHostId = 'editor-host-fs'
@@ -587,6 +604,27 @@
       try { history.replaceState(null, '', '?id=' + id) } catch (e) {}
     }
 
+    function bindVisualViewport() {
+      var app = document.querySelector('.app')
+      var vv = window.visualViewport
+      if (!app || !vv) return
+      function update() {
+        if (window.matchMedia('(max-width: 767px)').matches) {
+          app.style.height = vv.height + 'px'
+          var portal = document.getElementById('fs-portal')
+          if (portal && portal.classList.contains('open')) {
+            portal.style.height = vv.height + 'px'
+          }
+        } else {
+          app.style.height = ''
+        }
+      }
+      vv.addEventListener('resize', update)
+      vv.addEventListener('scroll', update)
+      window.addEventListener('resize', update)
+      update()
+    }
+
     function buildUI() {
       var body = document.getElementById('body')
       body.innerHTML =
@@ -600,16 +638,18 @@
             '<span id="meta-text"></span>' +
             '<button type="button" class="chip-btn mob-only" id="btn-full">Full</button>' +
           '</div>' +
-          '<div class="practice-cm-wrap"><div id="editor-host"></div></div>' +
-          '<div class="editor-footer">' +
-            '<span class="editor-hint">no submit - write from memory</span>' +
-            '<button type="button" class="chip-btn" id="btn-reset">Reset to starter</button>' +
-          '</div>' +
-          '<div class="ia-panel" id="ia-panel">' +
-            '<div class="ia-header">' +
-              '<span class="label">Interview Approach | STAR-LC</span>' +
+          '<div class="grind-editor-body">' +
+            '<div class="practice-cm-wrap"><div id="editor-host"></div></div>' +
+            '<div class="editor-footer">' +
+              '<span class="editor-hint">no submit - write from memory</span>' +
+              '<button type="button" class="chip-btn" id="btn-reset">Reset to starter</button>' +
             '</div>' +
-            '<div class="ia-body" id="ia-body"></div>' +
+            '<div class="ia-panel" id="ia-panel">' +
+              '<div class="ia-header">' +
+                '<span class="label">Interview Approach | STAR-LC</span>' +
+              '</div>' +
+              '<div class="ia-body" id="ia-body"></div>' +
+            '</div>' +
           '</div>' +
         '</section>'
       document.getElementById('list-backdrop').onclick = function() { setListOpen(false) }
@@ -631,6 +671,7 @@
       initEditor()
       updateMeta()
       updateNavUI()
+      bindVisualViewport()
     }
 
     function setLang(next) {

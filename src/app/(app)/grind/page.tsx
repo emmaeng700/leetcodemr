@@ -11,6 +11,7 @@ import { grindListWithDividers } from '@/lib/grindList'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter, readGrindLastQuestionId, writeGrindLastQuestionId } from '@/lib/grindStorage'
+import { useVisualViewportHeight } from '@/hooks/useVisualViewportHeight'
 
 const SET_BADGE: Record<1 | 2 | 3, string> = {
   1: 'bg-indigo-100 text-indigo-700 border-indigo-200',
@@ -19,6 +20,7 @@ const SET_BADGE: Record<1 | 2 | 3, string> = {
 }
 
 function GrindInner() {
+  const vvHeight = useVisualViewportHeight()
   const sp = useSearchParams()
   const router = useRouter()
   const [questions, setQuestions] = useState<GrindQuestion[]>([])
@@ -197,7 +199,10 @@ function GrindInner() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex flex-col gap-3 h-[calc(100dvh-3.5rem)]">
+    <div
+      className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex flex-col gap-3 h-[calc(100dvh-3.5rem)]"
+      style={vvHeight != null ? { height: `calc(${vvHeight}px - 3.5rem)` } : undefined}
+    >
       <GrindConnectivityBanner questionId={selected?.id} />
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 shrink-0 relative z-[45]">

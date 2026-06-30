@@ -17,7 +17,7 @@ function renderLine(line: string, i: number) {
 /** STAR-LC interview script panel - always shown under the Grind editor footer when available. */
 export default function GrindInterviewApproach({ script }: { script: string }) {
   return (
-    <div className="border-t border-gray-700 bg-[#181825] shrink-0 flex flex-col max-h-[min(38vh,300px)] min-h-0">
+    <div className="grind-interview-approach border-t border-gray-700 bg-[#181825] shrink-0 flex flex-col min-h-0 max-md:flex-1 max-md:min-h-[clamp(96px,22svh,200px)] max-md:max-h-none md:max-h-[min(38vh,300px)]">
       <div className="px-4 py-2 border-b border-gray-700/60 shrink-0">
         <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-violet-400">
           <GraduationCap size={11} /> Interview Approach | STAR-LC
