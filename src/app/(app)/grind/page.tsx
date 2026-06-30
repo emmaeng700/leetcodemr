@@ -21,7 +21,7 @@ const SET_BADGE: Record<1 | 2 | 3, string> = {
 }
 
 function GrindInner() {
-  const { height: vvHeight, offsetTop: vvTop, keyboardOpen } = useMobileViewport()
+  const { height: vvHeight, keyboardOpen } = useMobileViewport()
   const sp = useSearchParams()
   const router = useRouter()
   const [questions, setQuestions] = useState<GrindQuestion[]>([])
@@ -184,28 +184,18 @@ function GrindInner() {
   }
 
   const mobileShellStyle =
-    vvHeight != null
+    vvHeight != null && keyboardOpen
       ? {
-          position: 'fixed' as const,
-          top: vvTop,
-          left: 0,
-          right: 0,
           height: vvHeight,
           maxHeight: vvHeight,
           overflow: 'hidden',
-          zIndex: 30,
-          paddingTop: 12,
-          paddingBottom: 8,
-          paddingLeft: 12,
-          paddingRight: 12,
-          background: 'var(--bg)',
         }
       : undefined
 
   return (
     <div
       className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex flex-col gap-3 h-[calc(100dvh-3.5rem)]"
-      style={vvHeight != null && !keyboardOpen ? { height: `calc(${vvHeight}px - 3.5rem)` } : mobileShellStyle}
+      style={mobileShellStyle}
     >
       <GrindConnectivityBanner questionId={selected?.id} />
 

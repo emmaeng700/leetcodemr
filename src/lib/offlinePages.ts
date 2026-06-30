@@ -1,5 +1,5 @@
-/** Service worker cache name - keep in sync with public/sw-v19.js */
-export const SW_CACHE = 'lm-v19'
+/** Service worker cache name - keep in sync with public/sw-v20.js */
+export const SW_CACHE = 'lm-v20'
 
 /** Static assets precached for offline Grind (see public/sw-v16.js). */
 export const OFFLINE_PAGES = ['/grind-offline.html'] as const

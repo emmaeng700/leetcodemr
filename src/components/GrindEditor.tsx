@@ -32,7 +32,7 @@ interface GrindEditorProps {
 }
 
 export default function GrindEditor({ question, className = '' }: GrindEditorProps) {
-  const { height: vvHeight, offsetTop: vvTop, keyboardOpen } = useMobileViewport()
+  const { height: vvHeight, keyboardOpen } = useMobileViewport()
   const [lang, setLang] = useState<GrindLang>('python3')
   const [code, setCode] = useState('')
   const [starter, setStarter] = useState('')
@@ -349,7 +349,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
 
   const mobilePortalStyle =
     vvHeight != null
-      ? { zIndex: 9999, top: vvTop, left: 0, right: 0, height: vvHeight, bottom: 'auto' as const }
+      ? { zIndex: 9999, top: 0, left: 0, right: 0, height: vvHeight, maxHeight: vvHeight, bottom: 'auto' as const }
       : { zIndex: 9999 }
 
   useEffect(() => {

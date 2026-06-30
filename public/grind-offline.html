@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
   <title>Grind (Offline) - LeetMastery</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -188,19 +188,18 @@
       background: #181825; border-bottom: 1px solid #313244; flex-shrink: 0;
     }
     .fs-bar span { flex: 1; font-size: 0.65rem; color: #a6adc8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .fs-editor { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .fs-editor { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+    .mobile-code-cta { display: none; }
+    .mob-editor-inline { display: flex; }
     .mob-only { display: none; }
     @media (max-width: 767px) {
       html, body {
-        overflow: hidden;
-        width: 100%;
-        height: 100%;
-        position: fixed;
+        overflow-x: hidden;
         overscroll-behavior: none;
       }
       .mob-only { display: inline-flex; }
       header .sub { display: none; }
-      .app { max-width: none; }
+      .app { max-width: none; height: 100dvh; height: 100svh; }
       .chip-btn, .nav-btn, .langs button {
         min-height: 44px;
         min-width: 44px;
@@ -221,26 +220,77 @@
       .list-wrap.open + .list-backdrop,
       .list-backdrop.open { display: block; }
       .editor { width: 100%; }
-      .desc-card { height: clamp(5rem, 20vh, 8.5rem); }
-      body.kbd-open .desc-card,
-      body.kbd-open #status,
-      body.kbd-open .editor-footer,
-      body.kbd-open .offline-banner,
-      body.kbd-open .online-banner,
-      body.kbd-open header .search-row,
-      body.kbd-open header .nav-count,
-      body.kbd-open header .sub {
-        display: none !important;
+      /* Mobile split: description first, code only in fullscreen */
+      .editor-stack {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
       }
-      body.kbd-open header { padding: 0.3rem 0.5rem; }
-      body.kbd-open .editor-stack { flex: 1; }
-      body.kbd-open .editor-code-pane { flex: 1 1 auto; }
-      .desc-card.collapsed { height: auto; min-height: 0; }
+      .editor-code-pane {
+        position: relative;
+        flex: 0 0 auto;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .mob-editor-inline { display: none !important; }
+      .mobile-code-cta {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.55rem;
+        padding: 0.85rem 0.75rem;
+        margin: 0.25rem 0.35rem 0;
+        background: #181825;
+        border: 1px solid #313244;
+        border-radius: 0.5rem;
+        text-align: center;
+      }
+      .mobile-code-cta-text {
+        font-size: 0.68rem;
+        color: #a6adc8;
+        line-height: 1.45;
+      }
+      .mobile-code-cta .chip-btn {
+        background: #2563eb;
+        color: #fff;
+        border-color: #2563eb;
+        font-size: 0.75rem;
+        padding: 0.55rem 1rem;
+      }
+      .desc-card {
+        flex: 1 1 0%;
+        height: auto;
+        min-height: 10rem;
+        max-height: none;
+        margin: 0 0.35rem 0.25rem;
+      }
+      .desc-card.collapsed { flex: 0 0 auto; min-height: 0; }
       .desc-card.collapsed .desc-card-body { display: none; }
       .desc-toggle {
         border: none; background: transparent; color: #89b4fa;
         font-size: 0.58rem; font-weight: 600; padding: 0.2rem 0.35rem;
         min-height: 44px; min-width: 44px;
+      }
+      body.fs-open { overflow: hidden; }
+      body.fs-open .app { visibility: hidden; }
+      .practice-fs-portal.open {
+        display: flex;
+        top: 0;
+        bottom: 0;
+        height: 100dvh;
+        height: 100svh;
+        max-height: 100dvh;
+        max-height: 100svh;
+      }
+      .practice-fs-portal .practice-cm-wrap,
+      .practice-fs-portal .fs-editor {
+        position: relative;
+        inset: auto;
+        flex: 1;
+        min-height: 0;
       }
     }
   </style>
@@ -277,7 +327,7 @@
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
-    <span id="offline-version" hidden>v19</span>
+    <span id="offline-version" hidden>v20</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
@@ -297,8 +347,8 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v19'
-    var SW_CACHE = 'lm-v19'
+    var OFFLINE_VERSION = 'v20'
+    var SW_CACHE = 'lm-v20'
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v1'
     var filtered = []
     var selectedId = 0
@@ -786,9 +836,30 @@
       if (fsCpp) fsCpp.className = cppOn
     }
 
+    function resetAppLayout() {
+      var app = document.querySelector('.app')
+      if (app) app.style.cssText = ''
+      document.body.classList.remove('kbd-open', 'fs-open')
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
+      var portal = document.getElementById('fs-portal')
+      if (portal) {
+        portal.style.top = ''
+        portal.style.height = ''
+        portal.style.bottom = ''
+        portal.style.maxHeight = ''
+      }
+      ;['editor-host', 'editor-host-fs'].forEach(function(id) {
+        var h = document.getElementById(id)
+        if (h) h.style.height = ''
+      })
+      window.scrollTo(0, 0)
+    }
+
     function syncEditorHeight() {
       var host = document.getElementById(editorHostId)
       if (!host) return
+      if (isMobile() && !editorExpanded) return
       var pane = editorExpanded
         ? document.querySelector('.fs-editor')
         : host.closest('.editor-code-pane')
@@ -801,6 +872,13 @@
       var q = currentQuestion()
       var host = document.getElementById(editorHostId)
       if (!q || !host || !window.GrindOfflineEditor) return
+      if (isMobile() && !editorExpanded) {
+        if (editorHandle) {
+          editorHandle.destroy()
+          editorHandle = null
+        }
+        return
+      }
       syncEditorHeight()
       if (editorHandle) editorHandle.destroy()
       editorHandle = window.GrindOfflineEditor.create(host, {
@@ -918,7 +996,7 @@
       updateMeta()
       renderDescription()
       if (editorHandle) editorHandle.setDoc(loadCode(currentQuestion()))
-      else initEditor()
+      else if (!isMobile() || editorExpanded) initEditor()
     }
 
     function setListOpen(open) {
@@ -937,32 +1015,41 @@
       if (!q) return
       editorExpanded = open
       var portal = document.getElementById('fs-portal')
-      var inlineWrap = document.querySelector('.editor .practice-cm-wrap')
-      var inlineFooter = document.querySelector('.editor .editor-footer')
       if (open) {
         setListOpen(false)
         editorHostId = 'editor-host-fs'
         portal.classList.add('open')
-        if (inlineWrap) inlineWrap.style.visibility = 'hidden'
-        if (inlineFooter) inlineFooter.style.display = 'none'
-        var descCard = document.getElementById('desc-card')
-        if (descCard) descCard.style.display = 'none'
+        document.body.classList.add('fs-open')
         initEditor()
         updateMeta()
-        syncEditorHeight()
+        layoutFullscreenEditor()
       } else {
         editorHostId = 'editor-host'
         portal.classList.remove('open')
-        portal.style.top = ''
-        portal.style.height = ''
-        portal.style.bottom = ''
-        if (inlineWrap) inlineWrap.style.visibility = ''
-        if (inlineFooter) inlineFooter.style.display = ''
-        var descCard2 = document.getElementById('desc-card')
-        if (descCard2) descCard2.style.display = ''
+        document.body.classList.remove('fs-open')
+        if (editorHandle) {
+          editorHandle.destroy()
+          editorHandle = null
+        }
+        resetAppLayout()
         initEditor()
-        syncEditorHeight()
+        renderDescription()
       }
+    }
+
+    function layoutFullscreenEditor() {
+      var portal = document.getElementById('fs-portal')
+      var vv = window.visualViewport
+      if (!portal || !portal.classList.contains('open')) return
+      portal.style.position = 'fixed'
+      portal.style.left = '0'
+      portal.style.right = '0'
+      portal.style.top = '0'
+      portal.style.bottom = 'auto'
+      var h = vv ? vv.height : window.innerHeight
+      portal.style.height = h + 'px'
+      portal.style.maxHeight = h + 'px'
+      syncEditorHeight()
     }
 
     function selectQuestion(id, closeList) {
@@ -992,49 +1079,32 @@
       }
     }
 
-    function bindMobileEditorFocus() {
-      document.addEventListener('focusin', function(e) {
-        if (!isMobile() || editorExpanded) return
-        if (e.target && e.target.closest && e.target.closest('.cm-editor')) {
-          setEditorExpanded(true)
-        }
-      })
-    }
-
     function bindVisualViewport() {
-      var app = document.querySelector('.app')
       var vv = window.visualViewport
-      if (!app || !vv) return
+      if (!vv) return
       function update() {
         if (!isMobile()) {
-          app.style.cssText = ''
-          document.body.classList.remove('kbd-open')
-          document.body.style.overflow = ''
-          syncEditorHeight()
+          resetAppLayout()
           return
         }
-        document.body.style.overflow = 'hidden'
-        var keyboardOpen = vv.height < window.innerHeight * 0.72
-        document.body.classList.toggle('kbd-open', keyboardOpen)
-        app.style.position = 'fixed'
-        app.style.top = vv.offsetTop + 'px'
-        app.style.left = '0'
-        app.style.right = '0'
-        app.style.width = '100%'
-        app.style.height = vv.height + 'px'
-        app.style.maxHeight = vv.height + 'px'
-        app.style.overflow = 'hidden'
-        var portal = document.getElementById('fs-portal')
-        if (portal && portal.classList.contains('open')) {
-          portal.style.top = vv.offsetTop + 'px'
-          portal.style.height = vv.height + 'px'
-          portal.style.bottom = 'auto'
+        if (editorExpanded) {
+          layoutFullscreenEditor()
+        } else {
+          resetAppLayout()
         }
-        syncEditorHeight()
       }
       vv.addEventListener('resize', update)
-      vv.addEventListener('scroll', update)
+      vv.addEventListener('scroll', function() {
+        if (editorExpanded) window.scrollTo(0, 0)
+      })
       window.addEventListener('resize', update)
+      window.addEventListener('pageshow', resetAppLayout)
+      document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+          if (!editorExpanded) resetAppLayout()
+          else layoutFullscreenEditor()
+        }
+      })
       update()
     }
 
@@ -1052,15 +1122,19 @@
             '<button type="button" class="chip-btn mob-only" id="btn-full" aria-label="Open full screen editor">Full</button>' +
           '</div>' +
           '<div class="editor-stack">' +
-            '<div class="editor-code-pane">' +
-              '<div class="practice-cm-wrap"><div id="editor-host" role="textbox" aria-label="Solution code editor" aria-multiline="true"></div></div>' +
-            '</div>' +
             '<div class="desc-card" id="desc-card" role="region" aria-label="Problem description">' +
               '<div class="desc-card-head">' +
                 '<span>Problem Description</span>' +
                 '<button type="button" class="desc-toggle mob-only" id="btn-desc-toggle" aria-expanded="true" aria-label="Toggle problem description">Hide</button>' +
               '</div>' +
               '<div class="desc-card-body" id="desc-body"></div>' +
+            '</div>' +
+            '<div class="editor-code-pane">' +
+              '<div class="mobile-code-cta mob-only" id="mobile-code-cta">' +
+                '<p class="mobile-code-cta-text">Read the problem above, then write your solution from memory.</p>' +
+                '<button type="button" class="chip-btn" id="btn-write-code" aria-label="Open code editor">Write code</button>' +
+              '</div>' +
+              '<div class="practice-cm-wrap mob-editor-inline"><div id="editor-host" role="textbox" aria-label="Solution code editor" aria-multiline="true"></div></div>' +
             '</div>' +
           '</div>' +
           '<div class="editor-footer">' +
@@ -1073,6 +1147,8 @@
       document.getElementById('btn-prev').onclick = function() { goNav(-1) }
       document.getElementById('btn-next').onclick = function() { goNav(1) }
       document.getElementById('btn-full').onclick = function() { setEditorExpanded(true) }
+      var writeBtn = document.getElementById('btn-write-code')
+      if (writeBtn) writeBtn.onclick = function() { setEditorExpanded(true) }
       document.getElementById('btn-reset').onclick = function() { resetToStarter() }
       var descToggle = document.getElementById('btn-desc-toggle')
       if (descToggle) {
@@ -1093,7 +1169,6 @@
       renderDescription()
       updateNavUI()
       bindVisualViewport()
-      bindMobileEditorFocus()
     }
 
     function setLang(next) {

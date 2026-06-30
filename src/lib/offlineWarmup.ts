@@ -14,7 +14,7 @@ import { readCachedStarter } from '@/lib/grindStorage'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 import { cacheAllDescriptionImages } from '@/lib/descriptionImageCache'
 
-export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v19'
+export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v20'
 
 export type WarmupPhase = 'pages' | 'questions' | 'starters' | 'done'
 
