@@ -5,6 +5,7 @@ import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { studyOrder } from '@/lib/studyOrder'
 import ncExtraQuestions from '../../neetcode_extra_questions.json'
 import am600ExtraQuestions from '../../am600_extra_questions.json'
+import grindMissingStarters from '../../grind_missing_starters.json'
 import {
   appendInterviewApproachToStarter,
 } from '@/lib/grindInterviewInStarter'
@@ -42,7 +43,7 @@ type ExtraStarterRow = {
 }
 
 const EXTRA_STARTERS: Record<number, { starterPython?: string; starterCpp?: string }> = {}
-for (const q of [...ncExtraQuestions, ...am600ExtraQuestions] as ExtraStarterRow[]) {
+for (const q of [...ncExtraQuestions, ...am600ExtraQuestions, ...grindMissingStarters] as ExtraStarterRow[]) {
   if (q.starter_python || q.starter_cpp) {
     EXTRA_STARTERS[q.id] = {
       starterPython: q.starter_python,
