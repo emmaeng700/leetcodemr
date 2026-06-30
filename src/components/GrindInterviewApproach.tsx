@@ -3,7 +3,7 @@
 import { GraduationCap } from 'lucide-react'
 
 function renderLine(line: string, i: number) {
-  if (/^# PHASE \d+ [-—]/.test(line))
+  if (/^# PHASE \d+ [-\u2014]/.test(line))
     return <span key={i} className="block text-violet-300 font-bold">{line}{'\n'}</span>
   if (/^# "(.*)"/.test(line) || /^#  /.test(line))
     return <span key={i} className="block text-amber-200">{line}{'\n'}</span>
@@ -14,7 +14,7 @@ function renderLine(line: string, i: number) {
   return <span key={i} className="block text-[#abb2bf]">{line}{'\n'}</span>
 }
 
-/** STAR-LC interview script panel — always shown under the Grind editor footer when available. */
+/** STAR-LC interview script panel - always shown under the Grind editor footer when available. */
 export default function GrindInterviewApproach({ script }: { script: string }) {
   return (
     <div className="border-t border-gray-700 bg-[#181825] shrink-0 flex flex-col max-h-[min(38vh,300px)] min-h-0">
