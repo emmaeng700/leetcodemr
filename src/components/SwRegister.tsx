@@ -1,5 +1,6 @@
 'use client'
 import { useEffect } from 'react'
+import { cacheAllDescriptionImages, descriptionImagesCached } from '@/lib/descriptionImageCache'
 import { cacheGrindOfflineAssets, OFFLINE_PAGES } from '@/lib/offlinePages'
 
 function cacheOfflinePages(registration: ServiceWorkerRegistration) {
@@ -7,6 +8,11 @@ function cacheOfflinePages(registration: ServiceWorkerRegistration) {
   if (!worker) return
   worker.postMessage({ type: 'CACHE_PAGES', pages: [...OFFLINE_PAGES] })
   worker.postMessage({ type: 'CACHE_GRIND_ASSETS' })
+}
+
+function warmDescriptionImages() {
+  if (!navigator.onLine || descriptionImagesCached()) return
+  void cacheAllDescriptionImages()
 }
 
 export default function SwRegister() {
@@ -20,6 +26,7 @@ export default function SwRegister() {
         if (navigator.onLine) {
           cacheOfflinePages(reg)
           void cacheGrindOfflineAssets()
+          warmDescriptionImages()
         }
         reg.addEventListener('updatefound', () => {
           const next = reg.installing
@@ -27,6 +34,7 @@ export default function SwRegister() {
             if (next.state === 'activated' && navigator.onLine) {
               cacheOfflinePages(reg)
               void cacheGrindOfflineAssets()
+              warmDescriptionImages()
             }
           })
         })
@@ -37,6 +45,7 @@ export default function SwRegister() {
       navigator.serviceWorker.ready
         .then(reg => {
           cacheOfflinePages(reg)
+          warmDescriptionImages()
           return cacheGrindOfflineAssets()
         })
         .catch(() => {})

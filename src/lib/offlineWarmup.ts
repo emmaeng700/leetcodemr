@@ -12,8 +12,9 @@ import {
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter } from '@/lib/grindStorage'
 import type { GrindQuestion } from '@/lib/grindQuestions'
+import { cacheAllDescriptionImages } from '@/lib/descriptionImageCache'
 
-export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v16'
+export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v17'
 
 export type WarmupPhase = 'pages' | 'questions' | 'starters' | 'done'
 
@@ -71,7 +72,7 @@ export async function runOfflineWarmup(
 
   postCachePagesToSw()
 
-  const pageTotal = 4 + GRIND_OFFLINE_ASSETS.length
+  const pageTotal = 5 + GRIND_OFFLINE_ASSETS.length
   let done = 0
 
   const tickPages = (label: string) => {
@@ -91,38 +92,18 @@ export async function runOfflineWarmup(
   done += 1
 
   tickPages('Saving problem descriptions...')
-  let descriptionImagePaths: string[] = []
   try {
-    const descRes = await fetch('/questions_data_all.json', { cache: 'reload' })
-    if (descRes.ok) {
-      const descJson = (await descRes.json()) as Record<string, { description_html?: string }>
-      const paths = new Set<string>()
-      for (const row of Object.values(descJson)) {
-        const html = row.description_html
-        if (!html) continue
-        for (const m of html.matchAll(/\/description-images\/[a-zA-Z0-9._-]+/g)) {
-          paths.add(m[0])
-        }
-      }
-      descriptionImagePaths = [...paths]
-    }
+    await fetch('/questions_data_all.json', { cache: 'reload' })
   } catch {
     /* continue */
   }
   done += 1
 
-  if (descriptionImagePaths.length > 0) {
-    tickPages(`Saving description diagrams (0/${descriptionImagePaths.length})...`)
-    const batch = 12
-    for (let i = 0; i < descriptionImagePaths.length; i += batch) {
-      const slice = descriptionImagePaths.slice(i, i + batch)
-      tickPages(
-        `Saving description diagrams (${Math.min(i + batch, descriptionImagePaths.length)}/${descriptionImagePaths.length})...`,
-      )
-      await Promise.allSettled(slice.map(p => fetch(p, { cache: 'reload' })))
-      await sleep(60)
-    }
-  }
+  tickPages('Saving description diagrams...')
+  await cacheAllDescriptionImages((d, t) => {
+    tickPages(`Saving description diagrams (${d}/${t})...`)
+  })
+  done += 1
 
   for (const path of GRIND_OFFLINE_ASSETS) {
     const label =

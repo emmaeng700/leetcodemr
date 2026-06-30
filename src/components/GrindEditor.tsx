@@ -354,8 +354,8 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
 
   return (
     <>
-      <div className={`flex flex-col h-full min-h-0 gap-3 ${className}`}>
-        <div className="flex flex-col h-full min-h-0 bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden">
+      <div className={`flex flex-col h-full min-h-0 gap-2 ${className}`}>
+        <div className="flex flex-col flex-1 min-h-0 bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#181825] border-b border-gray-700 flex-wrap shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <Code2 size={14} className="text-indigo-400 shrink-0" />
@@ -396,11 +396,11 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
         {!editorExpanded && footerBar}
       </div>
 
-        <div className="bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden">
+        <div className="bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden shrink-0">
           <div className="px-4 py-2 bg-[#181825] border-b border-gray-700">
             <span className="text-xs font-bold text-gray-200">Problem Description</span>
           </div>
-          <div className="px-4 py-3 max-h-72 overflow-y-auto">
+          <div className="px-4 py-3 h-48 overflow-y-auto overscroll-contain">
             {descriptionHtml ? (
               <div
                 className="grind-desc lc-description text-xs leading-relaxed"
