@@ -66,9 +66,21 @@ def html_to_description(html: str) -> str:
     if not html:
         return ''
     soup = BeautifulSoup(html, 'html.parser')
+    for tag in soup.find_all(['nav', 'aside', 'script', 'style']):
+        tag.decompose()
+    for sup in soup.find_all('sup'):
+        sup.replace_with(f'^{sup.get_text()}')
+    for sub in soup.find_all('sub'):
+        sub.replace_with(f'_{sub.get_text()}')
     for pre in soup.find_all('pre'):
         pre.replace_with('\n' + pre.get_text() + '\n')
-    text = soup.get_text('\n')
+    for br in soup.find_all('br'):
+        br.replace_with('\n')
+    for block in soup.find_all(['p', 'li', 'div', 'h1', 'h2', 'h3', 'ul', 'ol']):
+        block.append('\n')
+    text = soup.get_text(separator=' ')
+    text = re.sub(r'[ \t]+', ' ', text)
+    text = re.sub(r' *\n *', '\n', text)
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
 

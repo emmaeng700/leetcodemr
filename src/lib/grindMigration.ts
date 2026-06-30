@@ -3,9 +3,9 @@ import { upgradeCodeWithLearning } from '@/lib/grindInterviewInStarter'
 import { resolveGrindStarterSync } from '@/lib/grindStarter'
 import { readGrindDraft, writeGrindDraft, type GrindLang } from '@/lib/grindStorage'
 
-const MIGRATION_KEY = 'lm_grind_description_all_v1'
+const MIGRATION_KEY = 'lm_grind_learning_all_v3'
 
-/** One-time upgrade of every saved draft so descriptions + STAR-LC scripts appear under the checks. */
+/** One-time upgrade of every saved draft so template, description, and STAR-LC blocks are complete. */
 export function migrateAllGrindDrafts(questions: GrindQuestion[]): number {
   if (typeof window === 'undefined') return 0
   try {

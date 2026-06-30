@@ -1,4 +1,5 @@
 import type { GrindLang } from '@/lib/grindStorage'
+import { formatDescriptionPlain } from '@/lib/formatDescription'
 
 export const DESCRIPTION_MARKER_PY = '# -- Problem Description --'
 export const DESCRIPTION_MARKER_CPP = '// -- Problem Description --'
@@ -6,6 +7,8 @@ export const INTERVIEW_MARKER_PY = '# -- Interview Approach - STAR-LC --'
 export const INTERVIEW_MARKER_CPP = '// -- Interview Approach - STAR-LC --'
 
 const SEPARATOR = '\n\n\n\n'
+export const EXAMPLES_MARKER = '# \u2500\u2500 Examples \u2500\u2500'
+export const TEST_MARKER = '# \u2500\u2500 Test \u2500\u2500'
 
 function descriptionMarker(lang: GrindLang): string {
   return lang === 'python3' ? DESCRIPTION_MARKER_PY : DESCRIPTION_MARKER_CPP
@@ -21,29 +24,43 @@ export function htmlToPlainText(html: string): string {
   if (!raw) return ''
 
   let text = raw
-  if (raw.includes('<')) {
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+
+  if (/<[a-zA-Z]/.test(text)) {
     if (typeof DOMParser !== 'undefined') {
-      const doc = new DOMParser().parseFromString(raw, 'text/html')
+      const doc = new DOMParser().parseFromString(text, 'text/html')
       text = doc.body.textContent || ''
     } else {
-      text = raw
+      text = text
         .replace(/<br\s*\/?>/gi, '\n')
         .replace(/<\/p>/gi, '\n')
         .replace(/<\/li>/gi, '\n')
+        .replace(/<li>/gi, '\u2022 ')
+        .replace(/<sup>(.*?)<\/sup>/gi, '^$1')
+        .replace(/<sub>(.*?)<\/sub>/gi, '_$1')
+        .replace(/<code>(.*?)<\/code>/gi, '$1')
+        .replace(/<strong>(.*?)<\/strong>/gi, '$1')
         .replace(/<[^>]+>/g, ' ')
     }
   }
 
-  return text
-    .replace(/\r\n/g, '\n')
-    .replace(/\u00a0/g, ' ')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+  return formatDescriptionPlain(
+    text
+      .replace(/\r\n/g, '\n')
+      .replace(/\u00a0/g, ' ')
+      .trim(),
+  )
 }
 
 export function descriptionForLang(description: string, lang: GrindLang): string {
-  const plain = htmlToPlainText(description)
+  const plain = /<[a-zA-Z]/.test(description)
+    ? htmlToPlainText(description)
+    : description.trim()
   if (!plain) return ''
   return plain
     .split('\n')
@@ -53,6 +70,10 @@ export function descriptionForLang(description: string, lang: GrindLang): string
       return trimmed ? `// ${trimmed}` : '//'
     })
     .join('\n')
+}
+
+export function starterHasExamplesSection(starter: string): boolean {
+  return starter.includes(EXAMPLES_MARKER) || starter.includes(TEST_MARKER)
 }
 
 export function starterHasDescription(starter: string, lang: GrindLang): boolean {
@@ -222,11 +243,17 @@ export function upgradeCodeWithLearning(
   description?: string,
   interviewScript?: string,
 ): string {
+  const hasEx = starterHasExamplesSection(code)
   const hasDesc = starterHasDescription(code, lang)
   const hasIa = starterHasInterviewApproach(code, lang)
-  if (hasDesc && hasIa) return code
+  if (hasEx && hasDesc && hasIa) return code
 
-  const base = codeBaseForLearningInsert(code, lang)
+  let base = codeBaseForLearningInsert(code, lang)
+  if (!hasEx) {
+    const starterBase = codeBaseForLearningInsert(starter, lang)
+    if (starterHasExamplesSection(starterBase)) base = starterBase
+  }
+
   const tail = buildLearningTail(
     starter,
     lang,

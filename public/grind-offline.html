@@ -451,11 +451,20 @@
       return ''
     }
 
+    function starterHasExamples(starter) {
+      return starter.indexOf('# ── Examples ──') >= 0 || starter.indexOf('# ── Test ──') >= 0
+    }
+
     function upgradeCodeWithLearning(code, starter, description, script) {
+      var hasEx = starterHasExamples(code)
       var hasDesc = starterHasDescription(code)
       var hasIa = starterHasInterview(code)
-      if (hasDesc && hasIa) return code
-      var base = codeBaseForLearningInsert(code).replace(/\s+$/, '')
+      if (hasEx && hasDesc && hasIa) return code
+      var base = codeBaseForLearningInsert(code)
+      if (!hasEx) {
+        var starterBase = codeBaseForLearningInsert(starter)
+        if (starterHasExamples(starterBase)) base = starterBase
+      }
       var parts = []
       if (!hasDesc) {
         var descBlock = extractDescriptionSection(starter) || (description && String(description).trim() ? formatDescriptionBlock(description) : '')
@@ -496,7 +505,7 @@
 
     function migrateAllDrafts() {
       try {
-        if (localStorage.getItem('lm_grind_description_all_v1')) return
+        if (localStorage.getItem('lm_grind_learning_all_v3')) return
       } catch (e) { return }
       var langs = ['python3', 'cpp']
       for (var qi = 0; qi < questions.length; qi++) {
@@ -515,7 +524,7 @@
           lang = savedLang
         }
       }
-      try { localStorage.setItem('lm_grind_description_all_v1', String(Date.now())) } catch (e) {}
+      try { localStorage.setItem('lm_grind_learning_all_v3', String(Date.now())) } catch (e) {}
     }
 
     function starterFor(q) {
