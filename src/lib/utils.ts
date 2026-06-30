@@ -78,6 +78,7 @@ export function stripScripts(html: string): string {
     const url = raw.trim()
     if (!url) return url
     if (url.startsWith('data:')) return url
+    if (url.startsWith('/description-images/') || url.startsWith('/question-images/')) return url
     if (url.startsWith('//')) return 'https:' + url
     if (url.startsWith('/')) return 'https://leetcode.com' + url
     return url

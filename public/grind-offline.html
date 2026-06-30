@@ -61,7 +61,7 @@
       padding: 0.35rem 0.5rem; font-size: 0.55rem; font-weight: 600; color: #6c7086;
       background: #181825; border-bottom: 1px solid #313244; position: sticky; top: 0; z-index: 1;
     }
-    .editor { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #1e1e2e; }
+    .editor { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #1e1e2e; overflow-y: auto; }
     .meta {
       padding: 0.35rem 0.5rem; font-size: 0.65rem; color: #a6adc8; background: #181825;
       border-bottom: 1px solid #313244; flex-shrink: 0;
@@ -106,6 +106,30 @@
     }
     .editor-hint { font-size: 0.58rem; color: #6c7086; }
     .editor-footer .chip-btn { font-size: 0.65rem; white-space: nowrap; }
+    .desc-card {
+      flex-shrink: 0; margin: 0.35rem 0.35rem 0.45rem; background: #181825;
+      border: 1px solid #313244; border-radius: 0.5rem; overflow: hidden;
+    }
+    .desc-card-head {
+      padding: 0.35rem 0.5rem; font-size: 0.62rem; font-weight: 700; color: #cdd6f4;
+      background: #11111b; border-bottom: 1px solid #313244;
+    }
+    .desc-card-body {
+      padding: 0.45rem 0.55rem; max-height: 9rem; overflow-y: auto;
+      font-size: 0.68rem; line-height: 1.55; color: #cdd6f4;
+    }
+    .desc-card-body p { margin: 0.35rem 0; }
+    .desc-card-body ul, .desc-card-body ol { padding-left: 1.1rem; margin: 0.35rem 0; }
+    .desc-card-body img {
+      max-width: 100% !important; height: auto !important; width: auto !important;
+      display: block; margin: 0.45rem 0; border-radius: 0.35rem; border: 1px solid rgba(255,255,255,0.1);
+    }
+    .desc-card-body pre {
+      background: #1e1e2e; border: 1px solid #45475a; border-radius: 0.35rem;
+      padding: 0.45rem; overflow-x: auto; font-size: 0.62rem; margin: 0.35rem 0;
+    }
+    .desc-card-body code { background: #313244; color: #cba6f7; padding: 0 0.2rem; border-radius: 0.2rem; }
+    .desc-empty { color: #6c7086; font-style: italic; }
     footer {
       padding: 0.35rem 0.6rem; font-size: 0.6rem; color: #6c7086; background: #181825;
       border-top: 1px solid #313244; flex-shrink: 0;
@@ -206,6 +230,7 @@
   </div>
   <script>
     var questions = []
+    var descriptions = {}
     var filtered = []
     var selectedId = 0
     var lang = 'python3'
@@ -708,8 +733,33 @@
       })
     }
 
+    function stripDescScripts(html) {
+      if (!html) return ''
+      return String(html).replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    }
+
+    function renderDescription() {
+      var el = document.getElementById('desc-body')
+      if (!el) return
+      var q = currentQuestion()
+      if (!q) { el.innerHTML = '<div class="desc-empty">No question selected.</div>'; return }
+      var row = descriptions[String(q.id)] || {}
+      var html = row.description_html
+      if (html && String(html).trim()) {
+        el.innerHTML = stripDescScripts(html)
+        return
+      }
+      var plain = row.description
+      if (plain && String(plain).trim()) {
+        el.textContent = plain
+        return
+      }
+      el.innerHTML = '<div class="desc-empty">Description not cached yet.</div>'
+    }
+
     function renderEditor() {
       updateMeta()
+      renderDescription()
       if (editorHandle) editorHandle.setDoc(loadCode(currentQuestion()))
       else initEditor()
     }
@@ -794,6 +844,10 @@
             '<button type="button" class="chip-btn mob-only" id="btn-full">Full</button>' +
           '</div>' +
           '<div class="practice-cm-wrap"><div id="editor-host"></div></div>' +
+          '<div class="desc-card" id="desc-card">' +
+            '<div class="desc-card-head">Problem Description</div>' +
+            '<div class="desc-card-body" id="desc-body"></div>' +
+          '</div>' +
           '<div class="editor-footer">' +
             '<span class="editor-hint">no submit - write from memory</span>' +
             '<button type="button" class="chip-btn" id="btn-reset">Reset to starter</button>' +
@@ -817,6 +871,7 @@
       renderList()
       initEditor()
       updateMeta()
+      renderDescription()
       updateNavUI()
       bindVisualViewport()
     }
@@ -885,10 +940,24 @@
         })
     }
 
+    function loadDescriptions() {
+      return fetch('/questions_data_all.json', { cache: 'no-store' })
+        .then(function(r) {
+          if (r.ok) return r.json()
+          throw new Error('network')
+        })
+        .catch(function() {
+          return fetchCached('/questions_data_all.json').then(function(r) { return r.json() })
+        })
+    }
+
     loadEditorScript()
-      .then(loadQuestions)
-      .then(function(data) {
-        questions = data
+      .then(function() {
+        return Promise.all([loadQuestions(), loadDescriptions()])
+      })
+      .then(function(results) {
+        questions = results[0]
+        descriptions = results[1] || {}
         migrateAllDrafts()
         buildUI()
         updateConnectivityUI()

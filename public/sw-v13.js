@@ -135,7 +135,7 @@ self.addEventListener('fetch', e => {
   if (url.origin !== self.location.origin) return
   if (url.pathname.startsWith('/api/')) return
 
-  if (url.pathname.startsWith('/question-images/')) {
+  if (url.pathname.startsWith('/question-images/') || url.pathname.startsWith('/description-images/')) {
     e.respondWith(
       caches.open(IMG_CACHE).then(imgCache =>
         imgCache.match(e.request).then(cached => {

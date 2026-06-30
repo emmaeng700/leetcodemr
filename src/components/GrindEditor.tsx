@@ -21,6 +21,7 @@ import {
 import { resolveGrindCodeForLoad } from '@/lib/grindSync'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 import { formatDescriptionPlain } from '@/lib/formatDescription'
+import { stripScripts } from '@/lib/utils'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
 
@@ -41,7 +42,8 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
   const [extensions, setExtensions] = useState<any[]>([])
   const [editorTheme, setEditorTheme] = useState<any>(null)
   const [description, setDescription] = useState<string>('')
-  const descCacheRef = useRef<Record<number, string>>({})
+  const [descriptionHtml, setDescriptionHtml] = useState<string>('')
+  const descCacheRef = useRef<Record<number, { plain: string; html: string }>>({})
   const editorViewRef = useRef<unknown>(null)
   const portalViewRef = useRef<unknown>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -132,18 +134,27 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     async function loadDescription() {
       const cached = descCacheRef.current[question.id]
       if (cached != null) {
-        setDescription(cached)
+        setDescription(cached.plain)
+        setDescriptionHtml(cached.html)
         return
       }
       try {
         const res = await fetch('/questions_data_all.json')
         if (!res.ok) throw new Error('bad')
-        const json = (await res.json()) as Record<string, { description?: string }>
-        const text = formatDescriptionPlain(json[String(question.id)]?.description ?? '')
-        descCacheRef.current[question.id] = text
-        if (!cancelled) setDescription(text)
+        const json = (await res.json()) as Record<string, { description?: string; description_html?: string }>
+        const row = json[String(question.id)]
+        const plain = formatDescriptionPlain(row?.description ?? '')
+        const html = row?.description_html?.trim() ?? ''
+        descCacheRef.current[question.id] = { plain, html }
+        if (!cancelled) {
+          setDescription(plain)
+          setDescriptionHtml(html)
+        }
       } catch {
-        if (!cancelled) setDescription('')
+        if (!cancelled) {
+          setDescription('')
+          setDescriptionHtml('')
+        }
       }
     }
     void loadDescription()
@@ -369,8 +380,13 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
           <div className="px-4 py-2 bg-[#181825] border-b border-gray-700">
             <span className="text-xs font-bold text-gray-200">Problem Description</span>
           </div>
-          <div className="px-4 py-3">
-            {description ? (
+          <div className="px-4 py-3 max-h-72 overflow-y-auto">
+            {descriptionHtml ? (
+              <div
+                className="grind-desc lc-description text-xs leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: stripScripts(descriptionHtml) }}
+              />
+            ) : description ? (
               <pre className="whitespace-pre-wrap text-xs leading-5 text-gray-200 font-sans">{description}</pre>
             ) : (
               <div className="text-xs text-gray-500">Description not cached yet.</div>

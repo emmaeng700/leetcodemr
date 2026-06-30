@@ -228,6 +228,25 @@ body {
 .lc-description td { border: 1px solid rgba(0,0,0,0.12); padding: 6px 10px; text-align: left; }
 .lc-description th { font-weight: 600; background: rgba(0,0,0,0.04); }
 
+/* Grind description card (dark editor chrome) */
+.grind-desc.lc-description { color: #cdd6f4; }
+.grind-desc.lc-description p,
+.grind-desc.lc-description li,
+.grind-desc.lc-description ul,
+.grind-desc.lc-description ol { color: #cdd6f4; }
+.grind-desc.lc-description a { color: #89b4fa; }
+.grind-desc.lc-description img { border-color: rgba(255,255,255,0.12); }
+.grind-desc.lc-description code { background: #313244; color: #cba6f7; }
+.grind-desc.lc-description pre {
+  background: #181825;
+  border-color: #45475a;
+  color: #cdd6f4;
+}
+.grind-desc.lc-description pre code { background: none; color: inherit; }
+.grind-desc.lc-description th,
+.grind-desc.lc-description td { border-color: rgba(255,255,255,0.12); }
+.grind-desc.lc-description th { background: rgba(255,255,255,0.05); }
+
 
 /* Hide scrollbar on overflow-x-auto filter rows */
 .scrollbar-none {
