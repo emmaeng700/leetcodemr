@@ -22,6 +22,7 @@ const PRECACHE = [
   GRIND_QUESTIONS,
   '/questions_full.json',
   '/playbook_data_all.json',
+  '/questions_data_all.json',
   '/behavioral_questions.json',
   '/manifest.json',
   '/icon-192.png',

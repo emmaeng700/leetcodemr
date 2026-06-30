@@ -309,11 +309,51 @@
       return titleComment(q) + '\n' + body
     }
 
+    var DESCRIPTION_MARKER_PY = '# -- Problem Description --'
+    var DESCRIPTION_MARKER_CPP = '// -- Problem Description --'
     var INTERVIEW_MARKER_PY = '# -- Interview Approach - STAR-LC --'
     var INTERVIEW_MARKER_CPP = '// -- Interview Approach - STAR-LC --'
+    var LEARNING_SEP = '\n\n\n\n'
+
+    function descriptionMarker() {
+      return lang === 'python3' ? DESCRIPTION_MARKER_PY : DESCRIPTION_MARKER_CPP
+    }
 
     function interviewMarker() {
       return lang === 'python3' ? INTERVIEW_MARKER_PY : INTERVIEW_MARKER_CPP
+    }
+
+    function htmlToPlainText(html) {
+      var raw = String(html || '').trim()
+      if (!raw) return ''
+      var text = raw
+      if (raw.indexOf('<') >= 0) {
+        text = raw
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<\/p>/gi, '\n')
+          .replace(/<\/li>/gi, '\n')
+          .replace(/<[^>]+>/g, ' ')
+      }
+      return text
+        .replace(/\r\n/g, '\n')
+        .replace(/\u00a0/g, ' ')
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+    }
+
+    function descriptionForLang(description) {
+      var plain = htmlToPlainText(description)
+      if (!plain) return ''
+      return plain.split('\n').map(function(line) {
+        var trimmed = line.replace(/\s+$/, '')
+        if (lang === 'python3') return trimmed ? '# ' + trimmed : '#'
+        return trimmed ? '// ' + trimmed : '//'
+      }).join('\n')
+    }
+
+    function starterHasDescription(starter) {
+      return starter.indexOf(descriptionMarker()) >= 0
     }
 
     function starterHasInterview(starter) {
@@ -339,15 +379,66 @@
       }).join('\n')
     }
 
+    function stripLearningSections(code) {
+      var markers = [descriptionMarker(), interviewMarker(), lang === 'python3' ? '# PHASE 1' : '// PHASE 1']
+      var cut = code.length
+      for (var mi = 0; mi < markers.length; mi++) {
+        var idx = code.indexOf(markers[mi])
+        if (idx >= 0) cut = Math.min(cut, idx)
+      }
+      if (cut < code.length) return code.slice(0, cut).replace(/\s+$/, '')
+      return code
+    }
+
+    function codeBaseForLearningInsert(code) {
+      var stripped = stripLearningSections(code)
+      if (stripped.length < code.length) return stripped
+      return codeBaseForInterviewInsert(code)
+    }
+
+    function formatDescriptionBlock(description) {
+      var body = descriptionForLang(description)
+      if (!body) return ''
+      return descriptionMarker() + '\n' + body
+    }
+
+    function formatInterviewBlock(script) {
+      return interviewMarker() + '\n' + interviewScriptForLang(script)
+    }
+
+    function extractDescriptionSection(starter) {
+      var marker = descriptionMarker()
+      var start = starter.indexOf(marker)
+      if (start < 0) return ''
+      var tail = starter.slice(start)
+      var iaIdx = tail.indexOf(interviewMarker())
+      var phaseIdx = tail.indexOf(lang === 'python3' ? '# PHASE 1' : '// PHASE 1')
+      var end = tail.length
+      if (iaIdx > 0) end = Math.min(end, iaIdx)
+      if (phaseIdx > 0) end = Math.min(end, phaseIdx)
+      return tail.slice(0, end).replace(/\s+$/, '')
+    }
+
+    function appendGrindLearning(starter, description, script) {
+      var hasDesc = starterHasDescription(starter)
+      var hasIa = starterHasInterview(starter)
+      if (hasDesc && hasIa) return starter
+      var base = codeBaseForLearningInsert(stripLearningSections(starter)).replace(/\s+$/, '')
+      var parts = []
+      if (!hasDesc) {
+        var descBlock = extractDescriptionSection(starter) || (description && String(description).trim() ? formatDescriptionBlock(description) : '')
+        if (descBlock) parts.push(descBlock)
+      }
+      if (!hasIa) {
+        var iaBlock = extractInterviewSection(starter) || (script && String(script).trim() ? formatInterviewBlock(script) : '')
+        if (iaBlock) parts.push(iaBlock)
+      }
+      if (!parts.length) return starter
+      return base + LEARNING_SEP + parts.join(LEARNING_SEP) + '\n'
+    }
+
     function appendInterviewApproach(starter, script) {
-      if (!script || !String(script).trim()) return starter
-      if (starterHasInterview(starter)) return starter
-      var marker = interviewMarker()
-      var commented = interviewScriptForLang(script)
-      var base = starter.replace(/\s+$/, '')
-      var lastCheck = findLastCheckLineIndex(base)
-      if (lastCheck >= 0) base = base.split('\n').slice(0, lastCheck + 1).join('\n')
-      return base + '\n\n\n\n' + marker + '\n' + commented + '\n'
+      return appendGrindLearning(starter, null, script)
     }
 
     function extractInterviewSection(starter) {
@@ -360,16 +451,26 @@
       return ''
     }
 
-    function upgradeCodeWithInterview(code, starter, script) {
-      if (starterHasInterview(code)) return code
-      var tail = extractInterviewSection(starter)
-      if (!tail && script && String(script).trim()) {
-        tail = interviewMarker() + '\n' + interviewScriptForLang(script)
-        tail = tail.replace(/\s+$/, '')
+    function upgradeCodeWithLearning(code, starter, description, script) {
+      var hasDesc = starterHasDescription(code)
+      var hasIa = starterHasInterview(code)
+      if (hasDesc && hasIa) return code
+      var base = codeBaseForLearningInsert(code).replace(/\s+$/, '')
+      var parts = []
+      if (!hasDesc) {
+        var descBlock = extractDescriptionSection(starter) || (description && String(description).trim() ? formatDescriptionBlock(description) : '')
+        if (descBlock) parts.push(descBlock)
       }
-      if (!tail) return code
-      var base = codeBaseForInterviewInsert(code)
-      return base + '\n\n\n\n' + tail + '\n'
+      if (!hasIa) {
+        var iaBlock = extractInterviewSection(starter) || (script && String(script).trim() ? formatInterviewBlock(script) : '')
+        if (iaBlock) parts.push(iaBlock)
+      }
+      if (!parts.length) return code
+      return base + LEARNING_SEP + parts.join(LEARNING_SEP) + '\n'
+    }
+
+    function upgradeCodeWithInterview(code, starter, script) {
+      return upgradeCodeWithLearning(code, starter, null, script)
     }
 
     function codeBaseForInterviewInsert(code) {
@@ -385,7 +486,7 @@
         var end = testIdx
         for (var j = testIdx + 1; j < lines.length; j++) {
           var u = lines[j].trim()
-          if (u.indexOf('Interview Approach') >= 0 || u.indexOf('PHASE 1') >= 0) break
+          if (u.indexOf('Problem Description') >= 0 || u.indexOf('Interview Approach') >= 0 || u.indexOf('PHASE 1') >= 0) break
           end = j
         }
         return lines.slice(0, end + 1).join('\n')
@@ -395,7 +496,7 @@
 
     function migrateAllDrafts() {
       try {
-        if (localStorage.getItem('lm_grind_interview_all_v1')) return
+        if (localStorage.getItem('lm_grind_description_all_v1')) return
       } catch (e) { return }
       var langs = ['python3', 'cpp']
       for (var qi = 0; qi < questions.length; qi++) {
@@ -407,14 +508,14 @@
             var d = localStorage.getItem(draftKey(q.id))
             if (d !== null) {
               var starter = starterFor(q)
-              var next = upgradeCodeWithInterview(d, starter, q.interviewApproach)
+              var next = upgradeCodeWithLearning(d, starter, q.description, q.interviewApproach)
               if (next !== d) localStorage.setItem(draftKey(q.id), next)
             }
           } catch (e) {}
           lang = savedLang
         }
       }
-      try { localStorage.setItem('lm_grind_interview_all_v1', String(Date.now())) } catch (e) {}
+      try { localStorage.setItem('lm_grind_description_all_v1', String(Date.now())) } catch (e) {}
     }
 
     function starterFor(q) {
@@ -423,13 +524,13 @@
         bundled = normalizeGrindCode(bundled)
         var c = titleComment(q)
         if (bundled.indexOf(c) !== 0) bundled = c + '\n' + bundled
-        return appendInterviewApproach(bundled, q.interviewApproach)
+        return appendGrindLearning(bundled, q.description, q.interviewApproach)
       }
       try {
         var cached = localStorage.getItem(starterKey(q.id))
-        if (cached) return appendInterviewApproach(cached, q.interviewApproach)
+        if (cached) return appendGrindLearning(cached, q.description, q.interviewApproach)
       } catch (e) {}
-      return appendInterviewApproach(genericStarter(q), q.interviewApproach)
+      return appendGrindLearning(genericStarter(q), q.description, q.interviewApproach)
     }
 
     function loadCode(q) {
@@ -438,7 +539,7 @@
         var d = localStorage.getItem(draftKey(q.id))
         if (d !== null) {
           var stamped = ensureGrindStampOnLoad(q.id, d)
-          var upgraded = upgradeCodeWithInterview(stamped, starter, q.interviewApproach)
+          var upgraded = upgradeCodeWithLearning(stamped, starter, q.description, q.interviewApproach)
           if (upgraded !== stamped) {
             try { localStorage.setItem(draftKey(q.id), upgraded) } catch (e) {}
           }

@@ -105,6 +105,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
         question.id,
         lang,
         resolvedStarter,
+        question.description,
         question.interviewApproach,
       )
       if (cancelled || gen !== loadGenRef.current) return
@@ -122,7 +123,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     return () => {
       cancelled = true
     }
-  }, [question.id, question.slug, question.title, question.set, lang, question.starterPython, question.starterCpp, question.interviewApproach])
+  }, [question.id, question.slug, question.title, question.set, lang, question.starterPython, question.starterCpp, question.description, question.interviewApproach])
 
   useEffect(() => {
     const onOnline = () => {
@@ -152,7 +153,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     const refreshIfNewer = async () => {
       if (document.visibilityState !== 'visible' || !navigator.onLine || loading) return
       const base = starter || resolveGrindStarterSync(question, lang)
-      const loaded = await resolveGrindCodeForLoad(question.id, lang, base, question.interviewApproach)
+      const loaded = await resolveGrindCodeForLoad(question.id, lang, base, question.description, question.interviewApproach)
       if (loaded.code !== codeRef.current) {
         codeRef.current = loaded.code
         setCode(loaded.code)

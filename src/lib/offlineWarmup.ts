@@ -7,13 +7,14 @@ import {
   buildGrindQuestions,
   loadGrindQuestionsBundle,
   loadPlaybookMap,
+  loadQuestionsDataAll,
   loadQuestionsFullJson,
 } from '@/lib/grindQuestions'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter } from '@/lib/grindStorage'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 
-export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v11'
+export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v12'
 
 export type WarmupPhase = 'pages' | 'questions' | 'starters' | 'done'
 
@@ -71,7 +72,7 @@ export async function runOfflineWarmup(
 
   postCachePagesToSw()
 
-  const pageTotal = 3 + GRIND_OFFLINE_ASSETS.length
+  const pageTotal = 4 + GRIND_OFFLINE_ASSETS.length
   let done = 0
 
   const tickPages = (label: string) => {
@@ -87,6 +88,14 @@ export async function runOfflineWarmup(
     await fetch('/playbook_data_all.json', { cache: 'reload' })
   } catch {
     /* offline or network error - generic .json fallback in SW still serves cached copy */
+  }
+  done += 1
+
+  tickPages('Saving problem descriptions...')
+  try {
+    await fetch('/questions_data_all.json', { cache: 'reload' })
+  } catch {
+    /* continue */
   }
   done += 1
 
@@ -118,7 +127,14 @@ export async function runOfflineWarmup(
     const { getSet2Questions, getSet3Questions } = await import('@/lib/questionSets')
     const mainIds = new Set(qs.map(q => q.id))
     const playbookMap = await loadPlaybookMap()
-    grindQuestions = buildGrindQuestions(qs, getSet2Questions(mainIds, qs), getSet3Questions(mainIds, qs), playbookMap)
+    const descriptionMap = await loadQuestionsDataAll()
+    grindQuestions = buildGrindQuestions(
+      qs,
+      getSet2Questions(mainIds, qs),
+      getSet3Questions(mainIds, qs),
+      playbookMap,
+      descriptionMap,
+    )
   }
   const needStarters = startersNeedingFetch(grindQuestions)
   const starterTotal = needStarters.length

@@ -1,5 +1,5 @@
 import { getGrindSession, saveGrindSession } from '@/lib/db'
-import { upgradeCodeWithInterview } from '@/lib/grindInterviewInStarter'
+import { upgradeCodeWithLearning } from '@/lib/grindInterviewInStarter'
 import {
   readGrindDraft,
   readGrindDraftUpdatedAt,
@@ -28,20 +28,27 @@ function finalizeLoadedCode(
   code: string,
   starter: string,
   source: GrindLoadSource,
+  description: string | undefined,
   interviewApproach: string | undefined,
   online: boolean,
 ): { code: string; synced: boolean } {
   let finalCode = source !== 'starter' ? ensureGrindStampOnLoad(questionId, lang, code) : code
-  const withInterview = upgradeCodeWithInterview(finalCode, starter, lang, interviewApproach)
-  if (withInterview === finalCode) {
+  const withLearning = upgradeCodeWithLearning(
+    finalCode,
+    starter,
+    lang,
+    description,
+    interviewApproach,
+  )
+  if (withLearning === finalCode) {
     return { code: finalCode, synced: false }
   }
 
-  writeGrindDraft(questionId, lang, withInterview)
+  writeGrindDraft(questionId, lang, withLearning)
   if (online) {
-    saveGrindSession(questionId, lang, withInterview).catch(() => {})
+    saveGrindSession(questionId, lang, withLearning).catch(() => {})
   }
-  return { code: withInterview, synced: online }
+  return { code: withLearning, synced: online }
 }
 
 /** Pick the newest draft between this device and Supabase when online. */
@@ -49,6 +56,7 @@ export async function resolveGrindCodeForLoad(
   questionId: number,
   lang: GrindLang,
   starter: string,
+  description?: string,
   interviewApproach?: string,
 ): Promise<GrindLoadResult> {
   const localDraft = readGrindDraft(questionId, lang)
@@ -58,7 +66,7 @@ export async function resolveGrindCodeForLoad(
   if (!online) {
     const raw = localDraft ?? starter
     const source: GrindLoadSource = localDraft !== null ? 'local' : 'starter'
-    const { code } = finalizeLoadedCode(questionId, lang, raw, starter, source, interviewApproach, false)
+    const { code } = finalizeLoadedCode(questionId, lang, raw, starter, source, description, interviewApproach, false)
     return { code, source, synced: false }
   }
 
@@ -108,6 +116,6 @@ export async function resolveGrindCodeForLoad(
     }
   }
 
-  const finalized = finalizeLoadedCode(questionId, lang, code, starter, source, interviewApproach, online)
+  const finalized = finalizeLoadedCode(questionId, lang, code, starter, source, description, interviewApproach, online)
   return { code: finalized.code, source, synced: synced || finalized.synced }
 }
