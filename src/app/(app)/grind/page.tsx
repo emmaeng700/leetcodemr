@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, Search, PenLine } from 'lucide-react'
 import GrindEditor from '@/components/GrindEditor'
 import GrindConnectivityBanner from '@/components/GrindConnectivityBanner'
 import DifficultyBadge from '@/components/DifficultyBadge'
-import { buildGrindQuestions, loadQuestionsFullJson, type GrindQuestion } from '@/lib/grindQuestions'
+import { buildGrindQuestions, loadQuestionsFullJson, loadPlaybookMap, loadGrindQuestionsBundle, type GrindQuestion } from '@/lib/grindQuestions'
 import { grindListWithDividers } from '@/lib/grindList'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
@@ -80,14 +80,43 @@ function GrindInner() {
   useEffect(() => {
     async function load() {
       try {
+        const offline = typeof navigator !== 'undefined' && !navigator.onLine
+        if (offline) {
+          const bundled = await loadGrindQuestionsBundle()
+          if (bundled.length > 0) {
+            setQuestions(bundled)
+            setLoading(false)
+            return
+          }
+        }
+
         const qs = await loadQuestionsFullJson()
         const { getSet2Questions, getSet3Questions } = await import('@/lib/questionSets')
         const mainIds = new Set(qs.map(q => q.id))
         const set2 = getSet2Questions(mainIds, qs)
         const set3 = getSet3Questions(mainIds, qs)
-        setQuestions(buildGrindQuestions(qs, set2, set3))
+        const playbookMap = await loadPlaybookMap()
+        const built = buildGrindQuestions(qs, set2, set3, playbookMap)
+
+        // If playbook fetch failed offline, fall back to baked bundle for interview scripts.
+        if (Object.keys(playbookMap).length === 0) {
+          const bundled = await loadGrindQuestionsBundle()
+          if (bundled.length > 0) {
+            const iaById = Object.fromEntries(
+              bundled.filter(q => q.interviewApproach).map(q => [q.id, q.interviewApproach!]),
+            )
+            setQuestions(
+              built.map(q => (iaById[q.id] ? { ...q, interviewApproach: iaById[q.id] } : q)),
+            )
+            setLoading(false)
+            return
+          }
+        }
+
+        setQuestions(built)
       } catch {
-        setQuestions([])
+        const bundled = await loadGrindQuestionsBundle()
+        setQuestions(bundled)
       }
       setLoading(false)
     }
@@ -168,7 +197,7 @@ function GrindInner() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex flex-col gap-3 min-h-[calc(100dvh-3.5rem)]">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex flex-col gap-3 h-[calc(100dvh-3.5rem)]">
       <GrindConnectivityBanner questionId={selected?.id} />
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 shrink-0 relative z-[45]">
@@ -242,9 +271,10 @@ function GrindInner() {
           className={`${
             listOpen ? 'flex' : 'hidden'
           } lg:flex fixed lg:relative z-50 lg:z-auto bottom-0 left-0 right-0 lg:inset-auto
-            w-full lg:w-64 xl:w-72 shrink-0 flex-col rounded-t-2xl lg:rounded-xl
+            w-full lg:w-64 xl:w-72 shrink-0 flex-col h-full min-h-0
+            rounded-t-2xl lg:rounded-xl
             border border-[var(--border)] bg-[var(--bg-card)] overflow-hidden
-            max-h-[55dvh] lg:max-h-none shadow-[0_-8px_32px_rgba(0,0,0,0.2)] lg:shadow-none`}
+            max-h-[55dvh] lg:max-h-full shadow-[0_-8px_32px_rgba(0,0,0,0.2)] lg:shadow-none`}
         >
           <div className="px-3 py-2 border-b border-[var(--border-soft)] text-xs text-[var(--text-subtle)] shrink-0">
             {filtered.length} question{filtered.length !== 1 ? 's' : ''}

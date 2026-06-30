@@ -8,7 +8,7 @@ import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter } from '@/lib/grindStorage'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 
-export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v9'
+export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v10'
 
 export type WarmupPhase = 'pages' | 'questions' | 'starters' | 'done'
 
@@ -66,7 +66,7 @@ export async function runOfflineWarmup(
 
   postCachePagesToSw()
 
-  const pageTotal = 2 + GRIND_OFFLINE_ASSETS.length
+  const pageTotal = 3 + GRIND_OFFLINE_ASSETS.length
   let done = 0
 
   const tickPages = (label: string) => {
@@ -75,6 +75,14 @@ export async function runOfflineWarmup(
 
   tickPages('Loading question bank...')
   await loadQuestionsFullJson()
+  done += 1
+
+  tickPages('Saving interview approach info...')
+  try {
+    await fetch('/playbook_data_all.json', { cache: 'reload' })
+  } catch {
+    /* offline or network error - generic .json fallback in SW still serves cached copy */
+  }
   done += 1
 
   for (const path of GRIND_OFFLINE_ASSETS) {

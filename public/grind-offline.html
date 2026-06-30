@@ -106,6 +106,26 @@
     }
     .editor-hint { font-size: 0.58rem; color: #6c7086; }
     .editor-footer .chip-btn { font-size: 0.65rem; white-space: nowrap; }
+    .ia-panel { border-top: 1px solid #313244; background: #181825; flex-shrink: 0; display: flex; flex-direction: column; max-height: min(38vh, 300px); min-height: 0; }
+    .ia-header {
+      padding: 0.45rem 0.6rem; border-bottom: 1px solid #313244; flex-shrink: 0;
+    }
+    .ia-header .label {
+      font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+      color: #c4b5fd;
+    }
+    .ia-body {
+      overflow-y: auto; flex: 1; min-height: 0; background: #1e1e2e;
+      padding: 0.6rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.62rem; line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+    }
+    .ia-body.hidden { display: none; }
+    .ia-line-phase { color: #c4b5fd; font-weight: 700; display: block; }
+    .ia-line-quote { color: #fde68a; display: block; }
+    .ia-line-code { color: #7dd3fc; display: block; }
+    .ia-line-comment { color: #9ca3af; display: block; }
+    .ia-line { color: #cdd6f4; display: block; }
+    .ia-empty { color: #6c7086; font-style: italic; padding: 0.5rem 0; font-size: 0.62rem; }
     footer {
       padding: 0.35rem 0.6rem; font-size: 0.6rem; color: #6c7086; background: #181825;
       border-top: 1px solid #313244; flex-shrink: 0;
@@ -410,6 +430,36 @@
       if (meta) meta.textContent = text
       var fsMeta = document.getElementById('fs-meta')
       if (fsMeta) fsMeta.textContent = text
+      renderInterviewApproach()
+    }
+
+    function renderInterviewApproach() {
+      var q = currentQuestion()
+      var body = document.getElementById('ia-body')
+      var panel = document.getElementById('ia-panel')
+      if (!body || !panel) return
+      if (!q || !q.interviewApproach) {
+        panel.style.display = 'none'
+        return
+      }
+      panel.style.display = ''
+      body.classList.remove('hidden')
+      var lines = q.interviewApproach.split('\n')
+      var html = ''
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i]
+        var cls = 'ia-line'
+        if (/^# PHASE \d+ [-—]/.test(line)) cls = 'ia-line-phase'
+        else if (/^# "(.*)"/.test(line) || /^#  /.test(line)) cls = 'ia-line-quote'
+        else if (/^class /.test(line) || /^    def /.test(line)) cls = 'ia-line-code'
+        else if (/^#/.test(line)) cls = 'ia-line-comment'
+        html += '<span class="' + cls + '">' + escapeHtml(line) + '</span>\n'
+      }
+      body.innerHTML = html
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     }
 
     function setDividerLabel(setNum) {
@@ -506,12 +556,14 @@
       var portal = document.getElementById('fs-portal')
       var inlineWrap = document.querySelector('.editor .practice-cm-wrap')
       var inlineFooter = document.querySelector('.editor .editor-footer')
+      var inlineIA = document.querySelector('.editor .ia-panel')
       if (open) {
         setListOpen(false)
         editorHostId = 'editor-host-fs'
         portal.classList.add('open')
         if (inlineWrap) inlineWrap.style.visibility = 'hidden'
         if (inlineFooter) inlineFooter.style.display = 'none'
+        if (inlineIA) inlineIA.style.display = 'none'
         initEditor()
         updateMeta()
       } else {
@@ -519,7 +571,9 @@
         portal.classList.remove('open')
         if (inlineWrap) inlineWrap.style.visibility = ''
         if (inlineFooter) inlineFooter.style.display = ''
+        if (inlineIA) inlineIA.style.display = ''
         initEditor()
+        updateMeta()
       }
     }
 
@@ -550,6 +604,12 @@
           '<div class="editor-footer">' +
             '<span class="editor-hint">no submit - write from memory</span>' +
             '<button type="button" class="chip-btn" id="btn-reset">Reset to starter</button>' +
+          '</div>' +
+          '<div class="ia-panel" id="ia-panel">' +
+            '<div class="ia-header">' +
+              '<span class="label">Interview Approach | STAR-LC</span>' +
+            '</div>' +
+            '<div class="ia-body" id="ia-body"></div>' +
           '</div>' +
         '</section>'
       document.getElementById('list-backdrop').onclick = function() { setListOpen(false) }
