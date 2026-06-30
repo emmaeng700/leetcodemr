@@ -21,6 +21,30 @@ function findLastCheckLineIndex(code: string): number {
   return last
 }
 
+/** Trim code to just before where the interview block should be inserted. */
+function codeBaseForInterviewInsert(code: string, lang: GrindLang): string {
+  const lines = code.split('\n')
+  const lastCheck = findLastCheckLineIndex(code)
+  if (lastCheck >= 0) return lines.slice(0, lastCheck + 1).join('\n')
+
+  let testIdx = -1
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim()
+    if ((t.includes('Test') || t.includes('Examples')) && t.startsWith('#')) testIdx = i
+  }
+  if (testIdx >= 0) {
+    let end = testIdx
+    for (let i = testIdx + 1; i < lines.length; i++) {
+      const t = lines[i].trim()
+      if (t.startsWith(interviewMarker(lang)) || t.startsWith('# PHASE 1') || t.startsWith('// PHASE 1')) break
+      end = i
+    }
+    return lines.slice(0, end + 1).join('\n')
+  }
+
+  return code.replace(/\s+$/, '')
+}
+
 /** Convert playbook hash comments to C++ line comments. */
 export function interviewScriptForLang(script: string, lang: GrindLang): string {
   const trimmed = script.trimEnd()
@@ -63,12 +87,7 @@ export function upgradeCodeWithInterview(
   }
   if (!tail) return code
 
-  let base = code.replace(/\s+$/, '')
-  const lastCheckIdx = findLastCheckLineIndex(base)
-  if (lastCheckIdx >= 0) {
-    base = base.split('\n').slice(0, lastCheckIdx + 1).join('\n')
-  }
-
+  const base = codeBaseForInterviewInsert(code, lang)
   return `${base}\n\n\n\n${tail}\n`
 }
 
@@ -85,11 +104,6 @@ export function appendInterviewApproachToStarter(
   const commented = interviewScriptForLang(script, lang)
   const separator = '\n\n\n\n'
 
-  let base = starter.replace(/\s+$/, '')
-  const lastCheckIdx = findLastCheckLineIndex(base)
-  if (lastCheckIdx >= 0) {
-    base = base.split('\n').slice(0, lastCheckIdx + 1).join('\n')
-  }
-
+  const base = codeBaseForInterviewInsert(starter, lang)
   return `${base}${separator}${marker}\n${commented}\n`
 }

@@ -3,12 +3,17 @@ import {
   GRIND_OFFLINE_ASSETS,
   OFFLINE_PAGES,
 } from '@/lib/offlinePages'
-import { buildGrindQuestions, loadQuestionsFullJson } from '@/lib/grindQuestions'
+import {
+  buildGrindQuestions,
+  loadGrindQuestionsBundle,
+  loadPlaybookMap,
+  loadQuestionsFullJson,
+} from '@/lib/grindQuestions'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter } from '@/lib/grindStorage'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 
-export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v10'
+export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v11'
 
 export type WarmupPhase = 'pages' | 'questions' | 'starters' | 'done'
 
@@ -107,10 +112,14 @@ export async function runOfflineWarmup(
   done += 1
 
   onProgress({ phase: 'questions', label: 'Building Grind catalog...', done: pageTotal, total: pageTotal })
-  const qs = await loadQuestionsFullJson()
-  const { getSet2Questions, getSet3Questions } = await import('@/lib/questionSets')
-  const mainIds = new Set(qs.map(q => q.id))
-  const grindQuestions = buildGrindQuestions(qs, getSet2Questions(mainIds, qs), getSet3Questions(mainIds, qs))
+  let grindQuestions = await loadGrindQuestionsBundle()
+  if (grindQuestions.length === 0) {
+    const qs = await loadQuestionsFullJson()
+    const { getSet2Questions, getSet3Questions } = await import('@/lib/questionSets')
+    const mainIds = new Set(qs.map(q => q.id))
+    const playbookMap = await loadPlaybookMap()
+    grindQuestions = buildGrindQuestions(qs, getSet2Questions(mainIds, qs), getSet3Questions(mainIds, qs), playbookMap)
+  }
   const needStarters = startersNeedingFetch(grindQuestions)
   const starterTotal = needStarters.length
   const grandTotal = pageTotal + starterTotal

@@ -1,4 +1,5 @@
 import { getGrindSession, saveGrindSession } from '@/lib/db'
+import { upgradeCodeWithInterview } from '@/lib/grindInterviewInStarter'
 import {
   readGrindDraft,
   readGrindDraftUpdatedAt,
@@ -21,23 +22,44 @@ function parseTime(iso: string | null | undefined): number {
   return Number.isFinite(t) ? t : 0
 }
 
+function finalizeLoadedCode(
+  questionId: number,
+  lang: GrindLang,
+  code: string,
+  starter: string,
+  source: GrindLoadSource,
+  interviewApproach: string | undefined,
+  online: boolean,
+): { code: string; synced: boolean } {
+  let finalCode = source !== 'starter' ? ensureGrindStampOnLoad(questionId, lang, code) : code
+  const withInterview = upgradeCodeWithInterview(finalCode, starter, lang, interviewApproach)
+  if (withInterview === finalCode) {
+    return { code: finalCode, synced: false }
+  }
+
+  writeGrindDraft(questionId, lang, withInterview)
+  if (online) {
+    saveGrindSession(questionId, lang, withInterview).catch(() => {})
+  }
+  return { code: withInterview, synced: online }
+}
+
 /** Pick the newest draft between this device and Supabase when online. */
 export async function resolveGrindCodeForLoad(
   questionId: number,
   lang: GrindLang,
   starter: string,
+  interviewApproach?: string,
 ): Promise<GrindLoadResult> {
   const localDraft = readGrindDraft(questionId, lang)
   const localUpdatedMs = parseTime(readGrindDraftUpdatedAt(questionId, lang))
   const online = typeof navigator !== 'undefined' && navigator.onLine
 
   if (!online) {
-    const code = localDraft ?? starter
-    return {
-      code: localDraft !== null ? ensureGrindStampOnLoad(questionId, lang, localDraft) : starter,
-      source: localDraft !== null ? 'local' : 'starter',
-      synced: false,
-    }
+    const raw = localDraft ?? starter
+    const source: GrindLoadSource = localDraft !== null ? 'local' : 'starter'
+    const { code } = finalizeLoadedCode(questionId, lang, raw, starter, source, interviewApproach, false)
+    return { code, source, synced: false }
   }
 
   let remote: Awaited<ReturnType<typeof getGrindSession>> = null
@@ -86,9 +108,6 @@ export async function resolveGrindCodeForLoad(
     }
   }
 
-  if (source !== 'starter') {
-    code = ensureGrindStampOnLoad(questionId, lang, code)
-  }
-
-  return { code, source, synced }
+  const finalized = finalizeLoadedCode(questionId, lang, code, starter, source, interviewApproach, online)
+  return { code: finalized.code, source, synced: synced || finalized.synced }
 }

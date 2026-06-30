@@ -368,10 +368,53 @@
         tail = tail.replace(/\s+$/, '')
       }
       if (!tail) return code
-      var base = code.replace(/\s+$/, '')
-      var lastCheck = findLastCheckLineIndex(base)
-      if (lastCheck >= 0) base = base.split('\n').slice(0, lastCheck + 1).join('\n')
+      var base = codeBaseForInterviewInsert(code)
       return base + '\n\n\n\n' + tail + '\n'
+    }
+
+    function codeBaseForInterviewInsert(code) {
+      var lines = code.split('\n')
+      var lastCheck = findLastCheckLineIndex(code)
+      if (lastCheck >= 0) return lines.slice(0, lastCheck + 1).join('\n')
+      var testIdx = -1
+      for (var i = 0; i < lines.length; i++) {
+        var t = lines[i].trim()
+        if ((t.indexOf('Test') >= 0 || t.indexOf('Examples') >= 0) && t.indexOf('#') === 0) testIdx = i
+      }
+      if (testIdx >= 0) {
+        var end = testIdx
+        for (var j = testIdx + 1; j < lines.length; j++) {
+          var u = lines[j].trim()
+          if (u.indexOf('Interview Approach') >= 0 || u.indexOf('PHASE 1') >= 0) break
+          end = j
+        }
+        return lines.slice(0, end + 1).join('\n')
+      }
+      return code.replace(/\s+$/, '')
+    }
+
+    function migrateAllDrafts() {
+      try {
+        if (localStorage.getItem('lm_grind_interview_all_v1')) return
+      } catch (e) { return }
+      var langs = ['python3', 'cpp']
+      for (var qi = 0; qi < questions.length; qi++) {
+        var q = questions[qi]
+        for (var li = 0; li < langs.length; li++) {
+          var savedLang = lang
+          lang = langs[li]
+          try {
+            var d = localStorage.getItem(draftKey(q.id))
+            if (d !== null) {
+              var starter = starterFor(q)
+              var next = upgradeCodeWithInterview(d, starter, q.interviewApproach)
+              if (next !== d) localStorage.setItem(draftKey(q.id), next)
+            }
+          } catch (e) {}
+          lang = savedLang
+        }
+      }
+      try { localStorage.setItem('lm_grind_interview_all_v1', String(Date.now())) } catch (e) {}
     }
 
     function starterFor(q) {
@@ -722,7 +765,7 @@
     }
 
     function loadQuestions() {
-      return fetch('/grind_questions.json')
+      return fetch('/grind_questions.json', { cache: 'no-store' })
         .then(function(r) {
           if (r.ok) return r.json()
           throw new Error('network')
@@ -736,6 +779,7 @@
       .then(loadQuestions)
       .then(function(data) {
         questions = data
+        migrateAllDrafts()
         buildUI()
         updateConnectivityUI()
         document.getElementById('status').textContent = navigator.onLine

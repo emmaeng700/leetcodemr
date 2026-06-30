@@ -19,7 +19,6 @@ import {
   resolveGrindStarterSync,
 } from '@/lib/grindStarter'
 import { resolveGrindCodeForLoad } from '@/lib/grindSync'
-import { upgradeCodeWithInterview } from '@/lib/grindInterviewInStarter'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
@@ -102,23 +101,15 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
       if (cancelled || gen !== loadGenRef.current) return
       setStarter(resolvedStarter)
 
-      const loaded = await resolveGrindCodeForLoad(question.id, lang, resolvedStarter)
-      if (cancelled || gen !== loadGenRef.current) return
-
-      const withInterview = upgradeCodeWithInterview(
-        loaded.code,
-        resolvedStarter,
+      const loaded = await resolveGrindCodeForLoad(
+        question.id,
         lang,
+        resolvedStarter,
         question.interviewApproach,
       )
-      if (withInterview !== loaded.code) {
-        writeGrindDraft(question.id, lang, withInterview)
-        if (typeof navigator !== 'undefined' && navigator.onLine) {
-          saveGrindSession(question.id, lang, withInterview).catch(() => {})
-        }
-      }
+      if (cancelled || gen !== loadGenRef.current) return
 
-      setCode(withInterview)
+      setCode(loaded.code)
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         setSyncState('offline')
       } else {
@@ -161,17 +152,10 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     const refreshIfNewer = async () => {
       if (document.visibilityState !== 'visible' || !navigator.onLine || loading) return
       const base = starter || resolveGrindStarterSync(question, lang)
-      const loaded = await resolveGrindCodeForLoad(question.id, lang, base)
-      const withInterview = upgradeCodeWithInterview(
-        loaded.code,
-        base,
-        lang,
-        question.interviewApproach,
-      )
-      if (withInterview !== codeRef.current) {
-        if (withInterview !== loaded.code) writeGrindDraft(question.id, lang, withInterview)
-        codeRef.current = withInterview
-        setCode(withInterview)
+      const loaded = await resolveGrindCodeForLoad(question.id, lang, base, question.interviewApproach)
+      if (loaded.code !== codeRef.current) {
+        codeRef.current = loaded.code
+        setCode(loaded.code)
         setSyncState(loaded.synced ? 'synced' : 'local')
       }
     }

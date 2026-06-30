@@ -130,7 +130,7 @@ export function buildGrindQuestions(
   return rows
 }
 
-const SW_CACHE_FALLBACKS = ['lm-v12', 'lm-v11', 'lm-v10', 'lm-v9', 'lm-v8']
+const SW_CACHE_FALLBACKS = ['lm-v13', 'lm-v12', 'lm-v11', 'lm-v10', 'lm-v9', 'lm-v8']
 
 /** Load questions_full.json - uses service worker cache when offline. */
 export async function loadQuestionsFullJson(): Promise<Set1Row[]> {
@@ -159,7 +159,7 @@ export async function loadQuestionsFullJson(): Promise<Set1Row[]> {
 /** Pre-built 727-question bundle (interview approach baked in) for offline Grind. */
 export async function loadGrindQuestionsBundle(): Promise<GrindQuestion[]> {
   try {
-    const res = await fetch('/grind_questions.json')
+    const res = await fetch('/grind_questions.json', { cache: 'no-store' })
     if (res.ok) return res.json() as Promise<GrindQuestion[]>
   } catch {
     /* offline or network error */

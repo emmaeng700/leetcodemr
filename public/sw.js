@@ -1,2 +1,2 @@
 // Loader stub — bump this file to force browsers to install the latest sw-v*.js.
-importScripts('/sw-v12.js')
+importScripts('/sw-v13.js')

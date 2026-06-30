@@ -7,6 +7,7 @@ import GrindEditor from '@/components/GrindEditor'
 import GrindConnectivityBanner from '@/components/GrindConnectivityBanner'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import { buildGrindQuestions, loadQuestionsFullJson, loadPlaybookMap, loadGrindQuestionsBundle, type GrindQuestion } from '@/lib/grindQuestions'
+import { migrateAllGrindDrafts } from '@/lib/grindMigration'
 import { grindListWithDividers } from '@/lib/grindList'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
@@ -82,14 +83,12 @@ function GrindInner() {
   useEffect(() => {
     async function load() {
       try {
-        const offline = typeof navigator !== 'undefined' && !navigator.onLine
-        if (offline) {
-          const bundled = await loadGrindQuestionsBundle()
-          if (bundled.length > 0) {
-            setQuestions(bundled)
-            setLoading(false)
-            return
-          }
+        const bundled = await loadGrindQuestionsBundle()
+        if (bundled.length > 0) {
+          migrateAllGrindDrafts(bundled)
+          setQuestions(bundled)
+          setLoading(false)
+          return
         }
 
         const qs = await loadQuestionsFullJson()
@@ -99,25 +98,11 @@ function GrindInner() {
         const set3 = getSet3Questions(mainIds, qs)
         const playbookMap = await loadPlaybookMap()
         const built = buildGrindQuestions(qs, set2, set3, playbookMap)
-
-        // If playbook fetch failed offline, fall back to baked bundle for interview scripts.
-        if (Object.keys(playbookMap).length === 0) {
-          const bundled = await loadGrindQuestionsBundle()
-          if (bundled.length > 0) {
-            const iaById = Object.fromEntries(
-              bundled.filter(q => q.interviewApproach).map(q => [q.id, q.interviewApproach!]),
-            )
-            setQuestions(
-              built.map(q => (iaById[q.id] ? { ...q, interviewApproach: iaById[q.id] } : q)),
-            )
-            setLoading(false)
-            return
-          }
-        }
-
+        migrateAllGrindDrafts(built)
         setQuestions(built)
       } catch {
         const bundled = await loadGrindQuestionsBundle()
+        if (bundled.length > 0) migrateAllGrindDrafts(bundled)
         setQuestions(bundled)
       }
       setLoading(false)
