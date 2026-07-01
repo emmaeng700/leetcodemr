@@ -336,7 +336,7 @@
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
-    <span id="offline-version" hidden>v23</span>
+    <span id="offline-version" hidden>v24</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
@@ -362,8 +362,8 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v23'
-    var SW_CACHE = 'lm-v23'
+    var OFFLINE_VERSION = 'v24'
+    var SW_CACHE = 'lm-v24'
     var midnightTimer = null
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v1'
     var filtered = []
@@ -624,6 +624,21 @@
       var normalized = normalizeGrindCode(code)
       if (hasGrindStamp(normalized)) {
         return refreshGrindStampOnRecheck(id, normalized)
+      }
+      if (hasGrindAttempt(id, normalized)) {
+        var startedIso = null
+        try { startedIso = localStorage.getItem(startedKey(id)) } catch (e) {}
+        var d = startedIso ? new Date(startedIso) : null
+        if (!d || !isFinite(d.getTime())) {
+          var day = inferSessionDay(id, normalized)
+          if (day) {
+            var parts = day.split('-').map(Number)
+            d = new Date(parts[0], parts[1] - 1, parts[2], 12, 0)
+          } else {
+            d = new Date()
+          }
+        }
+        return prependGrindStamp(normalized, d)
       }
       var now = new Date()
       try { localStorage.setItem(startedKey(id), now.toISOString()) } catch (e) {}
@@ -935,7 +950,6 @@
     function resetToStarter() {
       var q = currentQuestion()
       if (!q) return
-      clearGrindStartedAt(q.id)
       var starter = starterFor(q)
       try { localStorage.setItem(draftKey(q.id), starter) } catch (e) {}
       if (editorHandle) editorHandle.setDoc(starter)

@@ -207,6 +207,11 @@ export function applyGrindStampOnEdit(questionId: number, lang: GrindLang, code:
     return refreshGrindStampOnRecheck(questionId, lang, normalized)
   }
 
+  if (hasGrindAttempt(questionId, lang, normalized)) {
+    const stampDate = getGrindSessionDate(questionId, lang, normalized) ?? new Date()
+    return prependGrindStamp(normalized, lang, stampDate)
+  }
+
   const now = new Date()
   writeGrindStartedAt(questionId, lang, now.toISOString())
   writeGrindDay(questionId, lang, localCalendarDayKey(now))

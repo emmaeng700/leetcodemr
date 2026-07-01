@@ -12,7 +12,6 @@ import {
 } from '@/lib/grindStorage'
 import {
   applyGrindStampOnEdit,
-  clearGrindStartedAt,
   getGrindSessionChipLabel,
 } from '@/lib/grindStamp'
 import {
@@ -273,9 +272,8 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
   )
 
   const reset = useCallback(() => {
-    clearGrindStartedAt(question.id, lang)
     setCode(starter)
-    setSessionLabel(null)
+    setSessionLabel(getGrindSessionChipLabel(question.id, lang, starter))
     writeGrindDraft(question.id, lang, starter)
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       saveGrindSession(question.id, lang, starter).catch(() => {})
