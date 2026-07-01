@@ -431,8 +431,23 @@
       }
       if (!online) wasOffline = true
     }
+    function refreshEditorStampIfNewDay() {
+      if (!editorHandle || !selectedId) return
+      var q = currentQuestion()
+      if (!q) return
+      var refreshed = refreshGrindStampOnRecheck(q.id, editorHandle.getDoc())
+      if (refreshed !== editorHandle.getDoc()) {
+        editorHandle.setDoc(refreshed)
+        try { localStorage.setItem(draftKey(q.id), refreshed) } catch (e) {}
+      }
+    }
+
     window.addEventListener('online', updateConnectivityUI)
     window.addEventListener('offline', updateConnectivityUI)
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') refreshEditorStampIfNewDay()
+    })
+    window.addEventListener('focus', refreshEditorStampIfNewDay)
 
     function draftKey(id) { return 'lm_grind_' + id + '_' + lang }
     function starterKey(id) { return 'lm_grind_starter_' + id + '_' + lang }
@@ -467,9 +482,41 @@
       return body.trim() ? stamp + '\n' + body : stamp
     }
 
+    function sameCalendarDay(a, b) {
+      return a.getFullYear() === b.getFullYear() &&
+        a.getMonth() === b.getMonth() &&
+        a.getDate() === b.getDate()
+    }
+
+    function stampDateForQuestion(id) {
+      var started = null
+      try { started = localStorage.getItem(startedKey(id)) } catch (e) {}
+      if (!started) return null
+      var startedDate = new Date(started)
+      var now = new Date()
+      if (sameCalendarDay(startedDate, now)) return startedDate
+      try { localStorage.setItem(startedKey(id), now.toISOString()) } catch (e) {}
+      return now
+    }
+
+    function refreshGrindStampOnRecheck(id, code) {
+      var normalized = normalizeGrindCode(code)
+      var startedIso = null
+      try { startedIso = localStorage.getItem(startedKey(id)) } catch (e) {}
+      if (!startedIso) return normalized
+      var before = new Date(startedIso)
+      var stampDate = stampDateForQuestion(id)
+      if (!stampDate) return normalized
+      var needsUpdate = !hasGrindStamp(normalized) || !sameCalendarDay(before, stampDate)
+      if (!needsUpdate) return normalized
+      return prependGrindStamp(normalized, stampDate)
+    }
+
     function applyGrindStamp(id, code) {
       var normalized = normalizeGrindCode(code)
-      if (hasGrindStamp(normalized)) return normalized
+      if (hasGrindStamp(normalized)) {
+        return refreshGrindStampOnRecheck(id, normalized)
+      }
       var started = null
       try { started = localStorage.getItem(startedKey(id)) } catch (e) {}
       if (!started) {
@@ -480,11 +527,7 @@
     }
 
     function ensureGrindStampOnLoad(id, code) {
-      var normalized = normalizeGrindCode(code)
-      var started = null
-      try { started = localStorage.getItem(startedKey(id)) } catch (e) {}
-      if (!started) return normalized
-      return prependGrindStamp(normalized, new Date(started))
+      return refreshGrindStampOnRecheck(id, code)
     }
 
     function titleComment(q) {

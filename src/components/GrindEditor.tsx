@@ -13,6 +13,7 @@ import {
 } from '@/lib/grindStorage'
 import {
   applyGrindStampOnEdit,
+  refreshGrindStampOnRecheck,
 } from '@/lib/grindStamp'
 import {
   ensureGrindStarterCached,
@@ -208,7 +209,17 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
 
   useEffect(() => {
     const refreshIfNewer = async () => {
-      if (document.visibilityState !== 'visible' || !navigator.onLine || loading) return
+      if (document.visibilityState !== 'visible' || loading) return
+
+      const stamped = refreshGrindStampOnRecheck(question.id, lang, codeRef.current)
+      if (stamped !== codeRef.current) {
+        codeRef.current = stamped
+        setCode(stamped)
+        writeGrindDraft(question.id, lang, stamped)
+      }
+
+      if (!navigator.onLine) return
+
       const base = starter || resolveGrindStarterSync(question, lang)
       const loaded = await resolveGrindCodeForLoad(question.id, lang, base, question.interviewApproach)
       if (loaded.code !== codeRef.current) {

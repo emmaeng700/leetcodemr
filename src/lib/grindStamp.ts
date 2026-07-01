@@ -61,6 +61,25 @@ export function stripGrindStamp(code: string, lang: GrindLang): string {
   return code
 }
 
+export function sameCalendarDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
+}
+
+/** Return the stamp date for this attempt, rolling forward to today on a new calendar day. */
+function stampDateForQuestion(questionId: number, lang: GrindLang): Date | null {
+  const started = readGrindStartedAt(questionId, lang)
+  if (!started) return null
+  const startedDate = new Date(started)
+  const now = new Date()
+  if (sameCalendarDay(startedDate, now)) return startedDate
+  writeGrindStartedAt(questionId, lang, now.toISOString())
+  return now
+}
+
 export function prependGrindStamp(code: string, lang: GrindLang, date: Date): string {
   const body = stripGrindStamp(code, lang)
   const stamp = formatGrindStamp(lang, date)
@@ -68,10 +87,31 @@ export function prependGrindStamp(code: string, lang: GrindLang, date: Date): st
   return `${stamp}\n${body}`
 }
 
-/** First edit (or reconnect) stamps the file so you know you attempted this question before. */
+/** Re-apply or bump the Grind date header when revisiting on a new day. */
+export function refreshGrindStampOnRecheck(
+  questionId: number,
+  lang: GrindLang,
+  code: string,
+): string {
+  const normalized = normalizeGrindCode(code)
+  const startedIso = readGrindStartedAt(questionId, lang)
+  if (!startedIso) return normalized
+
+  const before = new Date(startedIso)
+  const stampDate = stampDateForQuestion(questionId, lang)
+  if (!stampDate) return normalized
+
+  const needsUpdate = !hasGrindStamp(normalized, lang) || !sameCalendarDay(before, stampDate)
+  if (!needsUpdate) return normalized
+  return prependGrindStamp(normalized, lang, stampDate)
+}
+
+/** First edit stamps the file so you know you attempted this question before. */
 export function applyGrindStampOnEdit(questionId: number, lang: GrindLang, code: string): string {
   const normalized = normalizeGrindCode(code)
-  if (hasGrindStamp(normalized, lang)) return normalized
+  if (hasGrindStamp(normalized, lang)) {
+    return refreshGrindStampOnRecheck(questionId, lang, normalized)
+  }
 
   let started = readGrindStartedAt(questionId, lang)
   if (!started) {
@@ -83,8 +123,5 @@ export function applyGrindStampOnEdit(questionId: number, lang: GrindLang, code:
 
 /** Re-apply stamp on load when we have a saved start time but the draft lost its header. */
 export function ensureGrindStampOnLoad(questionId: number, lang: GrindLang, code: string): string {
-  const normalized = normalizeGrindCode(code)
-  const started = readGrindStartedAt(questionId, lang)
-  if (!started) return normalized
-  return prependGrindStamp(normalized, lang, new Date(started))
+  return refreshGrindStampOnRecheck(questionId, lang, code)
 }
