@@ -8,17 +8,19 @@ import { useMobileViewport } from '@/hooks/useMobileViewport'
 import { saveGrindSession } from '@/lib/db'
 import {
   writeGrindDraft,
-  clearGrindStartedAt,
   type GrindLang,
 } from '@/lib/grindStorage'
 import {
   applyGrindStampOnEdit,
-  refreshGrindStampOnRecheck,
+  clearGrindStartedAt,
+  getGrindSessionChipLabel,
 } from '@/lib/grindStamp'
 import {
   ensureGrindStarterCached,
   resolveGrindStarterSync,
 } from '@/lib/grindStarter'
+import { scheduleMidnightGrindRefresh } from '@/lib/grindPipeline'
+import { runGrindRecheckPipeline } from '@/lib/grindRecheck'
 import { resolveGrindCodeForLoad } from '@/lib/grindSync'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 import { formatDescriptionPlain } from '@/lib/formatDescription'
@@ -40,6 +42,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
   const [loading, setLoading] = useState(true)
   const [savedFlash, setSavedFlash] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [sessionLabel, setSessionLabel] = useState<string | null>(null)
   const [syncState, setSyncState] = useState<'local' | 'synced' | 'offline'>('local')
   const [editorExpanded, setEditorExpanded] = useState(false)
   const [extensions, setExtensions] = useState<any[]>([])
@@ -118,6 +121,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
       if (cancelled || gen !== loadGenRef.current) return
 
       setCode(loaded.code)
+      setSessionLabel(loaded.sessionLabel)
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         setSyncState('offline')
       } else {
@@ -183,20 +187,38 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     }
   }, [descriptionHtml])
 
+  const applyRecheckResult = useCallback(
+    (piped: { code: string; sessionLabel: string | null; synced: boolean }) => {
+      if (piped.code !== codeRef.current) {
+        codeRef.current = piped.code
+        setCode(piped.code)
+      }
+      setSessionLabel(piped.sessionLabel)
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setSyncState('offline')
+      } else {
+        setSyncState(piped.synced ? 'synced' : 'local')
+      }
+    },
+    [],
+  )
+
+  const runRecheck = useCallback(async () => {
+    if (loading) return
+    const base = starter || resolveGrindStarterSync(question, lang)
+    const piped = await runGrindRecheckPipeline(
+      question.id,
+      lang,
+      codeRef.current,
+      base,
+      question.interviewApproach,
+    )
+    applyRecheckResult(piped)
+  }, [loading, starter, question, lang, applyRecheckResult])
+
   useEffect(() => {
     const onOnline = () => {
-      setSyncState(prev => (prev === 'offline' ? 'local' : prev))
-      if (typeof navigator !== 'undefined' && navigator.onLine) {
-        const stamped = applyGrindStampOnEdit(question.id, lang, codeRef.current)
-        if (stamped !== codeRef.current) {
-          codeRef.current = stamped
-          setCode(stamped)
-          writeGrindDraft(question.id, lang, stamped)
-        }
-        saveGrindSession(question.id, lang, codeRef.current)
-          .then(() => setSyncState('synced'))
-          .catch(() => setSyncState('local'))
-      }
+      void runRecheck()
     }
     const onOffline = () => setSyncState('offline')
     window.addEventListener('online', onOnline)
@@ -205,28 +227,12 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
       window.removeEventListener('online', onOnline)
       window.removeEventListener('offline', onOffline)
     }
-  }, [question.id, lang])
+  }, [runRecheck])
 
   useEffect(() => {
-    const refreshIfNewer = async () => {
+    const refreshIfNewer = () => {
       if (document.visibilityState !== 'visible' || loading) return
-
-      const stamped = refreshGrindStampOnRecheck(question.id, lang, codeRef.current)
-      if (stamped !== codeRef.current) {
-        codeRef.current = stamped
-        setCode(stamped)
-        writeGrindDraft(question.id, lang, stamped)
-      }
-
-      if (!navigator.onLine) return
-
-      const base = starter || resolveGrindStarterSync(question, lang)
-      const loaded = await resolveGrindCodeForLoad(question.id, lang, base, question.interviewApproach)
-      if (loaded.code !== codeRef.current) {
-        codeRef.current = loaded.code
-        setCode(loaded.code)
-        setSyncState(loaded.synced ? 'synced' : 'local')
-      }
+      void runRecheck()
     }
     document.addEventListener('visibilitychange', refreshIfNewer)
     window.addEventListener('focus', refreshIfNewer)
@@ -234,12 +240,20 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
       document.removeEventListener('visibilitychange', refreshIfNewer)
       window.removeEventListener('focus', refreshIfNewer)
     }
-  }, [question.id, lang, starter, loading, question])
+  }, [runRecheck, loading])
+
+  useEffect(() => {
+    const cancelMidnight = scheduleMidnightGrindRefresh(() => {
+      void runRecheck()
+    })
+    return cancelMidnight
+  }, [runRecheck])
 
   const handleChange = useCallback(
     (val: string) => {
       const next = applyGrindStampOnEdit(question.id, lang, val)
       setCode(next)
+      setSessionLabel(getGrindSessionChipLabel(question.id, lang, next))
       writeGrindDraft(question.id, lang, next)
       setSavedFlash(true)
       setTimeout(() => setSavedFlash(false), 1200)
@@ -261,6 +275,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
   const reset = useCallback(() => {
     clearGrindStartedAt(question.id, lang)
     setCode(starter)
+    setSessionLabel(null)
     writeGrindDraft(question.id, lang, starter)
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       saveGrindSession(question.id, lang, starter).catch(() => {})
@@ -323,8 +338,16 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
 
   const footerBar = (
     <div className="flex items-center justify-between px-4 py-2 bg-[#181825] border-t border-gray-700 flex-wrap gap-2 shrink-0">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap min-w-0">
         {syncLabel}
+        {sessionLabel && (
+          <span
+            className="text-[10px] text-indigo-200/90 bg-indigo-950/50 border border-indigo-800/60 px-2 py-0.5 rounded-full truncate max-w-[14rem] sm:max-w-none"
+            title={`Last grind: ${sessionLabel}`}
+          >
+            Last grind: {sessionLabel}
+          </span>
+        )}
         <span className="text-[10px] text-gray-600 hidden sm:inline">no submit - write from memory</span>
       </div>
       <div className="flex items-center gap-2">

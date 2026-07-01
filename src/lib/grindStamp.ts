@@ -4,6 +4,10 @@ export function grindStartedKey(questionId: number, lang: GrindLang): string {
   return `lm_grind_started_${questionId}_${lang}`
 }
 
+export function grindDayKey(questionId: number, lang: GrindLang): string {
+  return `lm_grind_day_${questionId}_${lang}`
+}
+
 /** Fix drafts saved with literal backslash-n instead of real newlines (offline page bug). */
 export function normalizeGrindCode(code: string): string {
   let out = code.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
@@ -13,20 +17,47 @@ export function normalizeGrindCode(code: string): string {
   return out
 }
 
+export function localCalendarDayKey(date = new Date()): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 export function formatGrindStamp(lang: GrindLang, date = new Date()): string {
-  const label = date.toLocaleString(undefined, {
+  const label = formatGrindSessionChip(date)
+  return lang === 'python3' ? `# Grind: ${label}` : `// Grind: ${label}`
+}
+
+export function formatGrindSessionLabel(date: Date, lang: GrindLang = 'python3'): string {
+  const label = formatGrindSessionChip(date)
+  return lang === 'python3' ? `# ${label}` : `// ${label}`
+}
+
+/** Human-readable session label for the footer chip (no comment prefix). */
+export function formatGrindSessionChip(date: Date): string {
+  return date.toLocaleString(undefined, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
   })
-  return lang === 'python3' ? `# Grind: ${label}` : `// Grind: ${label}`
 }
 
 export function hasGrindStamp(code: string, lang: GrindLang): boolean {
   const first = code.split('\n')[0]?.trim() ?? ''
   return lang === 'python3' ? first.startsWith('# Grind:') : first.startsWith('// Grind:')
+}
+
+/** Parse the date embedded in a `# Grind:` / `// Grind:` header line. */
+export function readStampDateFromCode(code: string, lang: GrindLang): Date | null {
+  const first = code.split('\n')[0]?.trim() ?? ''
+  const prefix = lang === 'python3' ? '# Grind:' : '// Grind:'
+  if (!first.startsWith(prefix)) return null
+  const label = first.slice(prefix.length).trim()
+  const parsed = new Date(label)
+  return Number.isFinite(parsed.getTime()) ? parsed : null
 }
 
 export function readGrindStartedAt(questionId: number, lang: GrindLang): string | null {
@@ -46,9 +77,35 @@ export function writeGrindStartedAt(questionId: number, lang: GrindLang, iso: st
   }
 }
 
+export function readGrindDay(questionId: number, lang: GrindLang): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return localStorage.getItem(grindDayKey(questionId, lang))
+  } catch {
+    return null
+  }
+}
+
+export function writeGrindDay(questionId: number, lang: GrindLang, dayKey: string): void {
+  try {
+    localStorage.setItem(grindDayKey(questionId, lang), dayKey)
+  } catch {
+    /* quota */
+  }
+}
+
+export function clearGrindDay(questionId: number, lang: GrindLang): void {
+  try {
+    localStorage.removeItem(grindDayKey(questionId, lang))
+  } catch {
+    /* ignore */
+  }
+}
+
 export function clearGrindStartedAt(questionId: number, lang: GrindLang): void {
   try {
     localStorage.removeItem(grindStartedKey(questionId, lang))
+    clearGrindDay(questionId, lang)
   } catch {
     /* ignore */
   }
@@ -62,22 +119,53 @@ export function stripGrindStamp(code: string, lang: GrindLang): string {
 }
 
 export function sameCalendarDay(a: Date, b: Date): boolean {
+  return localCalendarDayKey(a) === localCalendarDayKey(b)
+}
+
+function hasGrindAttempt(questionId: number, lang: GrindLang, code: string): boolean {
   return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
+    hasGrindStamp(code, lang) ||
+    readGrindDay(questionId, lang) !== null ||
+    readGrindStartedAt(questionId, lang) !== null
   )
 }
 
-/** Return the stamp date for this attempt, rolling forward to today on a new calendar day. */
-function stampDateForQuestion(questionId: number, lang: GrindLang): Date | null {
+function inferSessionDay(questionId: number, lang: GrindLang, code: string): string | null {
+  const explicit = readGrindDay(questionId, lang)
+  if (explicit) return explicit
+  const fromCode = readStampDateFromCode(code, lang)
+  if (fromCode) return localCalendarDayKey(fromCode)
   const started = readGrindStartedAt(questionId, lang)
-  if (!started) return null
-  const startedDate = new Date(started)
-  const now = new Date()
-  if (sameCalendarDay(startedDate, now)) return startedDate
-  writeGrindStartedAt(questionId, lang, now.toISOString())
-  return now
+  if (started) return localCalendarDayKey(new Date(started))
+  return null
+}
+
+export function getGrindSessionDate(
+  questionId: number,
+  lang: GrindLang,
+  code: string,
+): Date | null {
+  if (!hasGrindAttempt(questionId, lang, code)) return null
+  const started = readGrindStartedAt(questionId, lang)
+  if (started) {
+    const parsed = new Date(started)
+    if (Number.isFinite(parsed.getTime())) return parsed
+  }
+  const fromCode = readStampDateFromCode(code, lang)
+  if (fromCode) return fromCode
+  const day = inferSessionDay(questionId, lang, code)
+  if (!day) return null
+  const [y, m, d] = day.split('-').map(Number)
+  return new Date(y, m - 1, d, 12, 0, 0, 0)
+}
+
+export function getGrindSessionChipLabel(
+  questionId: number,
+  lang: GrindLang,
+  code: string,
+): string | null {
+  const date = getGrindSessionDate(questionId, lang, code)
+  return date ? formatGrindSessionChip(date) : null
 }
 
 export function prependGrindStamp(code: string, lang: GrindLang, date: Date): string {
@@ -94,16 +182,22 @@ export function refreshGrindStampOnRecheck(
   code: string,
 ): string {
   const normalized = normalizeGrindCode(code)
-  const startedIso = readGrindStartedAt(questionId, lang)
-  if (!startedIso) return normalized
+  const today = localCalendarDayKey()
 
-  const before = new Date(startedIso)
-  const stampDate = stampDateForQuestion(questionId, lang)
-  if (!stampDate) return normalized
+  if (!hasGrindAttempt(questionId, lang, normalized)) return normalized
 
-  const needsUpdate = !hasGrindStamp(normalized, lang) || !sameCalendarDay(before, stampDate)
-  if (!needsUpdate) return normalized
-  return prependGrindStamp(normalized, lang, stampDate)
+  const sessionDay = inferSessionDay(questionId, lang, normalized)
+  const storedDay = readGrindDay(questionId, lang)
+
+  if (sessionDay === today && hasGrindStamp(normalized, lang)) {
+    if (!storedDay) writeGrindDay(questionId, lang, today)
+    return normalized
+  }
+
+  const now = new Date()
+  writeGrindStartedAt(questionId, lang, now.toISOString())
+  writeGrindDay(questionId, lang, today)
+  return prependGrindStamp(normalized, lang, now)
 }
 
 /** First edit stamps the file so you know you attempted this question before. */
@@ -113,12 +207,10 @@ export function applyGrindStampOnEdit(questionId: number, lang: GrindLang, code:
     return refreshGrindStampOnRecheck(questionId, lang, normalized)
   }
 
-  let started = readGrindStartedAt(questionId, lang)
-  if (!started) {
-    started = new Date().toISOString()
-    writeGrindStartedAt(questionId, lang, started)
-  }
-  return prependGrindStamp(normalized, lang, new Date(started))
+  const now = new Date()
+  writeGrindStartedAt(questionId, lang, now.toISOString())
+  writeGrindDay(questionId, lang, localCalendarDayKey(now))
+  return prependGrindStamp(normalized, lang, now)
 }
 
 /** Re-apply stamp on load when we have a saved start time but the draft lost its header. */
