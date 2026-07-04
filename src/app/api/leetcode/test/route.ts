@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
           hint =
             'LeetCode rate-limited this run (HTTP 429). Wait a bit and try again — repeated Run attempts can trigger temporary blocks.'
         } else {
-            hint = `Cloudflare blocked the request (HTTP ${st}). Fix: on leetcode.com open DevTools → Network tab → click any request → copy the full Cookie header value (must include cf_clearance) → paste it into the session field and retry.`
+            hint = `Cloudflare blocked the request (HTTP ${st}). Paste the full Cookie header from leetcode.com (include cf_clearance) into Session and retry.`
         }
       } else {
         hint = parsed.error

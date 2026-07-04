@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.ok) {
       const hint =
         parsed.error === 'non_json_html'
-          ? `Cloudflare blocked the request (HTTP ${res.status}). Fix: on leetcode.com open DevTools → Network tab → click any request → copy the full Cookie header value (must include cf_clearance) → paste it into the session field and retry.`
+          ? `Cloudflare blocked the request (HTTP ${res.status}). Paste the full Cookie header from leetcode.com (include cf_clearance) into Session and retry.`
           : parsed.error
       return NextResponse.json({ error: hint, httpStatus: res.status }, { status: 502 })
     }

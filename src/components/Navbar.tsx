@@ -9,7 +9,7 @@ import {
   Layers, GitBranch, MessageSquare, Gem, Server, Clock,
   Calendar, Info, Timer, Code2, Zap, Gamepad2, RefreshCw, Library,
   BookOpen, Swords, Rocket, Download, Bookmark, ClipboardList, Settings, Check,
-  ChevronDown,
+  ChevronDown, ExternalLink,
 } from 'lucide-react'
 import { isMcpSectionPath, mcpTabUrl, type McpTab } from '@/lib/mcpNav'
 import {
@@ -25,6 +25,7 @@ type NavLink = { href: string; label: string; icon: React.ElementType; also?: st
 // ── Starred (core daily-use pages) ───────────────────────────────────────────
 const STARRED_LINKS: NavLink[] = [
   { href: '/grind',  label: 'Grind',     icon: Code2 },
+  { href: '/leetcode', label: 'LeetCode', icon: ExternalLink },
   { href: '/daily',  label: '★ Daily',   icon: Calendar },
   { href: '/review', label: '★ Reviews', icon: Brain,    also: ['/quick-review', '/sr-queue', '/pattern-review', '/best-solutions'] },
 ]
@@ -197,7 +198,7 @@ export default function Navbar() {
         const reg = await navigator.serviceWorker.getRegistration()
         if (reg?.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' })
         await fetch(`/sw.js?reload=${Date.now()}`, { cache: 'no-store' }).catch(() => {})
-        await fetch(`/sw-v11.js?reload=${Date.now()}`, { cache: 'no-store' }).catch(() => {})
+        await fetch(`/sw-v25.js?reload=${Date.now()}`, { cache: 'no-store' }).catch(() => {})
         void reg?.update()
       }
       window.location.href = window.location.href

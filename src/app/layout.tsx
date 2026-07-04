@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import SwRegister from '@/components/SwRegister'
+import ChunkLoadRecovery from '@/components/ChunkLoadRecovery'
 import ThemeProvider from '@/components/ThemeProvider'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -30,6 +31,7 @@ export default function RootLayout({
       <head />
       <body className={inter.className} suppressHydrationWarning>
         <ThemeProvider>
+          <ChunkLoadRecovery />
           <SwRegister />
           {children}
         </ThemeProvider>

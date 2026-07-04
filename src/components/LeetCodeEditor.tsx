@@ -9,7 +9,9 @@ import {
 } from 'lucide-react'
 import { getProgress, updateProgress, incrementAcSubmitCount, incrementWrongSubmitCount } from '@/lib/db'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
-import { normalizeLcCookieValue, getCookieFromHeader } from '@/lib/leetcodeHttp'
+import { normalizeLcCookieValue, getCookieFromHeader, hasCfClearance, parseStoredLcSession } from '@/lib/leetcodeHttp'
+import { cloudflareHelp, getLcTransport, lcCheck, lcGraphql, lcRunTest, lcSubmit, type LcTransport } from '@/lib/leetcodeClient'
+import { extBridgeHealthy, hasLeetMasteryBridge } from '@/lib/leetcodeExtensionBridge'
 import toast from 'react-hot-toast'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
@@ -269,6 +271,8 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
   const [cleaned, setCleaned] = useState(false)
 
   const canSave = s.trim().length > 10
+  const fullCookieJar = /LEETCODE_SESSION\s*=/.test(s.trim()) && s.trim().includes(';')
+  const hasCf = fullCookieJar && hasCfClearance(s.trim())
 
   /**
    * Collapse all whitespace runs (newlines, tabs, multiple spaces) down to a
@@ -304,9 +308,19 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
         <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xs">✕</button>
       </div>
       <p className="text-[11px] text-gray-400 leading-relaxed">
-        <strong className="text-orange-300">For Run/Submit:</strong> leetcode.com → F12 → Network tab → click any request → Headers → copy the full <code className="bg-gray-800 px-1 rounded text-orange-300">Cookie</code> header value (includes <code className="bg-gray-800 px-1 rounded text-orange-300">cf_clearance</code> needed to bypass Cloudflare).
-        <br className="hidden sm:block" /><span className="text-gray-500"> Or paste just your LEETCODE_SESSION for question loading only.</span>
+        <strong className="text-orange-300">For Run/Submit:</strong> on leetcode.com → F12 → Network → any request → copy the full <code className="bg-gray-800 px-1 rounded text-orange-300">Cookie</code> header (must include <code className="bg-gray-800 px-1 rounded text-orange-300">cf_clearance</code>).
+        <br className="hidden sm:block" />
+        <span className="text-gray-500">Or stay logged into leetcode.com in Chrome with the LeetMastery extension loaded — no paste needed.</span>
       </p>
+      {fullCookieJar && hasCf && (
+        <p className="text-[11px] text-green-400 font-semibold">✓ Full cookie header with cf_clearance</p>
+      )}
+      {canSave && !fullCookieJar && (
+        <p className="text-[11px] text-amber-400">Session token only — paste the full Cookie header for Run/Submit.</p>
+      )}
+      {fullCookieJar && !hasCf && (
+        <p className="text-[11px] text-amber-400">Missing cf_clearance — copy Cookie from leetcode.com right after the page loads.</p>
+      )}
 
       <div className="flex gap-1.5">
         <div className="relative flex-1">
@@ -355,6 +369,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [sessionReady, setSessionReady] = useState(false)
   const effectiveCsrf = csrf || getCookieFromHeader(session, 'csrftoken')
   const sessionOK = !!(session && effectiveCsrf)
+  const [bridgeOK, setBridgeOK] = useState(false)
+  const canRunSubmit = sessionOK || bridgeOK
 
   /* LeetCode question data */
   const [lcQ,     setLcQ]     = useState<LCQuestion | null>(null)
@@ -385,6 +401,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [resultErr,  setResultErr]  = useState('')
   const [solvedStatus, setSolvedStatus] = useState<'marked' | 'already' | 'not-in-library' | null>(null)
   const [showSessionHint, setShowSessionHint] = useState(false)
+  const [lcTransport, setLcTransport] = useState<LcTransport | null>(null)
   const [editorExpanded,  setEditorExpanded]  = useState(false)
   const [savingBest, setSavingBest] = useState<'idle' | 'saving' | 'saved'>('idle')
   const availableLangs = useMemo<SupportedLang[]>(() => {
@@ -422,29 +439,36 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   }, [code, lang, appQuestionId, savingBest])
 
   const fetchQuestionPayload = useCallback(async (body: object) => {
-    return fetch('/api/leetcode', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }).then(r => r.json())
+    const r = await lcGraphql(body as Record<string, unknown>)
+    if (r.transport === 'extension') setBridgeOK(true)
+    const json = r.data as {
+      data?: { question?: LCQuestion & { isPaidOnly?: boolean }; problemsetQuestionListV2?: { questions?: { titleSlug?: string }[] } }
+      errors?: Array<{ message?: string }>
+      error?: string
+    }
+    if (json.errors?.length) throw new Error(json.errors[0]?.message)
+    if (json.error && !json.data) {
+      throw new Error(String(json.error) + cloudflareHelp(r.transport))
+    }
+    return json
   }, [])
 
   /* ── Load session — localStorage first, Supabase fallback ── */
   useEffect(() => {
 
-    const ls = normalizeLcCookieValue(localStorage.getItem('lc_session') ?? '')
-    const lc = normalizeLcCookieValue(localStorage.getItem('lc_csrf') ?? '')
-    const localDerivedCsrf = lc || getCookieFromHeader(ls, 'csrftoken')
+    const { session: ls, csrf: localDerivedCsrf } = parseStoredLcSession(
+      localStorage.getItem('lc_session'),
+      localStorage.getItem('lc_csrf'),
+    )
     if (ls && localDerivedCsrf) {
       setSession(ls); setCsrf(localDerivedCsrf); setSessionReady(true)
+      localStorage.setItem('lc_session', ls)
       localStorage.setItem('lc_csrf', localDerivedCsrf)
     } else {
-      // localStorage empty — fetch from Supabase and sync back
       fetch('/api/lc-session')
         .then(r => r.json())
         .then(d => {
-          const s = normalizeLcCookieValue(d.lc_session)
-          const t = normalizeLcCookieValue(d.lc_csrf) || getCookieFromHeader(s, 'csrftoken')
+          const { session: s, csrf: t } = parseStoredLcSession(d.lc_session, d.lc_csrf)
           if (s && t) {
             setSession(s); setCsrf(t)
             localStorage.setItem('lc_session', s)
@@ -455,17 +479,23 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         .finally(() => setSessionReady(true))
     }
 
-    // Re-read localStorage whenever the user focuses this tab/window.
-    // Covers the case where they saved their session on another page
-    // (e.g. /leetcode-api) and navigated back via soft navigation —
-    // the component stays mounted but needs the fresh session to retry.
     const onFocus = () => {
-      const s = normalizeLcCookieValue(localStorage.getItem('lc_session') ?? '')
-      const c = normalizeLcCookieValue(localStorage.getItem('lc_csrf') ?? '') || getCookieFromHeader(s, 'csrftoken')
+      const { session: s, csrf: c } = parseStoredLcSession(
+        localStorage.getItem('lc_session'),
+        localStorage.getItem('lc_csrf'),
+      )
       if (s && c) { setSession(s); setCsrf(c) }
     }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
+  }, [])
+
+  useEffect(() => {
+    if (hasLeetMasteryBridge()) {
+      void extBridgeHealthy().then(setBridgeOK)
+    } else {
+      setBridgeOK(false)
+    }
   }, [])
 
   /* ── Load CodeMirror extensions ── */
@@ -672,27 +702,27 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     for (let i = 0; i < 30; i++) {
       await new Promise(r => setTimeout(r, 1000))
       setPollMsg(`Judging… ${i + 1}s`)
-      let res!: Response
       let data: (LCResult & { error?: string }) | undefined
+      let transport: LcTransport = 'api'
       for (let att = 0; att < 3; att++) {
-        res = await fetch('/api/leetcode/check', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ checkId, titleSlug: lcSlug, session, csrfToken: csrf }),
+        const r = await lcCheck({
+          checkId,
+          titleSlug: lcSlug,
+          session,
+          csrfToken: csrf,
         })
-        const raw = await res.text()
-        try {
-          data = JSON.parse(raw) as LCResult & { error?: string }
-          break
-        } catch {
-          if (att < 2) await new Promise(r => setTimeout(r, 400 * (att + 1)))
-        }
+        transport = r.transport
+        data = r.data as unknown as LCResult & { error?: string }
+        if (data.error && !r.ok) break
+        if (data.state) break
+        if (att < 2) await new Promise(res => setTimeout(res, 400 * (att + 1)))
       }
       if (data === undefined) {
         setResultErr('Run failed.')
         setRunning(false); setPollMsg(''); return
       }
-      if (!res.ok && data.error) {
-        setResultErr(String(data.status_msg || data.error))
+      if (data.error && !data.state) {
+        setResultErr(String(data.status_msg || data.error) + cloudflareHelp(transport))
         setRunning(false); setPollMsg(''); return
       }
       if (data.state !== 'PENDING' && data.state !== 'STARTED') {
@@ -742,40 +772,36 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
   /* ── Run test ── */
   const runTest = async () => {
-    if (!lcQ || !sessionOK) return
+    if (!lcQ || !canRunSubmit) return
     const now = Date.now()
     if (runCooldownUntil > now) return
     const syntaxErr = checkPythonSyntax(code, lang)
     if (syntaxErr) { setResultErr(syntaxErr); setBottomTab('result'); return }
     setRunning(true); setRunMode('test'); setResult(null); setResultErr(''); setSolvedStatus(null); setPollMsg('Sending…'); setBottomTab('result')
     try {
-      const res = await fetch('/api/leetcode/test', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ titleSlug: lcSlug, questionId: lcQ.questionId, lang: LANG_LC[lang], code, testInput: cases[activeCase]?.raw || testInput, session, csrfToken: csrf }),
+      const r = await lcRunTest({
+        titleSlug: lcSlug,
+        questionId: lcQ.questionId,
+        lang: LANG_LC[lang],
+        code,
+        testInput: cases[activeCase]?.raw || testInput,
+        session,
+        csrfToken: csrf,
       })
-      const retryAfterHeader = res.headers.get('Retry-After')
-      const raw = await res.text()
-      let data: { error?: string; interpret_id?: string }
-      try {
-        data = JSON.parse(raw) as { error?: string; interpret_id?: string }
-      } catch {
-        setResultErr('Run failed.')
-        setRunning(false); setPollMsg(''); return
-      }
-      if (!res.ok && res.status === 429) {
-        const retryAfterSec =
-          (data as any)?.retryAfterSec
-            ? Number((data as any).retryAfterSec)
-            : retryAfterHeader
-              ? Number(retryAfterHeader)
-              : 30
-        const until = Date.now() + Math.max(5, Number.isFinite(retryAfterSec) ? retryAfterSec : 30) * 1000
+      setLcTransport(r.transport)
+      if (r.transport === 'extension') setBridgeOK(true)
+      const data = r.data as { error?: string; interpret_id?: string }
+      if (r.status === 429) {
+        const retryAfterSec = r.retryAfterSec ?? 30
+        const until = Date.now() + Math.max(5, retryAfterSec) * 1000
         setRunCooldownUntil(until)
       } else {
-        // Always add a tiny debounce so accidental double-clicks don’t hammer LeetCode.
         setRunCooldownUntil(Date.now() + 1500)
       }
-      if (data.error) { setResultErr(data.error); setRunning(false); setPollMsg(''); return }
+      if (data.error) {
+        setResultErr(String(data.error) + cloudflareHelp(r.transport))
+        setRunning(false); setPollMsg(''); return
+      }
       if (data.interpret_id == null) {
         setResultErr('LeetCode did not return a run id.')
         setRunning(false); setPollMsg(''); return
@@ -786,24 +812,26 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
   /* ── Submit ── */
   const runSubmit = async () => {
-    if (!lcQ || !sessionOK) return
+    if (!lcQ || !canRunSubmit) return
     const syntaxErr = checkPythonSyntax(code, lang)
     if (syntaxErr) { setResultErr(syntaxErr); setBottomTab('result'); return }
     setRunning(true); setRunMode('submit'); setResult(null); setResultErr(''); setSolvedStatus(null); setPollMsg('Submitting…'); setBottomTab('result')
     try {
-      const res = await fetch('/api/leetcode/submit', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ titleSlug: lcSlug, questionId: lcQ.questionId, lang: LANG_LC[lang], code, session, csrfToken: csrf }),
+      const r = await lcSubmit({
+        titleSlug: lcSlug,
+        questionId: lcQ.questionId,
+        lang: LANG_LC[lang],
+        code,
+        session,
+        csrfToken: csrf,
       })
-      const raw = await res.text()
-      let data: { error?: string; submission_id?: string }
-      try {
-        data = JSON.parse(raw) as { error?: string; submission_id?: string }
-      } catch {
-        setResultErr('Submit failed.')
+      setLcTransport(r.transport)
+      if (r.transport === 'extension') setBridgeOK(true)
+      const data = r.data as { error?: string; submission_id?: string }
+      if (data.error) {
+        setResultErr(String(data.error) + cloudflareHelp(r.transport))
         setRunning(false); setPollMsg(''); return
       }
-      if (data.error) { setResultErr(data.error); setRunning(false); setPollMsg(''); return }
       if (data.submission_id == null) {
         setResultErr('LeetCode did not return a submission id.')
         setRunning(false); setPollMsg(''); return
@@ -829,7 +857,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       // Cmd/Ctrl + Enter => Submit
       if ((e.key === "'" || e.code === 'Quote') && !running) {
         e.preventDefault()
-        if (!sessionOK) {
+        if (!canRunSubmit) {
           setShowSessionHint(true)
           return
         }
@@ -839,7 +867,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
       if (e.key === 'Enter' && !running) {
         e.preventDefault()
-        if (!sessionOK) {
+        if (!canRunSubmit) {
           setShowSessionHint(true)
           return
         }
@@ -851,7 +879,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     // preventDefault() stops the Enter newline from being inserted first.
     window.addEventListener('keydown', onKeyDown, { capture: true })
     return () => window.removeEventListener('keydown', onKeyDown, { capture: true })
-  }, [runSubmit, runTest, running, sessionOK])
+  }, [runSubmit, runTest, running, canRunSubmit])
 
   const isAC = result?.status_code === 10
 
@@ -901,9 +929,9 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           {/* Session button — always visible so session can be updated any time */}
           <button onClick={() => setShowSessionHint(h => !h)}
             style={{ touchAction: 'manipulation' }}
-            className={`ml-auto sm:ml-0 flex items-center gap-1 text-xs transition shrink-0 ${sessionOK ? 'text-gray-500 hover:text-gray-300' : 'text-orange-400 hover:text-orange-300'}`}>
+            className={`ml-auto sm:ml-0 flex items-center gap-1 text-xs transition shrink-0 ${canRunSubmit ? 'text-gray-500 hover:text-gray-300' : 'text-orange-400 hover:text-orange-300'}`}>
             <Key size={11} />
-            <span className="hidden sm:inline">{sessionOK ? 'Session' : 'Setup session'}</span>
+            <span className="hidden sm:inline">{bridgeOK && !sessionOK ? 'Browser' : canRunSubmit ? 'Session' : 'Setup session'}</span>
             <span className="sm:hidden text-[10px]">Session</span>
             {showSessionHint ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
           </button>
@@ -930,17 +958,17 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
               {savingBest === 'saved' ? <BookmarkCheck size={12} /> : <Bookmark size={12} />}
               Best
             </button>
-            <button onClick={!sessionOK ? () => setShowSessionHint(true) : runTest}
-              disabled={running || (!sessionOK && false) || (sessionOK && !lcQ)}
+            <button onClick={!canRunSubmit ? () => setShowSessionHint(true) : runTest}
+              disabled={running || (canRunSubmit && !lcQ)}
               style={{ touchAction: 'manipulation' }}
-              className={`flex items-center gap-1.5 px-4 py-2 min-h-[36px] text-xs font-semibold rounded-lg transition cursor-pointer shrink-0 ${!sessionOK ? 'bg-orange-600/80 text-white hover:bg-orange-500' : 'bg-gray-700 text-gray-200 hover:bg-gray-600 active:bg-gray-500'} disabled:opacity-40`}>
+              className={`flex items-center gap-1.5 px-4 py-2 min-h-[36px] text-xs font-semibold rounded-lg transition cursor-pointer shrink-0 ${!canRunSubmit ? 'bg-orange-600/80 text-white hover:bg-orange-500' : 'bg-gray-700 text-gray-200 hover:bg-gray-600 active:bg-gray-500'} disabled:opacity-40`}>
               {running && runMode === 'test' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
               Run
             </button>
-            <button onClick={!sessionOK ? () => setShowSessionHint(true) : runSubmit}
-              disabled={running || (sessionOK && !lcQ)}
+            <button onClick={!canRunSubmit ? () => setShowSessionHint(true) : runSubmit}
+              disabled={running || (canRunSubmit && !lcQ)}
               style={{ touchAction: 'manipulation' }}
-              className={`flex items-center gap-1.5 px-4 py-2 min-h-[36px] text-xs font-semibold rounded-lg transition cursor-pointer shrink-0 ${!sessionOK ? 'bg-orange-600/80 text-white hover:bg-orange-500' : 'bg-green-600 text-white hover:bg-green-500 active:bg-green-400'} disabled:opacity-40`}>
+              className={`flex items-center gap-1.5 px-4 py-2 min-h-[36px] text-xs font-semibold rounded-lg transition cursor-pointer shrink-0 ${!canRunSubmit ? 'bg-orange-600/80 text-white hover:bg-orange-500' : 'bg-green-600 text-white hover:bg-green-500 active:bg-green-400'} disabled:opacity-40`}>
               {running && runMode === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
               Submit
             </button>
@@ -949,17 +977,17 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
         {/* Row 2: Run + Submit + Best — mobile only, full-width row */}
         <div className="flex sm:hidden gap-2 px-3 pb-2">
-          <button onClick={!sessionOK ? () => setShowSessionHint(true) : runTest}
-            disabled={running || (sessionOK && !lcQ)}
+          <button onClick={!canRunSubmit ? () => setShowSessionHint(true) : runTest}
+            disabled={running || (canRunSubmit && !lcQ)}
             style={{ touchAction: 'manipulation' }}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 min-h-[36px] text-xs font-semibold rounded-lg transition cursor-pointer disabled:opacity-40 ${!sessionOK ? 'bg-orange-600/80 text-white active:bg-orange-500' : 'bg-gray-700 text-gray-200 active:bg-gray-500'}`}>
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 min-h-[36px] text-xs font-semibold rounded-lg transition cursor-pointer disabled:opacity-40 ${!canRunSubmit ? 'bg-orange-600/80 text-white active:bg-orange-500' : 'bg-gray-700 text-gray-200 active:bg-gray-500'}`}>
             {running && runMode === 'test' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
             Run
           </button>
-          <button onClick={!sessionOK ? () => setShowSessionHint(true) : runSubmit}
-            disabled={running || (sessionOK && !lcQ)}
+          <button onClick={!canRunSubmit ? () => setShowSessionHint(true) : runSubmit}
+            disabled={running || (canRunSubmit && !lcQ)}
             style={{ touchAction: 'manipulation' }}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 min-h-[36px] text-xs font-semibold rounded-lg transition cursor-pointer disabled:opacity-40 ${!sessionOK ? 'bg-orange-600/80 text-white active:bg-orange-500' : 'bg-green-600 text-white active:bg-green-400'}`}>
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 min-h-[36px] text-xs font-semibold rounded-lg transition cursor-pointer disabled:opacity-40 ${!canRunSubmit ? 'bg-orange-600/80 text-white active:bg-orange-500' : 'bg-green-600 text-white active:bg-green-400'}`}>
             {running && runMode === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
             Submit
           </button>
@@ -1225,17 +1253,17 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
             <div className="shrink-0 flex gap-2 px-3 py-2 bg-[#16213e] border-t border-gray-700/50">
               <button
                 onPointerDown={e => e.preventDefault()}
-                onClick={!sessionOK ? () => setShowSessionHint(true) : runTest}
+                onClick={!canRunSubmit ? () => setShowSessionHint(true) : runTest}
                 style={{ touchAction: 'manipulation' }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition ${!sessionOK ? 'bg-orange-600/80 text-white active:bg-orange-500' : 'bg-gray-700 text-gray-200 active:bg-gray-500'} ${running ? 'opacity-50' : ''}`}>
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition ${!canRunSubmit ? 'bg-orange-600/80 text-white active:bg-orange-500' : 'bg-gray-700 text-gray-200 active:bg-gray-500'} ${running ? 'opacity-50' : ''}`}>
                 {running && runMode === 'test' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
                 Run
               </button>
               <button
                 onPointerDown={e => e.preventDefault()}
-                onClick={!sessionOK ? () => setShowSessionHint(true) : runSubmit}
+                onClick={!canRunSubmit ? () => setShowSessionHint(true) : runSubmit}
                 style={{ touchAction: 'manipulation' }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition ${!sessionOK ? 'bg-orange-600/80 text-white active:bg-orange-500' : 'bg-green-600 text-white active:bg-green-400'} ${running ? 'opacity-50' : ''}`}>
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition ${!canRunSubmit ? 'bg-orange-600/80 text-white active:bg-orange-500' : 'bg-green-600 text-white active:bg-green-400'} ${running ? 'opacity-50' : ''}`}>
                 {running && runMode === 'submit' ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
                 Submit
               </button>

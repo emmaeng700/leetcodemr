@@ -8,10 +8,11 @@ export function toLeetCodeQuestionId(raw: unknown): number | string {
   return Number.isFinite(n) ? n : String(raw ?? '')
 }
 
-/** User pasted "LEETCODE_SESSION=..." into the value field, or added quotes/newlines */
+/** User pasted "LEETCODE_SESSION=..." value only, or added quotes/newlines — not a full cookie jar. */
 export function normalizeLcCookieValue(raw: unknown): string {
   let s = String(raw ?? '').trim()
   if (!s) return ''
+  if (looksLikeLcCookieJar(s)) return s.replace(/^cookie:\s*/i, '').trim()
   const stripName = (name: string) => {
     const re = new RegExp(`^${name}\\s*=\\s*(.+)$`, 'i')
     const m = s.match(re)
@@ -19,10 +20,41 @@ export function normalizeLcCookieValue(raw: unknown): string {
   }
   stripName('LEETCODE_SESSION')
   stripName('csrftoken')
-  // If user pasted a full Cookie header / cookie jar, keep it for the caller
-  // that expects value-only to handle separately.
   s = s.replace(/^["']|["']$/g, '').trim()
   return s
+}
+
+export function looksLikeLcCookieJar(raw: unknown): boolean {
+  const s = String(raw ?? '').trim().replace(/^cookie:\s*/i, '')
+  return /LEETCODE_SESSION\s*=/.test(s) && s.includes(';')
+}
+
+/** Fix sessions corrupted by an older bug that stripped the LEETCODE_SESSION= prefix. */
+export function repairCorruptedCookieJar(raw: unknown): string {
+  const s = String(raw ?? '').trim().replace(/^cookie:\s*/i, '').trim()
+  if (!s || looksLikeLcCookieJar(s)) return s
+  if (!s.includes(';')) return s
+  const firstSemi = s.indexOf(';')
+  const firstPart = s.slice(0, firstSemi).trim()
+  const rest = s.slice(firstSemi + 1).trim()
+  if (firstPart.includes('=')) return s
+  if (/csrftoken=|cf_clearance=|__cf_bm=/i.test(rest)) {
+    return `LEETCODE_SESSION=${firstPart}; ${rest}`
+  }
+  return s
+}
+
+/** Read session from localStorage/Supabase without corrupting a full Cookie header. */
+export function parseStoredLcSession(rawSession: unknown, rawCsrf?: unknown): { session: string; csrf: string } {
+  const session = repairCorruptedCookieJar(rawSession)
+  if (!session) return { session: '', csrf: '' }
+  if (looksLikeLcCookieJar(session)) {
+    const csrf =
+      normalizeLcCookieValue(rawCsrf) || getCookieFromHeader(session, 'csrftoken')
+    return { session, csrf }
+  }
+  const csrf = normalizeLcCookieValue(rawCsrf) || ''
+  return { session: normalizeLcCookieValue(session), csrf }
 }
 
 export function getCookieFromHeader(cookieHeaderRaw: string, name: string): string {
