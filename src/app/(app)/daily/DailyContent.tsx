@@ -25,6 +25,7 @@ import {
   isPlanDayComplete,
   isQuestionDoneForDailyToday,
   isCatchUpDailyCleared,
+  normalizeRepDate,
 } from '@/lib/dailyCompletion'
 import { isDayComplete } from '@/lib/streakGoals'
 import { getSetProgress, type SetQProgress } from '@/lib/setProgress'
@@ -42,6 +43,7 @@ import {
   reviewHrefForQuestion,
 } from '@/lib/dailyExtension'
 import { dailyQueueKey, practiceDailyHref, getSetDueReviews, practiceReviewHref } from '@/lib/setReviewFlow'
+import { learnHrefForQuestionId } from '@/lib/learnNav'
 import { readSetDailyReps, isSetQuestionDoneForDailyToday } from '@/lib/setDailyReps'
 import ReviewCatchUpBox from '@/components/ReviewCatchUpBox'
 
@@ -288,6 +290,8 @@ export default function DailyPage() {
     () => dailyRepsFromProgress(progress, todayISO()),
     [progress],
   )
+
+  const learnOrderIds = useMemo(() => studyOrder(allQuestions), [allQuestions])
 
   // ── Derived values that must live before any early return (Rules of Hooks) ──
   const isRandomMode = activePlanMode === 'random'
@@ -666,31 +670,28 @@ export default function DailyPage() {
   }
 
   /**
-   * Was this question done as a daily on its scheduled plan day?
-   * Past days: check the question's last_daily_done was on that specific date.
-   * Today: check daily reps done today.
-   * Catch-up (today doing a past day's question): counts toward today's log, not the past day.
+   * Was this question done as a daily for its plan day (on schedule or catch-up)?
+   * Independent of Learn `solved` — Past Days uses this for green Daily badges.
    */
   function isDailyDoneForPlanDay(dayIdx: number, id: number) {
-    if (dayIdx > calendarDayIndex) return false
+    if (!plan || dayIdx > calendarDayIndex) return false
+    const today = todayISO()
+    const repsPerQ = repsPerQRef.current
     if (dayIdx === calendarDayIndex) {
-      return isQuestionDoneForDailyToday(id, progress, todayISO(), dailyReps, repsPerQRef.current)
+      return isQuestionDoneForDailyToday(id, progress, today, dailyReps, repsPerQ)
     }
-    // Past day: only credit if the question was done as daily specifically on that day's date
-    const scheduledDate = plan ? dayScheduledISO(plan.start_date, dayIdx) : null
-    if (!scheduledDate) return !!progress[String(id)]?.solved
-    const lastDone = (progress[String(id)]?.last_daily_done as string | null | undefined)
-    if (!!lastDone && lastDone.startsWith(scheduledDate)) return true
-    // Catch-up: missed-day question cleared in today's daily session
-    if (
-      plan &&
-      !wasDayDoneAsDaily(dayIdx) &&
-      isCatchUpDailyCleared(id, scheduledDate, progress, todayISO(), dailyReps, repsPerQRef.current)
-    ) {
-      const dayIds = plan.question_order.slice(dayIdx * plan.per_day, (dayIdx + 1) * plan.per_day)
-      return dayIds.includes(id)
+    const scheduledDate = dayScheduledISO(plan.start_date, dayIdx)
+    const row = progress[String(id)]
+    const lastDone = normalizeRepDate(row?.last_daily_done)
+    if (lastDone === scheduledDate) {
+      const repDate = normalizeRepDate(row?.daily_rep_date)
+      const repCount = row?.daily_rep_count ?? 0
+      if (repDate === scheduledDate && repCount >= repsPerQ) return true
+      // Legacy rows: last_daily_done on schedule without rep columns
+      if (repCount === 0) return true
     }
-    return false
+    // Catch-up or later daily session — same rules as the "catch-up done" banner
+    return isCatchUpDailyCleared(id, scheduledDate, progress, today, dailyReps, repsPerQ)
   }
 
   /**
@@ -703,15 +704,23 @@ export default function DailyPage() {
     if (!plan) return false
     if (dayIdx >= calendarDayIndex) return false
     const scheduledDate = dayScheduledISO(plan.start_date, dayIdx)
-    // Primary check: daily_log table
-    if ((dailyLog[scheduledDate] ?? 0) >= plan.per_day) return true
-    // Fallback: check per-question last_daily_done (for data predating daily_log)
     const dayIds = plan.question_order.slice(dayIdx * plan.per_day, (dayIdx + 1) * plan.per_day)
     if (dayIds.length === 0) return true
-    return dayIds.every(id => {
-      const lastDone = (progress[String(id)]?.last_daily_done as string | null | undefined)
-      return !!lastDone && lastDone.startsWith(scheduledDate)
+    const repsPerQ = repsPerQRef.current
+    const allOnSchedule = dayIds.every(id => {
+      const row = progress[String(id)]
+      const lastDone = normalizeRepDate(row?.last_daily_done)
+      if (lastDone !== scheduledDate) return false
+      const repDate = normalizeRepDate(row?.daily_rep_date)
+      const repCount = row?.daily_rep_count ?? 0
+      return repDate === scheduledDate && repCount >= repsPerQ
     })
+    if (allOnSchedule) return true
+    // daily_log is global per calendar date — only trust it when each slot's last_daily_done matches
+    if ((dailyLog[scheduledDate] ?? 0) >= plan.per_day) {
+      return dayIds.every(id => normalizeRepDate(progress[String(id)]?.last_daily_done) === scheduledDate)
+    }
+    return false
   }
 
   function countDailyDoneOnPlanDay(dayIdx: number, questionIds: number[]) {
@@ -2169,17 +2178,34 @@ export default function DailyPage() {
                         const dailyDone = isDailyDoneForPlanDay(dayIdx, q.id)
                         return (
                         <div key={q.id} className="flex flex-wrap items-center gap-2 text-sm py-1">
-                          {dailyDone
-                            ? <CheckCircle2 size={14} className="text-green-400 shrink-0" aria-label="Daily done" />
-                            : learned
-                              ? <CheckCircle2 size={14} className="text-indigo-400 shrink-0" aria-label="Learn only" />
-                              : <Circle size={14} className="text-[var(--text-subtle)] shrink-0" />
-                          }
-                          <span className="flex items-center gap-1 shrink-0">
-                            {dailyDone && <span className="text-[9px] font-bold text-green-600">Daily</span>}
-                            {learned && <span className="text-[9px] font-bold text-indigo-500">Learn</span>}
+                          <span className="flex items-center gap-2 shrink-0">
+                            <span className="flex items-center gap-1" title={dailyDone ? 'Daily done' : 'Daily not done'}>
+                              {dailyDone
+                                ? <CheckCircle2 size={14} className="text-green-400 shrink-0" aria-label="Daily done" />
+                                : <Circle size={14} className="text-[var(--text-subtle)] shrink-0" aria-label="Daily not done" />
+                              }
+                              <span className="text-[9px] font-bold text-green-600">Daily</span>
+                            </span>
+                            <span className="flex items-center gap-1" title={learned ? 'Learn done' : 'Learn — tap circle to revise'}>
+                              {learned
+                                ? <CheckCircle2 size={11} className="text-indigo-400 shrink-0" aria-label="Learn done" />
+                                : (
+                                  <Link
+                                    href={learnHrefForQuestionId(q.id, learnOrderIds, { from: 'daily' })}
+                                    className="shrink-0"
+                                    aria-label="Learn not done — open in Learn"
+                                  >
+                                    <Circle size={11} className="text-[var(--text-subtle)] hover:text-indigo-400 transition-colors" />
+                                  </Link>
+                                )
+                              }
+                              <span className="text-[9px] font-bold text-indigo-500">Learn</span>
+                            </span>
                           </span>
-                          <Link href={`/practice/${q.id}`} className="text-[var(--text)] hover:text-indigo-500 break-words flex-1 min-w-[8rem]">
+                          <Link
+                            href={learnHrefForQuestionId(q.id, learnOrderIds, { from: 'daily' })}
+                            className="text-[var(--text)] hover:text-indigo-500 break-words flex-1 min-w-[8rem]"
+                          >
                             {q.title}
                           </Link>
                           <div className="flex items-center gap-2 shrink-0">

@@ -27,3 +27,15 @@ export function isLearnSectionPath(pathname: string): boolean {
 export function learnSetLabel(set: LearnSet): string {
   return set === 1 ? 'L1' : set === 2 ? 'L2' : 'L3'
 }
+
+/** Set 1 Learn URL for a question id (index in canonical study order). */
+export function learnHrefForQuestionId(
+  questionId: number,
+  orderedIds: readonly number[],
+  opts?: { from?: string },
+): string {
+  const idx = orderedIds.indexOf(questionId)
+  const base = idx >= 0 ? `/learn/${idx}` : '/learn/0'
+  if (!opts?.from) return base
+  return `${base}?from=${encodeURIComponent(opts.from)}`
+}
