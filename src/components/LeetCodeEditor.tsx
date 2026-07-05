@@ -265,25 +265,41 @@ function MobileKeybar({
 }
 
 /* ── Inline session form ─────────────────────────────────── */
-function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => void; onClose: () => void }) {
+function maskSessionToken(raw: string): string {
+  const s = raw.trim()
+  if (s.length <= 16) return '••••••••'
+  return `${s.slice(0, 8)}...${s.slice(-6)}`
+}
+
+function SessionPanel({
+  onSave,
+  onClear,
+  onClose,
+  connectedSession = '',
+  saving = false,
+  saveMessage = '',
+}: {
+  onSave: (raw: string) => void | Promise<void>
+  onClear?: () => void
+  onClose: () => void
+  connectedSession?: string
+  saving?: boolean
+  saveMessage?: string
+}) {
   const [s, setS] = useState('')
   const [showS, setShowS] = useState(false)
   const [cleaned, setCleaned] = useState(false)
 
-  const canSave = s.trim().length > 10
+  const canSave = s.trim().length > 10 && !saving
   const trimmed = s.trim()
   const fullCookieJar = /LEETCODE_SESSION\s*=/.test(trimmed) && trimmed.includes(';') && !isSetCookieLine(trimmed)
   const sessionTokenPaste = !fullCookieJar && trimmed.length > 10
   const hasCf = fullCookieJar && hasCfClearance(trimmed)
 
-  /**
-   * Collapse all whitespace runs (newlines, tabs, multiple spaces) down to a
-   * single space, then trim leading/trailing.
-   */
   const handleClean = () => {
     const result = s
-      .replace(/\r?\n|\r/g, ' ')   // newlines → space
-      .replace(/\s+/g, ' ')        // multiple spaces → one space
+      .replace(/\r?\n|\r/g, ' ')
+      .replace(/\s+/g, ' ')
       .trim()
     setS(result)
     setCleaned(true)
@@ -292,16 +308,37 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
 
   const handleSave = () => {
     if (!canSave) return
-    const { session, csrf } = parseStoredLcSession(s.trim(), '')
-    onSave(session, csrf)
+    void onSave(s.trim())
   }
 
   return (
     <div className="bg-[#16213e] border-b border-gray-700/50 px-4 py-3 shrink-0 space-y-2">
       <div className="flex items-center justify-between mb-1">
         <p className="text-xs font-semibold text-gray-200 flex items-center gap-1.5"><Key size={11} className="text-orange-400" /> Connect LeetCode Session</p>
-        <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xs">✕</button>
+        <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xs">Done</button>
       </div>
+
+      {connectedSession && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-2.5 py-2">
+          <p className="text-[11px] text-green-400 font-semibold truncate">
+            Active: {maskSessionToken(connectedSession)}
+          </p>
+          {onClear && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="text-[10px] text-red-400 hover:text-red-300 shrink-0"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
+
+      {saveMessage && (
+        <p className="text-[11px] text-green-400 font-semibold">{saveMessage}</p>
+      )}
+
       <p className="text-[11px] text-gray-400 leading-relaxed">
         Paste <code className="bg-gray-800 px-1 rounded text-orange-300">LEETCODE_SESSION=...</code> from DevTools (Application tab cookie, Set-Cookie line, or bare JWT).
         <br className="hidden sm:block" />
@@ -310,7 +347,7 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
       {fullCookieJar && hasCf && (
         <p className="text-[11px] text-green-400 font-semibold">Full Cookie header with cf_clearance</p>
       )}
-      {sessionTokenPaste && (
+      {sessionTokenPaste && !saveMessage && (
         <p className="text-[11px] text-green-400 font-semibold">Session token detected - click Save</p>
       )}
       {fullCookieJar && !hasCf && (
@@ -326,26 +363,27 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
             placeholder="LEETCODE_SESSION=... or full Cookie header"
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-gray-200 focus:outline-none focus:border-indigo-500 pr-7"
           />
-          <button onClick={() => setShowS(v => !v)} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500">
+          <button type="button" onClick={() => setShowS(v => !v)} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500">
             {showS ? <EyeOff size={11} /> : <Eye size={11} />}
           </button>
         </div>
-        {/* Clean — always visible; collapses all stray whitespace */}
         <button
+          type="button"
           onClick={handleClean}
-          disabled={!s.trim()}
+          disabled={!s.trim() || saving}
           style={{ touchAction: 'manipulation' }}
           className="px-3 py-1.5 bg-gray-700 text-gray-200 text-[11px] font-bold rounded-lg hover:bg-gray-600 disabled:opacity-40 transition shrink-0"
         >
-          {cleaned ? '✓' : 'Clean'}
+          {cleaned ? 'OK' : 'Clean'}
         </button>
         <button
+          type="button"
           onClick={handleSave}
           disabled={!canSave}
           style={{ touchAction: 'manipulation' }}
-          className="px-3 py-1.5 bg-indigo-600 text-white text-[11px] font-bold rounded-lg hover:bg-indigo-500 disabled:opacity-40 transition shrink-0"
+          className="px-3 py-1.5 bg-indigo-600 text-white text-[11px] font-bold rounded-lg hover:bg-indigo-500 disabled:opacity-40 transition shrink-0 min-w-[4.5rem]"
         >
-          Save
+          {saving ? 'Saving...' : 'Save'}
         </button>
       </div>
     </div>
@@ -396,6 +434,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [resultErr,  setResultErr]  = useState('')
   const [solvedStatus, setSolvedStatus] = useState<'marked' | 'already' | 'not-in-library' | null>(null)
   const [showSessionHint, setShowSessionHint] = useState(false)
+  const [sessionSaving, setSessionSaving] = useState(false)
+  const [sessionSaveMsg, setSessionSaveMsg] = useState('')
   const [lcTransport, setLcTransport] = useState<LcTransport | null>(null)
   const [editorExpanded,  setEditorExpanded]  = useState(false)
   const [savingBest, setSavingBest] = useState<'idle' | 'saving' | 'saved'>('idle')
@@ -448,37 +488,66 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     return json
   }, [])
 
-  const persistSession = useCallback(async (s: string, c: string) => {
-    let nextCsrf = c || getCookieFromHeader(s, 'csrftoken')
-    if (s && !nextCsrf) {
-      try {
-        const r = await fetch('/api/lc-csrf', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session: s }),
-        })
-        const d = await r.json() as { csrf?: string }
-        nextCsrf = d.csrf ?? ''
-      } catch { /* ignore */ }
+  const persistSession = useCallback(async (raw: string) => {
+    setSessionSaving(true)
+    setSessionSaveMsg('')
+    const { session: s, csrf: c } = parseStoredLcSession(raw.trim(), '')
+    if (!s) {
+      setSessionSaving(false)
+      setSessionSaveMsg('Could not parse session - check your paste.')
+      toast.error('Could not parse session')
+      return
     }
+
     setSession(s)
-    setCsrf(nextCsrf)
+    setCsrf(c)
     localStorage.setItem('lc_session', s)
-    if (nextCsrf) localStorage.setItem('lc_csrf', nextCsrf)
+    if (c) localStorage.setItem('lc_csrf', c)
     else localStorage.removeItem('lc_csrf')
+    setSessionSaving(false)
+    setSessionSaveMsg(`Saved (${maskSessionToken(s)})`)
+    setLcErr('')
+    setRetryKey(k => k + 1)
+    toast.success('LeetCode session saved')
+
+    void (async () => {
+      let nextCsrf = c || getCookieFromHeader(s, 'csrftoken')
+      if (!nextCsrf) {
+        try {
+          const r = await fetch('/api/lc-csrf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session: s }),
+          })
+          const d = await r.json() as { csrf?: string }
+          nextCsrf = d.csrf ?? ''
+        } catch { /* ignore */ }
+      }
+      if (nextCsrf) {
+        setCsrf(nextCsrf)
+        localStorage.setItem('lc_csrf', nextCsrf)
+        setSessionSaveMsg(`Saved with CSRF (${maskSessionToken(s)})`)
+      }
+      fetch('/api/lc-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lc_session: s, lc_csrf: nextCsrf }),
+      }).catch(() => {})
+    })()
+  }, [])
+
+  const clearSession = useCallback(() => {
+    setSession('')
+    setCsrf('')
+    setSessionSaveMsg('')
+    localStorage.removeItem('lc_session')
+    localStorage.removeItem('lc_csrf')
     fetch('/api/lc-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lc_session: s, lc_csrf: nextCsrf }),
+      body: JSON.stringify({ lc_session: '', lc_csrf: '' }),
     }).catch(() => {})
-    setShowSessionHint(false)
-    setLcErr('')
-    setRetryKey(k => k + 1)
-    if (s && !nextCsrf) {
-      toast('Session saved. Run/Submit may need full Cookie header or the Chrome extension.', { icon: '!' })
-    } else if (s) {
-      toast.success('LeetCode session saved')
-    }
+    toast.success('Session cleared')
   }, [])
 
   /* ── Load session — localStorage first, Supabase fallback ── */
@@ -974,9 +1043,9 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           {/* Session button — always visible so session can be updated any time */}
           <button onClick={() => setShowSessionHint(h => !h)}
             style={{ touchAction: 'manipulation' }}
-            className={`ml-auto sm:ml-0 flex items-center gap-1 text-xs transition shrink-0 ${canRunSubmit ? 'text-gray-500 hover:text-gray-300' : 'text-orange-400 hover:text-orange-300'}`}>
+            className={`ml-auto sm:ml-0 flex items-center gap-1 text-xs transition shrink-0 ${hasSession || bridgeOK ? 'text-green-400 hover:text-green-300' : 'text-orange-400 hover:text-orange-300'}`}>
             <Key size={11} />
-            <span className="hidden sm:inline">{bridgeOK && !hasSession ? 'Browser' : hasSession || bridgeOK ? 'Session' : 'Setup session'}</span>
+            <span className="hidden sm:inline">{bridgeOK && !hasSession ? 'Browser' : hasSession ? 'Session OK' : bridgeOK ? 'Session' : 'Setup session'}</span>
             <span className="sm:hidden text-[10px]">Session</span>
             {showSessionHint ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
           </button>
@@ -1052,7 +1121,11 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       {/* Session panel — inline form so users can enter session without leaving the page */}
       {showSessionHint && (
         <SessionPanel
-          onSave={(s, c) => { void persistSession(s, c) }}
+          connectedSession={session}
+          saving={sessionSaving}
+          saveMessage={sessionSaveMsg}
+          onSave={persistSession}
+          onClear={clearSession}
           onClose={() => setShowSessionHint(false)}
         />
       )}
@@ -1218,7 +1291,11 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
             {/* Session panel (if open) */}
             {showSessionHint && (
               <SessionPanel
-                onSave={(s, c) => { void persistSession(s, c) }}
+                connectedSession={session}
+                saving={sessionSaving}
+                saveMessage={sessionSaveMsg}
+                onSave={persistSession}
+                onClear={clearSession}
                 onClose={() => setShowSessionHint(false)}
               />
             )}
