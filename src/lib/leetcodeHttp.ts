@@ -2,6 +2,11 @@ import { isLeetCodeHtmlBody } from '@/lib/parseLeetCodeResponse'
 
 const LC = 'https://leetcode.com'
 
+const UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
+export const lcFetchInit: Pick<RequestInit, 'cache'> = { cache: 'no-store' }
+
 /** LeetCode accepts numeric backend id; GraphQL often returns a string. */
 export function toLeetCodeQuestionId(raw: unknown): number | string {
   const n = Number(raw)
@@ -126,6 +131,88 @@ export function parseSetCookieHeaderValue(setCookie: string, name: string): stri
   return ''
 }
 
+function readResponseSetCookies(res: Response): string[] {
+  if (typeof res.headers.getSetCookie === 'function') {
+    return res.headers.getSetCookie()
+  }
+  const raw = res.headers.get('set-cookie')
+  return raw ? [raw] : []
+}
+
+function parseCsrfFromHtml(html: string): string {
+  const patterns = [
+    /name=['"]csrfmiddlewaretoken['"]\s+value=['"]([^'"]+)['"]/i,
+    /['"]csrfToken['"]\s*:\s*['"]([^'"]+)['"]/,
+    /['"]csrftoken['"]\s*:\s*['"]([^'"]+)['"]/,
+    /csrftoken=([A-Za-z0-9]+)/,
+  ]
+  for (const re of patterns) {
+    const m = html.match(re)
+    if (m?.[1]) return m[1]
+  }
+  return ''
+}
+
+/** Fetch csrftoken from leetcode.com when user saved LEETCODE_SESSION only. */
+export async function bootstrapLcCsrf(rawSession: unknown): Promise<string> {
+  const raw = String(rawSession ?? '').trim()
+  if (!raw) return ''
+
+  const fromJar = looksLikeLcCookieJar(raw) ? getCookieFromHeader(raw, 'csrftoken') : ''
+  if (fromJar) return fromJar
+
+  const sessionValue = extractLeetCodeSessionValue(raw)
+  if (!sessionValue) return ''
+
+  const cookie = `LEETCODE_SESSION=${sessionValue}`
+  const urls = [
+    `${LC}/`,
+    `${LC}/problemset/`,
+    `${LC}/accounts/login/`,
+  ]
+
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Cookie: cookie,
+          'User-Agent': UA,
+          Accept: 'text/html,application/xhtml+xml,*/*;q=0.9',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        redirect: 'follow',
+        ...lcFetchInit,
+      })
+
+      for (const h of readResponseSetCookies(res)) {
+        const csrf = parseSetCookieHeaderValue(h, 'csrftoken')
+        if (csrf) return csrf
+      }
+
+      const text = await res.text()
+      const fromHtml = parseCsrfFromHtml(text)
+      if (fromHtml) return fromHtml
+    } catch {
+      /* try next url */
+    }
+  }
+
+  return ''
+}
+
+/** Resolve session + csrf, bootstrapping csrftoken from LeetCode when needed. */
+export async function resolveLcSessionCredentials(
+  rawSession: unknown,
+  rawCsrf?: unknown,
+): Promise<{ session: string; csrf: string }> {
+  const parsed = parseStoredLcSession(rawSession, rawCsrf)
+  let csrf = parsed.csrf || getCookieFromHeader(parsed.session, 'csrftoken')
+  if (parsed.session && !csrf) {
+    csrf = await bootstrapLcCsrf(parsed.session)
+  }
+  return { session: parsed.session, csrf }
+}
+
 /** True when a pasted cookie jar includes Cloudflare clearance (needed for Vercel Run/Submit). */
 export function hasCfClearance(cookieHeaderRaw: string): boolean {
   return !!getCookieFromHeader(cookieHeaderRaw, 'cf_clearance')
@@ -152,9 +239,6 @@ export function normalizeLcCookieHeader(rawSessionOrCookieJar: unknown, csrfToke
   const csrf = normalizeLcCookieValue(rawCsrf)
   return { cookie: `LEETCODE_SESSION=${sess}; csrftoken=${csrf}`, csrf }
 }
-
-const UA =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 
 export type LcProblemReferer = 'description' | 'problem-root'
 
@@ -249,8 +333,6 @@ export function leetCodeCheckHeaders(
   }
   return base
 }
-
-export const lcFetchInit: Pick<RequestInit, 'cache'> = { cache: 'no-store' }
 
 const RETRY_MS = 450
 

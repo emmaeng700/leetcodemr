@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseLeetCodeJsonText } from '@/lib/parseLeetCodeResponse'
-import { fetchLeetCodeProblemPost, toLeetCodeQuestionId } from '@/lib/leetcodeHttp'
+import { fetchLeetCodeProblemPost, resolveLcSessionCredentials, toLeetCodeQuestionId } from '@/lib/leetcodeHttp'
 
 const LC = 'https://leetcode.com'
 
 export async function POST(req: NextRequest) {
   try {
-    const { titleSlug, questionId, lang, code, session, csrfToken } = await req.json()
+    const body = await req.json()
+    const { titleSlug, questionId, lang, code, session, csrfToken } = body
 
-    if (!session || !csrfToken) {
-      return NextResponse.json({ error: 'Missing LEETCODE_SESSION or csrftoken' }, { status: 401 })
+    const { session: sess, csrf } = await resolveLcSessionCredentials(session, csrfToken)
+    if (!sess || !csrf) {
+      return NextResponse.json({
+        error: 'Missing csrftoken. Also paste csrftoken from DevTools (Application > Cookies on leetcode.com), or use the full Cookie header with cf_clearance.',
+      }, { status: 401 })
     }
 
     const qid = toLeetCodeQuestionId(questionId)
@@ -24,8 +28,8 @@ export async function POST(req: NextRequest) {
         judge_type: 'large',
       },
       String(titleSlug),
-      session,
-      csrfToken,
+      sess,
+      csrf,
     )
 
     const parsed = parseLeetCodeJsonText(text, res.status)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseLeetCodeJsonText } from '@/lib/parseLeetCodeResponse'
-import { fetchLeetCodeCheckGet } from '@/lib/leetcodeHttp'
+import { fetchLeetCodeCheckGet, resolveLcSessionCredentials } from '@/lib/leetcodeHttp'
 
 const LC = 'https://leetcode.com'
 
@@ -8,11 +8,20 @@ export async function POST(req: NextRequest) {
   try {
     const { checkId, titleSlug, session, csrfToken } = await req.json()
 
+    const { session: sess, csrf } = await resolveLcSessionCredentials(session, csrfToken)
+    if (!sess || !csrf) {
+      return NextResponse.json({
+        error: 'Missing csrftoken. Also paste csrftoken from DevTools (Application > Cookies on leetcode.com), or use the full Cookie header with cf_clearance.',
+        state: 'ERROR',
+        status_msg: 'Run failed.',
+      }, { status: 401 })
+    }
+
     const { res, text } = await fetchLeetCodeCheckGet(
       `${LC}/submissions/detail/${checkId}/check/`,
       String(titleSlug),
-      session,
-      csrfToken,
+      sess,
+      csrf,
     )
 
     const parsed = parseLeetCodeJsonText(text, res.status)

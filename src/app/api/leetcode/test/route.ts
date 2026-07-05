@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseLeetCodeJsonText } from '@/lib/parseLeetCodeResponse'
-import { fetchLeetCodeProblemPost, toLeetCodeQuestionId } from '@/lib/leetcodeHttp'
+import { fetchLeetCodeProblemPost, resolveLcSessionCredentials, toLeetCodeQuestionId } from '@/lib/leetcodeHttp'
 
 const LC = 'https://leetcode.com'
 
@@ -11,16 +11,20 @@ const getBuckets = () =>
 
 export async function POST(req: NextRequest) {
   try {
-    const { titleSlug, questionId, lang, code, testInput, session, csrfToken } = await req.json()
+    const body = await req.json()
+    const { titleSlug, questionId, lang, code, testInput, session, csrfToken } = body
 
-    if (!session || !csrfToken) {
-      return NextResponse.json({ error: 'Missing LEETCODE_SESSION or csrftoken' }, { status: 401 })
+    const { session: sess, csrf } = await resolveLcSessionCredentials(session, csrfToken)
+    if (!sess || !csrf) {
+      return NextResponse.json({
+        error: 'Missing csrftoken. Also paste csrftoken from DevTools (Application > Cookies on leetcode.com), or use the full Cookie header with cf_clearance.',
+      }, { status: 401 })
     }
 
     // Soft rate-limit to avoid hammering LeetCode interpret_solution (which triggers 429).
     // Best-effort: in-memory map (works well enough on warm serverless instances).
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const sessKey = String(session).slice(0, 16)
+    const sessKey = String(sess).slice(0, 16)
     const key = `${ip}:${sessKey}:${String(titleSlug)}:${String(lang)}`
     const now = Date.now()
     const buckets = getBuckets()
@@ -68,8 +72,8 @@ export async function POST(req: NextRequest) {
         url,
         { lang, question_id: qid, typed_code: code, data_input: a.data_input, test_mode: a.test_mode },
         String(titleSlug),
-        session,
-        csrfToken,
+        sess,
+        csrf,
         // Allow helper to retry alternate header strategies on 403/HTML.
         // Without this, Cloudflare/WAF blocks are much more likely.
         { retryOnHtml: true },

@@ -342,7 +342,9 @@ function SessionPanel({
       <p className="text-[11px] text-gray-400 leading-relaxed">
         Paste <code className="bg-gray-800 px-1 rounded text-orange-300">LEETCODE_SESSION=...</code> from DevTools (Application tab cookie, Set-Cookie line, or bare JWT).
         <br className="hidden sm:block" />
-        <span className="text-gray-500">For Run/Submit via API, paste the full Cookie header (with cf_clearance) or use the LeetMastery Chrome extension.</span>
+        <span className="text-gray-500">Best for Run/Submit: paste both cookies on one line, e.g. </span>
+        <code className="bg-gray-800 px-1 rounded text-gray-400">LEETCODE_SESSION=...; csrftoken=...</code>
+        <span className="text-gray-500"> or the full Cookie header with cf_clearance.</span>
       </p>
       {fullCookieJar && hasCf && (
         <p className="text-[11px] text-green-400 font-semibold">Full Cookie header with cf_clearance</p>
@@ -505,7 +507,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     if (c) localStorage.setItem('lc_csrf', c)
     else localStorage.removeItem('lc_csrf')
     setSessionSaving(false)
-    setSessionSaveMsg(`Saved (${maskSessionToken(s)})`)
+    const csrfNote = c ? 'with csrftoken' : 'fetching csrftoken...'
+    setSessionSaveMsg(`Saved ${csrfNote} (${maskSessionToken(s)})`)
     setLcErr('')
     setRetryKey(k => k + 1)
     toast.success('LeetCode session saved')
@@ -884,6 +887,25 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     setResultErr('Timed out.'); setRunning(false); setPollMsg('')
   }, [session, effectiveCsrf, lcSlug, appQuestionId, resetToStarter, syncToApp])
 
+  const ensureRunCsrf = useCallback(async (): Promise<string> => {
+    let token = csrf || getCookieFromHeader(session, 'csrftoken')
+    if (token || !session) return token
+    try {
+      const r = await fetch('/api/lc-csrf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session }),
+      })
+      const d = await r.json() as { csrf?: string }
+      token = d.csrf ?? ''
+      if (token) {
+        setCsrf(token)
+        localStorage.setItem('lc_csrf', token)
+      }
+    } catch { /* ignore */ }
+    return token
+  }, [session, csrf])
+
   /* ── Run test ── */
   const runTest = async () => {
     if (!lcQ || !canRunSubmit) return
@@ -893,6 +915,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     if (syntaxErr) { setResultErr(syntaxErr); setBottomTab('result'); return }
     setRunning(true); setRunMode('test'); setResult(null); setResultErr(''); setSolvedStatus(null); setPollMsg('Sending…'); setBottomTab('result')
     try {
+      const runCsrf = await ensureRunCsrf()
       const r = await lcRunTest({
         titleSlug: lcSlug,
         questionId: lcQ.questionId,
@@ -900,7 +923,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         code,
         testInput: cases[activeCase]?.raw || testInput,
         session,
-        csrfToken: effectiveCsrf,
+        csrfToken: runCsrf || effectiveCsrf,
       })
       setLcTransport(r.transport)
       if (r.transport === 'extension') setBridgeOK(true)
@@ -931,13 +954,14 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     if (syntaxErr) { setResultErr(syntaxErr); setBottomTab('result'); return }
     setRunning(true); setRunMode('submit'); setResult(null); setResultErr(''); setSolvedStatus(null); setPollMsg('Submitting…'); setBottomTab('result')
     try {
+      const runCsrf = await ensureRunCsrf()
       const r = await lcSubmit({
         titleSlug: lcSlug,
         questionId: lcQ.questionId,
         lang: LANG_LC[lang],
         code,
         session,
-        csrfToken: effectiveCsrf,
+        csrfToken: runCsrf || effectiveCsrf,
       })
       setLcTransport(r.transport)
       if (r.transport === 'extension') setBridgeOK(true)
