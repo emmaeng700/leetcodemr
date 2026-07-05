@@ -41,22 +41,36 @@ export async function loadLcSessionForSync(): Promise<{ session: string; csrf: s
     localStorage.getItem('lc_session'),
     localStorage.getItem('lc_csrf'),
   )
-  if (fromLocal.session && (fromLocal.csrf || getCookieFromHeader(fromLocal.session, 'csrftoken'))) {
-    return {
-      session: fromLocal.session,
-      csrf: fromLocal.csrf || getCookieFromHeader(fromLocal.session, 'csrftoken'),
-    }
+  let session = fromLocal.session
+  let csrf = fromLocal.csrf || getCookieFromHeader(fromLocal.session, 'csrftoken')
+
+  if (!session) {
+    try {
+      const d = await fetch('/api/lc-session').then(r => r.json())
+      const parsed = parseStoredLcSession(d.lc_session, d.lc_csrf)
+      session = parsed.session
+      csrf = parsed.csrf || getCookieFromHeader(parsed.session, 'csrftoken')
+      if (session) {
+        localStorage.setItem('lc_session', parsed.session)
+        if (csrf) localStorage.setItem('lc_csrf', csrf)
+      }
+    } catch { /* ignore */ }
   }
-  try {
-    const d = await fetch('/api/lc-session').then(r => r.json())
-    const parsed = parseStoredLcSession(d.lc_session, d.lc_csrf)
-    if (parsed.session && parsed.csrf) {
-      localStorage.setItem('lc_session', parsed.session)
-      localStorage.setItem('lc_csrf', parsed.csrf)
-      return { session: parsed.session, csrf: parsed.csrf }
-    }
-  } catch { /* ignore */ }
-  return { session: '', csrf: '' }
+
+  if (session && !csrf) {
+    try {
+      const r = await fetch('/api/lc-csrf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session }),
+      })
+      const d = await r.json() as { csrf?: string }
+      csrf = d.csrf ?? ''
+      if (csrf) localStorage.setItem('lc_csrf', csrf)
+    } catch { /* ignore */ }
+  }
+
+  return { session, csrf }
 }
 
 function buildSlugToIdMap(questions: Array<{ id: number; slug: string }>): Map<string, number> {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, Circle, ExternalLink, Filter, Loader2, RefreshCw, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -110,25 +110,35 @@ export default function LeetCodeListPage() {
 
   const solvedFn = useCallback((q: GrindQuestion) => solvedSet.has(q.id), [solvedSet])
 
-  const runSync = useCallback(async () => {
-    if (syncing || questions.length === 0) return
+  const syncingRef = useRef(false)
+  const runSync = useCallback(async (opts?: { silent?: boolean }) => {
+    if (syncingRef.current || questions.length === 0) return
+    syncingRef.current = true
     setSyncing(true)
     try {
       const { session, csrf } = await loadLcSessionForSync()
       const result = await syncLeetCodeListAccepted(questions, session, csrf)
       if (result.error) {
-        toast.error(result.error)
+        if (!opts?.silent) toast.error(result.error)
         return
       }
       const state = readLcListSync()
       setLcSync(state)
-      toast.success(`Synced ${result.solvedIds.length} AC from leetcode.com`)
+      if (!opts?.silent) {
+        toast.success(`Synced ${result.solvedIds.length} AC from leetcode.com`)
+      }
     } catch (e) {
-      toast.error(String(e))
+      if (!opts?.silent) toast.error(String(e))
     } finally {
+      syncingRef.current = false
       setSyncing(false)
     }
-  }, [questions, syncing])
+  }, [questions])
+
+  useEffect(() => {
+    if (loading || questions.length === 0) return
+    void runSync({ silent: true })
+  }, [loading, questions.length, runSync])
 
   const patterns = useMemo(() => {
     const set = new Set<string>()
@@ -236,9 +246,13 @@ export default function LeetCodeListPage() {
               <p className="mt-2 text-[10px] text-center text-[var(--text-subtle)]">
                 Last sync: {formatSyncTime(lcSync.syncedAt)}
               </p>
+            ) : syncing ? (
+              <p className="mt-2 text-[10px] text-center text-[var(--text-subtle)]">
+                Syncing AC status from leetcode.com...
+              </p>
             ) : (
               <p className="mt-2 text-[10px] text-center text-amber-600">
-                Tap sync to load AC status from leetcode.com
+                Connect session in Practice editor to sync AC status
               </p>
             )}
 

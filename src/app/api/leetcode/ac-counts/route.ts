@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { parseLeetCodeJsonText } from '@/lib/parseLeetCodeResponse'
-import { lcFetchInit, leetCodeGraphqlHeaders } from '@/lib/leetcodeHttp'
+import { lcFetchInit, leetCodeGraphqlHeaders, resolveLcSessionCredentials } from '@/lib/leetcodeHttp'
 
 const LC_GRAPHQL = 'https://leetcode.com/graphql'
 const USER_ID = 'emmanuel'
@@ -42,9 +42,13 @@ export async function POST(req: NextRequest) {
       .select('lc_session, lc_csrf')
       .eq('user_id', USER_ID)
       .single()
-    session = data?.lc_session ?? ''
-    csrfToken = data?.lc_csrf ?? ''
+    session = session || data?.lc_session ?? ''
+    csrfToken = csrfToken || data?.lc_csrf ?? ''
   }
+
+  const creds = await resolveLcSessionCredentials(session, csrfToken)
+  session = creds.session
+  csrfToken = creds.csrf
 
   if (!session || !csrfToken) {
     return NextResponse.json({ bySlug: {} as Record<string, number>, error: 'no_session' })
