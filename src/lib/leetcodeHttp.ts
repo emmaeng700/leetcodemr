@@ -115,6 +115,17 @@ export function getCookieFromHeader(cookieHeaderRaw: string, name: string): stri
   return ''
 }
 
+/** First name=value pair from a Set-Cookie response header. */
+export function parseSetCookieHeaderValue(setCookie: string, name: string): string {
+  const first = setCookie.split(';')[0]?.trim() ?? ''
+  const eq = first.indexOf('=')
+  if (eq < 0) return ''
+  if (first.slice(0, eq).trim().toLowerCase() === name.toLowerCase()) {
+    return first.slice(eq + 1).trim()
+  }
+  return ''
+}
+
 /** True when a pasted cookie jar includes Cloudflare clearance (needed for Vercel Run/Submit). */
 export function hasCfClearance(cookieHeaderRaw: string): boolean {
   return !!getCookieFromHeader(cookieHeaderRaw, 'cf_clearance')

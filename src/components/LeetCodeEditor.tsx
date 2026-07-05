@@ -311,7 +311,7 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
         <p className="text-[11px] text-green-400 font-semibold">Full Cookie header with cf_clearance</p>
       )}
       {sessionTokenPaste && (
-        <p className="text-[11px] text-green-400 font-semibold">Session token - saved for question loading and sync</p>
+        <p className="text-[11px] text-green-400 font-semibold">Session token detected - click Save</p>
       )}
       {fullCookieJar && !hasCf && (
         <p className="text-[11px] text-amber-400">Cookie header missing cf_clearance - Run/Submit may fail unless the extension is loaded.</p>
@@ -364,9 +364,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [sessionReady, setSessionReady] = useState(false)
   const effectiveCsrf = csrf || getCookieFromHeader(session, 'csrftoken')
   const hasSession = !!session
-  const sessionWithCsrf = !!(session && effectiveCsrf)
   const [bridgeOK, setBridgeOK] = useState(false)
-  const canRunSubmit = sessionWithCsrf || bridgeOK
+  const canRunSubmit = hasSession || bridgeOK
 
   /* LeetCode question data */
   const [lcQ,     setLcQ]     = useState<LCQuestion | null>(null)
@@ -449,6 +448,39 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     return json
   }, [])
 
+  const persistSession = useCallback(async (s: string, c: string) => {
+    let nextCsrf = c || getCookieFromHeader(s, 'csrftoken')
+    if (s && !nextCsrf) {
+      try {
+        const r = await fetch('/api/lc-csrf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session: s }),
+        })
+        const d = await r.json() as { csrf?: string }
+        nextCsrf = d.csrf ?? ''
+      } catch { /* ignore */ }
+    }
+    setSession(s)
+    setCsrf(nextCsrf)
+    localStorage.setItem('lc_session', s)
+    if (nextCsrf) localStorage.setItem('lc_csrf', nextCsrf)
+    else localStorage.removeItem('lc_csrf')
+    fetch('/api/lc-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lc_session: s, lc_csrf: nextCsrf }),
+    }).catch(() => {})
+    setShowSessionHint(false)
+    setLcErr('')
+    setRetryKey(k => k + 1)
+    if (s && !nextCsrf) {
+      toast('Session saved. Run/Submit may need full Cookie header or the Chrome extension.', { icon: '!' })
+    } else if (s) {
+      toast.success('LeetCode session saved')
+    }
+  }, [])
+
   /* ── Load session — localStorage first, Supabase fallback ── */
   useEffect(() => {
 
@@ -493,6 +525,23 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       setBridgeOK(false)
     }
   }, [])
+
+  useEffect(() => {
+    if (!sessionReady || !session || csrf) return
+    void fetch('/api/lc-csrf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session }),
+    })
+      .then(r => r.json())
+      .then((d: { csrf?: string }) => {
+        const token = d.csrf ?? ''
+        if (!token) return
+        setCsrf(token)
+        localStorage.setItem('lc_csrf', token)
+      })
+      .catch(() => {})
+  }, [session, csrf, sessionReady])
 
   /* ── Load CodeMirror extensions ── */
   useEffect(() => {
@@ -705,7 +754,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           checkId,
           titleSlug: lcSlug,
           session,
-          csrfToken: csrf,
+          csrfToken: effectiveCsrf,
         })
         transport = r.transport
         data = r.data as unknown as LCResult & { error?: string }
@@ -764,7 +813,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       }
     }
     setResultErr('Timed out.'); setRunning(false); setPollMsg('')
-  }, [session, csrf, lcSlug, appQuestionId, resetToStarter, syncToApp])
+  }, [session, effectiveCsrf, lcSlug, appQuestionId, resetToStarter, syncToApp])
 
   /* ── Run test ── */
   const runTest = async () => {
@@ -782,7 +831,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         code,
         testInput: cases[activeCase]?.raw || testInput,
         session,
-        csrfToken: csrf,
+        csrfToken: effectiveCsrf,
       })
       setLcTransport(r.transport)
       if (r.transport === 'extension') setBridgeOK(true)
@@ -819,7 +868,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         lang: LANG_LC[lang],
         code,
         session,
-        csrfToken: csrf,
+        csrfToken: effectiveCsrf,
       })
       setLcTransport(r.transport)
       if (r.transport === 'extension') setBridgeOK(true)
@@ -1003,18 +1052,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       {/* Session panel — inline form so users can enter session without leaving the page */}
       {showSessionHint && (
         <SessionPanel
-          onSave={(s, c) => {
-            setSession(s); setCsrf(c)
-            localStorage.setItem('lc_session', s)
-            localStorage.setItem('lc_csrf', c)
-            fetch('/api/lc-session', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ lc_session: s, lc_csrf: c }),
-            }).catch(() => {})
-            setShowSessionHint(false)
-            setLcErr('')
-            setRetryKey(k => k + 1)
-          }}
+          onSave={(s, c) => { void persistSession(s, c) }}
           onClose={() => setShowSessionHint(false)}
         />
       )}
@@ -1180,18 +1218,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
             {/* Session panel (if open) */}
             {showSessionHint && (
               <SessionPanel
-                onSave={(s, c) => {
-                  setSession(s); setCsrf(c)
-                  localStorage.setItem('lc_session', s)
-                  localStorage.setItem('lc_csrf', c)
-                  fetch('/api/lc-session', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lc_session: s, lc_csrf: c }),
-                  }).catch(() => {})
-                  setShowSessionHint(false)
-                  setLcErr('')
-                  setRetryKey(k => k + 1)
-                }}
+                onSave={(s, c) => { void persistSession(s, c) }}
                 onClose={() => setShowSessionHint(false)}
               />
             )}
