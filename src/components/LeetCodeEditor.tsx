@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { getProgress, updateProgress, incrementAcSubmitCount, incrementWrongSubmitCount } from '@/lib/db'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
-import { getCookieFromHeader, hasCfClearance, parseStoredLcSession, isSetCookieLine } from '@/lib/leetcodeHttp'
+import { getCookieFromHeader, hasCfClearance, parseStoredLcSession, isSetCookieLine, looksLikeLcCookieJar } from '@/lib/leetcodeHttp'
 import { cloudflareHelp, getLcTransport, lcCheck, lcGraphql, lcRunTest, lcSubmit, type LcTransport } from '@/lib/leetcodeClient'
 import { extBridgeHealthy, hasLeetMasteryBridge } from '@/lib/leetcodeExtensionBridge'
 import toast from 'react-hot-toast'
@@ -501,9 +501,12 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       return
     }
 
-    setSession(s)
+    const storeSession = c && !looksLikeLcCookieJar(s)
+      ? `LEETCODE_SESSION=${s}; csrftoken=${c}`
+      : s
+    setSession(storeSession)
     setCsrf(c)
-    localStorage.setItem('lc_session', s)
+    localStorage.setItem('lc_session', storeSession)
     if (c) localStorage.setItem('lc_csrf', c)
     else localStorage.removeItem('lc_csrf')
     setSessionSaving(false)
@@ -529,12 +532,18 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       if (nextCsrf) {
         setCsrf(nextCsrf)
         localStorage.setItem('lc_csrf', nextCsrf)
+        const jar = looksLikeLcCookieJar(storeSession)
+          ? storeSession
+          : `LEETCODE_SESSION=${s}; csrftoken=${nextCsrf}`
+        setSession(jar)
+        localStorage.setItem('lc_session', jar)
         setSessionSaveMsg(`Saved with CSRF (${maskSessionToken(s)})`)
       }
+      const finalSession = localStorage.getItem('lc_session') ?? storeSession
       fetch('/api/lc-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lc_session: s, lc_csrf: nextCsrf }),
+        body: JSON.stringify({ lc_session: finalSession, lc_csrf: nextCsrf }),
       }).catch(() => {})
     })()
   }, [])
@@ -736,9 +745,22 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           setLcErr(hasSession ? 'load-failed' : 'no-session-general')
           return
         }
+        // Premium or bad session — retry without session (free questions load anonymously)
+        if (q.isPaidOnly && !q.codeSnippets?.length && hasSession) {
+          try {
+            const fb = await fetchQuestionPayload({
+              query: `query($s:String!){question(titleSlug:$s){questionId questionFrontendId titleSlug isPaidOnly codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`,
+              variables: { s: lcSlug },
+            })
+            const fq = fb.data?.question ?? null
+            if (fq?.codeSnippets?.length) {
+              q = fq
+            }
+          } catch { /* keep premium error below */ }
+        }
         // Premium question — differentiate between "no session" and "session expired"
         if (q.isPaidOnly && !q.codeSnippets?.length) {
-          setLcErr(hasSession ? 'premium-expired' : 'premium-no-session')
+          setLcErr(hasSession ? (effectiveCsrf ? 'premium-expired' : 'premium-needs-csrf') : 'premium-no-session')
           return
         }
         setLcQ(q)
@@ -1165,14 +1187,19 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           {lcErr === 'premium-expired' ? (
             <div className="space-y-3">
               <div className="text-2xl">⚠️</div>
-              <p className="text-sm text-gray-200 font-semibold">Session token may have expired</p>
+              <p className="text-sm text-gray-200 font-semibold">Could not load question with your session</p>
               <p className="text-xs text-gray-400 max-w-xs">
-                Your LeetCode session is saved but this premium question couldn&apos;t load.
-                Your token may have expired — go to LeetCode, copy a fresh
-                <code className="mx-1 px-1 py-0.5 bg-gray-800 rounded text-orange-300">LEETCODE_SESSION</code>
-                and update it on the LeetCode page.
+                Paste a fresh line in Session:
+                <code className="block mt-1 px-1 py-0.5 bg-gray-800 rounded text-orange-300 text-[10px] break-all">LEETCODE_SESSION=...; csrftoken=...</code>
+                Needs LeetCode Premium for paid questions. Free questions should load after Retry.
               </p>
               <div className="flex flex-wrap gap-2 justify-center">
+                <button
+                  onClick={() => { setShowSessionHint(true); setLcErr('') }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white text-xs font-semibold rounded-lg hover:bg-orange-500 transition"
+                >
+                  Update session
+                </button>
                 <button
                   onClick={() => { setLcErr(''); setRetryKey(k => k + 1) }}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-500 transition"
@@ -1182,11 +1209,26 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
                 <a
                   href={leetCodeUrl(lcSlug)}
                   target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white text-xs font-semibold rounded-lg hover:bg-orange-600 transition"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 text-white text-xs font-semibold rounded-lg hover:bg-gray-600 transition"
                 >
                   Open on LeetCode ↗
                 </a>
               </div>
+            </div>
+          ) : lcErr === 'premium-needs-csrf' ? (
+            <div className="space-y-3">
+              <div className="text-2xl">🔑</div>
+              <p className="text-sm text-gray-200 font-semibold">Missing csrftoken</p>
+              <p className="text-xs text-gray-400 max-w-xs">
+                Session saved but csrftoken is missing. Open Session and paste both on one line:
+                <code className="block mt-1 px-1 py-0.5 bg-gray-800 rounded text-orange-300 text-[10px] break-all">LEETCODE_SESSION=...; csrftoken=...</code>
+              </p>
+              <button
+                onClick={() => { setShowSessionHint(true); setLcErr('') }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white text-xs font-semibold rounded-lg hover:bg-orange-500 transition"
+              >
+                Update session
+              </button>
             </div>
           ) : lcErr === 'premium-no-session' ? (
             <div className="space-y-3">

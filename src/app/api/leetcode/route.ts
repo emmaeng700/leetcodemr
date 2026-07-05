@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseLeetCodeJsonText } from '@/lib/parseLeetCodeResponse'
-import { lcFetchInit, leetCodeGraphqlHeaders } from '@/lib/leetcodeHttp'
+import { lcFetchInit, leetCodeGraphqlHeaders, resolveLcSessionCredentials } from '@/lib/leetcodeHttp'
 
 const LEETCODE_GRAPHQL = 'https://leetcode.com/graphql'
 const UA =
@@ -13,10 +13,14 @@ export async function POST(req: NextRequest) {
     // Pull session creds if client sends them (needed for premium questions)
     const { session, csrfToken, ...graphqlBody } = body
 
-    const headers: Record<string, string> =
-      session
-        ? leetCodeGraphqlHeaders(session, csrfToken)
-        : {
+    let headers: Record<string, string>
+    if (session) {
+      const { session: sess, csrf } = await resolveLcSessionCredentials(session, csrfToken)
+      headers = sess && csrf
+        ? leetCodeGraphqlHeaders(sess, csrf)
+        : leetCodeGraphqlHeaders(session, csrfToken)
+    } else {
+      headers = {
             'Content-Type': 'application/json',
             Accept: 'application/json',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -25,6 +29,7 @@ export async function POST(req: NextRequest) {
             'x-requested-with': 'XMLHttpRequest',
             'User-Agent': UA,
           }
+    }
 
     const res = await fetch(LEETCODE_GRAPHQL, {
       method: 'POST',
