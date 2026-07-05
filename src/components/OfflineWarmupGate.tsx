@@ -15,6 +15,17 @@ export default function OfflineWarmupGate({ children }: { children: React.ReactN
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
+    const host = typeof window !== 'undefined' ? window.location.hostname : ''
+    const isLocalDev =
+      process.env.NODE_ENV === 'development' ||
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host.endsWith('.local')
+    if (isLocalDev) {
+      markOfflineWarmupComplete('dev-skip')
+      return
+    }
+
     if (isOfflineWarmupComplete()) return
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       markOfflineWarmupComplete('skipped-offline')

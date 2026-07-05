@@ -1,6 +1,6 @@
 'use client'
 import React, { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
+import AppNavLink from '@/components/AppNavLink'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { getOpenQuestionContext } from '@/lib/openQuestionContext'
 import { grindHrefForLastQuestion } from '@/lib/grindStorage'
@@ -102,17 +102,17 @@ function LearnNavDropdown({ pathname }: { pathname: string }) {
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
-      <Link href={learnHubHref(1)} className={`${navLinkClass(learnActive)} inline-flex items-center gap-1`}>
+      <AppNavLink href={learnHubHref(1)} className={`${navLinkClass(learnActive)} inline-flex items-center gap-1`}>
         ★ Learn
         <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-      </Link>
+      </AppNavLink>
       {open && (
         <div className="absolute top-full left-0 pt-1.5 z-[110] min-w-[9rem]">
           <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_8px_30px_rgba(0,0,0,0.12)] py-1 overflow-hidden">
             {LEARN_CHILDREN.map(set => {
               const childActive = learnActive && activeSet === set
               return (
-                <Link
+                <AppNavLink
                   key={set}
                   href={learnHubHref(set)}
                   className={`flex items-center gap-2.5 px-3 py-2 text-sm font-medium transition-colors ${
@@ -123,7 +123,7 @@ function LearnNavDropdown({ pathname }: { pathname: string }) {
                 >
                   <BookOpen size={14} className="shrink-0" />
                   {learnSetLabel(set)}
-                </Link>
+                </AppNavLink>
               )
             })}
           </div>
@@ -147,17 +147,17 @@ function McpNavDropdown({ pathname }: { pathname: string }) {
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
-      <Link href="/mcp" className={`${navLinkClass(mcpActive)} inline-flex items-center gap-1`}>
+      <AppNavLink href="/mcp" className={`${navLinkClass(mcpActive)} inline-flex items-center gap-1`}>
         MCP
         <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-      </Link>
+      </AppNavLink>
       {open && (
         <div className="absolute top-full left-0 pt-1.5 z-[110] min-w-[11rem]">
           <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_8px_30px_rgba(0,0,0,0.12)] py-1 overflow-hidden">
             {MCP_CHILDREN.map(({ tab, label, icon: Icon }) => {
               const childActive = mcpActive && (activeTab === tab || (!activeTab && tab === 'mock' && pathname === '/mcp'))
               return (
-                <Link
+                <AppNavLink
                   key={tab}
                   href={mcpTabUrl(tab)}
                   className={`flex items-center gap-2.5 px-3 py-2 text-sm font-medium transition-colors ${
@@ -168,7 +168,7 @@ function McpNavDropdown({ pathname }: { pathname: string }) {
                 >
                   <Icon size={14} className="shrink-0" />
                   {label}
-                </Link>
+                </AppNavLink>
               )
             })}
           </div>
@@ -215,14 +215,14 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-14">
 
           {/* Logo */}
-          <Link href={grindNavHref} className="flex items-center gap-2.5 shrink-0 group">
+          <AppNavLink href={grindNavHref} className="flex items-center gap-2.5 shrink-0 group">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-[0_2px_8px_rgba(99,102,241,0.4)] group-hover:shadow-[0_4px_14px_rgba(99,102,241,0.55)] transition-shadow duration-200">
               <Swords size={16} className="text-white" />
             </div>
             <span className="font-black text-[1.1rem] tracking-tight bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-500 bg-clip-text text-transparent select-none">
               LeetMastery
             </span>
-          </Link>
+          </AppNavLink>
 
           <div className="flex items-center gap-1 shrink-0">
             {/* Build stamp */}
@@ -281,7 +281,7 @@ export default function Navbar() {
                     const active = (href === '/' ? pathname === '/' : pathname.startsWith(base))
                       || (also ?? []).some(p => pathname.startsWith(p))
                     return (
-                      <Link key={href} href={resolveNavHref(href, grindNavHref, answersNavHref)} className={navLinkClass(active)}>{label}</Link>
+                      <AppNavLink key={href} href={resolveNavHref(href, grindNavHref, answersNavHref)} className={navLinkClass(active)}>{label}</AppNavLink>
                     )
                   })}
                   <LearnNavDropdown pathname={pathname} />
@@ -293,7 +293,7 @@ export default function Navbar() {
                     const base = '/' + href.split('/')[1]
                     const active = pathname.startsWith(base)
                     return (
-                      <Link key={href} href={href} className={navLinkClass(active)}>{label}</Link>
+                      <AppNavLink key={href} href={href} className={navLinkClass(active)}>{label}</AppNavLink>
                     )
                   })}
                   <McpNavDropdown pathname={pathname} />
@@ -301,7 +301,7 @@ export default function Navbar() {
                     const base = '/' + href.split('/')[1]
                     const active = pathname.startsWith(base)
                     return (
-                      <Link key={href} href={href} className={navLinkClass(active)}>{label}</Link>
+                      <AppNavLink key={href} href={href} className={navLinkClass(active)}>{label}</AppNavLink>
                     )
                   })}
                 </>
@@ -311,13 +311,13 @@ export default function Navbar() {
                 const active = (href === '/' ? pathname === '/' : pathname.startsWith(base))
                   || (also ?? []).some(p => pathname.startsWith(p))
                 return (
-                  <Link
+                  <AppNavLink
                     key={href}
                     href={resolveNavHref(href, grindNavHref, answersNavHref)}
                     className={navLinkClass(active)}
                   >
                     {label}
-                  </Link>
+                  </AppNavLink>
                 )
               })}
             </React.Fragment>
@@ -357,7 +357,7 @@ export default function Navbar() {
                       const base = '/' + href.split('/')[1]
                       const active = pathname.startsWith(base) || (also ?? []).some(p => pathname.startsWith(p))
                       return (
-                        <Link key={href} href={resolveNavHref(href, grindNavHref, answersNavHref)} onClick={() => setOpen(false)}
+                        <AppNavLink key={href} href={resolveNavHref(href, grindNavHref, answersNavHref)} onClick={() => setOpen(false)}
                           className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                             active ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
                           }`}>
@@ -365,10 +365,10 @@ export default function Navbar() {
                             <Icon size={14} />
                           </div>
                           {lnk}
-                        </Link>
+                        </AppNavLink>
                       )
                     })}
-                    <Link href={learnHubHref(1)} onClick={() => setOpen(false)}
+                    <AppNavLink href={learnHubHref(1)} onClick={() => setOpen(false)}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                         isLearnSectionPath(pathname) ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
                       }`}>
@@ -376,13 +376,13 @@ export default function Navbar() {
                         <BookOpen size={14} />
                       </div>
                       ★ Learn
-                    </Link>
+                    </AppNavLink>
                     {LEARN_CHILDREN.map(set => (
-                      <Link key={set} href={learnHubHref(set)} onClick={() => setOpen(false)}
+                      <AppNavLink key={set} href={learnHubHref(set)} onClick={() => setOpen(false)}
                         className="flex items-center gap-3 pl-8 pr-3 py-2 rounded-xl text-sm text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]">
                         <BookOpen size={13} className="shrink-0 text-[var(--text-subtle)]" />
                         {learnSetLabel(set)}
-                      </Link>
+                      </AppNavLink>
                     ))}
                   </>
                 )}
@@ -392,7 +392,7 @@ export default function Navbar() {
                       const base = '/' + href.split('/')[1]
                       const active = pathname.startsWith(base)
                       return (
-                        <Link key={href} href={href} onClick={() => setOpen(false)}
+                        <AppNavLink key={href} href={href} onClick={() => setOpen(false)}
                           className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                             active ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
                           }`}>
@@ -400,10 +400,10 @@ export default function Navbar() {
                             <Icon size={14} />
                           </div>
                           {lnk}
-                        </Link>
+                        </AppNavLink>
                       )
                     })}
-                    <Link href="/mcp" onClick={() => setOpen(false)}
+                    <AppNavLink href="/mcp" onClick={() => setOpen(false)}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                         isMcpSectionPath(pathname) ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
                       }`}>
@@ -411,19 +411,19 @@ export default function Navbar() {
                         <Timer size={14} />
                       </div>
                       MCP
-                    </Link>
+                    </AppNavLink>
                     {MCP_CHILDREN.map(({ tab, label, icon: Icon }) => (
-                      <Link key={tab} href={mcpTabUrl(tab)} onClick={() => setOpen(false)}
+                      <AppNavLink key={tab} href={mcpTabUrl(tab)} onClick={() => setOpen(false)}
                         className="flex items-center gap-3 pl-8 pr-3 py-2 rounded-xl text-sm text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]">
                         <Icon size={13} className="shrink-0 text-[var(--text-subtle)]" />
                         {label}
-                      </Link>
+                      </AppNavLink>
                     ))}
                     {group.slice(2).map(({ href, label: lnk, icon: Icon }) => {
                       const base = '/' + href.split('/')[1]
                       const active = pathname.startsWith(base)
                       return (
-                        <Link key={href} href={href} onClick={() => setOpen(false)}
+                        <AppNavLink key={href} href={href} onClick={() => setOpen(false)}
                           className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                             active ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
                           }`}>
@@ -431,7 +431,7 @@ export default function Navbar() {
                             <Icon size={14} />
                           </div>
                           {lnk}
-                        </Link>
+                        </AppNavLink>
                       )
                     })}
                   </>
@@ -441,7 +441,7 @@ export default function Navbar() {
                   const active = (href === '/' ? pathname === '/' : pathname.startsWith(base))
                     || (also ?? []).some(p => pathname.startsWith(p))
                   return (
-                    <Link
+                    <AppNavLink
                       key={href}
                       href={resolveNavHref(href, grindNavHref, answersNavHref)}
                       onClick={() => setOpen(false)}
@@ -459,7 +459,7 @@ export default function Navbar() {
                         <Icon size={14} />
                       </div>
                       {lnk}
-                    </Link>
+                    </AppNavLink>
                   )
                 })}
               </React.Fragment>

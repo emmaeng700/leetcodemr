@@ -30,7 +30,7 @@ export function isOfflineWarmupComplete(): boolean {
   return !!localStorage.getItem(OFFLINE_WARMUP_KEY)
 }
 
-export function markOfflineWarmupComplete(status: 'done' | 'partial' | 'skipped-offline' = 'done') {
+export function markOfflineWarmupComplete(status: 'done' | 'partial' | 'skipped-offline' | 'dev-skip' = 'done') {
   try {
     localStorage.setItem(OFFLINE_WARMUP_KEY, status === 'done' ? String(Date.now()) : status)
   } catch {

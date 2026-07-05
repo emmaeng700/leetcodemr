@@ -159,13 +159,10 @@ self.addEventListener('fetch', e => {
     return
   }
 
-  const isNextBuildAsset =
-    url.pathname.startsWith('/_next/static/') ||
-    url.pathname.startsWith('/_next/data/')
+  const isNextInternal = url.pathname.startsWith('/_next/')
 
-  // Never cache Next.js build chunks in the SW — Turbopack HMR and deploys change
-  // hashes constantly; stale cached chunks cause ChunkLoadError in the browser.
-  if (isNextBuildAsset) {
+  // Never cache Next.js dev/build assets in the SW.
+  if (isNextInternal) {
     e.respondWith(fetch(e.request))
     return
   }
