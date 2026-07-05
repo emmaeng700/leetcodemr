@@ -8,11 +8,52 @@ export function toLeetCodeQuestionId(raw: unknown): number | string {
   return Number.isFinite(n) ? n : String(raw ?? '')
 }
 
+const SET_COOKIE_ATTRS = new Set(['domain', 'path', 'expires', 'max-age', 'samesite'])
+
+/** Cookie attribute from DevTools Application tab (Domain=, HttpOnly, Secure, etc.). */
+export function isSetCookieAttribute(part: string): boolean {
+  const t = part.trim()
+  if (!t) return false
+  if (!t.includes('=')) return /^(httponly|secure)$/i.test(t)
+  return SET_COOKIE_ATTRS.has(t.split('=')[0].trim().toLowerCase())
+}
+
+/** Set-Cookie line copied from Application -> Cookies, not a request Cookie header. */
+export function isSetCookieLine(raw: unknown): boolean {
+  const s = String(raw ?? '').trim().replace(/^cookie:\s*/i, '')
+  if (!/LEETCODE_SESSION\s*=/.test(s) || !s.includes(';')) return false
+  const rest = s.split(';').slice(1).map(p => p.trim()).filter(Boolean)
+  return rest.length > 0 && rest.every(isSetCookieAttribute)
+}
+
+/** Bare LEETCODE_SESSION JWT/value from any supported paste format. */
+export function extractLeetCodeSessionValue(raw: unknown): string {
+  let s = String(raw ?? '').trim().replace(/^cookie:\s*/i, '')
+  if (!s) return ''
+
+  const prefixed = s.match(/^LEETCODE_SESSION\s*=\s*([\s\S]+)$/i)
+  if (prefixed) {
+    const afterEq = prefixed[1].trim()
+    const semi = afterEq.indexOf(';')
+    if (semi === -1) return afterEq.replace(/^["']|["']$/g, '').trim()
+    const value = afterEq.slice(0, semi).trim().replace(/^["']|["']$/g, '')
+    const rest = afterEq.slice(semi + 1).split(';').map(p => p.trim()).filter(Boolean)
+    if (rest.length === 0 || rest.every(isSetCookieAttribute)) return value
+    return value
+  }
+
+  s = s.replace(/^["']|["']$/g, '').trim()
+  return s
+}
+
 /** User pasted "LEETCODE_SESSION=..." value only, or added quotes/newlines — not a full cookie jar. */
 export function normalizeLcCookieValue(raw: unknown): string {
   let s = String(raw ?? '').trim()
   if (!s) return ''
   if (looksLikeLcCookieJar(s)) return s.replace(/^cookie:\s*/i, '').trim()
+  if (isSetCookieLine(s) || /^LEETCODE_SESSION\s*=/i.test(s)) {
+    return extractLeetCodeSessionValue(s)
+  }
   const stripName = (name: string) => {
     const re = new RegExp(`^${name}\\s*=\\s*(.+)$`, 'i')
     const m = s.match(re)
@@ -24,9 +65,12 @@ export function normalizeLcCookieValue(raw: unknown): string {
   return s
 }
 
+/** Request Cookie header with multiple cookies (csrftoken, cf_clearance, etc.). */
 export function looksLikeLcCookieJar(raw: unknown): boolean {
   const s = String(raw ?? '').trim().replace(/^cookie:\s*/i, '')
-  return /LEETCODE_SESSION\s*=/.test(s) && s.includes(';')
+  if (!/LEETCODE_SESSION\s*=/.test(s) || !s.includes(';')) return false
+  if (isSetCookieLine(s)) return false
+  return true
 }
 
 /** Fix sessions corrupted by an older bug that stripped the LEETCODE_SESSION= prefix. */
@@ -49,12 +93,13 @@ export function parseStoredLcSession(rawSession: unknown, rawCsrf?: unknown): { 
   const session = repairCorruptedCookieJar(rawSession)
   if (!session) return { session: '', csrf: '' }
   if (looksLikeLcCookieJar(session)) {
+    const jar = session.replace(/^cookie:\s*/i, '').trim()
     const csrf =
-      normalizeLcCookieValue(rawCsrf) || getCookieFromHeader(session, 'csrftoken')
-    return { session, csrf }
+      normalizeLcCookieValue(rawCsrf) || getCookieFromHeader(jar, 'csrftoken')
+    return { session: jar, csrf }
   }
   const csrf = normalizeLcCookieValue(rawCsrf) || ''
-  return { session: normalizeLcCookieValue(session), csrf }
+  return { session: extractLeetCodeSessionValue(session), csrf }
 }
 
 export function getCookieFromHeader(cookieHeaderRaw: string, name: string): string {
@@ -85,17 +130,14 @@ export function normalizeLcCookieHeader(rawSessionOrCookieJar: unknown, csrfToke
   const raw = String(rawSessionOrCookieJar ?? '').trim()
   const rawCsrf = String(csrfToken ?? '').trim()
 
-  const looksLikeCookieJar =
-    /LEETCODE_SESSION\s*=/.test(raw) && raw.includes(';')
-
-  if (looksLikeCookieJar) {
+  if (looksLikeLcCookieJar(raw)) {
     const cookie = raw.replace(/^cookie:\s*/i, '').trim()
     const csrfFromJar = getCookieFromHeader(cookie, 'csrftoken')
     const csrf = normalizeLcCookieValue(rawCsrf) || normalizeLcCookieValue(csrfFromJar)
     return { cookie, csrf }
   }
 
-  const sess = normalizeLcCookieValue(raw)
+  const sess = extractLeetCodeSessionValue(raw) || normalizeLcCookieValue(raw)
   const csrf = normalizeLcCookieValue(rawCsrf)
   return { cookie: `LEETCODE_SESSION=${sess}; csrftoken=${csrf}`, csrf }
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getCookieFromHeader, normalizeLcCookieValue, repairCorruptedCookieJar, looksLikeLcCookieJar } from '@/lib/leetcodeHttp'
+import { parseStoredLcSession } from '@/lib/leetcodeHttp'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,16 +28,7 @@ export async function POST(req: Request) {
   const rawSession = String(body.lc_session ?? '').trim()
   const rawCsrf = String(body.lc_csrf ?? '').trim()
 
-  const looksLikeCookieJar = looksLikeLcCookieJar(rawSession)
-
-  const lc_session = looksLikeCookieJar
-    ? repairCorruptedCookieJar(rawSession).replace(/^cookie:\s*/i, '').trim()
-    : normalizeLcCookieValue(rawSession)
-
-  // If user pasted the full cookie jar, try extracting csrftoken from it so the rest
-  // of the app continues to work with the separate csrf field.
-  const csrfFromJar = looksLikeCookieJar ? getCookieFromHeader(lc_session, 'csrftoken') : ''
-  const lc_csrf = normalizeLcCookieValue(rawCsrf) || normalizeLcCookieValue(csrfFromJar)
+  const { session: lc_session, csrf: lc_csrf } = parseStoredLcSession(rawSession, rawCsrf)
 
   const { error } = await supabase
     .from('user_settings')

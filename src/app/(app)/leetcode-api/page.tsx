@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import LeetCodeEditor from '@/components/LeetCodeEditor'
 import { lcFetch } from '@/lib/leetcodeLocalConnector'
-import { getCookieFromHeader, normalizeLcCookieValue } from '@/lib/leetcodeHttp'
+import { hasCfClearance, isSetCookieLine, parseStoredLcSession } from '@/lib/leetcodeHttp'
 
 hljs.registerLanguage('python', pythonLang)
 hljs.registerLanguage('cpp', cppLang)
@@ -274,37 +274,38 @@ export default function LeetCodePage() {
         const res = await fetch('/api/lc-session')
         if (res.ok) {
           const data = await res.json()
-          if (data.lc_session && data.lc_csrf) {
-            setSession(data.lc_session)
-            setCsrfToken(data.lc_csrf)
-            // Also keep localStorage in sync
-            localStorage.setItem('lc_session', data.lc_session)
-            localStorage.setItem('lc_csrf', data.lc_csrf)
+          if (data.lc_session) {
+            const { session: s, csrf: c } = parseStoredLcSession(data.lc_session, data.lc_csrf)
+            setSession(s)
+            setCsrfToken(c)
+            localStorage.setItem('lc_session', s)
+            if (c) localStorage.setItem('lc_csrf', c)
             setSPO(false)
-            fetchDailyInternal({ session: data.lc_session, csrfToken: data.lc_csrf })
+            fetchDailyInternal(s ? { session: s, csrfToken: c } : undefined)
             return
           }
         }
       } catch { /* fall through to localStorage */ }
 
       // Fallback: localStorage
-      const s = localStorage.getItem('lc_session') ?? ''
-      const c = localStorage.getItem('lc_csrf')   ?? ''
+      const { session: s, csrf: c } = parseStoredLcSession(
+        localStorage.getItem('lc_session') ?? '',
+        localStorage.getItem('lc_csrf') ?? '',
+      )
       setSession(s); setCsrfToken(c)
-      if (!s || !c) setSPO(true)
-      fetchDailyInternal(s && c ? { session: s, csrfToken: c } : undefined)
+      if (!s) setSPO(true)
+      fetchDailyInternal(s ? { session: s, csrfToken: c } : undefined)
     }
     loadCreds()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const saveSession = async () => {
-    const raw = session.trim()
-    const isJar = /LEETCODE_SESSION\s*=/.test(raw) && raw.includes(';')
-    const s = raw
-    const c = isJar ? getCookieFromHeader(raw, 'csrftoken') : normalizeLcCookieValue(csrfToken)
+    const { session: s, csrf: c } = parseStoredLcSession(session.trim(), csrfToken)
+    setSession(s)
+    setCsrfToken(c)
     localStorage.setItem('lc_session', s)
-    localStorage.setItem('lc_csrf',    c)
+    localStorage.setItem('lc_csrf', c)
     setSPO(false)
     try {
       await fetch('/api/lc-session', {
@@ -586,16 +587,19 @@ export default function LeetCodePage() {
               <div className="flex gap-1.5 bg-blue-500/10 rounded-xl p-3 text-xs text-blue-300 border border-blue-500/20">
                 <Info size={12} className="shrink-0 mt-0.5 text-blue-400" />
                 <div className="space-y-1">
-                  <p><strong>Best:</strong> leetcode.com → F12 → Network tab → click any request → Request Headers → copy the full <code className="bg-blue-900/50 px-1 rounded">Cookie</code> header value</p>
-                  <p className="text-blue-400/70">Includes cf_clearance needed for Run/Submit.</p>
+                  <p>Paste <code className="bg-blue-900/50 px-1 rounded">LEETCODE_SESSION=...</code> from DevTools (Application cookie or Set-Cookie line).</p>
+                  <p className="text-blue-400/70">Full Cookie header (with cf_clearance) needed only for Run/Submit via API.</p>
                 </div>
               </div>
-              {/LEETCODE_SESSION\s*=/.test(session) && session.includes(';') && (
-                <p className="text-[11px] text-green-400 font-semibold">✓ Full cookie header detected — cf_clearance included</p>
+              {/LEETCODE_SESSION\s*=/.test(session) && session.includes(';') && !isSetCookieLine(session) && hasCfClearance(session) && (
+                <p className="text-[11px] text-green-400 font-semibold">Full Cookie header with cf_clearance</p>
+              )}
+              {session.trim().length > 10 && (!session.includes(';') || isSetCookieLine(session)) && (
+                <p className="text-[11px] text-green-400 font-semibold">Session token saved</p>
               )}
               <div className="relative">
                 <input type={showPwd ? 'text' : 'password'} value={session} onChange={e => setSession(e.target.value)}
-                  placeholder="Paste full Cookie header or LEETCODE_SESSION value…"
+                  placeholder="LEETCODE_SESSION=... or full Cookie header"
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-indigo-500 pr-8" />
                 <button onClick={() => setShowPwd(s => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500">
                   {showPwd ? <EyeOff size={12} /> : <Eye size={12} />}

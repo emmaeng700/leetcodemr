@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { getProgress, updateProgress, incrementAcSubmitCount, incrementWrongSubmitCount } from '@/lib/db'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
-import { normalizeLcCookieValue, getCookieFromHeader, hasCfClearance, parseStoredLcSession } from '@/lib/leetcodeHttp'
+import { getCookieFromHeader, hasCfClearance, parseStoredLcSession, isSetCookieLine } from '@/lib/leetcodeHttp'
 import { cloudflareHelp, getLcTransport, lcCheck, lcGraphql, lcRunTest, lcSubmit, type LcTransport } from '@/lib/leetcodeClient'
 import { extBridgeHealthy, hasLeetMasteryBridge } from '@/lib/leetcodeExtensionBridge'
 import toast from 'react-hot-toast'
@@ -271,8 +271,10 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
   const [cleaned, setCleaned] = useState(false)
 
   const canSave = s.trim().length > 10
-  const fullCookieJar = /LEETCODE_SESSION\s*=/.test(s.trim()) && s.trim().includes(';')
-  const hasCf = fullCookieJar && hasCfClearance(s.trim())
+  const trimmed = s.trim()
+  const fullCookieJar = /LEETCODE_SESSION\s*=/.test(trimmed) && trimmed.includes(';') && !isSetCookieLine(trimmed)
+  const sessionTokenPaste = !fullCookieJar && trimmed.length > 10
+  const hasCf = fullCookieJar && hasCfClearance(trimmed)
 
   /**
    * Collapse all whitespace runs (newlines, tabs, multiple spaces) down to a
@@ -290,15 +292,8 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
 
   const handleSave = () => {
     if (!canSave) return
-    const raw = s.trim()
-    if (/LEETCODE_SESSION\s*=/.test(raw) && raw.includes(';')) {
-      // Full cookie jar — pass as-is; extract csrftoken from it
-      const csrf = getCookieFromHeader(raw, 'csrftoken')
-      onSave(raw, csrf)
-    } else {
-      // Plain session value — normalize
-      onSave(normalizeLcCookieValue(raw), '')
-    }
+    const { session, csrf } = parseStoredLcSession(s.trim(), '')
+    onSave(session, csrf)
   }
 
   return (
@@ -308,18 +303,18 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
         <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xs">✕</button>
       </div>
       <p className="text-[11px] text-gray-400 leading-relaxed">
-        <strong className="text-orange-300">For Run/Submit:</strong> on leetcode.com → F12 → Network → any request → copy the full <code className="bg-gray-800 px-1 rounded text-orange-300">Cookie</code> header (must include <code className="bg-gray-800 px-1 rounded text-orange-300">cf_clearance</code>).
+        Paste <code className="bg-gray-800 px-1 rounded text-orange-300">LEETCODE_SESSION=...</code> from DevTools (Application tab cookie, Set-Cookie line, or bare JWT).
         <br className="hidden sm:block" />
-        <span className="text-gray-500">Or stay logged into leetcode.com in Chrome with the LeetMastery extension loaded — no paste needed.</span>
+        <span className="text-gray-500">For Run/Submit via API, paste the full Cookie header (with cf_clearance) or use the LeetMastery Chrome extension.</span>
       </p>
       {fullCookieJar && hasCf && (
-        <p className="text-[11px] text-green-400 font-semibold">✓ Full cookie header with cf_clearance</p>
+        <p className="text-[11px] text-green-400 font-semibold">Full Cookie header with cf_clearance</p>
       )}
-      {canSave && !fullCookieJar && (
-        <p className="text-[11px] text-amber-400">Session token only — paste the full Cookie header for Run/Submit.</p>
+      {sessionTokenPaste && (
+        <p className="text-[11px] text-green-400 font-semibold">Session token - saved for question loading and sync</p>
       )}
       {fullCookieJar && !hasCf && (
-        <p className="text-[11px] text-amber-400">Missing cf_clearance — copy Cookie from leetcode.com right after the page loads.</p>
+        <p className="text-[11px] text-amber-400">Cookie header missing cf_clearance - Run/Submit may fail unless the extension is loaded.</p>
       )}
 
       <div className="flex gap-1.5">
@@ -328,7 +323,7 @@ function SessionPanel({ onSave, onClose }: { onSave: (s: string, c: string) => v
             type={showS ? 'text' : 'password'}
             value={s}
             onChange={e => { setS(e.target.value); setCleaned(false) }}
-            placeholder="Paste full Cookie header or LEETCODE_SESSION value"
+            placeholder="LEETCODE_SESSION=... or full Cookie header"
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-gray-200 focus:outline-none focus:border-indigo-500 pr-7"
           />
           <button onClick={() => setShowS(v => !v)} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500">
@@ -368,9 +363,10 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [csrf,         setCsrf]         = useState('')
   const [sessionReady, setSessionReady] = useState(false)
   const effectiveCsrf = csrf || getCookieFromHeader(session, 'csrftoken')
-  const sessionOK = !!(session && effectiveCsrf)
+  const hasSession = !!session
+  const sessionWithCsrf = !!(session && effectiveCsrf)
   const [bridgeOK, setBridgeOK] = useState(false)
-  const canRunSubmit = sessionOK || bridgeOK
+  const canRunSubmit = sessionWithCsrf || bridgeOK
 
   /* LeetCode question data */
   const [lcQ,     setLcQ]     = useState<LCQuestion | null>(null)
@@ -460,19 +456,19 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       localStorage.getItem('lc_session'),
       localStorage.getItem('lc_csrf'),
     )
-    if (ls && localDerivedCsrf) {
+    if (ls) {
       setSession(ls); setCsrf(localDerivedCsrf); setSessionReady(true)
       localStorage.setItem('lc_session', ls)
-      localStorage.setItem('lc_csrf', localDerivedCsrf)
+      if (localDerivedCsrf) localStorage.setItem('lc_csrf', localDerivedCsrf)
     } else {
       fetch('/api/lc-session')
         .then(r => r.json())
         .then(d => {
           const { session: s, csrf: t } = parseStoredLcSession(d.lc_session, d.lc_csrf)
-          if (s && t) {
+          if (s) {
             setSession(s); setCsrf(t)
             localStorage.setItem('lc_session', s)
-            localStorage.setItem('lc_csrf', t)
+            if (t) localStorage.setItem('lc_csrf', t)
           }
         })
         .catch(() => {})
@@ -484,7 +480,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         localStorage.getItem('lc_session'),
         localStorage.getItem('lc_csrf'),
       )
-      if (s && c) { setSession(s); setCsrf(c) }
+      if (s) { setSession(s); setCsrf(c) }
     }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
@@ -581,7 +577,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         // ── If session-based fetch returned null, retry without session ──────
         // This handles free questions where the stored session is corrupt/expired.
         // If the retry also returns null, the question genuinely requires auth (premium).
-        if (!q && sessionOK) {
+        if (!q && hasSession) {
           try {
             const fallbackQuery = `query($s:String!){question(titleSlug:$s){questionId questionFrontendId titleSlug isPaidOnly codeSnippets{lang langSlug code} exampleTestcases sampleTestCase metaData}}`
             const fb = await fetchQuestionPayload({ query: fallbackQuery, variables: { s: lcSlug } })
@@ -616,12 +612,12 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           // For free questions this usually means LeetCode's API is temporarily
           // blocking the proxy, not necessarily that the session is wrong.
           // Only blame the session if the user has NO session set at all.
-          setLcErr(sessionOK ? 'load-failed' : 'no-session-general')
+          setLcErr(hasSession ? 'load-failed' : 'no-session-general')
           return
         }
         // Premium question — differentiate between "no session" and "session expired"
         if (q.isPaidOnly && !q.codeSnippets?.length) {
-          setLcErr(sessionOK ? 'premium-expired' : 'premium-no-session')
+          setLcErr(hasSession ? 'premium-expired' : 'premium-no-session')
           return
         }
         setLcQ(q)
@@ -931,7 +927,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
             style={{ touchAction: 'manipulation' }}
             className={`ml-auto sm:ml-0 flex items-center gap-1 text-xs transition shrink-0 ${canRunSubmit ? 'text-gray-500 hover:text-gray-300' : 'text-orange-400 hover:text-orange-300'}`}>
             <Key size={11} />
-            <span className="hidden sm:inline">{bridgeOK && !sessionOK ? 'Browser' : canRunSubmit ? 'Session' : 'Setup session'}</span>
+            <span className="hidden sm:inline">{bridgeOK && !hasSession ? 'Browser' : hasSession || bridgeOK ? 'Session' : 'Setup session'}</span>
             <span className="sm:hidden text-[10px]">Session</span>
             {showSessionHint ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
           </button>
