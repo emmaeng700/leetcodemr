@@ -42,8 +42,8 @@ export async function POST(req: NextRequest) {
       .select('lc_session, lc_csrf')
       .eq('user_id', USER_ID)
       .single()
-    session = session || data?.lc_session ?? ''
-    csrfToken = csrfToken || data?.lc_csrf ?? ''
+    session = session || (data?.lc_session ?? '')
+    csrfToken = csrfToken || (data?.lc_csrf ?? '')
   }
 
   const creds = await resolveLcSessionCredentials(session, csrfToken)
