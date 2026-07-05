@@ -59,6 +59,13 @@ export async function extBridgeHealthy(): Promise<boolean> {
   const now = Date.now()
   if (_bridgeOk === true  && now - _bridgeAt < HEALTHY_TTL) return true
   if (_bridgeOk === false && now - _bridgeAt < FAIL_TTL)    return false
+
+  // Content script may stamp data-lm-ext-id shortly after load.
+  for (let i = 0; i < 5; i++) {
+    if (hasLeetMasteryBridge()) break
+    await new Promise(r => setTimeout(r, 200))
+  }
+
   try {
     const r = await extBridgeRequest('ping', undefined, 3_000)
     _bridgeOk = !!r.ok

@@ -4,6 +4,7 @@
  */
 
 import { extBridgeHealthy, extBridgeRequest, invalidateBridgeCache } from './leetcodeExtensionBridge'
+import { hasCfClearance } from './leetcodeHttp'
 
 export type LcTransport = 'extension' | 'api'
 
@@ -93,13 +94,42 @@ async function viaApi(path: string, body: unknown): Promise<JsonResult> {
   }
 }
 
+function sessionFromBody(body: unknown): string {
+  if (!body || typeof body !== 'object') return ''
+  const b = body as Record<string, unknown>
+  return String(b.session ?? '')
+}
+
+const NO_CF_ERROR =
+  'Run/Submit cannot use a pasted session token alone (Cloudflare blocks the server). ' +
+  'Install the LeetMastery Chrome extension: chrome://extensions → Developer mode → Load unpacked → select the extension/ folder in this repo. ' +
+  'Stay logged into leetcode.com in Chrome, then retry Run.'
+
 async function withExtensionFallback(
   kind: 'graphql' | 'test' | 'submit' | 'check',
   apiPath: string,
   body: unknown,
 ): Promise<JsonResult> {
-  const transport = await pickTransport()
-  if (transport === 'extension') return viaExtension(kind, body)
+  const isRunSubmit = kind === 'test' || kind === 'submit' || kind === 'check'
+  const sess = sessionFromBody(body)
+  const hasCf = hasCfClearance(sess)
+
+  // Extension uses real browser cookies (incl. cf_clearance) — always try first for Run/Submit.
+  if (isRunSubmit) invalidateLcTransportCache()
+  if (await extBridgeHealthy()) {
+    const ext = await viaExtension(kind, body)
+    if (ext.ok || !isCloudflareBlock(ext.data, ext.status)) return ext
+  }
+
+  // Session token without cf_clearance cannot work through Vercel/localhost API.
+  if (isRunSubmit && sess && !hasCf) {
+    return {
+      ok: false,
+      status: 403,
+      data: { error: NO_CF_ERROR },
+      transport: 'api',
+    }
+  }
 
   const api = await viaApi(apiPath, body)
   if (api.ok || !isCloudflareBlock(api.data, api.status)) return api
@@ -125,10 +155,9 @@ export async function lcCheck(body: Record<string, unknown>): Promise<JsonResult
   return withExtensionFallback('check', '/api/leetcode/check', body)
 }
 
-export function cloudflareHelp(transport: LcTransport): string {
+export function cloudflareHelp(transport: LcTransport, errorMsg?: string): string {
   if (transport !== 'api') return ''
-  return (
-    ' Paste the full Cookie header from leetcode.com (must include cf_clearance), ' +
-    'or load the LeetMastery Chrome extension (extension/ folder) while logged into LeetCode.'
-  )
+  const err = String(errorMsg ?? '')
+  if (/extension|cf_clearance|Cloudflare/i.test(err)) return ''
+  return ' Install the LeetMastery Chrome extension, or paste the full Cookie header with cf_clearance.'
 }

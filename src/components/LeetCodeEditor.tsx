@@ -485,7 +485,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     }
     if (json.errors?.length) throw new Error(json.errors[0]?.message)
     if (json.error && !json.data) {
-      throw new Error(String(json.error) + cloudflareHelp(r.transport))
+      throw new Error(String(json.error) + cloudflareHelp(r.transport, String(json.error)))
     }
     return json
   }, [])
@@ -861,7 +861,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         setRunning(false); setPollMsg(''); return
       }
       if (data.error && !data.state) {
-        setResultErr(String(data.status_msg || data.error) + cloudflareHelp(transport))
+        setResultErr(String(data.status_msg || data.error) + cloudflareHelp(transport, String(data.status_msg || data.error)))
         setRunning(false); setPollMsg(''); return
       }
       if (data.state !== 'PENDING' && data.state !== 'STARTED') {
@@ -958,7 +958,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         setRunCooldownUntil(Date.now() + 1500)
       }
       if (data.error) {
-        setResultErr(String(data.error) + cloudflareHelp(r.transport))
+        setResultErr(String(data.error) + cloudflareHelp(r.transport, String(data.error)))
         setRunning(false); setPollMsg(''); return
       }
       if (data.interpret_id == null) {
@@ -989,7 +989,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       if (r.transport === 'extension') setBridgeOK(true)
       const data = r.data as { error?: string; submission_id?: string }
       if (data.error) {
-        setResultErr(String(data.error) + cloudflareHelp(r.transport))
+        setResultErr(String(data.error) + cloudflareHelp(r.transport, String(data.error)))
         setRunning(false); setPollMsg(''); return
       }
       if (data.submission_id == null) {
