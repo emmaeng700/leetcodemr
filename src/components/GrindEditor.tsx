@@ -3,12 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
-import { RotateCcw, Code2, Wifi, WifiOff, Cloud, CloudOff, Copy, Check } from 'lucide-react'
+import { RotateCcw, Wifi, WifiOff, Cloud, CloudOff } from 'lucide-react'
 import { useMobileViewport } from '@/hooks/useMobileViewport'
 import { saveGrindSession } from '@/lib/db'
 import {
   writeGrindDraft,
-  type GrindLang,
 } from '@/lib/grindStorage'
 import {
   applyGrindStampOnEdit,
@@ -25,6 +24,7 @@ import type { GrindQuestion } from '@/lib/grindQuestions'
 import { formatDescriptionPlain } from '@/lib/formatDescription'
 import { loadQuestionsDataAllRows } from '@/lib/grindQuestions'
 import { stripScripts } from '@/lib/utils'
+import { useGrindLang } from '@/components/grind/GrindLangContext'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
 
@@ -35,7 +35,7 @@ interface GrindEditorProps {
 
 export default function GrindEditor({ question, className = '' }: GrindEditorProps) {
   const { height: vvHeight, offsetTop: vvOffsetTop, keyboardOpen } = useMobileViewport()
-  const [lang, setLang] = useState<GrindLang>('python3')
+  const { lang, setLang } = useGrindLang()
   const [code, setCode] = useState('')
   const [starter, setStarter] = useState('')
   const [loading, setLoading] = useState(true)
@@ -295,22 +295,16 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
   }, [])
 
   const langToggle = (
-    <div className="flex items-center gap-1 bg-[#313244] rounded-lg p-0.5">
+    <div className="grind-langs">
       {(['python3', 'cpp'] as const).map(l => (
         <button
           key={l}
           type="button"
           onPointerDown={e => e.preventDefault()}
           onClick={() => setLang(l)}
-          className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
-            lang === l
-              ? l === 'python3'
-                ? 'bg-blue-600 text-white'
-                : 'bg-purple-600 text-white'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
+          className={l === 'python3' ? (lang === 'python3' ? 'on-py' : '') : (lang === 'cpp' ? 'on-cpp' : '')}
         >
-          {l === 'python3' ? 'Python' : 'C++'}
+          {l === 'python3' ? 'Py' : 'C++'}
         </button>
       ))}
     </div>
@@ -336,34 +330,25 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
   )
 
   const footerBar = (
-    <div className="flex items-center justify-between px-4 py-2 bg-[#181825] border-t border-gray-700 flex-wrap gap-2 shrink-0">
-      <div className="flex items-center gap-2 flex-wrap min-w-0">
+    <div className="grind-editor-footer">
+      <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
         {syncLabel}
         {sessionLabel && (
           <span
-            className="text-[10px] text-indigo-200/90 bg-indigo-950/50 border border-indigo-800/60 px-2 py-0.5 rounded-full truncate max-w-[14rem] sm:max-w-none"
+            className="text-[0.58rem] text-[#bac2de] bg-[#313244] border border-[#585b70] rounded-full px-2 py-0.5 truncate max-w-[11rem]"
             title={`Last grind: ${sessionLabel}`}
           >
             Last grind: {sessionLabel}
           </span>
         )}
-        <span className="text-[10px] text-gray-600 hidden sm:inline">no submit - write from memory</span>
+        <span className="grind-editor-hint hidden md:inline">no submit - write from memory</span>
       </div>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => void copyCode()}
-          className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs text-gray-300 bg-[#313244] hover:bg-[#45475a] transition-colors"
-        >
-          {copied ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
+      <div className="flex items-center gap-1.5 shrink-0">
+        <button type="button" onClick={() => void copyCode()} className="grind-chip">
           {copied ? 'Copied!' : 'Copy'}
         </button>
-        <button
-          type="button"
-          onClick={reset}
-          className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs text-gray-300 bg-[#313244] hover:bg-[#45475a] transition-colors"
-        >
-          <RotateCcw size={11} /> Reset to starter
+        <button type="button" onClick={reset} className="grind-chip">
+          Reset to starter
         </button>
       </div>
     </div>
@@ -463,27 +448,25 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     const hideDescBody = portal && (portalDescCollapsed || keyboardOpen)
     return (
       <div
-        className={`bg-[#1e1e2e] overflow-hidden shrink-0 flex flex-col min-h-0 ${
-          portal ? 'border-b border-gray-700' : 'rounded-xl border border-gray-700 shadow-sm'
-        } ${portal && (portalDescCollapsed || keyboardOpen) ? 'max-h-9' : ''}`}
+        className={portal ? 'fs-desc-pane border-b border-[#313244] bg-[#11111b] shrink-0 flex flex-col min-h-0' : 'grind-desc-card'}
         role="region"
         aria-label="Problem description"
       >
-        <div className="px-3 sm:px-4 py-2 bg-[#181825] border-b border-gray-700 flex items-center justify-between gap-2 shrink-0">
-          <span className="text-xs font-bold text-gray-200">Problem Description</span>
+        <div className={portal ? 'fs-desc-head flex items-center justify-between gap-2 px-3 py-2 bg-[#181825] border-b border-[#313244] text-[0.62rem] font-bold text-[#cdd6f4]' : 'grind-desc-head'}>
+          <span>Problem Description</span>
           {portal && (
             <button
               type="button"
               onClick={() => setPortalDescCollapsed(v => !v)}
               disabled={keyboardOpen}
-              className="text-[10px] font-semibold text-indigo-300 px-2 py-0.5 rounded border border-[#585b70] bg-[#313244] disabled:opacity-40"
+              className="grind-chip text-[0.55rem] py-0.5 px-2 disabled:opacity-40"
             >
               {hideDescBody ? 'Show' : 'Hide'}
             </button>
           )}
         </div>
         {!hideDescBody && (
-          <div className="px-3 sm:px-4 py-3 overflow-y-auto overscroll-contain min-h-0 max-h-[36vh] min-h-[6.5rem]">
+          <div className={portal ? 'fs-desc-body px-3 py-2 overflow-y-auto overscroll-contain min-h-0 max-h-[36vh] min-h-[6.5rem] text-[0.68rem] leading-relaxed text-[#cdd6f4]' : 'grind-desc-body grind-desc lc-description'}>
             {descriptionContent}
           </div>
         )}
@@ -493,76 +476,64 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
 
   return (
     <>
-      <div className={`flex flex-col h-full min-h-0 gap-2 ${className}`}>
-        <div className="flex flex-col flex-1 min-h-0 bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#181825] border-b border-gray-700 flex-wrap shrink-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <Code2 size={14} className="text-indigo-400 shrink-0" />
-            <span className="text-xs font-bold text-gray-200 truncate">
-              #{question.id} - {question.title}
-            </span>
-            <span
-              className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${
-                question.set === 1
-                  ? 'bg-indigo-900/40 text-indigo-300 border-indigo-700'
-                  : question.set === 2
-                    ? 'bg-emerald-900/40 text-emerald-300 border-emerald-700'
-                    : 'bg-purple-900/40 text-purple-300 border-purple-700'
-              }`}
-            >
-              Set {question.set}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            {typeof navigator !== 'undefined' && !navigator.onLine && (
-              <WifiOff size={12} className="text-orange-400" />
-            )}
-            {langToggle}
-            <button
-              type="button"
-              onPointerDown={e => e.preventDefault()}
-              onClick={() => setEditorExpanded(v => !v)}
-              aria-label={editorExpanded ? 'Close full screen editor' : 'Open full screen editor'}
-              className="md:hidden px-2 py-1 rounded-md text-xs font-mono bg-[#313244] text-indigo-300 border border-[#585b70] min-h-[44px] min-w-[44px]"
-            >
-              {editorExpanded ? 'Close' : 'Full'}
-            </button>
+      <div className={`flex flex-col h-full min-h-0 ${className}`}>
+        <div className="grind-editor-meta">
+          <span className="truncate flex-1">
+            #{question.id} - {question.title} (Set {question.set})
+          </span>
+          {typeof navigator !== 'undefined' && !navigator.onLine && (
+            <WifiOff size={12} className="text-[#fab387] shrink-0" />
+          )}
+          <button
+            type="button"
+            className="grind-chip grind-mob-only"
+            onPointerDown={e => e.preventDefault()}
+            onClick={() => setEditorExpanded(true)}
+          >
+            Full
+          </button>
+        </div>
+
+        <div className="grind-editor-stack">
+          {!editorExpanded && descriptionPanel()}
+
+          {!editorExpanded && (
+            <div className="grind-mobile-cta">
+              <p className="grind-mobile-cta-text">
+                Read the problem above, then write your solution from memory.
+              </p>
+              <button type="button" className="grind-chip" onClick={() => setEditorExpanded(true)}>
+                Write code
+              </button>
+            </div>
+          )}
+
+          <div className={`grind-editor-inline practice-cm-wrap relative flex-1 min-h-0 ${editorExpanded ? 'invisible' : ''}`}>
+            {editorBody('100%', false)}
           </div>
         </div>
 
-        <div className={`practice-cm-wrap relative flex-1 min-h-0 ${editorExpanded ? 'invisible' : ''}`}>
-          {editorBody('100%', false)}
-        </div>
-        {!editorExpanded && footerBar}
-      </div>
-
-        {!editorExpanded && descriptionPanel()}
+        {!editorExpanded && <div className="hidden md:block">{footerBar}</div>}
       </div>
 
       {editorExpanded &&
         typeof document !== 'undefined' &&
         createPortal(
           <div
-            className="practice-fs-portal fixed inset-0 flex flex-col bg-[#1e1e2e]"
+            className="practice-fs-portal fixed inset-0 flex flex-col bg-[#1e1e2e] grind-shell"
             style={mobilePortalStyle}
           >
-            <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#181825] border-b border-gray-700 shrink-0">
-              <span className="text-xs font-bold text-gray-200 truncate">
+            <div className="fs-bar flex items-center gap-2 px-3 py-2 bg-[#181825] border-b border-[#313244] shrink-0">
+              <span className="flex-1 text-[0.65rem] text-[#a6adc8] truncate">
                 #{question.id} - {question.title}
               </span>
-              <div className="flex items-center gap-2">
-                {langToggle}
-                <button
-                  type="button"
-                  onClick={() => setEditorExpanded(false)}
-                  className="px-2 py-1 rounded-md text-xs font-mono bg-indigo-700 text-white"
-                >
-                  Close
-                </button>
-              </div>
+              {langToggle}
+              <button type="button" onClick={() => setEditorExpanded(false)} className="grind-chip">
+                Close
+              </button>
             </div>
             {descriptionPanel({ portal: true })}
-            <div className="relative flex-1 min-h-0">{editorBody('100%', true)}</div>
+            <div className="relative flex-1 min-h-0 fs-editor practice-cm-wrap">{editorBody('100%', true)}</div>
             {!keyboardOpen && footerBar}
           </div>,
           document.body,

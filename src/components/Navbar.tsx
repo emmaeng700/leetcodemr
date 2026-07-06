@@ -1,15 +1,15 @@
 'use client'
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useCallback, useSyncExternalStore } from 'react'
 import AppNavLink from '@/components/AppNavLink'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { getOpenQuestionContext } from '@/lib/openQuestionContext'
 import { grindHrefForLastQuestion } from '@/lib/grindStorage'
 import {
   Menu, X, Home, BarChart2, Brain,
-  Layers, GitBranch, MessageSquare, Gem, Server, Clock,
-  Calendar, Info, Timer, Code2, Zap, Gamepad2, RefreshCw, Library,
-  BookOpen, Swords, Rocket, Download, Bookmark, ClipboardList, Settings, Check,
-  ChevronDown, ExternalLink,
+  Layers, GitBranch, Server, Clock,
+  Calendar, Code2, Zap, RefreshCw,
+  BookOpen, Swords, Settings, Check,
+  ChevronDown, ClipboardList, MoreHorizontal,
 } from 'lucide-react'
 import { isMcpSectionPath, mcpTabUrl, type McpTab } from '@/lib/mcpNav'
 import {
@@ -22,52 +22,44 @@ import {
 
 type NavLink = { href: string; label: string; icon: React.ElementType; also?: string[] }
 
-// ── Starred (core daily-use pages) ───────────────────────────────────────────
-const STARRED_LINKS: NavLink[] = [
-  { href: '/grind',  label: 'Grind',     icon: Code2 },
-  { href: '/leetcode', label: 'LeetCode', icon: ExternalLink },
-  { href: '/daily',  label: '★ Daily',   icon: Calendar },
-  { href: '/review', label: '★ Reviews', icon: Brain,    also: ['/quick-review', '/sr-queue', '/pattern-review', '/best-solutions'] },
+const MAIN_LINKS: NavLink[] = [
+  { href: '/grind', label: 'Grind', icon: Code2 },
+  { href: '/leetcode', label: 'LeetCode', icon: Zap },
+  { href: '/daily', label: 'Daily', icon: Calendar },
+  { href: '/review', label: 'Reviews', icon: Brain, also: ['/quick-review', '/sr-queue', '/pattern-review', '/best-solutions'] },
 ]
 
 const LEARN_CHILDREN: LearnSet[] = [1, 2, 3]
 
-// ── Secondary (practice & reference) ─────────────────────────────────────────
-const STUDY_LINKS: NavLink[] = [
-  { href: '/questions', label: 'Questions', icon: Home, also: ['/practice', '/question'] },
-]
 const MCP_CHILDREN: { tab: McpTab; label: string; icon: React.ElementType }[] = [
-  { tab: 'mock',      label: 'Mock',      icon: Timer },
-  { tab: 'patterns',  label: 'Patterns',  icon: GitBranch },
+  { tab: 'mock', label: 'Mock', icon: Clock },
+  { tab: 'patterns', label: 'Patterns', icon: GitBranch },
   { tab: 'clipboard', label: 'Clipboard', icon: ClipboardList },
 ]
 
-const DRILL_LINKS: NavLink[] = [
+const EXTRA_STUDY_LINKS: NavLink[] = [
+  { href: '/questions', label: 'Questions', icon: Home, also: ['/practice', '/question'] },
+]
+
+const EXTRA_DRILL_LINKS: NavLink[] = [
   { href: '/flashcards', label: 'Flashcards', icon: Layers },
-  { href: '/cycles',     label: 'Cycles',     icon: RefreshCw },
+  { href: '/cycles', label: 'Cycles', icon: RefreshCw },
 ]
-const PRACTICE_LINKS = [...STUDY_LINKS, ...DRILL_LINKS]
 
-const SITES_LINKS: NavLink[] = [
+const EXTRA_MORE_LINKS: NavLink[] = [
   { href: '/sites', label: 'Sites', icon: Zap, also: ['/neetcode', '/leetcode-api', '/answers'] },
-]
-
-// Behavioral, System Design, Gems, DSA → merged under /resources
-const TOPIC_LINKS: NavLink[] = [
   { href: '/resources', label: 'Resources', icon: Server, also: ['/behavioral', '/system-design', '/gems', '/dsa', '/downloads'] },
-]
-const META_LINKS: NavLink[] = [
-  { href: '/stats',    label: 'Stats',    icon: BarChart2 },
+  { href: '/stats', label: 'Stats', icon: BarChart2 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
-const MOBILE_SECTIONS = [
-  { emoji: '⭐', label: 'Core',      group: STARRED_LINKS },
-  { emoji: '📖', label: 'Practice',  group: STUDY_LINKS },
-  { emoji: '🎯', label: 'Tools',     group: DRILL_LINKS },
-  { emoji: '🌐', label: 'Sites',     group: SITES_LINKS  },
-  { emoji: '📚', label: 'Resources', group: TOPIC_LINKS },
-  { emoji: '⚙️', label: 'More',     group: META_LINKS },
+const EXTRA_PATH_PREFIXES = [
+  '/learn', '/learn2', '/learn3',
+  '/questions', '/practice', '/question',
+  '/flashcards', '/cycles', '/mcp', '/mock', '/patterns', '/clipboard',
+  '/sites', '/neetcode', '/leetcode-api', '/answers',
+  '/resources', '/behavioral', '/system-design', '/gems', '/dsa', '/downloads',
+  '/stats', '/settings',
 ]
 
 function buildAnswersNavHref(): string {
@@ -83,6 +75,21 @@ function resolveNavHref(href: string, grindNavHref: string, answersNavHref: stri
   return href
 }
 
+function linkActive(pathname: string, href: string, also?: string[]): boolean {
+  const base = href === '/' ? '/' : '/' + href.split('/')[1]
+  return (href === '/' ? pathname === '/' : pathname.startsWith(base))
+    || (also ?? []).some(p => pathname.startsWith(p))
+}
+
+function isMainSectionPath(pathname: string): boolean {
+  return MAIN_LINKS.some(l => linkActive(pathname, l.href, l.also))
+}
+
+function isExtraSectionPath(pathname: string): boolean {
+  if (isMainSectionPath(pathname) || pathname === '/') return false
+  return EXTRA_PATH_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'))
+}
+
 function navLinkClass(active: boolean) {
   return `px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-150 whitespace-nowrap ${
     active
@@ -91,10 +98,25 @@ function navLinkClass(active: boolean) {
   }`
 }
 
-function LearnNavDropdown({ pathname }: { pathname: string }) {
+function dropdownLinkClass(active: boolean) {
+  return `flex items-center gap-2.5 px-3 py-2 text-sm font-medium transition-colors ${
+    active
+      ? 'bg-indigo-50 text-indigo-600'
+      : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
+  }`
+}
+
+function MainNavDropdown({
+  pathname,
+  grindNavHref,
+  answersNavHref,
+}: {
+  pathname: string
+  grindNavHref: string
+  answersNavHref: string
+}) {
   const [open, setOpen] = useState(false)
-  const learnActive = isLearnSectionPath(pathname)
-  const activeSet = activeLearnSetFromPath(pathname)
+  const mainActive = isMainSectionPath(pathname)
 
   return (
     <div
@@ -102,27 +124,29 @@ function LearnNavDropdown({ pathname }: { pathname: string }) {
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
-      <AppNavLink href={learnHubHref(1)} className={`${navLinkClass(learnActive)} inline-flex items-center gap-1`}>
-        ★ Learn
+      <button
+        type="button"
+        className={`${navLinkClass(mainActive)} inline-flex items-center gap-1`}
+        aria-expanded={open}
+      >
+        <Swords size={14} className="shrink-0" />
+        Main
         <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-      </AppNavLink>
+      </button>
       {open && (
-        <div className="absolute top-full left-0 pt-1.5 z-[110] min-w-[9rem]">
+        <div className="absolute top-full left-0 pt-1.5 z-[110] min-w-[11rem]">
           <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_8px_30px_rgba(0,0,0,0.12)] py-1 overflow-hidden">
-            {LEARN_CHILDREN.map(set => {
-              const childActive = learnActive && activeSet === set
+            {MAIN_LINKS.map(link => {
+              const active = linkActive(pathname, link.href, link.also)
+              const Icon = link.icon
               return (
                 <AppNavLink
-                  key={set}
-                  href={learnHubHref(set)}
-                  className={`flex items-center gap-2.5 px-3 py-2 text-sm font-medium transition-colors ${
-                    childActive
-                      ? 'bg-indigo-50 text-indigo-600'
-                      : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
-                  }`}
+                  key={link.href}
+                  href={resolveNavHref(link.href, grindNavHref, answersNavHref)}
+                  className={dropdownLinkClass(active)}
                 >
-                  <BookOpen size={14} className="shrink-0" />
-                  {learnSetLabel(set)}
+                  <Icon size={14} className="shrink-0" />
+                  {link.label}
                 </AppNavLink>
               )
             })}
@@ -133,13 +157,37 @@ function LearnNavDropdown({ pathname }: { pathname: string }) {
   )
 }
 
-function McpNavDropdown({ pathname }: { pathname: string }) {
+function ExtraNavDropdown({
+  pathname,
+  grindNavHref,
+  answersNavHref,
+}: {
+  pathname: string
+  grindNavHref: string
+  answersNavHref: string
+}) {
   const searchParams = useSearchParams()
   const [open, setOpen] = useState(false)
+  const extraActive = isExtraSectionPath(pathname)
+  const learnActive = isLearnSectionPath(pathname)
+  const activeSet = activeLearnSetFromPath(pathname)
   const mcpActive = isMcpSectionPath(pathname)
-  const activeTab = pathname.startsWith('/mcp')
-    ? (searchParams.get('tab') as McpTab | null)
-    : null
+  const activeTab = pathname.startsWith('/mcp') ? (searchParams.get('tab') as McpTab | null) : null
+
+  const renderLink = (link: NavLink) => {
+    const active = linkActive(pathname, link.href, link.also)
+    const Icon = link.icon
+    return (
+      <AppNavLink
+        key={link.href}
+        href={resolveNavHref(link.href, grindNavHref, answersNavHref)}
+        className={dropdownLinkClass(active)}
+      >
+        <Icon size={14} className="shrink-0" />
+        {link.label}
+      </AppNavLink>
+    )
+  }
 
   return (
     <div
@@ -147,30 +195,49 @@ function McpNavDropdown({ pathname }: { pathname: string }) {
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
-      <AppNavLink href="/mcp" className={`${navLinkClass(mcpActive)} inline-flex items-center gap-1`}>
-        MCP
+      <button
+        type="button"
+        className={`${navLinkClass(extraActive)} inline-flex items-center gap-1`}
+        aria-expanded={open}
+      >
+        <MoreHorizontal size={14} className="shrink-0" />
+        Extra
         <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-      </AppNavLink>
+      </button>
       {open && (
-        <div className="absolute top-full left-0 pt-1.5 z-[110] min-w-[11rem]">
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_8px_30px_rgba(0,0,0,0.12)] py-1 overflow-hidden">
-            {MCP_CHILDREN.map(({ tab, label, icon: Icon }) => {
-              const childActive = mcpActive && (activeTab === tab || (!activeTab && tab === 'mock' && pathname === '/mcp'))
-              return (
-                <AppNavLink
-                  key={tab}
-                  href={mcpTabUrl(tab)}
-                  className={`flex items-center gap-2.5 px-3 py-2 text-sm font-medium transition-colors ${
-                    childActive
-                      ? 'bg-indigo-50 text-indigo-600'
-                      : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
-                  }`}
-                >
-                  <Icon size={14} className="shrink-0" />
-                  {label}
-                </AppNavLink>
-              )
-            })}
+        <div className="absolute top-full left-0 pt-1.5 z-[110] min-w-[12rem]">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_8px_30px_rgba(0,0,0,0.12)] py-1 overflow-hidden max-h-[min(70vh,28rem)] overflow-y-auto">
+            <p className="px-3 pt-2 pb-1 text-[10px] font-black text-[var(--text-subtle)] uppercase tracking-widest">Study</p>
+            {EXTRA_STUDY_LINKS.map(renderLink)}
+            <p className="px-3 pt-2 pb-1 text-[10px] font-black text-[var(--text-subtle)] uppercase tracking-widest">Learn</p>
+            {LEARN_CHILDREN.map(set => (
+              <AppNavLink
+                key={set}
+                href={learnHubHref(set)}
+                className={dropdownLinkClass(learnActive && activeSet === set)}
+              >
+                <BookOpen size={14} className="shrink-0" />
+                {learnSetLabel(set)}
+              </AppNavLink>
+            ))}
+            <p className="px-3 pt-2 pb-1 text-[10px] font-black text-[var(--text-subtle)] uppercase tracking-widest">Tools</p>
+            {EXTRA_DRILL_LINKS.map(renderLink)}
+            <AppNavLink href="/mcp" className={dropdownLinkClass(mcpActive && !activeTab)}>
+              <Clock size={14} className="shrink-0" />
+              MCP
+            </AppNavLink>
+            {MCP_CHILDREN.map(({ tab, label, icon: Icon }) => (
+              <AppNavLink
+                key={tab}
+                href={mcpTabUrl(tab)}
+                className={`${dropdownLinkClass(mcpActive && (activeTab === tab || (!activeTab && tab === 'mock' && pathname === '/mcp')))} pl-8`}
+              >
+                <Icon size={13} className="shrink-0" />
+                {label}
+              </AppNavLink>
+            ))}
+            <p className="px-3 pt-2 pb-1 text-[10px] font-black text-[var(--text-subtle)] uppercase tracking-widest">More</p>
+            {EXTRA_MORE_LINKS.map(renderLink)}
           </div>
         </div>
       )}
@@ -180,16 +247,35 @@ function McpNavDropdown({ pathname }: { pathname: string }) {
 
 export default function Navbar() {
   const pathname = usePathname()
+  if (pathname === '/grind' || pathname.startsWith('/grind/')) return null
   const [open, setOpen] = useState(false)
-  const [answersNavHref, setAnswersNavHref] = useState('/answers')
-  const [grindNavHref, setGrindNavHref] = useState('/grind')
+  const grindNavHref = useSyncExternalStore(
+    () => () => {},
+    grindHrefForLastQuestion,
+    () => '/grind',
+  )
+  const answersNavHref = useSyncExternalStore(
+    () => () => {},
+    buildAnswersNavHref,
+    () => '/answers',
+  )
   const build = process.env.NEXT_PUBLIC_COMMIT_SHA
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'uptodate'>('idle')
+  const [mobileSection, setMobileSection] = useState<'main' | 'extra' | null>(null)
+  const mainActive = isMainSectionPath(pathname)
+  const extraActive = isExtraSectionPath(pathname)
 
-  useEffect(() => {
-    setAnswersNavHref(buildAnswersNavHref())
-    setGrindNavHref(grindHrefForLastQuestion())
-  }, [pathname])
+  const toggleMobileMenu = useCallback(() => {
+    setOpen(prev => {
+      const next = !prev
+      if (next) {
+        setMobileSection(mainActive ? 'main' : extraActive ? 'extra' : null)
+      } else {
+        setMobileSection(null)
+      }
+      return next
+    })
+  }, [mainActive, extraActive])
 
   const checkForUpdate = useCallback(async () => {
     setUpdateStatus('checking')
@@ -207,15 +293,37 @@ export default function Navbar() {
     }
   }, [])
 
+  const renderMobileLink = (link: NavLink, indent = false) => {
+    const { href, label, icon: Icon, also } = link
+    const active = linkActive(pathname, href, also)
+    return (
+      <AppNavLink
+        key={href}
+        href={resolveNavHref(href, grindNavHref, answersNavHref)}
+        onClick={() => setOpen(false)}
+        className={`flex items-center gap-3 ${indent ? 'pl-8 pr-3 py-2' : 'px-3 py-2.5'} rounded-xl text-sm font-medium transition-all duration-150 ${
+          active
+            ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60'
+            : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
+        }`}
+      >
+        {!indent && (
+          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${active ? 'bg-indigo-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)]'}`}>
+            <Icon size={14} />
+          </div>
+        )}
+        {indent && <Icon size={13} className="shrink-0 text-[var(--text-subtle)]" />}
+        {label}
+      </AppNavLink>
+    )
+  }
+
   return (
     <nav className="sticky top-0 z-[90] bg-[var(--bg-card)]/96 backdrop-blur-xl border-b border-[var(--border)] shadow-[0_2px_24px_rgba(0,0,0,0.07),0_0_0_0.5px_rgba(176,136,72,0.18)]">
       <div className="max-w-7xl mx-auto px-4">
 
-        {/* ── Top row ────────────────────────────────────────────── */}
         <div className="flex items-center justify-between h-14">
-
-          {/* Logo */}
-          <AppNavLink href={grindNavHref} className="flex items-center gap-2.5 shrink-0 group">
+          <AppNavLink href="/grind" className="flex items-center gap-2.5 shrink-0 group">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-[0_2px_8px_rgba(99,102,241,0.4)] group-hover:shadow-[0_4px_14px_rgba(99,102,241,0.55)] transition-shadow duration-200">
               <Swords size={16} className="text-white" />
             </div>
@@ -225,13 +333,11 @@ export default function Navbar() {
           </AppNavLink>
 
           <div className="flex items-center gap-1 shrink-0">
-            {/* Build stamp */}
             {build && (
               <span className="hidden sm:inline text-[10px] font-mono text-[var(--text-subtle)] mr-1 select-none bg-[var(--bg-muted)] px-2 py-0.5 rounded-full">
                 {build}
               </span>
             )}
-            {/* Get Latest Version */}
             <button
               type="button"
               onClick={checkForUpdate}
@@ -243,16 +349,15 @@ export default function Navbar() {
               }`}
             >
               {updateStatus === 'checking' ? (
-                <><RefreshCw size={11} className="animate-spin" /><span className="hidden sm:inline">Updating…</span></>
+                <><RefreshCw size={11} className="animate-spin" /><span className="hidden sm:inline">Updating...</span></>
               ) : updateStatus === 'uptodate' ? (
                 <><Check size={11} /><span className="hidden sm:inline">Up to date</span></>
               ) : (
                 <><RefreshCw size={11} /><span className="hidden sm:inline">Get Latest</span></>
               )}
             </button>
-            {/* Mobile hamburger */}
             <button
-              onClick={() => setOpen(o => !o)}
+              onClick={toggleMobileMenu}
               className="md:hidden flex min-h-11 min-w-11 items-center justify-center text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-muted)] rounded-xl transition-colors"
             >
               {open ? <X size={20} /> : <Menu size={20} />}
@@ -260,75 +365,14 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* ── Desktop Nav ────────────────────────────────────────── */}
-        <div className="hidden md:flex flex-wrap items-center gap-1 pb-2.5">
-          {[
-            { key: 'starred', links: STARRED_LINKS },
-            { key: 'study', links: STUDY_LINKS },
-            { key: 'drill', links: DRILL_LINKS },
-            { key: 'sites', links: SITES_LINKS },
-            { key: 'topics', links: TOPIC_LINKS },
-            { key: 'meta', links: META_LINKS },
-          ].map((section, gi) => (
-            <React.Fragment key={section.key}>
-              {gi > 0 && (
-                <span className="w-px h-4 mx-1.5 shrink-0 rounded-full" style={{ background: 'var(--border)' }} />
-              )}
-              {section.key === 'starred' && (
-                <>
-                  {section.links.map(({ href, label, also }) => {
-                    const base = href === '/' ? '/' : '/' + href.split('/')[1]
-                    const active = (href === '/' ? pathname === '/' : pathname.startsWith(base))
-                      || (also ?? []).some(p => pathname.startsWith(p))
-                    return (
-                      <AppNavLink key={href} href={resolveNavHref(href, grindNavHref, answersNavHref)} className={navLinkClass(active)}>{label}</AppNavLink>
-                    )
-                  })}
-                  <LearnNavDropdown pathname={pathname} />
-                </>
-              )}
-              {section.key === 'drill' && (
-                <>
-                  {section.links.slice(0, 2).map(({ href, label }) => {
-                    const base = '/' + href.split('/')[1]
-                    const active = pathname.startsWith(base)
-                    return (
-                      <AppNavLink key={href} href={href} className={navLinkClass(active)}>{label}</AppNavLink>
-                    )
-                  })}
-                  <McpNavDropdown pathname={pathname} />
-                  {section.links.slice(2).map(({ href, label }) => {
-                    const base = '/' + href.split('/')[1]
-                    const active = pathname.startsWith(base)
-                    return (
-                      <AppNavLink key={href} href={href} className={navLinkClass(active)}>{label}</AppNavLink>
-                    )
-                  })}
-                </>
-              )}
-              {section.key !== 'drill' && section.key !== 'starred' && section.links.map(({ href, label, also }) => {
-                const base = href === '/' ? '/' : '/' + href.split('/')[1]
-                const active = (href === '/' ? pathname === '/' : pathname.startsWith(base))
-                  || (also ?? []).some(p => pathname.startsWith(p))
-                return (
-                  <AppNavLink
-                    key={href}
-                    href={resolveNavHref(href, grindNavHref, answersNavHref)}
-                    className={navLinkClass(active)}
-                  >
-                    {label}
-                  </AppNavLink>
-                )
-              })}
-            </React.Fragment>
-          ))}
+        <div className="hidden md:flex items-center gap-1 pb-2.5">
+          <MainNavDropdown pathname={pathname} grindNavHref={grindNavHref} answersNavHref={answersNavHref} />
+          <ExtraNavDropdown pathname={pathname} grindNavHref={grindNavHref} answersNavHref={answersNavHref} />
         </div>
       </div>
 
-      {/* ── Mobile menu ────────────────────────────────────────── */}
       {open && (
         <>
-          {/* Backdrop */}
           <button
             type="button"
             aria-label="Close menu"
@@ -336,135 +380,72 @@ export default function Navbar() {
             onClick={() => setOpen(false)}
           />
 
-          {/* Menu panel */}
           <div className="md:hidden absolute top-full left-0 right-0 z-[100] border-t border-[var(--border)] bg-[var(--bg-card)] shadow-[0_8px_40px_rgba(0,0,0,0.14)] px-4 py-3 space-y-1 max-h-[min(85dvh,32rem)] overflow-y-auto overscroll-contain pb-[max(0.75rem,env(safe-area-inset-bottom))]">
 
-            {MOBILE_SECTIONS.map(({ emoji, label, group }, gi) => (
-              <React.Fragment key={gi}>
-                {gi > 0 && (
-                  <div className="h-px my-2 rounded-full" style={{ background: 'var(--border)' }} />
-                )}
+            <button
+              type="button"
+              onClick={() => setMobileSection(s => (s === 'main' ? null : 'main'))}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                mainActive
+                  ? 'text-indigo-600 bg-indigo-50/80'
+                  : 'text-[var(--text)] hover:bg-[var(--bg-muted)]'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <Swords size={15} className="shrink-0" />
+                Main
+              </span>
+              <ChevronDown size={15} className={`transition-transform ${mobileSection === 'main' ? 'rotate-180' : ''}`} />
+            </button>
+            {mobileSection === 'main' && (
+              <div className="pl-2 pb-1 space-y-0.5">
+                {MAIN_LINKS.map(link => renderMobileLink(link, true))}
+              </div>
+            )}
 
-                {/* Section header */}
-                <div className="flex items-center gap-2 px-3 pt-1 pb-0.5">
-                  <span className="text-base leading-none">{emoji}</span>
-                  <p className="text-[10px] font-black text-[var(--text-subtle)] uppercase tracking-widest">{label}</p>
-                </div>
-
-                {group === STARRED_LINKS && (
-                  <>
-                    {group.map(({ href, label: lnk, icon: Icon, also }) => {
-                      const base = '/' + href.split('/')[1]
-                      const active = pathname.startsWith(base) || (also ?? []).some(p => pathname.startsWith(p))
-                      return (
-                        <AppNavLink key={href} href={resolveNavHref(href, grindNavHref, answersNavHref)} onClick={() => setOpen(false)}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                            active ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
-                          }`}>
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${active ? 'bg-indigo-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)]'}`}>
-                            <Icon size={14} />
-                          </div>
-                          {lnk}
-                        </AppNavLink>
-                      )
-                    })}
-                    <AppNavLink href={learnHubHref(1)} onClick={() => setOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                        isLearnSectionPath(pathname) ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
-                      }`}>
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isLearnSectionPath(pathname) ? 'bg-indigo-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)]'}`}>
-                        <BookOpen size={14} />
-                      </div>
-                      ★ Learn
-                    </AppNavLink>
-                    {LEARN_CHILDREN.map(set => (
-                      <AppNavLink key={set} href={learnHubHref(set)} onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 pl-8 pr-3 py-2 rounded-xl text-sm text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]">
-                        <BookOpen size={13} className="shrink-0 text-[var(--text-subtle)]" />
-                        {learnSetLabel(set)}
-                      </AppNavLink>
-                    ))}
-                  </>
-                )}
-                {group === DRILL_LINKS && (
-                  <>
-                    {group.slice(0, 2).map(({ href, label: lnk, icon: Icon }) => {
-                      const base = '/' + href.split('/')[1]
-                      const active = pathname.startsWith(base)
-                      return (
-                        <AppNavLink key={href} href={href} onClick={() => setOpen(false)}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                            active ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
-                          }`}>
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${active ? 'bg-indigo-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)]'}`}>
-                            <Icon size={14} />
-                          </div>
-                          {lnk}
-                        </AppNavLink>
-                      )
-                    })}
-                    <AppNavLink href="/mcp" onClick={() => setOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                        isMcpSectionPath(pathname) ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
-                      }`}>
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isMcpSectionPath(pathname) ? 'bg-indigo-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)]'}`}>
-                        <Timer size={14} />
-                      </div>
-                      MCP
-                    </AppNavLink>
-                    {MCP_CHILDREN.map(({ tab, label, icon: Icon }) => (
-                      <AppNavLink key={tab} href={mcpTabUrl(tab)} onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 pl-8 pr-3 py-2 rounded-xl text-sm text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]">
-                        <Icon size={13} className="shrink-0 text-[var(--text-subtle)]" />
-                        {label}
-                      </AppNavLink>
-                    ))}
-                    {group.slice(2).map(({ href, label: lnk, icon: Icon }) => {
-                      const base = '/' + href.split('/')[1]
-                      const active = pathname.startsWith(base)
-                      return (
-                        <AppNavLink key={href} href={href} onClick={() => setOpen(false)}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                            active ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60' : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
-                          }`}>
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${active ? 'bg-indigo-600 text-white' : 'bg-[var(--bg-muted)] text-[var(--text-subtle)]'}`}>
-                            <Icon size={14} />
-                          </div>
-                          {lnk}
-                        </AppNavLink>
-                      )
-                    })}
-                  </>
-                )}
-                {group !== DRILL_LINKS && group !== STARRED_LINKS && group.map(({ href, label: lnk, icon: Icon, also }) => {
-                  const base = href === '/' ? '/' : '/' + href.split('/')[1]
-                  const active = (href === '/' ? pathname === '/' : pathname.startsWith(base))
-                    || (also ?? []).some(p => pathname.startsWith(p))
-                  return (
-                    <AppNavLink
-                      key={href}
-                      href={resolveNavHref(href, grindNavHref, answersNavHref)}
-                      onClick={() => setOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                        active
-                          ? 'bg-gradient-to-r from-indigo-600/15 to-violet-600/10 text-indigo-600 font-semibold border border-indigo-200/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]'
-                          : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]'
-                      }`}
-                    >
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                        active
-                          ? 'bg-indigo-600 text-white shadow-[0_2px_6px_rgba(99,102,241,0.4)]'
-                          : 'bg-[var(--bg-muted)] text-[var(--text-subtle)]'
-                      }`}>
-                        <Icon size={14} />
-                      </div>
-                      {lnk}
-                    </AppNavLink>
-                  )
-                })}
-              </React.Fragment>
-            ))}
-
+            <button
+              type="button"
+              onClick={() => setMobileSection(s => (s === 'extra' ? null : 'extra'))}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                extraActive
+                  ? 'text-indigo-600 bg-indigo-50/80'
+                  : 'text-[var(--text)] hover:bg-[var(--bg-muted)]'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <MoreHorizontal size={15} className="shrink-0" />
+                Extra
+              </span>
+              <ChevronDown size={15} className={`transition-transform ${mobileSection === 'extra' ? 'rotate-180' : ''}`} />
+            </button>
+            {mobileSection === 'extra' && (
+              <div className="pl-2 pb-1 space-y-0.5">
+                <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold text-[var(--text-subtle)]">Study</p>
+                {EXTRA_STUDY_LINKS.map(link => renderMobileLink(link, true))}
+                <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold text-[var(--text-subtle)]">Learn</p>
+                {LEARN_CHILDREN.map(set => (
+                  <AppNavLink
+                    key={set}
+                    href={learnHubHref(set)}
+                    onClick={() => setOpen(false)}
+                    className={`flex items-center gap-3 pl-8 pr-3 py-2 rounded-xl text-sm transition-all ${
+                      isLearnSectionPath(pathname) && activeLearnSetFromPath(pathname) === set
+                        ? 'text-indigo-600 font-semibold'
+                        : 'text-[var(--text-muted)] hover:bg-[var(--bg-muted)]'
+                    }`}
+                  >
+                    <BookOpen size={13} className="shrink-0 text-[var(--text-subtle)]" />
+                    {learnSetLabel(set)}
+                  </AppNavLink>
+                ))}
+                <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold text-[var(--text-subtle)]">Tools</p>
+                {EXTRA_DRILL_LINKS.map(link => renderMobileLink(link, true))}
+                {renderMobileLink({ href: '/mcp', label: 'MCP', icon: Clock }, true)}
+                {MCP_CHILDREN.map(({ tab, label, icon }) => renderMobileLink({ href: mcpTabUrl(tab), label, icon }, true))}
+                <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold text-[var(--text-subtle)]">More</p>
+                {EXTRA_MORE_LINKS.map(link => renderMobileLink(link, true))}
+              </div>
+            )}
           </div>
         </>
       )}

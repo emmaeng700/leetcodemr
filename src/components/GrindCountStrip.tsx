@@ -3,16 +3,16 @@ import type { GrindSummaryCounts } from '@/lib/grindList'
 const DIFFS = ['Easy', 'Medium', 'Hard'] as const
 const PRIOS = ['High', 'Mid', 'Low'] as const
 
-const PRIO_COLOR: Record<string, string> = {
-  High: 'text-red-600 dark:text-red-400',
-  Mid: 'text-amber-600 dark:text-amber-400',
-  Low: 'text-zinc-500 dark:text-zinc-400',
+const DIFF_CLASS: Record<string, string> = {
+  Easy: 'text-[#a6e3a1]',
+  Medium: 'text-[#f9e2af]',
+  Hard: 'text-[#f38ba8]',
 }
 
-const DIFF_COLOR: Record<string, string> = {
-  Easy: 'text-emerald-600 dark:text-emerald-400',
-  Medium: 'text-amber-600 dark:text-amber-400',
-  Hard: 'text-red-600 dark:text-red-400',
+const PRIO_CLASS: Record<string, string> = {
+  High: 'text-[#f38ba8]',
+  Mid: 'text-[#fab387]',
+  Low: 'text-[#6c7086]',
 }
 
 type Props = {
@@ -26,47 +26,47 @@ export default function GrindCountStrip({ counts, compact }: Props) {
     .slice(0, compact ? 0 : 6)
 
   return (
-    <div className="flex flex-col gap-1.5 text-[10px] text-[var(--text-subtle)]">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+    <div className="grind-count-strip">
+      <div className="grind-count-row">
         {DIFFS.map(d => (
           <span key={d}>
-            <span className={`font-bold ${DIFF_COLOR[d] ?? ''}`}>{d}</span>
+            <span className={`font-bold ${DIFF_CLASS[d] ?? ''}`}>{d}</span>
             {' '}
-            <span className="tabular-nums font-mono">{counts.byDifficulty[d] ?? 0}</span>
+            <span className="grind-count-num">{counts.byDifficulty[d] ?? 0}</span>
           </span>
         ))}
-        <span className="hidden sm:inline text-[var(--border)]">|</span>
+        <span className="grind-count-sep">|</span>
         {PRIOS.map(p => (
           <span key={p}>
-            <span className={`font-bold ${PRIO_COLOR[p] ?? ''}`}>{p}</span>
+            <span className={`font-bold ${PRIO_CLASS[p] ?? ''}`}>{p}</span>
             {' '}
-            <span className="tabular-nums font-mono">{counts.byPriority[p] ?? 0}</span>
+            <span className="grind-count-num">{counts.byPriority[p] ?? 0}</span>
           </span>
         ))}
-        <span className="hidden sm:inline text-[var(--border)]">|</span>
+        <span className="grind-count-sep">|</span>
         <span>
-          <span className="font-bold text-indigo-600 dark:text-indigo-400">S1</span>
+          <span className="font-bold text-[#89b4fa]">S1</span>
           {' '}
-          <span className="tabular-nums font-mono">{counts.bySet[1]}</span>
+          <span className="grind-count-num">{counts.bySet[1]}</span>
         </span>
         <span>
-          <span className="font-bold text-emerald-600 dark:text-emerald-400">S2</span>
+          <span className="font-bold text-[#a6e3a1]">S2</span>
           {' '}
-          <span className="tabular-nums font-mono">{counts.bySet[2]}</span>
+          <span className="grind-count-num">{counts.bySet[2]}</span>
         </span>
         <span>
-          <span className="font-bold text-purple-600 dark:text-purple-400">S3</span>
+          <span className="font-bold text-[#cba6f7]">S3</span>
           {' '}
-          <span className="tabular-nums font-mono">{counts.bySet[3]}</span>
+          <span className="grind-count-num">{counts.bySet[3]}</span>
         </span>
       </div>
       {!compact && topPatterns.length > 0 && (
-        <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+        <div className="grind-count-patterns">
           {topPatterns.map(([name, n]) => (
-            <span key={name} className="truncate max-w-[10rem]" title={name}>
-              <span className="text-[var(--text-muted)]">{name}</span>
+            <span key={name} className="truncate max-w-[9rem]" title={name}>
+              <span className="text-[#a6adc8]">{name}</span>
               {' '}
-              <span className="tabular-nums font-mono">{n}</span>
+              <span className="grind-count-num">{n}</span>
             </span>
           ))}
         </div>

@@ -1,0 +1,661 @@
+/* Grind workspace - matches public/grind-offline.html (Catppuccin) */
+.grind-shell {
+  --grind-base: #11111b;
+  --grind-surface: #181825;
+  --grind-card: #1e1e2e;
+  --grind-overlay: #313244;
+  --grind-muted: #45475a;
+  --grind-subtle: #6c7086;
+  --grind-text: #cdd6f4;
+  --grind-soft: #a6adc8;
+  --grind-num: #bac2de;
+  --grind-blue: #89b4fa;
+  --grind-green: #a6e3a1;
+  --grind-yellow: #f9e2af;
+  --grind-red: #f38ba8;
+  --grind-orange: #fab387;
+  --grind-purple: #cba6f7;
+  background: var(--grind-base);
+  color: var(--grind-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.grind-shell .grind-app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.grind-shell .grind-header {
+  padding: 0.5rem 0.65rem;
+  background: var(--grind-surface);
+  border-bottom: 1px solid var(--grind-overlay);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.grind-shell .grind-header-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.grind-shell .grind-header-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.grind-shell .grind-header h1 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--grind-text);
+}
+
+.grind-shell .grind-header-sub {
+  font-size: 0.6rem;
+  color: var(--grind-subtle);
+  margin-top: 0.1rem;
+}
+
+.grind-shell .grind-search-row {
+  display: flex;
+  gap: 0.35rem;
+  width: 100%;
+  align-items: center;
+}
+
+.grind-shell .grind-search {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--grind-overlay);
+  background: var(--grind-card);
+  color: var(--grind-text);
+  font-size: 16px;
+}
+
+.grind-shell .grind-search:focus {
+  outline: 2px solid var(--grind-blue);
+  outline-offset: 0;
+}
+
+.grind-shell .grind-chip {
+  border: 1px solid var(--grind-muted);
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--grind-card);
+  color: var(--grind-text);
+  cursor: pointer;
+}
+
+.grind-shell .grind-chip:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.grind-shell .grind-nav-btn {
+  flex-shrink: 0;
+  font-size: 1rem;
+  line-height: 1;
+  min-width: 2rem;
+  padding: 0.45rem 0.55rem;
+}
+
+.grind-shell .grind-nav-count {
+  font-size: 0.6rem;
+  color: var(--grind-subtle);
+  font-family: monospace;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.grind-shell .grind-langs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.grind-shell .grind-langs button {
+  border: none;
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--grind-overlay);
+  color: var(--grind-soft);
+  cursor: pointer;
+}
+
+.grind-shell .grind-langs button.on-py {
+  background: #2563eb;
+  color: #fff;
+}
+
+.grind-shell .grind-langs button.on-cpp {
+  background: #7c3aed;
+  color: #fff;
+}
+
+.grind-shell .grind-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.grind-shell .grind-list-wrap {
+  width: 38%;
+  max-width: 220px;
+  border-right: 1px solid var(--grind-overlay);
+  background: var(--grind-surface);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.grind-shell .grind-list-head {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.6rem;
+  color: var(--grind-subtle);
+  border-bottom: 1px solid var(--grind-overlay);
+  flex-shrink: 0;
+}
+
+.grind-shell .grind-list {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.grind-shell .grind-footer {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.6rem;
+  color: var(--grind-subtle);
+  background: var(--grind-surface);
+  border-top: 1px solid var(--grind-overlay);
+  flex-shrink: 0;
+}
+
+.grind-shell .grind-offline-banner {
+  padding: 0.4rem 0.65rem;
+  background: #3d2c1a;
+  border-bottom: 1px solid #92400e;
+  font-size: 0.65rem;
+  color: #fcd34d;
+  flex-shrink: 0;
+}
+
+.grind-shell .grind-online-banner {
+  padding: 0.55rem 0.65rem;
+  background: #16352a;
+  border-bottom: 1px solid #2d6a4f;
+  flex-shrink: 0;
+}
+
+.grind-shell .grind-online-banner p {
+  font-size: 0.72rem;
+  color: #a7f3d0;
+  line-height: 1.4;
+  margin-bottom: 0.45rem;
+}
+
+.grind-shell .grind-online-banner strong {
+  color: #ecfdf5;
+}
+
+.grind-shell .grind-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.grind-shell .grind-banner-actions a,
+.grind-shell .grind-banner-actions button {
+  text-decoration: none;
+}
+
+.grind-shell .grind-chip-primary {
+  background: #059669;
+  border-color: #059669;
+  color: #fff;
+}
+
+/* List dividers */
+.grind-shell .grind-divider {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  border-bottom: 1px solid var(--grind-overlay);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.35rem 0.5rem;
+}
+
+.grind-shell .grind-divider-set {
+  z-index: 2;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--grind-blue);
+  background: var(--grind-card);
+}
+
+.grind-shell .grind-divider-tier {
+  font-size: 0.56rem;
+  font-weight: 700;
+  color: var(--grind-purple);
+  background: #1a1826;
+}
+
+.grind-shell .grind-divider-sec {
+  padding-left: 1rem;
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: var(--grind-subtle);
+  background: var(--grind-surface);
+}
+
+.grind-shell .grind-divider-count {
+  font-family: monospace;
+  font-size: 0.55rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  background: var(--grind-overlay);
+  color: var(--grind-num);
+  flex-shrink: 0;
+}
+
+/* List rows */
+.grind-shell .grind-q-wrap {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--grind-overlay);
+}
+
+.grind-shell .grind-q-wrap.on .grind-q {
+  background: var(--grind-card);
+}
+
+.grind-shell .grind-q {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--grind-text);
+  padding: 0.45rem 0.5rem;
+  cursor: pointer;
+}
+
+.grind-shell .grind-q-lc {
+  flex-shrink: 0;
+  align-self: center;
+  margin-right: 0.25rem;
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--grind-subtle);
+  background: var(--grind-card);
+  border: 1px solid var(--grind-muted);
+  border-radius: 0.3rem;
+  padding: 0.18rem 0.32rem;
+  text-decoration: none;
+  line-height: 1;
+}
+
+.grind-shell .grind-q-lc:hover,
+.grind-shell .grind-q-lc:focus-visible {
+  color: var(--grind-orange);
+  border-color: var(--grind-subtle);
+}
+
+.grind-shell .grind-set-badge {
+  font-size: 0.52rem;
+  font-weight: 700;
+  padding: 0.05rem 0.22rem;
+  border-radius: 0.2rem;
+  border: 1px solid;
+  flex-shrink: 0;
+}
+
+.grind-shell .grind-set-1 {
+  background: rgba(137, 180, 250, 0.15);
+  color: var(--grind-blue);
+  border-color: rgba(137, 180, 250, 0.35);
+}
+
+.grind-shell .grind-set-2 {
+  background: rgba(166, 227, 161, 0.12);
+  color: var(--grind-green);
+  border-color: rgba(166, 227, 161, 0.35);
+}
+
+.grind-shell .grind-set-3 {
+  background: rgba(203, 166, 247, 0.12);
+  color: var(--grind-purple);
+  border-color: rgba(203, 166, 247, 0.35);
+}
+
+.grind-shell .grind-pill {
+  font-size: 0.52rem;
+  font-weight: 700;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid;
+  line-height: 1.2;
+}
+
+.grind-shell .grind-diff-easy {
+  background: rgba(166, 227, 161, 0.12);
+  color: var(--grind-green);
+  border-color: rgba(166, 227, 161, 0.35);
+}
+
+.grind-shell .grind-diff-medium {
+  background: rgba(249, 226, 175, 0.12);
+  color: var(--grind-yellow);
+  border-color: rgba(249, 226, 175, 0.35);
+}
+
+.grind-shell .grind-diff-hard {
+  background: rgba(243, 139, 168, 0.12);
+  color: var(--grind-red);
+  border-color: rgba(243, 139, 168, 0.35);
+}
+
+.grind-shell .grind-prio-high {
+  background: rgba(243, 139, 168, 0.12);
+  color: var(--grind-red);
+  border-color: rgba(243, 139, 168, 0.35);
+}
+
+.grind-shell .grind-prio-mid {
+  background: rgba(250, 179, 135, 0.12);
+  color: var(--grind-orange);
+  border-color: rgba(250, 179, 135, 0.35);
+}
+
+.grind-shell .grind-prio-low {
+  background: rgba(108, 112, 134, 0.2);
+  color: var(--grind-soft);
+  border-color: rgba(108, 112, 134, 0.45);
+}
+
+/* Count strip */
+.grind-shell .grind-count-strip {
+  font-size: 0.58rem;
+  color: var(--grind-subtle);
+  margin-top: 0.28rem;
+}
+
+.grind-shell .grind-count-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.65rem;
+  align-items: center;
+}
+
+.grind-shell .grind-count-patterns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.45rem;
+  margin-top: 0.2rem;
+}
+
+.grind-shell .grind-count-sep {
+  color: var(--grind-muted);
+}
+
+.grind-shell .grind-count-num {
+  font-family: monospace;
+  color: var(--grind-num);
+}
+
+/* Editor pane */
+.grind-shell .grind-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--grind-card);
+  overflow: hidden;
+}
+
+.grind-shell .grind-editor-meta {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.65rem;
+  color: var(--grind-soft);
+  background: var(--grind-surface);
+  border-bottom: 1px solid var(--grind-overlay);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.grind-shell .grind-editor-stack {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.grind-shell .grind-desc-card {
+  flex: 0 0 auto;
+  height: clamp(6.5rem, 26vh, 11rem);
+  margin: 0.25rem 0.35rem 0.3rem;
+  background: var(--grind-surface);
+  border: 1px solid var(--grind-overlay);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.grind-shell .grind-desc-head {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--grind-text);
+  background: var(--grind-base);
+  border-bottom: 1px solid var(--grind-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.grind-shell .grind-desc-body {
+  flex: 1;
+  min-height: 0;
+  padding: 0.45rem 0.55rem;
+  overflow-y: auto;
+  font-size: 0.68rem;
+  line-height: 1.55;
+  color: var(--grind-text);
+}
+
+.grind-shell .grind-desc-body img {
+  max-width: 100% !important;
+  height: auto !important;
+  border-radius: 0.35rem;
+}
+
+.grind-shell .grind-editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  background: var(--grind-surface);
+  border-top: 1px solid var(--grind-overlay);
+  flex-shrink: 0;
+}
+
+.grind-shell .grind-editor-hint {
+  font-size: 0.58rem;
+  color: var(--grind-subtle);
+}
+
+.grind-shell .grind-mobile-cta {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .grind-shell .grind-header-sub {
+    display: none;
+  }
+
+  .grind-shell .grind-list-wrap {
+    display: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: none;
+    max-height: 55dvh;
+    z-index: 50;
+    border-right: none;
+    border-top: 1px solid var(--grind-overlay);
+    border-radius: 1rem 1rem 0 0;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.35);
+  }
+
+  .grind-shell .grind-list-wrap.open {
+    display: flex;
+  }
+
+  .grind-shell .grind-list-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 40;
+  }
+
+  .grind-shell .grind-list-backdrop.open {
+    display: block;
+  }
+
+  .grind-shell .grind-mob-only {
+    display: inline-flex;
+  }
+
+  .grind-shell .grind-editor-stack {
+    gap: 0.35rem;
+  }
+
+  .grind-shell .grind-desc-card {
+    flex: 1 1 0%;
+    height: auto;
+    min-height: 10rem;
+    max-height: none;
+    margin: 0 0.35rem 0.25rem;
+  }
+
+  .grind-shell .grind-editor-inline {
+    display: none !important;
+  }
+
+  .grind-shell .grind-mobile-cta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    padding: 0.85rem 0.75rem;
+    margin: 0.25rem 0.35rem 0;
+    background: var(--grind-surface);
+    border: 1px solid var(--grind-overlay);
+    border-radius: 0.5rem;
+    text-align: center;
+  }
+
+  .grind-shell .grind-mobile-cta-text {
+    font-size: 0.68rem;
+    color: var(--grind-soft);
+    line-height: 1.45;
+  }
+
+  .grind-shell .grind-mobile-cta .grind-chip {
+    background: #2563eb;
+    color: #fff;
+    border-color: #2563eb;
+    font-size: 0.75rem;
+    padding: 0.55rem 1rem;
+  }
+
+  .grind-shell .grind-chip,
+  .grind-shell .grind-nav-btn,
+  .grind-shell .grind-langs button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.5rem 0.65rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .grind-shell .grind-mob-only {
+    display: none;
+  }
+
+  .grind-shell .grind-count-patterns {
+    display: flex;
+  }
+}
+
+/* Fullscreen editor portal (also used when portaled outside .grind-app) */
+.grind-shell .fs-bar,
+.practice-fs-portal.grind-shell .fs-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  background: var(--grind-surface);
+  border-bottom: 1px solid var(--grind-overlay);
+  flex-shrink: 0;
+}
+
+.grind-shell .fs-desc-pane,
+.practice-fs-portal.grind-shell .fs-desc-pane {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 36vh;
+  background: var(--grind-base);
+  border-bottom: 1px solid var(--grind-overlay);
+}
+
+.grind-shell .fs-desc-pane.kbd-auto-hide .fs-desc-body,
+.practice-fs-portal.grind-shell .fs-desc-pane.kbd-auto-hide .fs-desc-body {
+  display: none !important;
+}
+
+.grind-shell .practice-fs-portal.kbd-open > .grind-editor-footer,
+.practice-fs-portal.grind-shell.kbd-open > .grind-editor-footer {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .grind-shell .grind-count-patterns {
+    display: none;
+  }
+}
