@@ -3,20 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
-  <title>Grind (Offline) - LeetMastery</title>
+  <title>The Grind (Offline) - LeetMastery</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; background: #11111b; color: #cdd6f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .app { display: flex; flex-direction: column; height: 100dvh; max-width: 900px; margin: 0 auto; }
-    .header-row {
-      display: flex; align-items: center; gap: 0.5rem; width: 100%;
-    }
     header {
       padding: 0.5rem 0.65rem; background: #181825; border-bottom: 1px solid #313244;
       display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; flex-shrink: 0;
     }
-    header h1 { font-size: 0.85rem; font-weight: 700; color: #cdd6f4; flex: 1; min-width: 0; }
-    header .sub { font-size: 0.6rem; color: #6c7086; width: 100%; }
+    .header-top { display: flex; align-items: flex-start; gap: 0.5rem; width: 100%; }
+    .header-title-block { flex: 1; min-width: 0; }
+    header h1 { font-size: 0.85rem; font-weight: 700; color: #cdd6f4; }
+    header .sub { font-size: 0.6rem; color: #6c7086; margin-top: 0.1rem; }
+    .count-strip { font-size: 0.58rem; color: #6c7086; margin-top: 0.28rem; }
+    .count-strip-row { display: flex; flex-wrap: wrap; gap: 0.2rem 0.65rem; align-items: center; }
+    .count-strip-patterns { display: flex; flex-wrap: wrap; gap: 0.15rem 0.45rem; margin-top: 0.2rem; }
+    .count-sep { color: #45475a; }
+    .count-easy { color: #a6e3a1; font-weight: 700; }
+    .count-medium { color: #f9e2af; font-weight: 700; }
+    .count-hard { color: #f38ba8; font-weight: 700; }
+    .count-high { color: #f38ba8; font-weight: 700; }
+    .count-mid { color: #fab387; font-weight: 700; }
+    .count-low { color: #6c7086; font-weight: 700; }
+    .count-s1 { color: #89b4fa; font-weight: 700; }
+    .count-s2 { color: #a6e3a1; font-weight: 700; }
+    .count-s3 { color: #cba6f7; font-weight: 700; }
+    .count-num { font-family: monospace; color: #bac2de; }
+    .count-pattern { color: #a6adc8; max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
     .search {
       padding: 0.45rem 0.6rem; border-radius: 0.5rem; border: 1px solid #313244;
       background: #1e1e2e; color: #cdd6f4; font-size: 16px;
@@ -25,7 +39,7 @@
     .search-row .search { flex: 1; width: auto; min-width: 0; }
     .nav-btn { padding: 0.45rem 0.55rem; flex-shrink: 0; font-size: 1rem; line-height: 1; min-width: 2rem; }
     .nav-btn:disabled { opacity: 0.35; cursor: default; }
-    .nav-count { font-size: 0.6rem; color: #6c7086; width: 100%; text-align: center; margin-top: -0.15rem; }
+    .nav-count { font-size: 0.6rem; color: #6c7086; font-family: monospace; flex-shrink: 0; tabular-nums; }
     .langs { display: flex; gap: 0.25rem; }
     .langs button, .chip-btn {
       border: none; border-radius: 0.4rem; padding: 0.35rem 0.65rem; font-size: 0.7rem; font-weight: 600;
@@ -50,8 +64,25 @@
       background: transparent; color: #cdd6f4; padding: 0.45rem 0.5rem; cursor: pointer;
     }
     .q.on { background: #1e1e2e; }
-    .q-id { font-size: 0.6rem; color: #6c7086; font-family: monospace; }
-    .q-title { font-size: 0.68rem; line-height: 1.3; margin-top: 0.1rem; }
+    .q-row { display: flex; align-items: center; gap: 0.25rem; min-width: 0; }
+    .q-id { font-size: 0.58rem; color: #6c7086; font-family: monospace; flex-shrink: 0; }
+    .q-title { font-size: 0.68rem; line-height: 1.3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .q-meta { display: flex; flex-wrap: wrap; gap: 0.2rem; margin-top: 0.15rem; align-items: center; }
+    .set-badge {
+      font-size: 0.52rem; font-weight: 700; padding: 0.05rem 0.22rem; border-radius: 0.2rem; border: 1px solid; flex-shrink: 0;
+    }
+    .set-badge-1 { background: rgba(137,180,250,0.15); color: #89b4fa; border-color: rgba(137,180,250,0.35); }
+    .set-badge-2 { background: rgba(166,227,161,0.12); color: #a6e3a1; border-color: rgba(166,227,161,0.35); }
+    .set-badge-3 { background: rgba(203,166,247,0.12); color: #cba6f7; border-color: rgba(203,166,247,0.35); }
+    .diff-badge, .prio-badge {
+      font-size: 0.52rem; font-weight: 700; padding: 0.05rem 0.35rem; border-radius: 999px; border: 1px solid; line-height: 1.2;
+    }
+    .diff-easy { background: rgba(166,227,161,0.12); color: #a6e3a1; border-color: rgba(166,227,161,0.35); }
+    .diff-medium { background: rgba(249,226,175,0.12); color: #f9e2af; border-color: rgba(249,226,175,0.35); }
+    .diff-hard { background: rgba(243,139,168,0.12); color: #f38ba8; border-color: rgba(243,139,168,0.35); }
+    .prio-high { background: rgba(243,139,168,0.12); color: #f38ba8; border-color: rgba(243,139,168,0.35); }
+    .prio-mid { background: rgba(250,179,135,0.12); color: #fab387; border-color: rgba(250,179,135,0.35); }
+    .prio-low { background: rgba(108,112,134,0.2); color: #a6adc8; border-color: rgba(108,112,134,0.45); }
     .list-divider-set {
       padding: 0.4rem 0.5rem; font-size: 0.58rem; font-weight: 700; text-transform: uppercase;
       letter-spacing: 0.04em; color: #89b4fa; background: #1e1e2e;
@@ -208,10 +239,47 @@
       background: #181825; border-bottom: 1px solid #313244; flex-shrink: 0;
     }
     .fs-bar span { flex: 1; font-size: 0.65rem; color: #a6adc8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .fs-editor { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+    .fs-editor { flex: 1 1 0%; min-height: 0; display: flex; flex-direction: column; position: relative; }
+    .fs-desc-pane {
+      flex: 0 0 auto; display: flex; flex-direction: column; min-height: 0;
+      max-height: 36vh; background: #11111b; border-bottom: 1px solid #313244;
+    }
+    .fs-desc-pane.collapsed { max-height: none; }
+    .fs-desc-pane.collapsed .fs-desc-body { display: none; }
+    .fs-desc-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.35rem;
+      padding: 0.35rem 0.55rem; font-size: 0.62rem; font-weight: 700; color: #cdd6f4;
+      background: #181825; border-bottom: 1px solid #313244; flex-shrink: 0;
+    }
+    .fs-desc-toggle {
+      border: 1px solid #585b70; background: #313244; color: #bac2de;
+      font-size: 0.55rem; font-weight: 600; border-radius: 0.3rem; padding: 0.12rem 0.4rem;
+      min-height: 28px;
+    }
+    .fs-desc-body {
+      flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: 0.45rem 0.55rem; font-size: 0.68rem; line-height: 1.55; color: #cdd6f4;
+    }
+    .fs-desc-body img {
+      max-width: 100% !important; height: auto !important; display: block; margin: 0.45rem 0;
+      border-radius: 0.35rem; border: 1px solid rgba(255,255,255,0.1);
+    }
+    .fs-desc-body pre {
+      background: #1e1e2e; border: 1px solid #45475a; border-radius: 0.35rem;
+      padding: 0.45rem; overflow-x: auto; font-size: 0.62rem; margin: 0.35rem 0;
+    }
+    .fs-desc-body code { background: #313244; color: #cba6f7; padding: 0 0.2rem; border-radius: 0.2rem; }
+    .fs-desc-body p { margin: 0.35rem 0; }
+    .fs-desc-body ul, .fs-desc-body ol { padding-left: 1.1rem; margin: 0.35rem 0; }
     .mobile-code-cta { display: none; }
     .mob-editor-inline { display: flex; }
     .mob-only { display: none; }
+    @media (min-width: 640px) {
+      .count-strip-patterns { display: flex; }
+    }
+    @media (max-width: 639px) {
+      .count-strip-patterns { display: none; }
+    }
     @media (max-width: 767px) {
       html, body {
         overflow-x: hidden;
@@ -219,6 +287,7 @@
       }
       .mob-only { display: inline-flex; }
       header .sub { display: none; }
+      .count-strip { display: block; }
       .app { max-width: none; height: 100dvh; height: 100svh; }
       .chip-btn, .nav-btn, .langs button {
         min-height: 44px;
@@ -305,6 +374,8 @@
         max-height: 100dvh;
         max-height: 100svh;
       }
+      .practice-fs-portal.open .fs-desc-pane { max-height: 34vh; min-height: 5.5rem; }
+      .practice-fs-portal.open.kbd-open .fs-desc-pane { max-height: 24vh; min-height: 4.25rem; }
       .practice-fs-portal .practice-cm-wrap,
       .practice-fs-portal .fs-editor {
         position: relative;
@@ -327,27 +398,30 @@
       </div>
     </div>
     <header>
-      <div class="header-row">
-        <h1>Grind (offline)</h1>
+      <div class="header-top">
+        <div class="header-title-block">
+          <h1>The Grind</h1>
+          <p class="sub" id="header-sub">PDF study order</p>
+          <div id="count-strip" class="count-strip" aria-live="polite"></div>
+        </div>
         <div class="langs">
           <button type="button" id="btn-py" class="on-py" aria-label="Python">Py</button>
           <button type="button" id="btn-cpp" aria-label="C++">C++</button>
         </div>
-        <button type="button" class="chip-btn mob-only" id="btn-list" aria-label="Open question list">List</button>
       </div>
       <div class="search-row">
         <button type="button" class="chip-btn nav-btn" id="btn-prev" aria-label="Previous question">&#8249;</button>
         <input class="search" id="search" type="search" placeholder="Search #id or title..." autocomplete="off" />
         <button type="button" class="chip-btn nav-btn" id="btn-next" aria-label="Next question">&#8250;</button>
+        <span class="nav-count" id="nav-count"></span>
+        <button type="button" class="chip-btn mob-only" id="btn-list" aria-label="Open question list">List</button>
       </div>
-      <span class="nav-count" id="nav-count"></span>
-      <p class="sub">Write from memory. Tab indents. Syncs when back online.</p>
     </header>
     <div class="body" id="body">
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
-    <span id="offline-version" hidden>v24</span>
+    <span id="offline-version" hidden>v26</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
@@ -357,6 +431,13 @@
         <button type="button" id="fs-btn-cpp">C++</button>
       </div>
       <button type="button" class="chip-btn" id="btn-fs-close" aria-label="Close full screen editor">Close</button>
+    </div>
+    <div class="fs-desc-pane" id="fs-desc-pane" role="region" aria-label="Problem description">
+      <div class="fs-desc-head">
+        <span>Problem Description</span>
+        <button type="button" class="fs-desc-toggle" id="btn-fs-desc-toggle" aria-expanded="true">Hide</button>
+      </div>
+      <div class="fs-desc-body" id="fs-desc-body"></div>
     </div>
     <div class="fs-editor practice-cm-wrap"><div id="editor-host-fs"></div></div>
     <div class="editor-footer">
@@ -373,7 +454,7 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v24'
+    var OFFLINE_VERSION = 'v26'
     var SW_CACHE = 'lm-v26'
     var midnightTimer = null
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v1'
@@ -385,6 +466,7 @@
     var editorHostId = 'editor-host'
     var listOpen = false
     var editorExpanded = false
+    var fsDescCollapsed = false
     var wasOffline = !navigator.onLine
     var copyFlashTimer = null
 
@@ -1038,6 +1120,108 @@
       return { tier: m[1] + ' ' + m[2], pattern: m[3] }
     }
 
+    function priorityFromSection(section) {
+      if (!section) return null
+      var m = String(section).match(/^(High|Mid|Low) /)
+      return m ? m[1] : null
+    }
+
+    function grindSummaryCounts(rows) {
+      var bySet = { 1: 0, 2: 0, 3: 0 }
+      var byDifficulty = {}
+      var byPriority = {}
+      var byPattern = {}
+      rows.forEach(function(q) {
+        bySet[q.set] = (bySet[q.set] || 0) + 1
+        byDifficulty[q.difficulty] = (byDifficulty[q.difficulty] || 0) + 1
+        if (q.pattern) byPattern[q.pattern] = (byPattern[q.pattern] || 0) + 1
+        var pri = priorityFromSection(q.section)
+        if (pri) byPriority[pri] = (byPriority[pri] || 0) + 1
+      })
+      return { total: rows.length, bySet: bySet, byDifficulty: byDifficulty, byPriority: byPriority, byPattern: byPattern }
+    }
+
+    function renderCountStrip(rows) {
+      var el = document.getElementById('count-strip')
+      if (!el) return
+      var counts = grindSummaryCounts(rows)
+      var diffs = ['Easy', 'Medium', 'Hard']
+      var prios = ['High', 'Mid', 'Low']
+      var diffClass = { Easy: 'count-easy', Medium: 'count-medium', Hard: 'count-hard' }
+      var prioClass = { High: 'count-high', Mid: 'count-mid', Low: 'count-low' }
+      var main = document.createElement('div')
+      main.className = 'count-strip-row'
+      diffs.forEach(function(d) {
+        var span = document.createElement('span')
+        span.innerHTML = '<span class="' + diffClass[d] + '">' + d + '</span> <span class="count-num">' + (counts.byDifficulty[d] || 0) + '</span>'
+        main.appendChild(span)
+      })
+      var sep = document.createElement('span')
+      sep.className = 'count-sep'
+      sep.textContent = '|'
+      main.appendChild(sep)
+      prios.forEach(function(p) {
+        var span = document.createElement('span')
+        span.innerHTML = '<span class="' + prioClass[p] + '">' + p + '</span> <span class="count-num">' + (counts.byPriority[p] || 0) + '</span>'
+        main.appendChild(span)
+      })
+      sep = document.createElement('span')
+      sep.className = 'count-sep'
+      sep.textContent = '|'
+      main.appendChild(sep)
+      ;[
+        ['S1', 1, 'count-s1'],
+        ['S2', 2, 'count-s2'],
+        ['S3', 3, 'count-s3'],
+      ].forEach(function(item) {
+        var span = document.createElement('span')
+        span.innerHTML = '<span class="' + item[2] + '">' + item[0] + '</span> <span class="count-num">' + (counts.bySet[item[1]] || 0) + '</span>'
+        main.appendChild(span)
+      })
+      el.innerHTML = ''
+      el.appendChild(main)
+      var patterns = Object.keys(counts.byPattern).sort(function(a, b) {
+        return (counts.byPattern[b] || 0) - (counts.byPattern[a] || 0)
+      }).slice(0, 6)
+      if (patterns.length) {
+        var row = document.createElement('div')
+        row.className = 'count-strip-patterns'
+        patterns.forEach(function(name) {
+          var span = document.createElement('span')
+          span.title = name
+          span.innerHTML = '<span class="count-pattern">' + name + '</span> <span class="count-num">' + counts.byPattern[name] + '</span>'
+          row.appendChild(span)
+        })
+        el.appendChild(row)
+      }
+    }
+
+    function updateHeaderSub() {
+      var el = document.getElementById('header-sub')
+      if (el) {
+        el.textContent = 'PDF study order | ' + questions.length + ' questions | Set 1 then 2 then 3'
+      }
+    }
+
+    function questionListHtml(q) {
+      var pri = priorityFromSection(q.section)
+      var diffClass = q.difficulty === 'Easy' ? 'diff-easy' : (q.difficulty === 'Medium' ? 'diff-medium' : 'diff-hard')
+      var prioHtml = pri
+        ? '<span class="prio-badge prio-' + pri.toLowerCase() + '">' + pri + '</span>'
+        : ''
+      return (
+        '<div class="q-row">' +
+          '<span class="set-badge set-badge-' + q.set + '">S' + q.set + '</span>' +
+          '<span class="q-id">#' + q.id + '</span>' +
+          '<span class="q-title">' + q.title + '</span>' +
+        '</div>' +
+        '<div class="q-meta">' +
+          '<span class="diff-badge ' + diffClass + '">' + q.difficulty + '</span>' +
+          prioHtml +
+        '</div>'
+      )
+    }
+
     function grindGroupCounts(rows) {
       var setCounts = {}
       var tierCounts = {}
@@ -1078,6 +1262,7 @@
       }
       list.innerHTML = ''
       var counts = grindGroupCounts(filtered)
+      renderCountStrip(filtered)
       var lastSet = 0
       var lastTier = null
       var lastSection = null
@@ -1100,7 +1285,7 @@
         var btn = document.createElement('button')
         btn.type = 'button'
         btn.className = 'q' + (q.id === selectedId ? ' on' : '')
-        btn.innerHTML = '<div class="q-id">#' + q.id + ' ? ' + q.difficulty + '</div><div class="q-title">' + q.title + '</div>'
+        btn.innerHTML = questionListHtml(q)
         btn.onclick = function() { selectQuestion(q.id) }
         list.appendChild(btn)
       })
@@ -1255,10 +1440,8 @@
       })
     }
 
-    function renderDescription() {
-      var el = document.getElementById('desc-body')
+    function fillDescriptionEl(el, q) {
       if (!el) return
-      var q = currentQuestion()
       if (!q) { el.innerHTML = '<div class="desc-empty">No question selected.</div>'; return }
       var row = descriptions[String(q.id)] || {}
       var html = (q.descriptionHtml || row.description_html || '').trim()
@@ -1273,6 +1456,24 @@
         return
       }
       el.innerHTML = '<div class="desc-empty">Description not cached yet.</div>'
+    }
+
+    function renderDescription() {
+      var q = currentQuestion()
+      fillDescriptionEl(document.getElementById('desc-body'), q)
+      fillDescriptionEl(document.getElementById('fs-desc-body'), q)
+    }
+
+    function setFsDescCollapsed(collapsed) {
+      fsDescCollapsed = collapsed
+      var pane = document.getElementById('fs-desc-pane')
+      var btn = document.getElementById('btn-fs-desc-toggle')
+      if (pane) pane.classList.toggle('collapsed', collapsed)
+      if (btn) {
+        btn.textContent = collapsed ? 'Show' : 'Hide'
+        btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true')
+      }
+      if (editorExpanded) requestAnimationFrame(syncEditorHeight)
     }
 
     function renderEditor() {
@@ -1305,15 +1506,18 @@
       var portal = document.getElementById('fs-portal')
       if (open) {
         setListOpen(false)
+        setFsDescCollapsed(false)
         editorHostId = 'editor-host-fs'
         portal.classList.add('open')
         document.body.classList.add('fs-open')
+        renderDescription()
         initEditor()
         updateMeta()
         layoutFullscreenEditor()
       } else {
         editorHostId = 'editor-host'
         portal.classList.remove('open')
+        portal.classList.remove('kbd-open')
         document.body.classList.remove('fs-open')
         if (editorHandle) {
           editorHandle.destroy()
@@ -1337,6 +1541,8 @@
       var h = vv ? vv.height : window.innerHeight
       portal.style.height = h + 'px'
       portal.style.maxHeight = h + 'px'
+      var kbdLikely = vv && window.innerHeight - vv.height > 120
+      portal.classList.toggle('kbd-open', !!kbdLikely)
       syncEditorHeight()
     }
 
@@ -1451,6 +1657,10 @@
         descToggle.onclick = function() { setDescCollapsed(!descCollapsed) }
       }
       document.getElementById('btn-fs-close').onclick = function() { setEditorExpanded(false) }
+      var fsDescToggle = document.getElementById('btn-fs-desc-toggle')
+      if (fsDescToggle) {
+        fsDescToggle.onclick = function() { setFsDescCollapsed(!fsDescCollapsed) }
+      }
       document.getElementById('fs-btn-py').onclick = function() { setLang('python3') }
       document.getElementById('fs-btn-cpp').onclick = function() { setLang('cpp') }
 
@@ -1462,6 +1672,7 @@
       renderList()
       initEditor()
       updateMeta()
+      updateHeaderSub()
       renderDescription()
       updateNavUI()
       bindVisualViewport()

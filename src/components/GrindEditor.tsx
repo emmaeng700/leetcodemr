@@ -44,6 +44,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
   const [sessionLabel, setSessionLabel] = useState<string | null>(null)
   const [syncState, setSyncState] = useState<'local' | 'synced' | 'offline'>('local')
   const [editorExpanded, setEditorExpanded] = useState(false)
+  const [portalDescCollapsed, setPortalDescCollapsed] = useState(false)
   const [extensions, setExtensions] = useState<any[]>([])
   const [editorTheme, setEditorTheme] = useState<any>(null)
   const [description, setDescription] = useState<string>('')
@@ -425,6 +426,67 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     return () => document.removeEventListener('focusin', onFocusIn)
   }, [editorExpanded])
 
+  useEffect(() => {
+    if (!editorExpanded) setPortalDescCollapsed(false)
+  }, [editorExpanded])
+
+  useEffect(() => {
+    setPortalDescCollapsed(false)
+  }, [question.id])
+
+  const descriptionContent = descriptionHtml ? (
+    <div
+      className="grind-desc lc-description text-xs leading-relaxed"
+      dangerouslySetInnerHTML={{ __html: stripScripts(descriptionHtml) }}
+    />
+  ) : description ? (
+    <pre className="whitespace-pre-wrap text-xs leading-5 text-gray-200 font-sans">{description}</pre>
+  ) : (
+    <div className="text-xs text-gray-500">Description not cached yet.</div>
+  )
+
+  const descriptionPanel = (opts?: { compact?: boolean; portal?: boolean }) => {
+    const compact = opts?.compact ?? false
+    const portal = opts?.portal ?? false
+    return (
+      <div
+        className={`bg-[#1e1e2e] overflow-hidden shrink-0 flex flex-col min-h-0 ${
+          portal ? 'border-b border-gray-700' : 'rounded-xl border border-gray-700 shadow-sm'
+        } ${portal && portalDescCollapsed ? 'max-h-9' : ''}`}
+        role="region"
+        aria-label="Problem description"
+      >
+        <div className="px-3 sm:px-4 py-2 bg-[#181825] border-b border-gray-700 flex items-center justify-between gap-2 shrink-0">
+          <span className="text-xs font-bold text-gray-200">Problem Description</span>
+          {portal && (
+            <button
+              type="button"
+              onClick={() => setPortalDescCollapsed(v => !v)}
+              className="text-[10px] font-semibold text-indigo-300 px-2 py-0.5 rounded border border-[#585b70] bg-[#313244]"
+            >
+              {portalDescCollapsed ? 'Show' : 'Hide'}
+            </button>
+          )}
+        </div>
+        {!portalDescCollapsed && (
+          <div
+            className={`px-3 sm:px-4 py-3 overflow-y-auto overscroll-contain min-h-0 ${
+              portal
+                ? compact
+                  ? 'max-h-[26vh] min-h-[4.5rem]'
+                  : 'max-h-[36vh] min-h-[6.5rem]'
+                : compact
+                  ? 'max-md:max-h-28'
+                  : 'h-40 sm:h-48'
+            }`}
+          >
+            {descriptionContent}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <>
       <div className={`flex flex-col h-full min-h-0 gap-2 ${className}`}>
@@ -470,29 +532,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
         {!editorExpanded && footerBar}
       </div>
 
-        {!keyboardOpen && (
-        <div
-          className="bg-[#1e1e2e] rounded-xl border border-gray-700 shadow-sm overflow-hidden shrink-0"
-          role="region"
-          aria-label="Problem description"
-        >
-          <div className="px-4 py-2 bg-[#181825] border-b border-gray-700">
-            <span className="text-xs font-bold text-gray-200">Problem Description</span>
-          </div>
-          <div className="px-4 py-3 h-40 sm:h-48 overflow-y-auto overscroll-contain">
-            {descriptionHtml ? (
-              <div
-                className="grind-desc lc-description text-xs leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: stripScripts(descriptionHtml) }}
-              />
-            ) : description ? (
-              <pre className="whitespace-pre-wrap text-xs leading-5 text-gray-200 font-sans">{description}</pre>
-            ) : (
-              <div className="text-xs text-gray-500">Description not cached yet.</div>
-            )}
-          </div>
-        </div>
-        )}
+        {!editorExpanded && descriptionPanel({ compact: keyboardOpen })}
       </div>
 
       {editorExpanded &&
@@ -517,6 +557,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
                 </button>
               </div>
             </div>
+            {descriptionPanel({ portal: true, compact: keyboardOpen })}
             <div className="relative flex-1 min-h-0">{editorBody('100%', true)}</div>
             {footerBar}
           </div>,
