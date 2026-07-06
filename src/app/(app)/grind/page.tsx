@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Search, PenLine } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, PenLine, ExternalLink } from 'lucide-react'
 import GrindEditor from '@/components/GrindEditor'
 import GrindConnectivityBanner from '@/components/GrindConnectivityBanner'
 import GrindCountStrip from '@/components/GrindCountStrip'
@@ -13,6 +13,7 @@ import { buildGrindQuestions, loadQuestionsFullJson, loadPlaybookMap, loadGrindQ
 import { migrateAllGrindDrafts } from '@/lib/grindMigration'
 import { grindListWithDividers, grindSummaryCounts } from '@/lib/grindList'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
+import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter, readGrindLastQuestionId, writeGrindLastQuestionId } from '@/lib/grindStorage'
 import { useMobileViewport } from '@/hooks/useMobileViewport'
@@ -296,27 +297,42 @@ function GrindInner() {
               }
               const q = entry.q
               const active = selected?.id === q.id
+              const lcHref = leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))
               return (
-                <button
+                <div
                   key={entry.key}
-                  type="button"
-                  onClick={() => selectQuestion(q)}
-                  className={`w-full text-left px-3 py-2 border-b border-[var(--border-soft)] transition-colors ${
+                  className={`flex items-stretch border-b border-[var(--border-soft)] ${
                     active ? 'bg-indigo-50 dark:bg-indigo-950/30' : 'hover:bg-[var(--bg-muted)]'
                   }`}
                 >
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className={`text-[9px] font-bold px-1 py-0.5 rounded border shrink-0 ${SET_BADGE[q.set]}`}>
-                      S{q.set}
-                    </span>
-                    <span className="text-[10px] font-mono text-[var(--text-subtle)] shrink-0">#{q.id}</span>
-                    <span className="text-xs font-medium truncate text-[var(--text)]">{q.title}</span>
-                  </div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                    <DifficultyBadge difficulty={q.difficulty} />
-                    {q.pattern && <PriorityBadge pattern={q.pattern} />}
-                  </div>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => selectQuestion(q)}
+                    className="flex-1 min-w-0 text-left px-3 py-2 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className={`text-[9px] font-bold px-1 py-0.5 rounded border shrink-0 ${SET_BADGE[q.set]}`}>
+                        S{q.set}
+                      </span>
+                      <span className="text-[10px] font-mono text-[var(--text-subtle)] shrink-0">#{q.id}</span>
+                      <span className="text-xs font-medium truncate text-[var(--text)]">{q.title}</span>
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                      <DifficultyBadge difficulty={q.difficulty} />
+                      {q.pattern && <PriorityBadge pattern={q.pattern} />}
+                    </div>
+                  </button>
+                  <a
+                    href={lcHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Open on LeetCode"
+                    aria-label={`Open ${q.title} on LeetCode`}
+                    className="shrink-0 self-center px-2 py-2 text-[var(--text-subtle)] hover:text-orange-500 dark:hover:text-orange-400 transition-colors"
+                  >
+                    <ExternalLink size={12} />
+                  </a>
+                </div>
               )
             })}
           </div>
