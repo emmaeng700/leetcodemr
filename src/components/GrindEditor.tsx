@@ -34,7 +34,7 @@ interface GrindEditorProps {
 }
 
 export default function GrindEditor({ question, className = '' }: GrindEditorProps) {
-  const { height: vvHeight, keyboardOpen } = useMobileViewport()
+  const { height: vvHeight, offsetTop: vvOffsetTop, keyboardOpen } = useMobileViewport()
   const [lang, setLang] = useState<GrindLang>('python3')
   const [code, setCode] = useState('')
   const [starter, setStarter] = useState('')
@@ -405,8 +405,21 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
 
   const mobilePortalStyle =
     vvHeight != null
-      ? { zIndex: 9999, top: 0, left: 0, right: 0, height: vvHeight, maxHeight: vvHeight, bottom: 'auto' as const }
+      ? {
+          zIndex: 9999,
+          top: vvOffsetTop,
+          left: 0,
+          right: 0,
+          height: vvHeight,
+          maxHeight: vvHeight,
+          bottom: 'auto' as const,
+        }
       : { zIndex: 9999 }
+
+  useEffect(() => {
+    if (!keyboardOpen || !editorExpanded || typeof window === 'undefined') return
+    window.scrollTo(0, 0)
+  }, [keyboardOpen, editorExpanded])
 
   useEffect(() => {
     if (!keyboardOpen || typeof document === 'undefined') return
@@ -445,14 +458,14 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     <div className="text-xs text-gray-500">Description not cached yet.</div>
   )
 
-  const descriptionPanel = (opts?: { compact?: boolean; portal?: boolean }) => {
-    const compact = opts?.compact ?? false
+  const descriptionPanel = (opts?: { portal?: boolean }) => {
     const portal = opts?.portal ?? false
+    const hideDescBody = portal && (portalDescCollapsed || keyboardOpen)
     return (
       <div
         className={`bg-[#1e1e2e] overflow-hidden shrink-0 flex flex-col min-h-0 ${
           portal ? 'border-b border-gray-700' : 'rounded-xl border border-gray-700 shadow-sm'
-        } ${portal && portalDescCollapsed ? 'max-h-9' : ''}`}
+        } ${portal && (portalDescCollapsed || keyboardOpen) ? 'max-h-9' : ''}`}
         role="region"
         aria-label="Problem description"
       >
@@ -462,24 +475,15 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
             <button
               type="button"
               onClick={() => setPortalDescCollapsed(v => !v)}
-              className="text-[10px] font-semibold text-indigo-300 px-2 py-0.5 rounded border border-[#585b70] bg-[#313244]"
+              disabled={keyboardOpen}
+              className="text-[10px] font-semibold text-indigo-300 px-2 py-0.5 rounded border border-[#585b70] bg-[#313244] disabled:opacity-40"
             >
-              {portalDescCollapsed ? 'Show' : 'Hide'}
+              {hideDescBody ? 'Show' : 'Hide'}
             </button>
           )}
         </div>
-        {!portalDescCollapsed && (
-          <div
-            className={`px-3 sm:px-4 py-3 overflow-y-auto overscroll-contain min-h-0 ${
-              portal
-                ? compact
-                  ? 'max-h-[26vh] min-h-[4.5rem]'
-                  : 'max-h-[36vh] min-h-[6.5rem]'
-                : compact
-                  ? 'max-md:max-h-28'
-                  : 'h-40 sm:h-48'
-            }`}
-          >
+        {!hideDescBody && (
+          <div className="px-3 sm:px-4 py-3 overflow-y-auto overscroll-contain min-h-0 max-h-[36vh] min-h-[6.5rem]">
             {descriptionContent}
           </div>
         )}
@@ -532,7 +536,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
         {!editorExpanded && footerBar}
       </div>
 
-        {!editorExpanded && descriptionPanel({ compact: keyboardOpen })}
+        {!editorExpanded && descriptionPanel()}
       </div>
 
       {editorExpanded &&
@@ -557,9 +561,9 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
                 </button>
               </div>
             </div>
-            {descriptionPanel({ portal: true, compact: keyboardOpen })}
+            {descriptionPanel({ portal: true })}
             <div className="relative flex-1 min-h-0">{editorBody('100%', true)}</div>
-            {footerBar}
+            {!keyboardOpen && footerBar}
           </div>,
           document.body,
         )}
