@@ -9,9 +9,8 @@ import {
 } from 'lucide-react'
 import { getProgress, updateProgress, incrementAcSubmitCount, incrementWrongSubmitCount } from '@/lib/db'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
-import { getCookieFromHeader, hasCfClearance, parseStoredLcSession, isSetCookieLine, looksLikeLcCookieJar } from '@/lib/leetcodeHttp'
-import { cloudflareHelp, getLcTransport, lcCheck, lcGraphql, lcRunTest, lcSubmit, type LcTransport } from '@/lib/leetcodeClient'
-import { extBridgeHealthy, hasLeetMasteryBridge } from '@/lib/leetcodeExtensionBridge'
+import { getCookieFromHeader, parseStoredLcSession, isSetCookieLine, looksLikeLcCookieJar } from '@/lib/leetcodeHttp'
+import { lcCheck, lcGraphql, lcRunTest, lcSubmit } from '@/lib/leetcodeClient'
 import toast from 'react-hot-toast'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
@@ -294,7 +293,6 @@ function SessionPanel({
   const trimmed = s.trim()
   const fullCookieJar = /LEETCODE_SESSION\s*=/.test(trimmed) && trimmed.includes(';') && !isSetCookieLine(trimmed)
   const sessionTokenPaste = !fullCookieJar && trimmed.length > 10
-  const hasCf = fullCookieJar && hasCfClearance(trimmed)
 
   const handleClean = () => {
     const result = s
@@ -342,18 +340,11 @@ function SessionPanel({
       <p className="text-[11px] text-gray-400 leading-relaxed">
         Paste <code className="bg-gray-800 px-1 rounded text-orange-300">LEETCODE_SESSION=...</code> from DevTools (Application tab cookie, Set-Cookie line, or bare JWT).
         <br className="hidden sm:block" />
-        <span className="text-gray-500">Best for Run/Submit: paste both cookies on one line, e.g. </span>
+        <span className="text-gray-500">For Run/Submit, paste both on one line: </span>
         <code className="bg-gray-800 px-1 rounded text-gray-400">LEETCODE_SESSION=...; csrftoken=...</code>
-        <span className="text-gray-500"> or the full Cookie header with cf_clearance.</span>
       </p>
-      {fullCookieJar && hasCf && (
-        <p className="text-[11px] text-green-400 font-semibold">Full Cookie header with cf_clearance</p>
-      )}
       {sessionTokenPaste && !saveMessage && (
         <p className="text-[11px] text-green-400 font-semibold">Session token detected - click Save</p>
-      )}
-      {fullCookieJar && !hasCf && (
-        <p className="text-[11px] text-amber-400">Cookie header missing cf_clearance - Run/Submit may fail unless the extension is loaded.</p>
       )}
 
       <div className="flex gap-1.5">
@@ -404,8 +395,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [sessionReady, setSessionReady] = useState(false)
   const effectiveCsrf = csrf || getCookieFromHeader(session, 'csrftoken')
   const hasSession = !!session
-  const [bridgeOK, setBridgeOK] = useState(false)
-  const canRunSubmit = hasSession || bridgeOK
+  const canRunSubmit = hasSession
 
   /* LeetCode question data */
   const [lcQ,     setLcQ]     = useState<LCQuestion | null>(null)
@@ -438,7 +428,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [showSessionHint, setShowSessionHint] = useState(false)
   const [sessionSaving, setSessionSaving] = useState(false)
   const [sessionSaveMsg, setSessionSaveMsg] = useState('')
-  const [lcTransport, setLcTransport] = useState<LcTransport | null>(null)
   const [editorExpanded,  setEditorExpanded]  = useState(false)
   const [savingBest, setSavingBest] = useState<'idle' | 'saving' | 'saved'>('idle')
   const availableLangs = useMemo<SupportedLang[]>(() => {
@@ -477,7 +466,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
 
   const fetchQuestionPayload = useCallback(async (body: object) => {
     const r = await lcGraphql(body as Record<string, unknown>)
-    if (r.transport === 'extension') setBridgeOK(true)
     const json = r.data as {
       data?: { question?: LCQuestion & { isPaidOnly?: boolean }; problemsetQuestionListV2?: { questions?: { titleSlug?: string }[] } }
       errors?: Array<{ message?: string }>
@@ -485,7 +473,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     }
     if (json.errors?.length) throw new Error(json.errors[0]?.message)
     if (json.error && !json.data) {
-      throw new Error(String(json.error) + cloudflareHelp(r.transport, String(json.error)))
+      throw new Error(String(json.error))
     }
     return json
   }, [])
@@ -597,14 +585,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
-  }, [])
-
-  useEffect(() => {
-    if (hasLeetMasteryBridge()) {
-      void extBridgeHealthy().then(setBridgeOK)
-    } else {
-      setBridgeOK(false)
-    }
   }, [])
 
   useEffect(() => {
@@ -842,7 +822,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
       await new Promise(r => setTimeout(r, 1000))
       setPollMsg(`Judging… ${i + 1}s`)
       let data: (LCResult & { error?: string }) | undefined
-      let transport: LcTransport = 'api'
       for (let att = 0; att < 3; att++) {
         const r = await lcCheck({
           checkId,
@@ -850,7 +829,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           session,
           csrfToken: effectiveCsrf,
         })
-        transport = r.transport
         data = r.data as unknown as LCResult & { error?: string }
         if (data.error && !r.ok) break
         if (data.state) break
@@ -861,7 +839,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         setRunning(false); setPollMsg(''); return
       }
       if (data.error && !data.state) {
-        setResultErr(String(data.status_msg || data.error) + cloudflareHelp(transport, String(data.status_msg || data.error)))
+        setResultErr(String(data.status_msg || data.error))
         setRunning(false); setPollMsg(''); return
       }
       if (data.state !== 'PENDING' && data.state !== 'STARTED') {
@@ -947,8 +925,6 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         session,
         csrfToken: runCsrf || effectiveCsrf,
       })
-      setLcTransport(r.transport)
-      if (r.transport === 'extension') setBridgeOK(true)
       const data = r.data as { error?: string; interpret_id?: string }
       if (r.status === 429) {
         const retryAfterSec = r.retryAfterSec ?? 30
@@ -958,7 +934,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         setRunCooldownUntil(Date.now() + 1500)
       }
       if (data.error) {
-        setResultErr(String(data.error) + cloudflareHelp(r.transport, String(data.error)))
+        setResultErr(String(data.error))
         setRunning(false); setPollMsg(''); return
       }
       if (data.interpret_id == null) {
@@ -985,11 +961,9 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         session,
         csrfToken: runCsrf || effectiveCsrf,
       })
-      setLcTransport(r.transport)
-      if (r.transport === 'extension') setBridgeOK(true)
       const data = r.data as { error?: string; submission_id?: string }
       if (data.error) {
-        setResultErr(String(data.error) + cloudflareHelp(r.transport, String(data.error)))
+        setResultErr(String(data.error))
         setRunning(false); setPollMsg(''); return
       }
       if (data.submission_id == null) {
@@ -1089,9 +1063,9 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           {/* Session button — always visible so session can be updated any time */}
           <button onClick={() => setShowSessionHint(h => !h)}
             style={{ touchAction: 'manipulation' }}
-            className={`ml-auto sm:ml-0 flex items-center gap-1 text-xs transition shrink-0 ${hasSession || bridgeOK ? 'text-green-400 hover:text-green-300' : 'text-orange-400 hover:text-orange-300'}`}>
+            className={`ml-auto sm:ml-0 flex items-center gap-1 text-xs transition shrink-0 ${hasSession ? 'text-green-400 hover:text-green-300' : 'text-orange-400 hover:text-orange-300'}`}>
             <Key size={11} />
-            <span className="hidden sm:inline">{bridgeOK && !hasSession ? 'Browser' : hasSession ? 'Session OK' : bridgeOK ? 'Session' : 'Setup session'}</span>
+            <span className="hidden sm:inline">{hasSession ? 'Session OK' : 'Setup session'}</span>
             <span className="sm:hidden text-[10px]">Session</span>
             {showSessionHint ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
           </button>

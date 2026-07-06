@@ -200,18 +200,198 @@ export async function bootstrapLcCsrf(rawSession: unknown): Promise<string> {
   return ''
 }
 
+type WarmedCreds = { session: string; csrf: string; at: number }
+const warmedCredsCache = new Map<string, WarmedCreds>()
+const WARMED_CACHE_TTL_MS = 10 * 60 * 1000
+
+function warmedCacheKey(rawSession: string): string {
+  const v = extractLeetCodeSessionValue(rawSession) || rawSession.slice(0, 48)
+  return v.slice(0, 48)
+}
+
+function readWarmedCreds(rawSession: string): WarmedCreds | null {
+  const hit = warmedCredsCache.get(warmedCacheKey(rawSession))
+  if (!hit || Date.now() - hit.at > WARMED_CACHE_TTL_MS) return null
+  return hit
+}
+
+function storeWarmedCreds(rawSession: string, session: string, csrf: string) {
+  if (!session || !csrf) return
+  warmedCredsCache.set(warmedCacheKey(rawSession), { session, csrf, at: Date.now() })
+}
+
+/** Drop cached cookies after a 403 so the next Run/Submit re-warms from LeetCode. */
+export function invalidateWarmedCreds(rawSession: string) {
+  warmedCredsCache.delete(warmedCacheKey(rawSession))
+}
+
+/** Merge edge cookies from a LeetCode response into jar + csrf. */
+export function absorbLcResponseCookies(
+  jar: string,
+  csrf: string,
+  res: Response,
+): { jar: string; csrf: string } {
+  const nextJar = mergeSetCookiesIntoJar(jar, readResponseSetCookies(res))
+  const nextCsrf = getCookieFromHeader(nextJar, 'csrftoken') || csrf
+  return { jar: nextJar, csrf: nextCsrf }
+}
+
+/** Add or replace one cookie in a request Cookie header. */
+export function mergeCookieIntoJar(jar: string, name: string, value: string): string {
+  if (!value) return jar
+  const parts = jar
+    .split(';')
+    .map(p => p.trim())
+    .filter(p => {
+      if (!p) return false
+      const k = p.split('=')[0]?.trim()
+      return k && k.toLowerCase() !== name.toLowerCase()
+    })
+  parts.push(`${name}=${value}`)
+  return parts.join('; ')
+}
+
+function mergeSetCookiesIntoJar(jar: string, setCookies: string[]): string {
+  let next = jar
+  for (const h of setCookies) {
+    const first = h.split(';')[0]?.trim() ?? ''
+    const eq = first.indexOf('=')
+    if (eq < 0) continue
+    const name = first.slice(0, eq).trim()
+    const value = first.slice(eq + 1).trim()
+    if (!name || !value) continue
+    next = mergeCookieIntoJar(next, name, value)
+  }
+  return next
+}
+
+/**
+ * Hit a few LeetCode pages with the session so Cloudflare / edge cookies
+ * (cf_clearance, __cf_bm) are collected before Run/Submit.
+ */
+export async function warmLcCookieJar(rawSession: string, csrfToken: string): Promise<string> {
+  const { cookie } = normalizeLcCookieHeader(rawSession, csrfToken)
+  if (!cookie) return cookie
+
+  let jar = cookie
+  const urls = [
+    `${LC}/`,
+    `${LC}/problemset/`,
+    `${LC}/api/problems/algorithms/`,
+  ]
+
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Cookie: jar,
+          'User-Agent': UA,
+          Accept: 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          Referer: `${LC}/`,
+          Origin: LC,
+          'x-requested-with': 'XMLHttpRequest',
+        },
+        redirect: 'follow',
+        ...lcFetchInit,
+      })
+      jar = mergeSetCookiesIntoJar(jar, readResponseSetCookies(res))
+      if (hasCfClearance(jar)) return jar
+    } catch {
+      /* try next url */
+    }
+  }
+
+  return jar
+}
+
+/** Visit the problem page so submit/interpret cookies are primed for that slug. */
+export async function warmLcProblemPage(
+  titleSlug: string,
+  rawSession: string,
+  csrfToken: string,
+): Promise<string> {
+  const { cookie } = normalizeLcCookieHeader(rawSession, csrfToken)
+  if (!cookie) return cookie
+
+  let jar = cookie
+  const slug = encodeURIComponent(String(titleSlug))
+  const urls = [
+    `${LC}/problems/${slug}/description/`,
+    `${LC}/problems/${slug}/`,
+  ]
+
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Cookie: jar,
+          'User-Agent': UA,
+          Accept: 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          Referer: `${LC}/problemset/`,
+          Origin: LC,
+          'x-requested-with': 'XMLHttpRequest',
+        },
+        redirect: 'follow',
+        ...lcFetchInit,
+      })
+      const absorbed = absorbLcResponseCookies(jar, csrfToken, res)
+      jar = absorbed.jar
+    } catch {
+      /* try next url */
+    }
+  }
+
+  return jar
+}
+
 /** Resolve session + csrf, bootstrapping csrftoken from LeetCode when needed. */
 export async function resolveLcSessionCredentials(
   rawSession: unknown,
   rawCsrf?: unknown,
+  opts?: { titleSlug?: string },
 ): Promise<{ session: string; csrf: string }> {
   const parsed = parseStoredLcSession(rawSession, rawCsrf)
-  let csrf = parsed.csrf || getCookieFromHeader(parsed.session, 'csrftoken')
-  if (parsed.session && !csrf) {
-    csrf = await bootstrapLcCsrf(parsed.session)
+  let session = parsed.session
+  let csrf = parsed.csrf || getCookieFromHeader(session, 'csrftoken')
+
+  const cached = session ? readWarmedCreds(session) : null
+  if (cached) {
+    session = cached.session
+    csrf = cached.csrf
+    if (opts?.titleSlug) {
+      const problemJar = await warmLcProblemPage(opts.titleSlug, session, csrf)
+      if (problemJar) session = problemJar
+      const problemCsrf = getCookieFromHeader(problemJar, 'csrftoken')
+      if (problemCsrf) csrf = problemCsrf
+      storeWarmedCreds(parsed.session, session, csrf)
+    }
+    return { session, csrf }
   }
-  return { session: parsed.session, csrf }
+
+  if (session && !csrf) {
+    csrf = await bootstrapLcCsrf(session)
+  }
+  if (session && csrf) {
+    const warmed = await warmLcCookieJar(session, csrf)
+    if (warmed) session = warmed
+    const fromJar = getCookieFromHeader(warmed, 'csrftoken')
+    if (fromJar) csrf = fromJar
+    if (opts?.titleSlug) {
+      const problemJar = await warmLcProblemPage(opts.titleSlug, session, csrf)
+      if (problemJar) session = problemJar
+      const problemCsrf = getCookieFromHeader(problemJar, 'csrftoken')
+      if (problemCsrf) csrf = problemCsrf
+    }
+    storeWarmedCreds(parsed.session, session, csrf)
+  }
+  return { session, csrf }
 }
+
+export const LC_403_HINT =
+  'Cloudflare blocked Run/Submit (HTTP 403). Your code was not judged. ' +
+  'On leetcode.com open this problem, DevTools -> Network -> click Run there -> copy the full Cookie header from that request -> paste into Setup session -> Save -> retry here.'
 
 /** True when a pasted cookie jar includes Cloudflare clearance (needed for Vercel Run/Submit). */
 export function hasCfClearance(cookieHeaderRaw: string): boolean {
@@ -340,14 +520,30 @@ const POST_STRATEGIES: LcPostStrategy[] = [
   { referer: 'description' },
   { referer: 'problem-root' },
   { referer: 'description', chromeHeaders: true },
+  { referer: 'problem-root', chromeHeaders: true },
   { referer: 'description', omitOrigin: true },
+  { referer: 'problem-root', omitOrigin: true },
 ]
 
-const CHECK_STRATEGIES: Array<{ referer: LcProblemReferer; chromeHeaders?: boolean }> = [
-  { referer: 'description' },
-  { referer: 'problem-root' },
-  { referer: 'description', chromeHeaders: true },
-]
+function strategyKey(s: LcPostStrategy): string {
+  return `${s.referer}|${s.chromeHeaders ? 1 : 0}|${s.omitOrigin ? 1 : 0}`
+}
+
+function pickPostStrategies(preferred?: LcPostStrategy): LcPostStrategy[] {
+  if (!preferred) return POST_STRATEGIES
+  const key = strategyKey(preferred)
+  const rest = POST_STRATEGIES.filter(s => strategyKey(s) !== key)
+  return [preferred, ...rest]
+}
+
+/** @deprecated Internal helper; kept exported so stale dev caches do not break. */
+export function orderStrategies(preferred?: LcPostStrategy): LcPostStrategy[] {
+  return pickPostStrategies(preferred)
+}
+
+function responseLooksGood(text: string, status: number): boolean {
+  return status !== 403 && !isLeetCodeHtmlBody(text)
+}
 
 /**
  * POST to submit/interpret_solution. Retries with alternate Referer / headers if HTML
@@ -359,12 +555,16 @@ export async function fetchLeetCodeProblemPost(
   titleSlug: string,
   session: string,
   csrf: string,
-  opts?: { retryOnHtml?: boolean },
-): Promise<{ res: Response; text: string }> {
-  const retryOnHtml = opts?.retryOnHtml !== false
+  opts?: { retryOnHtml?: boolean; preferredStrategy?: LcPostStrategy },
+): Promise<{ res: Response; text: string; session: string; csrf: string; winStrategy?: LcPostStrategy }> {
+  const strategies = pickPostStrategies(opts?.preferredStrategy)
+  let jar = session
+  let csrfToken = csrf
   let last: { res: Response; text: string } | null = null
-  for (let i = 0; i < POST_STRATEGIES.length; i++) {
-    const headers = leetCodeProblemApiHeaders(titleSlug, session, csrf, POST_STRATEGIES[i])
+  let winStrategy: LcPostStrategy | undefined
+  for (let i = 0; i < strategies.length; i++) {
+    const strategy = strategies[i]
+    const headers = leetCodeProblemApiHeaders(titleSlug, jar, csrfToken, strategy)
     const res = await fetch(fullUrl, {
       method: 'POST',
       headers,
@@ -373,20 +573,31 @@ export async function fetchLeetCodeProblemPost(
     })
     const text = await res.text()
     last = { res, text }
-    // 429 = rate-limited: retrying immediately makes it worse, bail now.
-    // 401 = definitely bad creds: no header strategy will fix it.
-    // 403 = might be anti-bot / wrong Referer: try remaining strategies.
-    if (res.status === 429 || res.status === 401) return last
-    const isLast = i === POST_STRATEGIES.length - 1
-    if (isLast) return last
-    // Continue to next strategy if we got 403 or HTML (both indicate the
-    // current header set was rejected — a different Referer/Sec-Fetch
-    // fingerprint may get through).
-    if (res.status !== 403 && !isLeetCodeHtmlBody(text)) return last
+    const absorbed = absorbLcResponseCookies(jar, csrfToken, res)
+    jar = absorbed.jar
+    csrfToken = absorbed.csrf
+    storeWarmedCreds(session, jar, csrfToken)
+    if (!winStrategy && responseLooksGood(text, res.status)) {
+      winStrategy = strategy
+    }
+    if (res.status === 429 || res.status === 401) {
+      return { ...last, session: jar, csrf: csrfToken, winStrategy }
+    }
+    const isLast = i === strategies.length - 1
+    if (isLast) return { ...last, session: jar, csrf: csrfToken, winStrategy }
+    if (res.status !== 403 && !isLeetCodeHtmlBody(text)) {
+      return { ...last, session: jar, csrf: csrfToken, winStrategy }
+    }
     await new Promise(r => setTimeout(r, RETRY_MS))
   }
-  return last!
+  return { ...last!, session: jar, csrf: csrfToken, winStrategy }
 }
+
+const CHECK_STRATEGIES: Array<{ referer: LcProblemReferer; chromeHeaders?: boolean }> = [
+  { referer: 'description' },
+  { referer: 'problem-root' },
+  { referer: 'description', chromeHeaders: true },
+]
 
 /** GET check/ poll — retry on HTML with alternate Referer / headers. */
 export async function fetchLeetCodeCheckGet(

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseLeetCodeJsonText } from '@/lib/parseLeetCodeResponse'
-import { fetchLeetCodeProblemPost, resolveLcSessionCredentials, toLeetCodeQuestionId } from '@/lib/leetcodeHttp'
+import { fetchLeetCodeProblemPost, invalidateWarmedCreds, LC_403_HINT, resolveLcSessionCredentials, toLeetCodeQuestionId } from '@/lib/leetcodeHttp'
 
 const LC = 'https://leetcode.com'
 
@@ -14,10 +14,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { titleSlug, questionId, lang, code, testInput, session, csrfToken } = body
 
-    const { session: sess, csrf } = await resolveLcSessionCredentials(session, csrfToken)
+    const { session: sess, csrf } = await resolveLcSessionCredentials(session, csrfToken, {
+      titleSlug: String(titleSlug),
+    })
     if (!sess || !csrf) {
       return NextResponse.json({
-        error: 'Missing csrftoken. Also paste csrftoken from DevTools (Application > Cookies on leetcode.com), or use the full Cookie header with cf_clearance.',
+        error: 'Missing csrftoken. Paste csrftoken from DevTools (Application > Cookies on leetcode.com) on the same line as LEETCODE_SESSION.',
       }, { status: 401 })
     }
 
@@ -67,17 +69,22 @@ export async function POST(req: NextRequest) {
     let lastRes: Response | null = null
     let lastText = ''
 
+    let activeSess = sess
+    let activeCsrf = csrf
+
     for (const a of attempts) {
-      const { res, text } = await fetchLeetCodeProblemPost(
+      const { res, text, session: nextSess, csrf: nextCsrf } = await fetchLeetCodeProblemPost(
         url,
         { lang, question_id: qid, typed_code: code, data_input: a.data_input, test_mode: a.test_mode },
         String(titleSlug),
-        sess,
-        csrf,
+        activeSess,
+        activeCsrf,
         // Allow helper to retry alternate header strategies on 403/HTML.
         // Without this, Cloudflare/WAF blocks are much more likely.
         { retryOnHtml: true },
       )
+      activeSess = nextSess
+      activeCsrf = nextCsrf
       lastRes = res
       lastText = text
 
@@ -116,8 +123,11 @@ export async function POST(req: NextRequest) {
         if (st === 429) {
           hint =
             'LeetCode rate-limited this run (HTTP 429). Wait a bit and try again — repeated Run attempts can trigger temporary blocks.'
+        } else if (st === 403) {
+          invalidateWarmedCreds(String(session ?? ''))
+          hint = LC_403_HINT
         } else {
-            hint = `Cloudflare blocked the request (HTTP ${st}). Paste the full Cookie header from leetcode.com (include cf_clearance) into Session and retry.`
+            hint = `LeetCode rejected the request (HTTP ${st}). Check your session and csrftoken, then retry.`
         }
       } else {
         hint = parsed.error
