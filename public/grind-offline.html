@@ -59,8 +59,13 @@
       display: flex; align-items: center; justify-content: space-between; gap: 0.35rem;
     }
     .list-divider-sec {
-      padding: 0.35rem 0.5rem; font-size: 0.55rem; font-weight: 600; color: #6c7086;
+      padding: 0.35rem 0.5rem 0.35rem 1rem; font-size: 0.55rem; font-weight: 600; color: #6c7086;
       background: #181825; border-bottom: 1px solid #313244; position: sticky; top: 0; z-index: 1;
+      display: flex; align-items: center; justify-content: space-between; gap: 0.35rem;
+    }
+    .list-divider-tier {
+      padding: 0.38rem 0.5rem; font-size: 0.56rem; font-weight: 700; color: #cba6f7;
+      background: #1a1826; border-bottom: 1px solid #313244; position: sticky; top: 0; z-index: 1;
       display: flex; align-items: center; justify-content: space-between; gap: 0.35rem;
     }
     .list-divider-count {
@@ -1027,14 +1032,27 @@
       return 'Set 3 - AlgoMaster'
     }
 
+    function parseGrindSection(section) {
+      var m = String(section || '').match(/^(High|Mid|Low) (Easy|Medium|Hard) - (.+)$/)
+      if (!m) return { tier: section, pattern: section }
+      return { tier: m[1] + ' ' + m[2], pattern: m[3] }
+    }
+
     function grindGroupCounts(rows) {
       var setCounts = {}
+      var tierCounts = {}
       var sectionCounts = {}
       rows.forEach(function(q) {
         setCounts[q.set] = (setCounts[q.set] || 0) + 1
-        if (q.section) sectionCounts[q.section] = (sectionCounts[q.section] || 0) + 1
+        if (q.section) {
+          var parsed = parseGrindSection(q.section)
+          var tierKey = q.set + '|' + parsed.tier
+          var secKey = q.set + '|' + q.section
+          tierCounts[tierKey] = (tierCounts[tierKey] || 0) + 1
+          sectionCounts[secKey] = (sectionCounts[secKey] || 0) + 1
+        }
       })
-      return { setCounts: setCounts, sectionCounts: sectionCounts }
+      return { setCounts: setCounts, tierCounts: tierCounts, sectionCounts: sectionCounts }
     }
 
     function appendDivider(parent, label, count, className) {
@@ -1061,15 +1079,22 @@
       list.innerHTML = ''
       var counts = grindGroupCounts(filtered)
       var lastSet = 0
+      var lastTier = null
       var lastSection = null
       filtered.forEach(function(q) {
         if (q.set !== lastSet) {
           appendDivider(list, setDividerLabel(q.set), counts.setCounts[q.set] || 0, 'list-divider-set')
           lastSet = q.set
+          lastTier = null
           lastSection = null
         }
         if (q.section && q.section !== lastSection) {
-          appendDivider(list, q.section, counts.sectionCounts[q.section] || 0, 'list-divider-sec')
+          var parsed = parseGrindSection(q.section)
+          if (parsed.tier !== lastTier) {
+            appendDivider(list, parsed.tier, counts.tierCounts[q.set + '|' + parsed.tier] || 0, 'list-divider-tier')
+            lastTier = parsed.tier
+          }
+          appendDivider(list, parsed.pattern, counts.sectionCounts[q.set + '|' + q.section] || 0, 'list-divider-sec')
           lastSection = q.section
         }
         var btn = document.createElement('button')

@@ -2,7 +2,7 @@ import { PATTERN_PRIORITY } from '@/lib/constants'
 import type { GrindQuestion } from './grindQuestions'
 
 export type GrindListEntry =
-  | { type: 'divider'; label: string; key: string; variant: 'set' | 'section'; count: number }
+  | { type: 'divider'; label: string; key: string; variant: 'set' | 'tier' | 'section'; count: number }
   | { type: 'question'; q: GrindQuestion; key: string }
 
 export type GrindSummaryCounts = {
@@ -11,6 +11,8 @@ export type GrindSummaryCounts = {
   byDifficulty: Record<string, number>
   byPriority: Record<string, number>
   byPattern: Record<string, number>
+  /** e.g. "High Easy" -> count (within current filtered list, all sets). */
+  byTier: Record<string, number>
 }
 
 const SET_LABEL: Record<1 | 2 | 3, string> = {
@@ -19,16 +21,36 @@ const SET_LABEL: Record<1 | 2 | 3, string> = {
   3: 'Set 3 - AlgoMaster',
 }
 
-/** Totals per set, difficulty, priority tier, and pattern for the current question list. */
+/** "High Easy - Arrays & Hashing" -> { tier: "High Easy", pattern: "Arrays & Hashing" } */
+export function parseGrindSection(section: string): { tier: string; pattern: string } {
+  const m = section.match(/^(High|Mid|Low) (Easy|Medium|Hard) - (.+)$/)
+  if (!m) return { tier: section, pattern: section }
+  return { tier: `${m[1]} ${m[2]}`, pattern: m[3] }
+}
+
+function setTierKey(set: number, tier: string) {
+  return `${set}|${tier}`
+}
+
+function setSectionKey(set: number, section: string) {
+  return `${set}|${section}`
+}
+
+/** Totals per set, difficulty, priority tier, pattern, and priority+difficulty tier. */
 export function grindSummaryCounts(questions: GrindQuestion[]): GrindSummaryCounts {
   const bySet: Record<1 | 2 | 3, number> = { 1: 0, 2: 0, 3: 0 }
   const byDifficulty: Record<string, number> = {}
   const byPriority: Record<string, number> = {}
   const byPattern: Record<string, number> = {}
+  const byTier: Record<string, number> = {}
 
   for (const q of questions) {
     bySet[q.set]++
     byDifficulty[q.difficulty] = (byDifficulty[q.difficulty] ?? 0) + 1
+    if (q.section) {
+      const { tier } = parseGrindSection(q.section)
+      byTier[tier] = (byTier[tier] ?? 0) + 1
+    }
     if (q.pattern) {
       byPattern[q.pattern] = (byPattern[q.pattern] ?? 0) + 1
       const pri = PATTERN_PRIORITY[q.pattern]
@@ -36,20 +58,30 @@ export function grindSummaryCounts(questions: GrindQuestion[]): GrindSummaryCoun
     }
   }
 
-  return { total: questions.length, bySet, byDifficulty, byPriority, byPattern }
+  return { total: questions.length, bySet, byDifficulty, byPriority, byPattern, byTier }
 }
 
-/** Sidebar rows with Set + study-order section dividers (matches PDF rounds). */
+/** Sidebar rows: Set -> priority/difficulty tier -> pattern section (counts per set). */
 export function grindListWithDividers(questions: GrindQuestion[]): GrindListEntry[] {
   const setCounts = new Map<number, number>()
+  const tierCounts = new Map<string, number>()
   const sectionCounts = new Map<string, number>()
+
   for (const q of questions) {
     setCounts.set(q.set, (setCounts.get(q.set) ?? 0) + 1)
-    if (q.section) sectionCounts.set(q.section, (sectionCounts.get(q.section) ?? 0) + 1)
+    if (q.section) {
+      const { tier } = parseGrindSection(q.section)
+      tierCounts.set(setTierKey(q.set, tier), (tierCounts.get(setTierKey(q.set, tier)) ?? 0) + 1)
+      sectionCounts.set(
+        setSectionKey(q.set, q.section),
+        (sectionCounts.get(setSectionKey(q.set, q.section)) ?? 0) + 1,
+      )
+    }
   }
 
   const out: GrindListEntry[] = []
   let lastSet = 0
+  let lastTier: string | null = null
   let lastSection: string | null = null
 
   for (const q of questions) {
@@ -62,18 +94,32 @@ export function grindListWithDividers(questions: GrindQuestion[]): GrindListEntr
         count: setCounts.get(q.set) ?? 0,
       })
       lastSet = q.set
+      lastTier = null
       lastSection = null
     }
+
     if (q.section && q.section !== lastSection) {
+      const { tier, pattern } = parseGrindSection(q.section)
+      if (tier !== lastTier) {
+        out.push({
+          type: 'divider',
+          label: tier,
+          key: `tier-${q.set}-${tier}`,
+          variant: 'tier',
+          count: tierCounts.get(setTierKey(q.set, tier)) ?? 0,
+        })
+        lastTier = tier
+      }
       out.push({
         type: 'divider',
-        label: q.section,
+        label: pattern,
         key: `sec-${q.set}-${q.section}`,
         variant: 'section',
-        count: sectionCounts.get(q.section) ?? 0,
+        count: sectionCounts.get(setSectionKey(q.set, q.section)) ?? 0,
       })
       lastSection = q.section
     }
+
     out.push({ type: 'question', q, key: `q-${q.set}-${q.id}` })
   }
 
