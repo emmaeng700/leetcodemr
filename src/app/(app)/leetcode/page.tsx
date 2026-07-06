@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Circle, ExternalLink, Filter, Loader2, RefreshCw, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import GrindCountStrip from '@/components/GrindCountStrip'
+import GrindListDivider from '@/components/GrindListDivider'
 import PriorityBadge from '@/components/PriorityBadge'
 import { PATTERN_PRIORITY, type PatternPriority } from '@/lib/constants'
 import {
@@ -13,7 +15,7 @@ import {
   loadQuestionsFullJson,
   type GrindQuestion,
 } from '@/lib/grindQuestions'
-import { grindListWithDividers } from '@/lib/grindList'
+import { grindListWithDividers, grindSummaryCounts } from '@/lib/grindList'
 import {
   formatSyncTime,
   loadLcSessionForSync,
@@ -155,6 +157,8 @@ export default function LeetCodeListPage() {
   }, [questions, search, setFilter, diffFilter, priorityFilter, patternFilter, statusFilter, solvedFn])
 
   const listEntries = useMemo(() => grindListWithDividers(filtered), [filtered])
+  const summary = useMemo(() => grindSummaryCounts(filtered), [filtered])
+  const allSummary = useMemo(() => grindSummaryCounts(questions), [questions])
 
   const stats = useMemo(() => {
     const pool = setFilter === 'all' ? questions : questions.filter(q => q.set === setFilter)
@@ -278,6 +282,8 @@ export default function LeetCodeListPage() {
                 </span>
               </div>
 
+              <GrindCountStrip counts={summary} compact />
+
               {showFilters && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   <select
@@ -285,10 +291,10 @@ export default function LeetCodeListPage() {
                     onChange={e => setSetFilter(e.target.value === 'all' ? 'all' : Number(e.target.value) as SetFilter)}
                     className="text-xs rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1.5 text-[var(--text)]"
                   >
-                    <option value="all">All sets</option>
-                    <option value="1">Set 1</option>
-                    <option value="2">Set 2</option>
-                    <option value="3">Set 3</option>
+                    <option value="all">All sets ({questions.length})</option>
+                    <option value="1">Set 1 ({allSummary.bySet[1]})</option>
+                    <option value="2">Set 2 ({allSummary.bySet[2]})</option>
+                    <option value="3">Set 3 ({allSummary.bySet[3]})</option>
                   </select>
                   <select
                     value={diffFilter}
@@ -296,9 +302,9 @@ export default function LeetCodeListPage() {
                     className="text-xs rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1.5 text-[var(--text)]"
                   >
                     <option value="all">All difficulties</option>
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
+                    <option value="Easy">Easy ({allSummary.byDifficulty.Easy ?? 0})</option>
+                    <option value="Medium">Medium ({allSummary.byDifficulty.Medium ?? 0})</option>
+                    <option value="Hard">Hard ({allSummary.byDifficulty.Hard ?? 0})</option>
                   </select>
                   <select
                     value={priorityFilter}
@@ -306,9 +312,9 @@ export default function LeetCodeListPage() {
                     className="text-xs rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1.5 text-[var(--text)]"
                   >
                     <option value="all">All priorities</option>
-                    <option value="High">High</option>
-                    <option value="Mid">Mid</option>
-                    <option value="Low">Low</option>
+                    <option value="High">High ({allSummary.byPriority.High ?? 0})</option>
+                    <option value="Mid">Mid ({allSummary.byPriority.Mid ?? 0})</option>
+                    <option value="Low">Low ({allSummary.byPriority.Low ?? 0})</option>
                   </select>
                   <select
                     value={patternFilter}
@@ -317,7 +323,7 @@ export default function LeetCodeListPage() {
                   >
                     <option value="all">All patterns</option>
                     {patterns.map(p => (
-                      <option key={p} value={p}>{p}</option>
+                      <option key={p} value={p}>{p} ({allSummary.byPattern[p] ?? 0})</option>
                     ))}
                   </select>
                   <select
@@ -347,18 +353,7 @@ export default function LeetCodeListPage() {
               ) : (
                 listEntries.map(entry => {
                   if (entry.type === 'divider') {
-                    return (
-                      <div
-                        key={entry.key}
-                        className={`sticky top-0 z-10 px-3 py-2 border-b border-[var(--border-soft)] ${
-                          entry.variant === 'set'
-                            ? 'bg-indigo-100/95 dark:bg-indigo-950/90 text-[11px] font-bold uppercase tracking-wide text-indigo-800 dark:text-indigo-200'
-                            : 'bg-[var(--bg-muted)] text-[10px] font-semibold text-[var(--text-subtle)]'
-                        }`}
-                      >
-                        {entry.label}
-                      </div>
-                    )
+                    return <GrindListDivider key={entry.key} entry={entry} />
                   }
 
                   const q = entry.q

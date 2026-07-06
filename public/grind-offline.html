@@ -56,10 +56,16 @@
       padding: 0.4rem 0.5rem; font-size: 0.58rem; font-weight: 700; text-transform: uppercase;
       letter-spacing: 0.04em; color: #89b4fa; background: #1e1e2e;
       border-bottom: 1px solid #313244; position: sticky; top: 0; z-index: 2;
+      display: flex; align-items: center; justify-content: space-between; gap: 0.35rem;
     }
     .list-divider-sec {
       padding: 0.35rem 0.5rem; font-size: 0.55rem; font-weight: 600; color: #6c7086;
       background: #181825; border-bottom: 1px solid #313244; position: sticky; top: 0; z-index: 1;
+      display: flex; align-items: center; justify-content: space-between; gap: 0.35rem;
+    }
+    .list-divider-count {
+      font-family: monospace; font-size: 0.55rem; padding: 0.1rem 0.35rem; border-radius: 0.25rem;
+      background: #313244; color: #bac2de; flex-shrink: 0;
     }
     .editor { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #1e1e2e; overflow: hidden; }
     .editor-stack {
@@ -1016,9 +1022,32 @@
     }
 
     function setDividerLabel(setNum) {
-      if (setNum === 1) return 'Set 1 - Main 331'
-      if (setNum === 2) return 'Set 2 - NeetCode 250'
-      return 'Set 3 - AlgoMaster 600'
+      if (setNum === 1) return 'Set 1 - Main'
+      if (setNum === 2) return 'Set 2 - NeetCode'
+      return 'Set 3 - AlgoMaster'
+    }
+
+    function grindGroupCounts(rows) {
+      var setCounts = {}
+      var sectionCounts = {}
+      rows.forEach(function(q) {
+        setCounts[q.set] = (setCounts[q.set] || 0) + 1
+        if (q.section) sectionCounts[q.section] = (sectionCounts[q.section] || 0) + 1
+      })
+      return { setCounts: setCounts, sectionCounts: sectionCounts }
+    }
+
+    function appendDivider(parent, label, count, className) {
+      var div = document.createElement('div')
+      div.className = className
+      var text = document.createElement('span')
+      text.textContent = label
+      var badge = document.createElement('span')
+      badge.className = 'list-divider-count'
+      badge.textContent = String(count)
+      div.appendChild(text)
+      div.appendChild(badge)
+      parent.appendChild(div)
     }
 
     function renderList() {
@@ -1030,22 +1059,17 @@
         head.textContent = filtered.length + ' question' + (filtered.length === 1 ? '' : 's') + (s ? ' matching' : '')
       }
       list.innerHTML = ''
+      var counts = grindGroupCounts(filtered)
       var lastSet = 0
       var lastSection = null
       filtered.forEach(function(q) {
         if (q.set !== lastSet) {
-          var setDiv = document.createElement('div')
-          setDiv.className = 'list-divider-set'
-          setDiv.textContent = setDividerLabel(q.set)
-          list.appendChild(setDiv)
+          appendDivider(list, setDividerLabel(q.set), counts.setCounts[q.set] || 0, 'list-divider-set')
           lastSet = q.set
           lastSection = null
         }
         if (q.section && q.section !== lastSection) {
-          var secDiv = document.createElement('div')
-          secDiv.className = 'list-divider-sec'
-          secDiv.textContent = q.section
-          list.appendChild(secDiv)
+          appendDivider(list, q.section, counts.sectionCounts[q.section] || 0, 'list-divider-sec')
           lastSection = q.section
         }
         var btn = document.createElement('button')

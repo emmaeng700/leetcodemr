@@ -5,10 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Search, PenLine } from 'lucide-react'
 import GrindEditor from '@/components/GrindEditor'
 import GrindConnectivityBanner from '@/components/GrindConnectivityBanner'
+import GrindCountStrip from '@/components/GrindCountStrip'
+import GrindListDivider from '@/components/GrindListDivider'
 import DifficultyBadge from '@/components/DifficultyBadge'
+import PriorityBadge from '@/components/PriorityBadge'
 import { buildGrindQuestions, loadQuestionsFullJson, loadPlaybookMap, loadGrindQuestionsBundle, type GrindQuestion } from '@/lib/grindQuestions'
 import { migrateAllGrindDrafts } from '@/lib/grindMigration'
-import { grindListWithDividers } from '@/lib/grindList'
+import { grindListWithDividers, grindSummaryCounts } from '@/lib/grindList'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter, readGrindLastQuestionId, writeGrindLastQuestionId } from '@/lib/grindStorage'
@@ -116,6 +119,7 @@ function GrindInner() {
   }, [questions, search])
 
   const listEntries = useMemo(() => grindListWithDividers(filtered), [filtered])
+  const summary = useMemo(() => grindSummaryCounts(filtered), [filtered])
 
   const selected = useMemo(() => {
     if (selectedId > 0) return questions.find(q => q.id === selectedId) ?? null
@@ -207,6 +211,12 @@ function GrindInner() {
             <p className="text-[10px] text-[var(--text-subtle)]">
               PDF study order | {questions.length} questions | Set 1 then 2 then 3
             </p>
+            <div className="mt-1 hidden sm:block">
+              <GrindCountStrip counts={summary} />
+            </div>
+            <div className="mt-1 sm:hidden">
+              <GrindCountStrip counts={summary} compact />
+            </div>
           </div>
         </div>
 
@@ -282,18 +292,7 @@ function GrindInner() {
           <div className="overflow-y-auto flex-1 min-h-0">
             {listEntries.map(entry => {
               if (entry.type === 'divider') {
-                return (
-                  <div
-                    key={entry.key}
-                    className={`sticky top-0 z-10 px-3 py-1.5 border-b border-[var(--border-soft)] shrink-0 ${
-                      entry.variant === 'set'
-                        ? 'bg-indigo-100/90 dark:bg-indigo-950/80 text-[10px] font-bold uppercase tracking-wide text-indigo-800 dark:text-indigo-200'
-                        : 'bg-[var(--bg-muted)] text-[9px] font-semibold text-[var(--text-subtle)]'
-                    }`}
-                  >
-                    {entry.label}
-                  </div>
-                )
+                return <GrindListDivider key={entry.key} entry={entry} />
               }
               const q = entry.q
               const active = selected?.id === q.id
@@ -313,8 +312,9 @@ function GrindInner() {
                     <span className="text-[10px] font-mono text-[var(--text-subtle)] shrink-0">#{q.id}</span>
                     <span className="text-xs font-medium truncate text-[var(--text)]">{q.title}</span>
                   </div>
-                  <div className="mt-0.5">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1">
                     <DifficultyBadge difficulty={q.difficulty} />
+                    {q.pattern && <PriorityBadge pattern={q.pattern} />}
                   </div>
                 </button>
               )
