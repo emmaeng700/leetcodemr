@@ -14,6 +14,11 @@ import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter, readGrindLastQuestionId, writeGrindLastQuestionId } from '@/lib/grindStorage'
+import {
+  readAllGrindResetCounts,
+  loadAndMergeGrindResetCounts,
+  syncAllGrindResetsToSupabase,
+} from '@/lib/grindResets'
 import { useMobileViewport } from '@/hooks/useMobileViewport'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 
@@ -50,6 +55,7 @@ function GrindInner() {
     return readGrindLastQuestionId() ?? 0
   })
   const [listOpen, setListOpen] = useState(false)
+  const [resetCounts, setResetCounts] = useState<Record<number, number>>(() => readAllGrindResetCounts())
   const prefetchRef = useRef(false)
 
   const spKey = sp.toString()
@@ -126,6 +132,18 @@ function GrindInner() {
     void load()
   }, [])
 
+  useEffect(() => {
+    loadAndMergeGrindResetCounts().then(setResetCounts).catch(() => {})
+    const onOnline = () => {
+      syncAllGrindResetsToSupabase()
+        .then(() => loadAndMergeGrindResetCounts())
+        .then(setResetCounts)
+        .catch(() => {})
+    }
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [])
+
   const filtered = useMemo(() => {
     if (!search.trim()) return questions
     return questions.filter(q => matchesQuestionSearch(q, search))
@@ -184,6 +202,10 @@ function GrindInner() {
     if (navIndex < 0) return
     const next = navList[navIndex + delta]
     if (next) navigateToQuestion(next)
+  }
+
+  function handleReset(id: number) {
+    setResetCounts(prev => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }))
   }
 
   function onSearchSubmit(e: React.FormEvent) {
@@ -311,6 +333,11 @@ function GrindInner() {
                     <div className="flex flex-wrap gap-1 mt-0.5 items-center">
                       <span className={`grind-pill ${diffClass(q.difficulty)}`}>{q.difficulty}</span>
                       {pri && <span className={`grind-pill ${prioClass(pri)}`}>{pri}</span>}
+                      {(resetCounts[q.id] ?? 0) > 0 && (
+                        <span className="text-[0.52rem] font-mono text-[#89b4fa] opacity-70 leading-none">
+                          ↺{resetCounts[q.id]}
+                        </span>
+                      )}
                     </div>
                   </button>
                   <a
@@ -331,7 +358,7 @@ function GrindInner() {
 
         <div className="grind-editor min-h-0">
           {selected ? (
-            <GrindEditor key={selected.id} question={selected} className="flex-1 min-h-0 h-full" />
+            <GrindEditor key={selected.id} question={selected} className="flex-1 min-h-0 h-full" onReset={handleReset} />
           ) : (
             <div className="flex-1 flex items-center justify-center text-sm text-[#6c7086] p-4">
               Search or pick a question to start grinding.

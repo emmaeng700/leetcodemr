@@ -9,6 +9,7 @@ import { saveGrindSession } from '@/lib/db'
 import {
   writeGrindDraft,
 } from '@/lib/grindStorage'
+import { readGrindResetCount, incrementGrindResetCount } from '@/lib/grindResets'
 import {
   applyGrindStampOnEdit,
   getGrindSessionChipLabel,
@@ -31,9 +32,10 @@ const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.def
 interface GrindEditorProps {
   question: GrindQuestion
   className?: string
+  onReset?: (id: number) => void
 }
 
-export default function GrindEditor({ question, className = '' }: GrindEditorProps) {
+export default function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
   const { height: vvHeight, offsetTop: vvOffsetTop, keyboardOpen } = useMobileViewport()
   const { lang, setLang } = useGrindLang()
   const [code, setCode] = useState('')
@@ -43,6 +45,7 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
   const [copied, setCopied] = useState(false)
   const [sessionLabel, setSessionLabel] = useState<string | null>(null)
   const [syncState, setSyncState] = useState<'local' | 'synced' | 'offline'>('local')
+  const [resetCount, setResetCount] = useState(() => readGrindResetCount(question.id))
   const [editorExpanded, setEditorExpanded] = useState(false)
   const [portalDescCollapsed, setPortalDescCollapsed] = useState(false)
   const [extensions, setExtensions] = useState<any[]>([])
@@ -280,7 +283,10 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
       saveGrindSession(question.id, lang, starter).catch(() => {})
     }
     setSyncState(typeof navigator !== 'undefined' && navigator.onLine ? 'synced' : 'offline')
-  }, [starter, question.id, lang])
+    const next = incrementGrindResetCount(question.id)
+    setResetCount(next)
+    onReset?.(question.id)
+  }, [starter, question.id, lang, onReset])
 
   const copyCode = useCallback(async () => {
     const text = codeRef.current
@@ -347,8 +353,11 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
         <button type="button" onClick={() => void copyCode()} className="grind-chip">
           {copied ? 'Copied!' : 'Copy'}
         </button>
-        <button type="button" onClick={reset} className="grind-chip">
-          Reset to starter
+        <button type="button" onClick={reset} className="grind-chip flex items-center gap-1">
+          <span>Reset to starter</span>
+          {resetCount > 0 && (
+            <span className="text-[0.55rem] font-mono text-[#89b4fa] opacity-80">↺{resetCount}</span>
+          )}
         </button>
       </div>
     </div>
@@ -423,6 +432,10 @@ export default function GrindEditor({ question, className = '' }: GrindEditorPro
     document.addEventListener('focusin', onFocusIn)
     return () => document.removeEventListener('focusin', onFocusIn)
   }, [editorExpanded])
+
+  useEffect(() => {
+    setResetCount(readGrindResetCount(question.id))
+  }, [question.id])
 
   useEffect(() => {
     if (!editorExpanded) setPortalDescCollapsed(false)
