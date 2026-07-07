@@ -218,6 +218,22 @@
   gap: 0.35rem;
 }
 
+.grind-shell .grind-banner-actions a {
+  text-decoration: none;
+}
+
+.grind-shell .grind-exit-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.grind-shell .grind-exit-nav a {
+  text-decoration: none;
+}
+
 .grind-shell .grind-banner-actions a,
 .grind-shell .grind-banner-actions button {
   text-decoration: none;

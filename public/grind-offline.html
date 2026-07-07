@@ -482,7 +482,13 @@
     var listOpen = false
     var editorExpanded = false
     var fsDescCollapsed = false
-    var wasOffline = !navigator.onLine
+    var wasOffline = (function() {
+      try {
+        return sessionStorage.getItem('lm_grind_was_offline') === '1' || !navigator.onLine
+      } catch (e) {
+        return !navigator.onLine
+      }
+    })()
     var copyFlashTimer = null
 
     function flashCopyButton(btn) {
@@ -548,7 +554,10 @@
           ? (wasOffline ? 'Back online - tap links above to visit other pages' : questions.length + ' questions')
           : 'Offline mode - saved locally'
       }
-      if (!online) wasOffline = true
+      if (!online) {
+        wasOffline = true
+        try { sessionStorage.setItem('lm_grind_was_offline', '1') } catch (e) {}
+      }
     }
     function refreshEditorStampIfNewDay() {
       if (!editorHandle || !selectedId) return

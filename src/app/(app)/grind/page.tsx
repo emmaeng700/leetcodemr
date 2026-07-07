@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import GrindEditor from '@/components/GrindEditor'
@@ -38,6 +39,23 @@ function prioClass(p: string) {
   if (p === 'High') return 'grind-prio-high'
   if (p === 'Mid') return 'grind-prio-mid'
   return 'grind-prio-low'
+}
+
+function GrindAppShell({
+  children,
+  style,
+}: {
+  children: React.ReactNode
+  style?: React.CSSProperties
+}) {
+  return (
+    <div className="grind-app" style={style}>
+      <Suspense fallback={null}>
+        <GrindConnectivityBanner />
+      </Suspense>
+      {children}
+    </div>
+  )
 }
 
 function GrindInner() {
@@ -216,9 +234,11 @@ function GrindInner() {
 
   if (loading) {
     return (
-      <div className="grind-app items-center justify-center text-sm text-[#6c7086] animate-pulse">
-        Loading grind workspace...
-      </div>
+      <GrindAppShell>
+        <div className="flex flex-1 items-center justify-center text-sm text-[#6c7086] animate-pulse">
+          Loading grind workspace...
+        </div>
+      </GrindAppShell>
     )
   }
 
@@ -228,9 +248,7 @@ function GrindInner() {
       : undefined
 
   return (
-    <div className="grind-app" style={shellStyle}>
-      <GrindConnectivityBanner questionId={selected?.id} />
-
+    <GrindAppShell style={shellStyle}>
       <header className={`grind-header ${keyboardOpen ? 'hidden md:flex' : ''}`}>
         <div className="grind-header-top">
           <div className="grind-header-title">
@@ -240,6 +258,16 @@ function GrindInner() {
             </p>
             <GrindCountStrip counts={summary} />
           </div>
+          {online && (
+            <nav className="grind-exit-nav" aria-label="Leave grind workspace">
+              <Link href="/daily" className="grind-chip grind-chip-primary">
+                Daily
+              </Link>
+              <Link href="/questions" className="grind-chip">
+                Questions
+              </Link>
+            </nav>
+          )}
           <div className="grind-langs">
             <button
               type="button"
@@ -372,7 +400,7 @@ function GrindInner() {
           ? `${questions.length} questions · write from memory`
           : 'Offline · saved locally · write from memory'}
       </footer>
-    </div>
+    </GrindAppShell>
   )
 }
 
