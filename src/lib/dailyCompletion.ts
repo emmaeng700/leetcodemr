@@ -123,6 +123,8 @@ export function isCatchUpDailyCleared(
   dailyReps?: Record<string, number>,
   repsPerQ = 2,
 ): boolean {
+  // Past plan days advance on Learn solved — don't keep pushing those forward.
+  if (progress[String(id)]?.solved) return true
   if (isQuestionDoneForDailyToday(id, progress, today, dailyReps, repsPerQ)) return true
   const row = progress[String(id)]
   const lastDone = normalizeRepDate(row?.last_daily_done)

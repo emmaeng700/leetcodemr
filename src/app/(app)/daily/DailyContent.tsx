@@ -706,6 +706,8 @@ export default function DailyPage() {
     const scheduledDate = dayScheduledISO(plan.start_date, dayIdx)
     const dayIds = plan.question_order.slice(dayIdx * plan.per_day, (dayIdx + 1) * plan.per_day)
     if (dayIds.length === 0) return true
+    // Matches isPlanDayComplete for calendar-past days (Learn solved is enough).
+    if (dayIds.every(id => !!progress[String(id)]?.solved)) return true
     const repsPerQ = repsPerQRef.current
     const allOnSchedule = dayIds.every(id => {
       const row = progress[String(id)]
