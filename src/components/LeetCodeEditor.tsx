@@ -426,6 +426,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   const [resultErr,  setResultErr]  = useState('')
   const [solvedStatus, setSolvedStatus] = useState<'marked' | 'already' | 'not-in-library' | null>(null)
   const [showSessionHint, setShowSessionHint] = useState(false)
+  const [cooldownTick, setCooldownTick] = useState(0)
   const [sessionSaving, setSessionSaving] = useState(false)
   const [sessionSaveMsg, setSessionSaveMsg] = useState('')
   const [editorExpanded,  setEditorExpanded]  = useState(false)
@@ -906,11 +907,27 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     return token
   }, [session, csrf])
 
+  // Force re-render during Run cooldown so the UI can show a countdown.
+  useEffect(() => {
+    if (runCooldownUntil <= Date.now()) return
+    const t = window.setInterval(() => setCooldownTick(v => v + 1), 500)
+    return () => window.clearInterval(t)
+  }, [runCooldownUntil])
+
+  const runCooldownSec = Math.max(0, Math.ceil((runCooldownUntil - Date.now()) / 1000))
+  const runCoolingDown = runCooldownSec > 0
+
   /* ── Run test ── */
   const runTest = async () => {
     if (!lcQ || !canRunSubmit) return
     const now = Date.now()
-    if (runCooldownUntil > now) return
+    if (runCooldownUntil > now) {
+      setRunMode('test')
+      setBottomTab('result')
+      setResult(null)
+      setResultErr(`Run cooldown active. Try again in ${Math.ceil((runCooldownUntil - now) / 1000)}s.`)
+      return
+    }
     const syntaxErr = checkPythonSyntax(code, lang)
     if (syntaxErr) { setResultErr(syntaxErr); setBottomTab('result'); return }
     setRunning(true); setRunMode('test'); setResult(null); setResultErr(''); setSolvedStatus(null); setPollMsg('Sending…'); setBottomTab('result')
@@ -1093,11 +1110,11 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
               Best
             </button>
             <button onClick={!canRunSubmit ? () => setShowSessionHint(true) : runTest}
-              disabled={running || (canRunSubmit && !lcQ)}
+              disabled={running || runCoolingDown || (canRunSubmit && !lcQ)}
               style={{ touchAction: 'manipulation' }}
               className={`flex items-center gap-1.5 px-4 py-2 min-h-[36px] text-xs font-semibold rounded-lg transition cursor-pointer shrink-0 ${!canRunSubmit ? 'bg-orange-600/80 text-white hover:bg-orange-500' : 'bg-gray-700 text-gray-200 hover:bg-gray-600 active:bg-gray-500'} disabled:opacity-40`}>
               {running && runMode === 'test' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-              Run
+              {runCoolingDown ? `Run (${runCooldownSec}s)` : 'Run'}
             </button>
             <button onClick={!canRunSubmit ? () => setShowSessionHint(true) : runSubmit}
               disabled={running || (canRunSubmit && !lcQ)}
@@ -1112,11 +1129,11 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         {/* Row 2: Run + Submit + Best — mobile only, full-width row */}
         <div className="flex sm:hidden gap-2 px-3 pb-2">
           <button onClick={!canRunSubmit ? () => setShowSessionHint(true) : runTest}
-            disabled={running || (canRunSubmit && !lcQ)}
+            disabled={running || runCoolingDown || (canRunSubmit && !lcQ)}
             style={{ touchAction: 'manipulation' }}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 min-h-[36px] text-xs font-semibold rounded-lg transition cursor-pointer disabled:opacity-40 ${!canRunSubmit ? 'bg-orange-600/80 text-white active:bg-orange-500' : 'bg-gray-700 text-gray-200 active:bg-gray-500'}`}>
             {running && runMode === 'test' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-            Run
+            {runCoolingDown ? `Run (${runCooldownSec}s)` : 'Run'}
           </button>
           <button onClick={!canRunSubmit ? () => setShowSessionHint(true) : runSubmit}
             disabled={running || (canRunSubmit && !lcQ)}
