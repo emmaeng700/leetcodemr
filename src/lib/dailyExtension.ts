@@ -22,12 +22,13 @@ export function isSet1PlanAllDaysComplete(
   today: string,
   dailyReps: Record<string, number>,
   repsPerQ: number,
+  planStartDate?: string,
 ): boolean {
   const totalDays = Math.ceil(questionOrder.length / perDay)
   if (totalDays <= 0) return false
   for (let i = 0; i < totalDays; i++) {
     const questionIds = questionOrder.slice(i * perDay, i * perDay + perDay)
-    if (!isPlanDayComplete(i, questionIds, progress, calendarDayIndex, today, dailyReps, repsPerQ)) {
+    if (!isPlanDayComplete(i, questionIds, progress, calendarDayIndex, today, dailyReps, repsPerQ, planStartDate)) {
       return false
     }
   }

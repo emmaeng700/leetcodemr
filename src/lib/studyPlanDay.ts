@@ -14,6 +14,13 @@ export function todayISOChicago() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
 }
 
+/** ISO date (Chicago) for a 0-based plan day index. */
+export function planDayScheduledISO(planStartDate: string, dayIdx: number): string {
+  const d = new Date(planStartDate + 'T12:00:00')
+  d.setDate(d.getDate() + dayIdx)
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
+}
+
 /** Same as Daily page: diff from plan start to “today” in Chicago. */
 export function diffDaysSincePlanStart(planStartDate: string): number {
   const today = todayISOChicago()

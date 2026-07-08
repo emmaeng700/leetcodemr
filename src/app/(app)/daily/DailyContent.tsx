@@ -26,6 +26,7 @@ import {
   isQuestionDoneForDailyToday,
   isCatchUpDailyCleared,
   normalizeRepDate,
+  RECENT_PLAN_DAY_WINDOW,
 } from '@/lib/dailyCompletion'
 import { isDayComplete } from '@/lib/streakGoals'
 import { getSetProgress, type SetQProgress } from '@/lib/setProgress'
@@ -175,7 +176,7 @@ function getTodayInfo(
   let activeDayIndex = diffDays
   for (let i = 0; i <= diffDays; i++) {
     const { questionIds } = getDayInfo(plan, i, allQuestions, progress)
-    if (!isPlanDayComplete(i, questionIds, progress, diffDays, todayISO(), dailyReps, repsPerQ)) {
+    if (!isPlanDayComplete(i, questionIds, progress, diffDays, todayISO(), dailyReps, repsPerQ, plan.start_date)) {
       activeDayIndex = i
       break
     }
@@ -680,6 +681,9 @@ export default function DailyPage() {
     if (dayIdx === calendarDayIndex) {
       return isQuestionDoneForDailyToday(id, progress, today, dailyReps, repsPerQ)
     }
+    if (dayIdx < calendarDayIndex - RECENT_PLAN_DAY_WINDOW && isSolved(id)) {
+      return true
+    }
     const scheduledDate = dayScheduledISO(plan.start_date, dayIdx)
     const row = progress[String(id)]
     const lastDone = normalizeRepDate(row?.last_daily_done)
@@ -706,8 +710,6 @@ export default function DailyPage() {
     const scheduledDate = dayScheduledISO(plan.start_date, dayIdx)
     const dayIds = plan.question_order.slice(dayIdx * plan.per_day, (dayIdx + 1) * plan.per_day)
     if (dayIds.length === 0) return true
-    // Matches isPlanDayComplete for calendar-past days (Learn solved is enough).
-    if (dayIds.every(id => !!progress[String(id)]?.solved)) return true
     const repsPerQ = repsPerQRef.current
     const allOnSchedule = dayIds.every(id => {
       const row = progress[String(id)]
@@ -1105,6 +1107,7 @@ export default function DailyPage() {
     todayISO(),
     dailyReps,
     repsPerQ,
+    plan.start_date,
   )
   const inExtensionMode = set1AllDaysComplete || !!todayInfo.complete
   const extensionPhases = buildExtensionPhases(

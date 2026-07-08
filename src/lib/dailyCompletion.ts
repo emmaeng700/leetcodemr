@@ -4,10 +4,13 @@
  * Today / catch-up = Daily reps on progress (DB) OR last_daily_done = today (DB).
  */
 
-import { diffDaysSincePlanStart, todayISOChicago, type StudyPlanForStreak } from './studyPlanDay'
+import { diffDaysSincePlanStart, planDayScheduledISO, todayISOChicago, type StudyPlanForStreak } from './studyPlanDay'
 
 export const DAILY_REPS_PREFIX = 'lm_daily_reps_'
 export const DAILY_REPS_CHANGED = 'lm-daily-reps-changed'
+
+/** Past plan days older than this only need Learn solved; recent days need daily reps. */
+export const RECENT_PLAN_DAY_WINDOW = 7
 
 export function notifyDailyRepsChanged() {
   if (typeof window === 'undefined') return
@@ -123,8 +126,6 @@ export function isCatchUpDailyCleared(
   dailyReps?: Record<string, number>,
   repsPerQ = 2,
 ): boolean {
-  // Past plan days advance on Learn solved — don't keep pushing those forward.
-  if (progress[String(id)]?.solved) return true
   if (isQuestionDoneForDailyToday(id, progress, today, dailyReps, repsPerQ)) return true
   const row = progress[String(id)]
   const lastDone = normalizeRepDate(row?.last_daily_done)
@@ -149,10 +150,21 @@ export function isPlanDayComplete(
   today = todayISOChicago(),
   dailyReps?: Record<string, number>,
   repsPerQ = 2,
+  planStartDate?: string,
 ): boolean {
   if (questionIds.length === 0) return true
   if (dayIndex < calendarDiffDays) {
-    return questionIds.every(id => !!progress[String(id)]?.solved)
+    const deepPastCutoff = calendarDiffDays - RECENT_PLAN_DAY_WINDOW
+    if (dayIndex < deepPastCutoff) {
+      return questionIds.every(id => !!progress[String(id)]?.solved)
+    }
+    if (!planStartDate) {
+      return questionIds.every(id => !!progress[String(id)]?.solved)
+    }
+    const scheduled = planDayScheduledISO(planStartDate, dayIndex)
+    return questionIds.every(id =>
+      isCatchUpDailyCleared(id, scheduled, progress, today, dailyReps, repsPerQ),
+    )
   }
   return questionIds.every(id =>
     isQuestionDoneForDailyToday(id, progress, today, dailyReps, repsPerQ),
@@ -180,7 +192,7 @@ export function findActiveDayIndex(
   let activeDayIndex = Math.min(diffDays, totalDays - 1)
   for (let i = 0; i <= Math.min(diffDays, totalDays - 1); i++) {
     const slice = plan.question_order.slice(i * plan.per_day, i * plan.per_day + plan.per_day)
-    if (!isPlanDayComplete(i, slice, progress, diffDays, today, opts?.dailyReps, repsPerQ)) {
+    if (!isPlanDayComplete(i, slice, progress, diffDays, today, opts?.dailyReps, repsPerQ, plan.start_date)) {
       activeDayIndex = i
       break
     }
