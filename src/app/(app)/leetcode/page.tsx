@@ -16,7 +16,7 @@ import {
 import { grindSummaryCounts } from '@/lib/grindList'
 import {
   formatSyncTime,
-  loadLcSessionForSync,
+  ensureLcSessionForSync,
   readLcListSync,
   syncLeetCodeListAccepted,
   type LcListSyncState,
@@ -143,7 +143,11 @@ export default function LeetCodeListPage() {
     if (syncing || questions.length === 0) return
     setSyncing(true)
     try {
-      const { session, csrf } = await loadLcSessionForSync()
+      const { session, csrf } = await ensureLcSessionForSync()
+      if (!session) {
+        toast.error('No session found. MCP → Clipboard: tap Use on your saved token, then sync again.')
+        return
+      }
       const result = await syncLeetCodeListAccepted(questions, session, csrf)
       if (result.error) {
         toast.error(result.error)

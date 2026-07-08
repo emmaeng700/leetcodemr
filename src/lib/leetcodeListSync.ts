@@ -3,7 +3,7 @@
  * Stored in localStorage; never writes Supabase progress or Learn/Daily state.
  */
 
-import { getCookieFromHeader, parseStoredLcSession } from '@/lib/leetcodeHttp'
+import { getCookieFromHeader, parseStoredLcSession, formatLcSessionJar } from '@/lib/leetcodeHttp'
 import { resolveLeetCodeSlug } from '@/lib/utils'
 
 export const LC_LIST_SYNC_KEY = 'lm_leetcode_list_sync'
@@ -51,8 +51,12 @@ export async function loadLcSessionForSync(): Promise<{ session: string; csrf: s
       session = parsed.session
       csrf = parsed.csrf || getCookieFromHeader(parsed.session, 'csrftoken')
       if (session) {
-        localStorage.setItem('lc_session', parsed.session)
-        if (csrf) localStorage.setItem('lc_csrf', csrf)
+        const { jar, csrf: jarCsrf } = formatLcSessionJar(d.lc_session ?? session, csrf)
+        localStorage.setItem('lc_session', jar)
+        session = jar
+        const finalCsrf = jarCsrf || csrf
+        csrf = finalCsrf
+        if (finalCsrf) localStorage.setItem('lc_csrf', finalCsrf)
       }
     } catch { /* ignore */ }
   }
@@ -66,11 +70,80 @@ export async function loadLcSessionForSync(): Promise<{ session: string; csrf: s
       })
       const d = await r.json() as { csrf?: string }
       csrf = d.csrf ?? ''
-      if (csrf) localStorage.setItem('lc_csrf', csrf)
     } catch { /* ignore */ }
   }
 
+  if (session && typeof window !== 'undefined') {
+    const { jar, csrf: jarCsrf } = formatLcSessionJar(
+      localStorage.getItem('lc_session') || session,
+      csrf,
+    )
+    localStorage.setItem('lc_session', jar)
+    csrf = jarCsrf || csrf
+    if (csrf) localStorage.setItem('lc_csrf', csrf)
+    session = jar
+  }
+
   return { session, csrf }
+}
+
+/** Load session from local/Supabase; if missing, auto-apply newest saved token. */
+export async function ensureLcSessionForSync(): Promise<{ session: string; csrf: string }> {
+  let creds = await loadLcSessionForSync()
+  if (creds.session) return creds
+
+  try {
+    const r = await fetch('/api/clipboard', { cache: 'no-store' })
+    const d = await r.json() as { items?: Array<{ is_token: boolean; content: string }> }
+    const token = (d.items ?? []).find(i => i.is_token && i.content?.trim())
+    if (token) {
+      await persistLcSessionFromPaste(token.content)
+      creds = await loadLcSessionForSync()
+    }
+  } catch { /* ignore */ }
+
+  return creds
+}
+
+/** Save LeetCode cookie to localStorage + Supabase (clipboard Use, paste panel, etc.). */
+export async function persistLcSessionFromPaste(
+  rawSession: string,
+  rawCsrf = '',
+): Promise<{ session: string; csrf: string; ok: boolean }> {
+  const parsed = parseStoredLcSession(rawSession, rawCsrf)
+  if (!parsed.session) return { session: '', csrf: '', ok: false }
+
+  let csrf = parsed.csrf || getCookieFromHeader(rawSession, 'csrftoken')
+  if (!csrf) {
+    try {
+      const r = await fetch('/api/lc-csrf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session: rawSession }),
+      })
+      const d = await r.json() as { csrf?: string }
+      csrf = d.csrf ?? ''
+    } catch { /* ignore */ }
+  }
+
+  const { jar, csrf: finalCsrf } = formatLcSessionJar(rawSession, csrf)
+  if (!jar) return { session: '', csrf: '', ok: false }
+  csrf = finalCsrf
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('lc_session', jar)
+    if (csrf) localStorage.setItem('lc_csrf', csrf)
+  }
+
+  try {
+    await fetch('/api/lc-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lc_session: jar, lc_csrf: csrf }),
+    })
+  } catch { /* local session still usable on this device */ }
+
+  return { session: jar, csrf, ok: true }
 }
 
 function buildSlugToIdMap(questions: Array<{ id: number; slug: string }>): Map<string, number> {

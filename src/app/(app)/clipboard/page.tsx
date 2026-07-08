@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   Copy, Check, Trash2, Plus, Loader2, Eye, EyeOff,
-  ClipboardList, Key, Sparkles,
+  ClipboardList, Key, Sparkles, Zap,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { persistLcSessionFromPaste, ensureLcSessionForSync } from '@/lib/leetcodeListSync'
 
 interface ClipItem {
   id: number
@@ -65,11 +66,15 @@ function TokenCleaner({ onSaved }: { onSaved: (item: ClipItem) => void }) {
       const d = await res.json()
       if (res.ok && d.item) {
         onSaved(d.item)
+        const applied = await persistLcSessionFromPaste(toSave)
+        if (applied.ok) toast.success('Token saved + applied for LeetCode sync')
+        else toast.success('Token saved!')
         setRaw('')
         setCleaned('')
-        toast.success('Token saved!')
       } else if (res.status === 409 && d.error === 'duplicate') {
-        toast.error('This token is already saved — no duplicate added.')
+        const applied = await persistLcSessionFromPaste(toSave)
+        if (applied.ok) toast.success('Token already saved — applied for sync on this device')
+        else toast.error('This token is already saved — no duplicate added.')
       } else {
         toast.error(d.error ?? 'Could not save')
       }
@@ -103,7 +108,7 @@ function TokenCleaner({ onSaved }: { onSaved: (item: ClipItem) => void }) {
       <textarea
         value={raw}
         onChange={e => { setRaw(e.target.value); setCleaned('') }}
-        placeholder="Paste raw token or cookie header here — spaces, newlines, anything…"
+        placeholder="LEETCODE_SESSION=...; csrftoken=...; cf_clearance=... (full Cookie header)"
         rows={3}
         className="w-full px-3 py-2 text-[11px] font-mono bg-black/20 border border-orange-500/20 rounded-xl text-gray-300 placeholder-orange-400/30 focus:outline-none focus:border-orange-400/50 resize-none"
       />
@@ -140,7 +145,7 @@ function TokenCleaner({ onSaved }: { onSaved: (item: ClipItem) => void }) {
             <button onClick={save} disabled={saving}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-orange-500 hover:bg-orange-400 text-white transition-colors disabled:opacity-50">
               {saving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-              {saving ? 'Saving…' : 'Save to Clipboard'}
+              {saving ? 'Saving…' : 'Save + apply sync'}
             </button>
           </div>
         </div>
@@ -154,12 +159,28 @@ function ItemCard({ item, onDelete }: { item: ClipItem; onDelete: (id: number) =
   const [copied,   setCopied]   = useState(false)
   const [revealed, setRevealed] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [applying, setApplying] = useState(false)
 
   const copy = async () => {
     await navigator.clipboard.writeText(item.content).catch(() => {})
     setCopied(true)
     toast.success('Copied!')
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const applyForSync = async () => {
+    setApplying(true)
+    try {
+      const result = await persistLcSessionFromPaste(item.content)
+      const creds = await ensureLcSessionForSync()
+      if (!result.ok || !creds.session) {
+        toast.error('Could not read LEETCODE_SESSION from this token')
+        return
+      }
+      toast.success('Session applied — Run/Submit and LeetCode sync will use it')
+    } finally {
+      setApplying(false)
+    }
   }
 
   const del = async () => {
@@ -176,7 +197,7 @@ function ItemCard({ item, onDelete }: { item: ClipItem; onDelete: (id: number) =
     finally { setDeleting(false) }
   }
 
-  const isSensitive = item.content.length > 40 && !item.content.includes('\n')
+  const isSensitive = item.is_token || (item.content.length > 40 && !item.content.includes('\n'))
   const displayContent = isSensitive && !revealed
     ? item.content.slice(0, 24) + '••••••••••••••••'
     : item.content
@@ -197,6 +218,17 @@ function ItemCard({ item, onDelete }: { item: ClipItem; onDelete: (id: number) =
               className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
               title={revealed ? 'Hide' : 'Reveal'}>
               {revealed ? <EyeOff size={13} /> : <Eye size={13} />}
+            </button>
+          )}
+          {item.is_token && (
+            <button
+              onClick={() => void applyForSync()}
+              disabled={applying}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-bold bg-orange-600 hover:bg-orange-500 text-white transition-colors disabled:opacity-50"
+              title="Use this token for LeetCode sync on this device"
+            >
+              {applying ? <Loader2 size={11} className="animate-spin" /> : <Zap size={11} />}
+              Use
             </button>
           )}
           <button onClick={copy}
@@ -276,7 +308,8 @@ export default function ClipboardPage() {
             <ClipboardList size={18} className="text-indigo-400" /> Clipboard
           </h1>
           <p className="text-xs text-[var(--text-subtle)] mt-1">
-            Paste anything here — synced across all devices. Copy when needed, delete when done.
+            Paste the full Cookie header from leetcode.com. Saved tokens sync across devices — tap{' '}
+            <strong className="text-orange-400">Use</strong> on any device, then Run/Submit or sync on LeetCode.
           </p>
         </div>
 

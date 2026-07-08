@@ -107,6 +107,27 @@ export function parseStoredLcSession(rawSession: unknown, rawCsrf?: unknown): { 
   return { session: extractLeetCodeSessionValue(session), csrf }
 }
 
+/** Normalize any paste format into a request Cookie jar + csrftoken. */
+export function formatLcSessionJar(rawSession: unknown, csrf = ''): { jar: string; csrf: string } {
+  const repaired = repairCorruptedCookieJar(String(rawSession ?? '').trim())
+  if (!repaired) return { jar: '', csrf: '' }
+
+  if (looksLikeLcCookieJar(repaired)) {
+    const jar = repaired.replace(/^cookie:\s*/i, '').trim()
+    const csrfFromJar = getCookieFromHeader(jar, 'csrftoken')
+    return { jar, csrf: csrf || csrfFromJar }
+  }
+
+  const sessionValue = extractLeetCodeSessionValue(repaired)
+  if (!sessionValue) return { jar: '', csrf: '' }
+
+  const csrfToken = csrf || getCookieFromHeader(repaired, 'csrftoken')
+  if (csrfToken) {
+    return { jar: `LEETCODE_SESSION=${sessionValue}; csrftoken=${csrfToken}`, csrf: csrfToken }
+  }
+  return { jar: `LEETCODE_SESSION=${sessionValue}`, csrf: '' }
+}
+
 export function getCookieFromHeader(cookieHeaderRaw: string, name: string): string {
   const cookieHeader = String(cookieHeaderRaw ?? '').trim()
   if (!cookieHeader) return ''
