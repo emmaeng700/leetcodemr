@@ -5,7 +5,6 @@ import { CheckCircle2, Circle, ExternalLink, Filter, Loader2, RefreshCw, Search 
 import toast from 'react-hot-toast'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
-import GrindListDivider from '@/components/GrindListDivider'
 import { PATTERN_PRIORITY, type PatternPriority } from '@/lib/constants'
 import {
   buildGrindQuestions,
@@ -40,6 +39,50 @@ const SET_BADGE: Record<1 | 2 | 3, string> = {
   1: 'bg-indigo-50 text-indigo-700 border-indigo-200',
   2: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   3: 'bg-purple-50 text-purple-700 border-purple-200',
+}
+
+type DividerEntry = Extract<ReturnType<typeof grindListWithDividers>[number], { type: 'divider' }>
+function LeetCodeListDivider({ entry }: { entry: DividerEntry }) {
+  const base = 'px-3 py-2 flex items-center justify-between gap-3'
+  const labelBase = 'min-w-0 truncate'
+  const countBase = 'shrink-0 tabular-nums text-[10px] font-black px-2 py-0.5 rounded-full border'
+
+  if (entry.variant === 'set') {
+    return (
+      <div className={`${base} bg-[var(--bg-muted)]/70`}>
+        <span className={`${labelBase} text-[11px] font-black tracking-wide text-[var(--text)] uppercase`}>
+          {entry.label}
+        </span>
+        <span className={`${countBase} border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)]`}>
+          {entry.count}
+        </span>
+      </div>
+    )
+  }
+
+  if (entry.variant === 'tier') {
+    return (
+      <div className={`${base} bg-[var(--bg-muted)]/45`}>
+        <span className={`${labelBase} text-[11px] font-bold text-[var(--text-muted)]`}>
+          {entry.label}
+        </span>
+        <span className={`${countBase} border-[var(--border-soft)] bg-[var(--bg-card)] text-[var(--text-subtle)]`}>
+          {entry.count}
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`${base} bg-[var(--bg-muted)]/25`}>
+      <span className={`${labelBase} text-[10px] font-semibold text-[var(--text-subtle)]`}>
+        {entry.label}
+      </span>
+      <span className={`${countBase} border-[var(--border-soft)] bg-[var(--bg-card)] text-[var(--text-subtle)]`}>
+        {entry.count}
+      </span>
+    </div>
+  )
 }
 
 function CountPill({ label, value, color }: { label: string; value: number; color: string }) {
@@ -405,8 +448,8 @@ export default function LeetCodeListPage() {
                 listEntries.map(entry => {
                   if (entry.type === 'divider') {
                     return (
-                      <div key={entry.key} className="border-b border-[var(--border-soft)] bg-[var(--bg-muted)]/40">
-                        <GrindListDivider entry={entry} />
+                      <div key={entry.key} className="border-b border-[var(--border-soft)]">
+                        <LeetCodeListDivider entry={entry} />
                       </div>
                     )
                   }
