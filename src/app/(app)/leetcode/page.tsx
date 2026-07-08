@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Circle, ExternalLink, Filter, Loader2, RefreshCw, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 import DifficultyBadge from '@/components/DifficultyBadge'
-import GrindCountStrip from '@/components/GrindCountStrip'
-import GrindListDivider from '@/components/GrindListDivider'
 import PriorityBadge from '@/components/PriorityBadge'
 import { PATTERN_PRIORITY, type PatternPriority } from '@/lib/constants'
 import {
@@ -15,7 +13,7 @@ import {
   loadQuestionsFullJson,
   type GrindQuestion,
 } from '@/lib/grindQuestions'
-import { grindListWithDividers, grindSummaryCounts } from '@/lib/grindList'
+import { grindSummaryCounts } from '@/lib/grindList'
 import {
   formatSyncTime,
   loadLcSessionForSync,
@@ -41,6 +39,35 @@ const SET_BADGE: Record<1 | 2 | 3, string> = {
   1: 'bg-indigo-50 text-indigo-700 border-indigo-200',
   2: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   3: 'bg-purple-50 text-purple-700 border-purple-200',
+}
+
+function CountPill({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1 text-[11px] font-semibold tabular-nums">
+      <span className={color}>{label}</span>
+      <span className="text-[var(--text-muted)]">{value}</span>
+    </span>
+  )
+}
+
+function CountStrip({ counts }: { counts: ReturnType<typeof grindSummaryCounts> }) {
+  return (
+    <div className="-mx-1 px-1 overflow-x-auto">
+      <div className="flex items-center gap-1.5 min-w-max">
+        <CountPill label="Easy" value={counts.byDifficulty.Easy ?? 0} color="text-green-600" />
+        <CountPill label="Medium" value={counts.byDifficulty.Medium ?? 0} color="text-yellow-700" />
+        <CountPill label="Hard" value={counts.byDifficulty.Hard ?? 0} color="text-red-600" />
+        <span className="mx-1 h-5 w-px bg-[var(--border)]" />
+        <CountPill label="High" value={counts.byPriority.High ?? 0} color="text-red-600" />
+        <CountPill label="Mid" value={counts.byPriority.Mid ?? 0} color="text-orange-600" />
+        <CountPill label="Low" value={counts.byPriority.Low ?? 0} color="text-gray-500" />
+        <span className="mx-1 h-5 w-px bg-[var(--border)]" />
+        <CountPill label="S1" value={counts.bySet[1] ?? 0} color="text-indigo-600" />
+        <CountPill label="S2" value={counts.bySet[2] ?? 0} color="text-emerald-600" />
+        <CountPill label="S3" value={counts.bySet[3] ?? 0} color="text-purple-600" />
+      </div>
+    </div>
+  )
 }
 
 function ProgressRing({ solved, total }: { solved: number; total: number }) {
@@ -156,7 +183,6 @@ export default function LeetCodeListPage() {
     })
   }, [questions, search, setFilter, diffFilter, priorityFilter, patternFilter, statusFilter, solvedFn])
 
-  const listEntries = useMemo(() => grindListWithDividers(filtered), [filtered])
   const summary = useMemo(() => grindSummaryCounts(filtered), [filtered])
   const allSummary = useMemo(() => grindSummaryCounts(questions), [questions])
 
@@ -282,7 +308,7 @@ export default function LeetCodeListPage() {
                 </span>
               </div>
 
-              <GrindCountStrip counts={summary} compact />
+              <CountStrip counts={summary} />
 
               {showFilters && (
                 <div className="flex flex-wrap gap-2 pt-1">
@@ -348,21 +374,16 @@ export default function LeetCodeListPage() {
             </div>
 
             <div className="max-h-[calc(100dvh-14rem)] overflow-y-auto">
-              {listEntries.length === 0 ? (
+              {filtered.length === 0 ? (
                 <p className="p-8 text-center text-sm text-[var(--text-subtle)]">No questions match your filters.</p>
               ) : (
-                listEntries.map(entry => {
-                  if (entry.type === 'divider') {
-                    return <GrindListDivider key={entry.key} entry={entry} />
-                  }
-
-                  const q = entry.q
+                filtered.map(q => {
                   const solved = solvedFn(q)
                   const lcHref = leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))
 
                   return (
                     <div
-                      key={entry.key}
+                      key={q.id}
                       className="grid grid-cols-[2rem_1fr] sm:grid-cols-[2rem_1fr_5rem_5rem_4rem] gap-2 items-center px-3 py-2.5 border-b border-[var(--border-soft)] hover:bg-[var(--bg-muted)]/60 transition-colors"
                     >
                       <span className="flex justify-center">
