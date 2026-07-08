@@ -28,6 +28,7 @@ import {
   normalizeRepDate,
   RECENT_PLAN_DAY_WINDOW,
 } from '@/lib/dailyCompletion'
+import { diffDaysSincePlanStart } from '@/lib/studyPlanDay'
 import { isDayComplete } from '@/lib/streakGoals'
 import { getSetProgress, type SetQProgress } from '@/lib/setProgress'
 import { getSet2Questions, getSet3Questions, type SetQuestion } from '@/lib/questionSets'
@@ -153,13 +154,7 @@ function getTodayInfo(
   repsPerQ: number,
 ) {
   const today = todayISO()
-  const start = new Date(plan.start_date)
-  start.setHours(0, 0, 0, 0)
-  const now = new Date(today)
-  now.setHours(0, 0, 0, 0)
-
-  const diffMs = now.getTime() - start.getTime()
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  const diffDays = diffDaysSincePlanStart(plan.start_date)
 
   const totalDays = Math.ceil(plan.question_order.length / plan.per_day)
   const finishDate = calcFinish(plan.start_date, plan.per_day, plan.question_order.length).date
@@ -176,7 +171,7 @@ function getTodayInfo(
   let activeDayIndex = diffDays
   for (let i = 0; i <= diffDays; i++) {
     const { questionIds } = getDayInfo(plan, i, allQuestions, progress)
-    if (!isPlanDayComplete(i, questionIds, progress, diffDays, todayISO(), dailyReps, repsPerQ, plan.start_date)) {
+    if (!isPlanDayComplete(i, questionIds, progress, diffDays, today, dailyReps, repsPerQ, plan.start_date)) {
       activeDayIndex = i
       break
     }
@@ -279,10 +274,7 @@ export default function DailyPage() {
 
   const calendarDayIndex = useMemo(() => {
     if (!plan) return 0
-    const today = todayISO()
-    const startMs = new Date(plan.start_date + 'T00:00:00').getTime()
-    const todayMs = new Date(today + 'T00:00:00').getTime()
-    return Math.max(0, Math.floor((todayMs - startMs) / 86400000))
+    return diffDaysSincePlanStart(plan.start_date)
   }, [plan])
 
   const topicMap = useMemo(() => buildExclusivePatternMap(allQuestions), [allQuestions])
@@ -570,20 +562,29 @@ export default function DailyPage() {
     }
   }, [loading, pathname, refreshProgress, refreshDue])
 
-  // ── Slacking email: fire once when behind calendar schedule ─────────────────
+  // ── Slacking email: fire once when past-day catch-up debt exists ─────────────
   // Only for strict mode. Guards with localStorage so we send at most once per
   // stuck day index — prevents spam if the user keeps opening the page.
+  // Do NOT email just because today's calendar day is unfinished — that showed
+  // as "1 day behind" next to Past Days that were already complete.
   useEffect(() => {
     if (loading || isRandomMode || !plan) return
-    const todayInfo = getTodayInfo(plan, allQuestions, progress, dailyReps, repsPerQ)
-    if (todayInfo.pending || todayInfo.complete || !todayInfo.dayNumber) return
-    const activeDayIdx = todayInfo.dayNumber - 1
-    if (calendarDayIndex <= activeDayIdx) return  // on schedule or ahead
+    const info = getTodayInfo(plan, allQuestions, progress, dailyReps, repsPerQ)
+    if (info.pending || info.complete || !info.dayNumber) return
+    const activeDayIdx = info.dayNumber - 1
+    let incompletePast = 0
+    for (let i = 0; i < activeDayIdx; i++) {
+      const ids = plan.question_order.slice(i * plan.per_day, (i + 1) * plan.per_day)
+      if (!isPlanDayComplete(i, ids, progress, calendarDayIndex, todayISO(), dailyReps, repsPerQ, plan.start_date)) {
+        incompletePast++
+      }
+    }
+    if (incompletePast === 0) return
     const key = `lm_slacking_notified_${activeDayIdx}`
     if (localStorage.getItem(key)) return
     localStorage.setItem(key, '1')
     fetch('/api/notify-slacking', { method: 'POST' }).catch(() => {})
-  }, [loading, isRandomMode, plan, allQuestions, progress, calendarDayIndex])
+  }, [loading, isRandomMode, plan, allQuestions, progress, calendarDayIndex, dailyReps, repsPerQ])
 
   const { days: previewDays, date: previewFinish } = calcFinish(startDate, perDay, allQuestions.length)
 
@@ -1079,6 +1080,21 @@ export default function DailyPage() {
   const todayAllRepsDone = todayQs.length > 0 && todayQs.every(q => isRepDone(q.id))
   // First question that still needs more reps (for highlight + auto-advance)
   const nextFocusId = todayQs.find(q => !isRepDone(q.id))?.id ?? null
+
+  // "Days behind" = incomplete plan days that appear under Past Days (before the
+  // day currently shown as Today). Do NOT count the active Today day as behind —
+  // that wrongly showed "1 day behind" next to Past Days that were already 2/2
+  // when the calendar had simply rolled past yesterday's unfinished day.
+  let daysBehind = 0
+  if (!isRandomMode && todayInfo.dayNumber) {
+    const activeDayIdx = todayInfo.dayNumber - 1
+    for (let i = 0; i < activeDayIdx; i++) {
+      const ids = plan.question_order.slice(i * plan.per_day, (i + 1) * plan.per_day)
+      if (!isPlanDayComplete(i, ids, progress, calendarDayIndex, todayISO(), dailyReps, repsPerQ, plan.start_date)) {
+        daysBehind++
+      }
+    }
+  }
 
   // Random mode: day goal met when per_day new questions solved today
   const randomGoalMet = isRandomMode && todayDailyDoneCount >= plan.per_day
@@ -2133,9 +2149,9 @@ export default function DailyPage() {
                   : `Last ${Math.min(PAST_DAYS_INITIAL, pastDayCount)} of ${pastDayCount} · newest first`}
               </p>
             </div>
-            {!isRandomMode && !todayInfo.complete && todayInfo.dayNumber && calendarDayIndex > todayInfo.dayNumber - 1 && (
+            {!isRandomMode && !todayInfo.complete && daysBehind > 0 && (
               <span className="shrink-0 text-xs font-bold px-2 py-1 rounded-full bg-red-100 text-red-600 border border-red-200">
-                ⚠️ {calendarDayIndex - (todayInfo.dayNumber - 1)} day{calendarDayIndex - (todayInfo.dayNumber - 1) !== 1 ? 's' : ''} behind
+                ⚠️ {daysBehind} day{daysBehind !== 1 ? 's' : ''} behind
               </span>
             )}
           </div>

@@ -21,16 +21,17 @@ export function planDayScheduledISO(planStartDate: string, dayIdx: number): stri
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
 }
 
-/** Same as Daily page: diff from plan start to “today” in Chicago. */
+/**
+ * Diff from plan start to Chicago “today”.
+ * Use local noon to avoid UTC midnight parsing shifting the day back.
+ */
 export function diffDaysSincePlanStart(planStartDate: string): number {
   const today = todayISOChicago()
-  const start = new Date(planStartDate)
-  start.setHours(0, 0, 0, 0)
-  const now = new Date(today)
-  now.setHours(0, 0, 0, 0)
+  const start = new Date(planStartDate + 'T12:00:00')
+  const now = new Date(today + 'T12:00:00')
   if (!Number.isFinite(start.getTime()) || !Number.isFinite(now.getTime())) return 0
-  const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-  return Number.isFinite(diffDays) ? diffDays : 0
+  const diffDays = Math.round((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+  return Number.isFinite(diffDays) ? Math.max(0, diffDays) : 0
 }
 
 /** Supabase may return `question_order` as number[] or a JSON string. */
