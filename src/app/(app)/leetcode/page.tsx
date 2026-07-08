@@ -5,6 +5,7 @@ import { CheckCircle2, Circle, ExternalLink, Filter, Loader2, RefreshCw, Search 
 import toast from 'react-hot-toast'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
+import GrindListDivider from '@/components/GrindListDivider'
 import { PATTERN_PRIORITY, type PatternPriority } from '@/lib/constants'
 import {
   buildGrindQuestions,
@@ -13,7 +14,7 @@ import {
   loadQuestionsFullJson,
   type GrindQuestion,
 } from '@/lib/grindQuestions'
-import { grindSummaryCounts } from '@/lib/grindList'
+import { grindListWithDividers, grindSummaryCounts } from '@/lib/grindList'
 import {
   formatSyncTime,
   ensureLcSessionForSync,
@@ -186,6 +187,8 @@ export default function LeetCodeListPage() {
       return true
     })
   }, [questions, search, setFilter, diffFilter, priorityFilter, patternFilter, statusFilter, solvedFn])
+
+  const listEntries = useMemo(() => grindListWithDividers(filtered), [filtered])
 
   const summary = useMemo(() => grindSummaryCounts(filtered), [filtered])
   const allSummary = useMemo(() => grindSummaryCounts(questions), [questions])
@@ -399,13 +402,22 @@ export default function LeetCodeListPage() {
               {filtered.length === 0 ? (
                 <p className="p-8 text-center text-sm text-[var(--text-subtle)]">No questions match your filters.</p>
               ) : (
-                filtered.map(q => {
+                listEntries.map(entry => {
+                  if (entry.type === 'divider') {
+                    return (
+                      <div key={entry.key} className="border-b border-[var(--border-soft)] bg-[var(--bg-muted)]/40">
+                        <GrindListDivider entry={entry} />
+                      </div>
+                    )
+                  }
+
+                  const q = entry.q
                   const solved = solvedFn(q)
                   const lcHref = leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))
 
                   return (
                     <div
-                      key={q.id}
+                      key={entry.key}
                       className="grid grid-cols-[2rem_1fr] sm:grid-cols-[2rem_1fr_5rem_5rem_4rem] gap-2 items-center px-3 py-2.5 border-b border-[var(--border-soft)] hover:bg-[var(--bg-muted)]/60 transition-colors"
                     >
                       <span className="flex justify-center">
