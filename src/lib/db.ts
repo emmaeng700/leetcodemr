@@ -525,7 +525,7 @@ export async function logDailyDoneToday() {
   }, { onConflict: 'user_id,date' })
 }
 
-/** Mark today's Daily block item complete — does not set Learn `solved`. */
+/** Mark today’s Daily block item complete — does not set Learn `solved`. */
 export async function markDailyCompleteToday(questionId: number) {
   const today = todayISOChicago()
   const { data: existing } = await supabase
@@ -535,10 +535,12 @@ export async function markDailyCompleteToday(questionId: number) {
     .eq('question_id', questionId)
     .maybeSingle()
 
-  const alreadyToday = (existing?.last_daily_done as string | null) === today
+  const alreadyToday = normalizeRepDate(existing?.last_daily_done) === today
 
   const base = progressUpsertBase(existing as Record<string, unknown> | null)
-  const repCount = base.daily_rep_date === today ? (base.daily_rep_count ?? 0) : 0
+  const prevCount = base.daily_rep_date === today ? (base.daily_rep_count ?? 0) : 0
+  // Completing the Daily block always means at least 2 reps (or whatever already done today).
+  const safeCount = Math.max(prevCount, 2)
 
   const { error: upsertErr } = await supabase.from('progress').upsert({
     user_id: USER_ID,
@@ -546,10 +548,13 @@ export async function markDailyCompleteToday(questionId: number) {
     ...base,
     last_daily_done: today,
     daily_rep_date: today,
-    daily_rep_count: repCount,
+    daily_rep_count: safeCount,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,question_id' })
   if (upsertErr) console.error('[db] markDailyCompleteToday:', upsertErr.message)
+
+  writeDailyRepsLocal(questionId, safeCount, today)
+  notifyDailyRepsChanged()
 
   if (!alreadyToday) {
     try {

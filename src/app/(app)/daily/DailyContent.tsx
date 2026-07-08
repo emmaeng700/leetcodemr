@@ -21,6 +21,8 @@ import {
   DAILY_REPS_CHANGED,
   dailyRepsFromProgress,
   getDailyRepCount,
+  getPushedCatchUpQuestionIds,
+  hasCompletedDailyRepsOnOrAfter,
   isActiveDailyBlockComplete,
   isPlanDayComplete,
   isQuestionDoneForDailyToday,
@@ -149,11 +151,10 @@ function getDayInfo(plan: StudyPlan, dayIndex: number, allQuestions: Question[],
 function getTodayInfo(
   plan: StudyPlan,
   allQuestions: Question[],
-  progress: Record<string, ProgressData>,
-  dailyReps: Record<string, number>,
-  repsPerQ: number,
+  _progress: Record<string, ProgressData>,
+  _dailyReps: Record<string, number>,
+  _repsPerQ: number,
 ) {
-  const today = todayISO()
   const diffDays = diffDaysSincePlanStart(plan.start_date)
 
   const totalDays = Math.ceil(plan.question_order.length / plan.per_day)
@@ -167,20 +168,10 @@ function getTodayInfo(
     return { complete: true, totalDays, finishDate, dayNumber: totalDays, daysLeft: 0 }
   }
 
-  // Stay on the first incomplete day — don't advance by calendar date alone
-  let activeDayIndex = diffDays
-  for (let i = 0; i <= diffDays; i++) {
-    const { questionIds } = getDayInfo(plan, i, allQuestions, progress)
-    if (!isPlanDayComplete(i, questionIds, progress, diffDays, today, dailyReps, repsPerQ, plan.start_date)) {
-      activeDayIndex = i
-      break
-    }
-  }
-
-  const dayNumber = activeDayIndex + 1
+  // Today = calendar schedule day. Unfinished past days push in separately as catch-up.
+  const dayNumber = diffDays + 1
   const daysLeft = totalDays - dayNumber
-
-  const { questionIds, questions } = getDayInfo(plan, activeDayIndex, allQuestions, progress)
+  const { questionIds, questions } = getDayInfo(plan, diffDays, allQuestions, _progress)
 
   return {
     pending: false,
@@ -674,6 +665,7 @@ export default function DailyPage() {
   /**
    * Was this question done as a daily for its plan day (on schedule or catch-up)?
    * Independent of Learn `solved` — Past Days uses this for green Daily badges.
+   * Requires real daily reps (≥ repsPerQ); Learn alone never fills this.
    */
   function isDailyDoneForPlanDay(dayIdx: number, id: number) {
     if (!plan || dayIdx > calendarDayIndex) return false
@@ -682,28 +674,17 @@ export default function DailyPage() {
     if (dayIdx === calendarDayIndex) {
       return isQuestionDoneForDailyToday(id, progress, today, dailyReps, repsPerQ)
     }
+    // Deep past: Learn solved is enough so old history stays quiet
     if (dayIdx < calendarDayIndex - RECENT_PLAN_DAY_WINDOW && isSolved(id)) {
       return true
     }
     const scheduledDate = dayScheduledISO(plan.start_date, dayIdx)
-    const row = progress[String(id)]
-    const lastDone = normalizeRepDate(row?.last_daily_done)
-    if (lastDone === scheduledDate) {
-      const repDate = normalizeRepDate(row?.daily_rep_date)
-      const repCount = row?.daily_rep_count ?? 0
-      if (repDate === scheduledDate && repCount >= repsPerQ) return true
-      // Legacy rows: last_daily_done on schedule without rep columns
-      if (repCount === 0) return true
-    }
-    // Catch-up or later daily session — same rules as the "catch-up done" banner
-    return isCatchUpDailyCleared(id, scheduledDate, progress, today, dailyReps, repsPerQ)
+    return hasCompletedDailyRepsOnOrAfter(id, scheduledDate, progress, today, dailyReps, repsPerQ)
   }
 
   /**
-   * Was a past day completed as a proper daily session?
-   * Primary: dailyLog records >= perDay completions on that day's date.
-   * Fallback: all questions for that day have last_daily_done matching the scheduled date
-   *           (handles older data before daily_log table was tracked).
+   * Was a past day completed as a proper daily session on its scheduled date?
+   * Uses daily_rep_* on that date (not Learn, not bare last_daily_done).
    */
   function wasDayDoneAsDaily(dayIdx: number): boolean {
     if (!plan) return false
@@ -712,20 +693,12 @@ export default function DailyPage() {
     const dayIds = plan.question_order.slice(dayIdx * plan.per_day, (dayIdx + 1) * plan.per_day)
     if (dayIds.length === 0) return true
     const repsPerQ = repsPerQRef.current
-    const allOnSchedule = dayIds.every(id => {
+    return dayIds.every(id => {
       const row = progress[String(id)]
-      const lastDone = normalizeRepDate(row?.last_daily_done)
-      if (lastDone !== scheduledDate) return false
       const repDate = normalizeRepDate(row?.daily_rep_date)
       const repCount = row?.daily_rep_count ?? 0
       return repDate === scheduledDate && repCount >= repsPerQ
     })
-    if (allOnSchedule) return true
-    // daily_log is global per calendar date — only trust it when each slot's last_daily_done matches
-    if ((dailyLog[scheduledDate] ?? 0) >= plan.per_day) {
-      return dayIds.every(id => normalizeRepDate(progress[String(id)]?.last_daily_done) === scheduledDate)
-    }
-    return false
   }
 
   function countDailyDoneOnPlanDay(dayIdx: number, questionIds: number[]) {
@@ -734,25 +707,16 @@ export default function DailyPage() {
 
   /**
    * Questions from missed past days not yet cleared via daily (today or prior catch-up).
+   * Learn solved does not clear these — only real daily reps do.
    */
   const pushedForwardIds = useMemo((): number[] => {
     if (!plan || isRandomMode) return []
-    const perDay = plan.per_day
-    const today = todayISO()
-    const result: number[] = []
-    for (let i = 0; i < calendarDayIndex; i++) {
-      if (wasDayDoneAsDaily(i)) continue
-      const dayIds = plan.question_order.slice(i * perDay, i * perDay + perDay)
-      const scheduledDate = dayScheduledISO(plan.start_date, i)
-      for (const id of dayIds) {
-        if (!isCatchUpDailyCleared(id, scheduledDate, progress, today, dailyReps, repsPerQRef.current)) {
-          result.push(id)
-        }
-      }
-    }
-    return result
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plan, calendarDayIndex, dailyLog, progress, dailyReps, isRandomMode])
+    return getPushedCatchUpQuestionIds(plan, progress, {
+      dailyReps,
+      repsPerQ: repsPerQRef.current,
+      today: todayISO(),
+    })
+  }, [plan, calendarDayIndex, progress, dailyReps, isRandomMode])
 
   function isStarred(id: number) {
     return !!progress[String(id)]?.starred

@@ -1,7 +1,11 @@
 /**
- * Daily block completion - independent of Learn progress.solved for today.
- * Past plan days still credit prior solved so you don't redo Day 1-7.
- * Today / catch-up = Daily reps on progress (DB) OR last_daily_done = today (DB).
+ * Daily block completion — independent of Learn `progress.solved`.
+ *
+ * Rules:
+ * - Today UI always shows the calendar day’s scheduled questions.
+ * - Unfinished *past* days push into Today as catch-up until daily reps are done.
+ * - Daily done = ≥ repsPerQ on today (or, for catch-up clearance, on a day ≥ scheduled).
+ * - Learn `solved` never clears Daily / catch-up for recent days.
  */
 
 import { diffDaysSincePlanStart, planDayScheduledISO, todayISOChicago, type StudyPlanForStreak } from './studyPlanDay'
@@ -9,7 +13,7 @@ import { diffDaysSincePlanStart, planDayScheduledISO, todayISOChicago, type Stud
 export const DAILY_REPS_PREFIX = 'lm_daily_reps_'
 export const DAILY_REPS_CHANGED = 'lm-daily-reps-changed'
 
-/** Past plan days older than this only need Learn solved; recent days need daily reps. */
+/** Past plan days older than this only need Learn solved for *plan advancement* of deep history. */
 export const RECENT_PLAN_DAY_WINDOW = 7
 
 export function notifyDailyRepsChanged() {
@@ -78,7 +82,10 @@ export function readDailyRepsLocal(today = todayISOChicago()): Record<string, nu
   }
 }
 
-/** Any localStorage daily-rep day on or after missed schedule with full reps (same device). */
+/**
+ * True if this device recorded ≥repsPerQ daily reps on any localStorage day
+ * on or after the missed schedule date.
+ */
 function catchUpClearedInLocalStorage(id: number, missedDayScheduledISO: string, repsPerQ: number): boolean {
   if (typeof window === 'undefined') return false
   for (let i = 0; i < localStorage.length; i++) {
@@ -103,6 +110,10 @@ export function writeDailyRepsLocal(questionId: number, count: number, today = t
   localStorage.setItem(`${DAILY_REPS_PREFIX}${today}`, JSON.stringify(map))
 }
 
+/**
+ * Done for *today's* Daily block — requires real reps (≥ repsPerQ).
+ * Learn solved / bare last_daily_done without reps do not count.
+ */
 export function isQuestionDoneForDailyToday(
   id: number,
   progress: Record<string, DailyProgressSlice | undefined>,
@@ -110,13 +121,39 @@ export function isQuestionDoneForDailyToday(
   dailyReps?: Record<string, number>,
   repsPerQ = 2,
 ): boolean {
-  if (getDailyRepCount(id, progress, today, dailyReps) >= repsPerQ) return true
-  return normalizeRepDate(progress[String(id)]?.last_daily_done) === today
+  return getDailyRepCount(id, progress, today, dailyReps) >= repsPerQ
 }
 
 /**
- * Missed-day catch-up: cleared if done for daily today OR daily-completed on any
- * later calendar date (last_daily_done after that day's scheduled date).
+ * Did this question complete enough daily reps on/after the missed schedule date?
+ * Used for catch-up clearance and Past Days "Daily" badges.
+ */
+export function hasCompletedDailyRepsOnOrAfter(
+  id: number,
+  onOrAfterISO: string,
+  progress: Record<string, DailyProgressSlice | undefined>,
+  today = todayISOChicago(),
+  dailyReps?: Record<string, number>,
+  repsPerQ = 2,
+): boolean {
+  if (isQuestionDoneForDailyToday(id, progress, today, dailyReps, repsPerQ)) return true
+
+  const row = progress[String(id)]
+  const repDate = normalizeRepDate(row?.daily_rep_date)
+  const repCount = row?.daily_rep_count ?? 0
+  if (repDate && repDate >= onOrAfterISO && repCount >= repsPerQ) return true
+
+  // last_daily_done alone is not enough — need matching full reps on that date
+  const lastDone = normalizeRepDate(row?.last_daily_done)
+  if (lastDone && lastDone >= onOrAfterISO && repDate === lastDone && repCount >= repsPerQ) {
+    return true
+  }
+
+  return catchUpClearedInLocalStorage(id, onOrAfterISO, repsPerQ)
+}
+
+/**
+ * Missed-day catch-up cleared only when Daily reps were finished (not Learn).
  */
 export function isCatchUpDailyCleared(
   id: number,
@@ -126,22 +163,17 @@ export function isCatchUpDailyCleared(
   dailyReps?: Record<string, number>,
   repsPerQ = 2,
 ): boolean {
-  if (isQuestionDoneForDailyToday(id, progress, today, dailyReps, repsPerQ)) return true
-  const row = progress[String(id)]
-  const lastDone = normalizeRepDate(row?.last_daily_done)
-  if (lastDone && lastDone >= missedDayScheduledISO) {
-    if (lastDone > missedDayScheduledISO) return true
-    const repDate = normalizeRepDate(row?.daily_rep_date)
-    const repCount = row?.daily_rep_count ?? 0
-    if (repDate === lastDone && repCount >= repsPerQ) return true
-  }
-  const repDate = normalizeRepDate(row?.daily_rep_date)
-  const repCount = row?.daily_rep_count ?? 0
-  if (!!repDate && repDate > missedDayScheduledISO && repCount >= repsPerQ) return true
-  return catchUpClearedInLocalStorage(id, missedDayScheduledISO, repsPerQ)
+  return hasCompletedDailyRepsOnOrAfter(
+    id,
+    missedDayScheduledISO,
+    progress,
+    today,
+    dailyReps,
+    repsPerQ,
+  )
 }
 
-/** Whether a strict-plan day slot is cleared (past days vs today/catch-up). */
+/** Whether a strict-plan day slot is cleared (past days vs today). */
 export function isPlanDayComplete(
   dayIndex: number,
   questionIds: number[],
@@ -155,11 +187,15 @@ export function isPlanDayComplete(
   if (questionIds.length === 0) return true
   if (dayIndex < calendarDiffDays) {
     const deepPastCutoff = calendarDiffDays - RECENT_PLAN_DAY_WINDOW
+    // Deep history: Learn solved is enough so ancient days don't flood catch-up forever.
     if (dayIndex < deepPastCutoff) {
       return questionIds.every(id => !!progress[String(id)]?.solved)
     }
     if (!planStartDate) {
-      return questionIds.every(id => !!progress[String(id)]?.solved)
+      // Without a start date we cannot know the scheduled ISO — require daily reps today.
+      return questionIds.every(id =>
+        isQuestionDoneForDailyToday(id, progress, today, dailyReps, repsPerQ),
+      )
     }
     const scheduled = planDayScheduledISO(planStartDate, dayIndex)
     return questionIds.every(id =>
@@ -171,7 +207,57 @@ export function isPlanDayComplete(
   )
 }
 
-/** First plan day (up to calendar today) that still has questions not done for today. */
+/**
+ * Calendar day index for “Today” UI (0-based). Always the schedule date’s day,
+ * not the first incomplete catch-up day.
+ */
+export function getCalendarPlanDayIndex(plan: StudyPlanForStreak): number {
+  const diffDays = diffDaysSincePlanStart(plan.start_date)
+  const totalDays = Math.ceil(plan.question_order.length / plan.per_day)
+  if (diffDays < 0 || totalDays <= 0) return 0
+  return Math.min(diffDays, totalDays - 1)
+}
+
+/** Question ids scheduled for the calendar “today” plan day. */
+export function getCalendarDayQuestionIds(plan: StudyPlanForStreak): number[] {
+  const dayIndex = getCalendarPlanDayIndex(plan)
+  return plan.question_order.slice(
+    dayIndex * plan.per_day,
+    dayIndex * plan.per_day + plan.per_day,
+  )
+}
+
+/**
+ * Unfinished recent past-day questions that should push into Today.
+ * Deep-past days (Learn-only rule) are not pushed.
+ */
+export function getPushedCatchUpQuestionIds(
+  plan: StudyPlanForStreak,
+  progress: Record<string, DailyProgressSlice | undefined>,
+  opts?: { dailyReps?: Record<string, number>; repsPerQ?: number; today?: string },
+): number[] {
+  const today = opts?.today ?? todayISOChicago()
+  const repsPerQ = opts?.repsPerQ ?? 2
+  const diffDays = diffDaysSincePlanStart(plan.start_date)
+  if (diffDays <= 0) return []
+
+  const totalDays = Math.ceil(plan.question_order.length / plan.per_day)
+  const deepPastCutoff = Math.max(0, diffDays - RECENT_PLAN_DAY_WINDOW)
+  const result: number[] = []
+
+  for (let i = deepPastCutoff; i < Math.min(diffDays, totalDays); i++) {
+    const slice = plan.question_order.slice(i * plan.per_day, i * plan.per_day + plan.per_day)
+    const scheduled = planDayScheduledISO(plan.start_date, i)
+    for (const id of slice) {
+      if (!isCatchUpDailyCleared(id, scheduled, progress, today, opts?.dailyReps, repsPerQ)) {
+        result.push(id)
+      }
+    }
+  }
+  return result
+}
+
+/** First incomplete day (catch-up aware) — used by streaks / emails. */
 export function findActiveDayIndex(
   plan: StudyPlanForStreak,
   progress: Record<string, DailyProgressSlice | undefined>,
@@ -215,12 +301,15 @@ export function getActiveDayQuestionIds(
   )
 }
 
+/**
+ * Daily block complete for streak/emails:
+ * calendar today's questions done AND all recent catch-ups cleared.
+ */
 export function isActiveDailyBlockComplete(
   plan: StudyPlanForStreak,
   progress: Record<string, DailyProgressSlice | undefined>,
   opts?: {
     mode?: string
-    /** Random mode: questions marked done on Daily today (daily_log). */
     dailyDoneTodayCount?: number
     /** @deprecated use dailyDoneTodayCount */
     solvedTodayCount?: number
@@ -238,6 +327,16 @@ export function isActiveDailyBlockComplete(
     return count >= plan.per_day
   }
 
-  const ids = getActiveDayQuestionIds(plan, progress, { dailyReps: opts?.dailyReps, repsPerQ, today })
-  return ids.length > 0 && ids.every(id => isQuestionDoneForDailyToday(id, progress, today, opts?.dailyReps, repsPerQ))
+  const calendarIds = getCalendarDayQuestionIds(plan)
+  const calendarDone =
+    calendarIds.length > 0 &&
+    calendarIds.every(id => isQuestionDoneForDailyToday(id, progress, today, opts?.dailyReps, repsPerQ))
+  if (!calendarDone) return false
+
+  const pushed = getPushedCatchUpQuestionIds(plan, progress, {
+    dailyReps: opts?.dailyReps,
+    repsPerQ,
+    today,
+  })
+  return pushed.every(id => isQuestionDoneForDailyToday(id, progress, today, opts?.dailyReps, repsPerQ))
 }
