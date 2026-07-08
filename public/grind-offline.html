@@ -190,6 +190,15 @@
     .editor-footer .chip-btn { font-size: 0.65rem; white-space: nowrap; }
     .editor-footer-actions { display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0; }
     .editor-footer-actions .chip-btn.copied { color: #a6e3a1; border-color: #6c7086; }
+    .reset-count-chip {
+      font-size: 0.62rem; font-family: ui-monospace, Menlo, monospace;
+      color: #89b4fa; font-weight: 600; margin-left: 0.15rem;
+    }
+    .reset-count-badge {
+      font-size: 0.62rem; font-family: ui-monospace, Menlo, monospace;
+      color: #89b4fa; font-weight: 600; flex-shrink: 0;
+    }
+    .reset-count-badge.hidden { display: none; }
     .desc-card {
       flex: 0 0 auto; height: clamp(6.5rem, 26vh, 11rem);
       margin: 0.25rem 0.35rem 0.3rem; background: #181825;
@@ -436,11 +445,12 @@
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
-    <span id="offline-version" hidden>v27</span>
+    <span id="offline-version" hidden>v28</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
       <span id="fs-meta"></span>
+      <span id="fs-reset-count" class="reset-count-badge hidden" aria-hidden="true"></span>
       <div class="langs">
         <button type="button" id="fs-btn-py" class="on-py">Py</button>
         <button type="button" id="fs-btn-cpp">C++</button>
@@ -469,7 +479,7 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v27'
+    var OFFLINE_VERSION = 'v28'
     var SW_CACHE = 'lm-v26'
     var midnightTimer = null
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v1'
@@ -490,6 +500,51 @@
       }
     })()
     var copyFlashTimer = null
+    var RESET_COUNTS_KEY = 'lm_grind_reset_counts'
+
+    function readResetCounts() {
+      try { return JSON.parse(localStorage.getItem(RESET_COUNTS_KEY) || '{}') } catch (e) { return {} }
+    }
+
+    function readResetCount(id) {
+      return readResetCounts()[String(id)] || 0
+    }
+
+    function incrementResetCount(id) {
+      var all = readResetCounts()
+      all[String(id)] = (all[String(id)] || 0) + 1
+      try { localStorage.setItem(RESET_COUNTS_KEY, JSON.stringify(all)) } catch (e) {}
+      return all[String(id)]
+    }
+
+    function resetButtonLabel(count) {
+      if (count > 0) {
+        return 'Reset to starter <span class="reset-count-chip">↺' + count + '</span>'
+      }
+      return 'Reset to starter'
+    }
+
+    function updateResetButtonLabels() {
+      var q = currentQuestion()
+      var count = q ? readResetCount(q.id) : 0
+      var html = resetButtonLabel(count)
+      var btnReset = document.getElementById('btn-reset')
+      var btnResetFs = document.getElementById('btn-reset-fs')
+      if (btnReset) btnReset.innerHTML = html
+      if (btnResetFs) btnResetFs.innerHTML = html
+      var fsBadge = document.getElementById('fs-reset-count')
+      if (fsBadge) {
+        if (count > 0) {
+          fsBadge.textContent = '↺' + count
+          fsBadge.classList.remove('hidden')
+          fsBadge.removeAttribute('aria-hidden')
+        } else {
+          fsBadge.textContent = ''
+          fsBadge.classList.add('hidden')
+          fsBadge.setAttribute('aria-hidden', 'true')
+        }
+      }
+    }
 
     function flashCopyButton(btn) {
       if (!btn) return
@@ -1071,6 +1126,8 @@
       try { localStorage.setItem(draftKey(q.id), starter) } catch (e) {}
       if (editorHandle) editorHandle.setDoc(starter)
       updateSessionChip(starter, q.id)
+      incrementResetCount(q.id)
+      updateResetButtonLabels()
       var status = document.getElementById('status')
       if (status) status.textContent = 'Reset to starter'
     }
@@ -1130,6 +1187,7 @@
       if (meta) meta.textContent = text
       var fsMeta = document.getElementById('fs-meta')
       if (fsMeta) fsMeta.textContent = text
+      updateResetButtonLabels()
     }
 
     function setDividerLabel(setNum) {

@@ -356,7 +356,7 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
         <button type="button" onClick={reset} className="grind-chip flex items-center gap-1">
           <span>Reset to starter</span>
           {resetCount > 0 && (
-            <span className="text-[0.55rem] font-mono text-[#89b4fa] opacity-80">↺{resetCount}</span>
+            <span className="grind-reset-count">↺{resetCount}</span>
           )}
         </button>
       </div>
@@ -526,20 +526,33 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
           </div>
         </div>
 
-        {!editorExpanded && <div className="hidden md:block">{footerBar}</div>}
+        {!editorExpanded && footerBar}
       </div>
 
       {editorExpanded &&
         typeof document !== 'undefined' &&
         createPortal(
           <div
-            className="practice-fs-portal fixed inset-0 flex flex-col bg-[#1e1e2e] grind-shell"
+            className={`practice-fs-portal fixed inset-0 flex flex-col bg-[#1e1e2e] grind-shell${keyboardOpen ? ' kbd-open' : ''}`}
             style={mobilePortalStyle}
           >
             <div className="fs-bar flex items-center gap-2 px-3 py-2 bg-[#181825] border-b border-[#313244] shrink-0">
               <span className="flex-1 text-[0.65rem] text-[#a6adc8] truncate">
                 #{question.id} - {question.title}
               </span>
+              {keyboardOpen && (
+                <button
+                  type="button"
+                  onClick={reset}
+                  className="grind-chip text-[0.58rem] py-0.5 px-2 flex items-center gap-1 shrink-0"
+                >
+                  Reset
+                  {resetCount > 0 && <span className="grind-reset-count">↺{resetCount}</span>}
+                </button>
+              )}
+              {!keyboardOpen && resetCount > 0 && (
+                <span className="grind-reset-count shrink-0">↺{resetCount}</span>
+              )}
               {langToggle}
               <button type="button" onClick={() => setEditorExpanded(false)} className="grind-chip">
                 Close

@@ -529,6 +529,14 @@
   color: var(--grind-subtle);
 }
 
+.grind-shell .grind-reset-count {
+  font-size: 0.62rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--grind-blue);
+  font-weight: 600;
+  line-height: 1;
+}
+
 .grind-shell .grind-mobile-cta {
   display: none;
 }
