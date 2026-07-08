@@ -155,7 +155,7 @@ export default function LeetCodeListPage() {
       }
       const state = readLcListSync()
       setLcSync(state)
-      toast.success(`Synced ${result.solvedIds.length} AC from leetcode.com`)
+      toast.success(`Synced ${result.grindAcCount}/${questions.length} Sets 1-3 + ${result.totalAcProblems} total AC on LeetCode`)
     } catch (e) {
       toast.error(String(e))
     } finally {
@@ -239,6 +239,24 @@ export default function LeetCodeListPage() {
               </div>
             </div>
             <ProgressRing solved={stats.solved} total={stats.total} />
+            {lcSync?.syncedAt && (
+              <div className="mt-3 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-muted)] px-3 py-2">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-[var(--text-subtle)]">Total AC</span>
+                  <span className="tabular-nums font-semibold text-[var(--text)]">{lcSync.totalAcProblems ?? 0}</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] mt-1">
+                  <span className="text-[var(--text-subtle)]">In Sets 1–3</span>
+                  <span className="tabular-nums font-semibold text-[var(--text)]">
+                    {lcSync.grindAcCount ?? (lcSync.solvedIds?.length ?? 0)}/{questions.length}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] mt-1">
+                  <span className="text-[var(--text-subtle)]">Extra (not in sets)</span>
+                  <span className="tabular-nums font-semibold text-[var(--text)]">{lcSync.extraAcCount ?? 0}</span>
+                </div>
+              </div>
+            )}
             <div className="mt-4 space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-green-600 font-semibold">Easy</span>

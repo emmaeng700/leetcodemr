@@ -11,6 +11,12 @@ export const LC_LIST_SYNC_KEY = 'lm_leetcode_list_sync'
 export type LcListSyncState = {
   syncedAt: string
   solvedIds: number[]
+  /** Unique problems with AC on LeetCode (all slugs from submission history). */
+  totalAcProblems: number
+  /** AC problems that match this app's Sets 1-3 list. */
+  grindAcCount: number
+  /** AC on LeetCode but not in this app's Sets 1-3 list. */
+  extraAcCount: number
 }
 
 export function readLcListSync(): LcListSyncState | null {
@@ -18,9 +24,27 @@ export function readLcListSync(): LcListSyncState | null {
   try {
     const raw = localStorage.getItem(LC_LIST_SYNC_KEY)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as LcListSyncState
+    const parsed = JSON.parse(raw) as Partial<LcListSyncState>
     if (!parsed?.syncedAt || !Array.isArray(parsed.solvedIds)) return null
-    return parsed
+    const totalAcProblems =
+      typeof parsed.totalAcProblems === 'number'
+        ? parsed.totalAcProblems
+        : parsed.solvedIds.length
+    const grindAcCount =
+      typeof parsed.grindAcCount === 'number'
+        ? parsed.grindAcCount
+        : parsed.solvedIds.length
+    const extraAcCount =
+      typeof parsed.extraAcCount === 'number'
+        ? parsed.extraAcCount
+        : Math.max(0, totalAcProblems - grindAcCount)
+    return {
+      syncedAt: parsed.syncedAt,
+      solvedIds: parsed.solvedIds,
+      totalAcProblems,
+      grindAcCount,
+      extraAcCount,
+    }
   } catch {
     return null
   }
@@ -160,9 +184,9 @@ export async function syncLeetCodeListAccepted(
   questions: Array<{ id: number; slug: string }>,
   session: string,
   csrf: string,
-): Promise<{ solvedIds: number[]; error?: string }> {
+): Promise<{ solvedIds: number[]; totalAcProblems: number; grindAcCount: number; extraAcCount: number; error?: string }> {
   if (!session || !csrf) {
-    return { solvedIds: [], error: 'Connect your LeetCode session first (Practice editor Session panel).' }
+    return { solvedIds: [], totalAcProblems: 0, grindAcCount: 0, extraAcCount: 0, error: 'Connect your LeetCode session first (Practice editor Session panel).' }
   }
 
   const res = await fetch('/api/leetcode/ac-counts', {
@@ -175,30 +199,38 @@ export async function syncLeetCodeListAccepted(
   try {
     data = await res.json()
   } catch {
-    return { solvedIds: [], error: 'Sync failed - invalid response.' }
+    return { solvedIds: [], totalAcProblems: 0, grindAcCount: 0, extraAcCount: 0, error: 'Sync failed - invalid response.' }
   }
 
   if (data.error === 'no_session') {
-    return { solvedIds: [], error: 'No LeetCode session saved.' }
+    return { solvedIds: [], totalAcProblems: 0, grindAcCount: 0, extraAcCount: 0, error: 'No LeetCode session saved.' }
   }
   if (data.error && !data.bySlug) {
-    return { solvedIds: [], error: String(data.error) }
+    return { solvedIds: [], totalAcProblems: 0, grindAcCount: 0, extraAcCount: 0, error: String(data.error) }
   }
 
   const slugToId = buildSlugToIdMap(questions)
   const solvedIds = new Set<number>()
+  const bySlug = data.bySlug ?? {}
+  const totalAcProblems = Object.values(bySlug).filter(c => (c ?? 0) >= 1).length
   for (const [slug, count] of Object.entries(data.bySlug ?? {})) {
     if ((count ?? 0) < 1) continue
     const id = slugToId.get(slug)
     if (id) solvedIds.add(id)
   }
 
+  const grindAcCount = solvedIds.size
+  const extraAcCount = Math.max(0, totalAcProblems - grindAcCount)
+
   const state: LcListSyncState = {
     syncedAt: new Date().toISOString(),
     solvedIds: Array.from(solvedIds).sort((a, b) => a - b),
+    totalAcProblems,
+    grindAcCount,
+    extraAcCount,
   }
   writeLcListSync(state)
-  return { solvedIds: state.solvedIds }
+  return { solvedIds: state.solvedIds, totalAcProblems, grindAcCount, extraAcCount }
 }
 
 export function formatSyncTime(iso: string): string {
