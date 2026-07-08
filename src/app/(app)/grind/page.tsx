@@ -17,8 +17,10 @@ import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter, readGrindLastQuestionId, writeGrindLastQuestionId } from '@/lib/grindStorage'
 import {
   readAllGrindResetCounts,
+  readGrindResetCount,
   loadAndMergeGrindResetCounts,
   syncAllGrindResetsToSupabase,
+  GRIND_RESET_CHANGED,
 } from '@/lib/grindResets'
 import { useMobileViewport } from '@/hooks/useMobileViewport'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
@@ -151,15 +153,31 @@ function GrindInner() {
   }, [])
 
   useEffect(() => {
-    loadAndMergeGrindResetCounts().then(setResetCounts).catch(() => {})
+    const refreshCounts = () => {
+      void loadAndMergeGrindResetCounts()
+        .then(setResetCounts)
+        .catch(() => setResetCounts(readAllGrindResetCounts()))
+    }
+    refreshCounts()
     const onOnline = () => {
-      syncAllGrindResetsToSupabase()
+      void syncAllGrindResetsToSupabase()
         .then(() => loadAndMergeGrindResetCounts())
         .then(setResetCounts)
-        .catch(() => {})
+        .catch(() => setResetCounts(readAllGrindResetCounts()))
+    }
+    const onVis = () => {
+      if (document.visibilityState === 'visible') refreshCounts()
     }
     window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
+    window.addEventListener(GRIND_RESET_CHANGED, refreshCounts)
+    window.addEventListener('pageshow', refreshCounts)
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener(GRIND_RESET_CHANGED, refreshCounts)
+      window.removeEventListener('pageshow', refreshCounts)
+      document.removeEventListener('visibilitychange', onVis)
+    }
   }, [])
 
   const filtered = useMemo(() => {
@@ -223,7 +241,7 @@ function GrindInner() {
   }
 
   function handleReset(id: number) {
-    setResetCounts(prev => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }))
+    setResetCounts(prev => ({ ...prev, [id]: readGrindResetCount(id) }))
   }
 
   function onSearchSubmit(e: React.FormEvent) {

@@ -445,7 +445,7 @@
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
-    <span id="offline-version" hidden>v28</span>
+    <span id="offline-version" hidden>v29</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
@@ -479,7 +479,7 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v28'
+    var OFFLINE_VERSION = 'v29'
     var SW_CACHE = 'lm-v26'
     var midnightTimer = null
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v1'
@@ -544,6 +544,37 @@
           fsBadge.setAttribute('aria-hidden', 'true')
         }
       }
+    }
+
+    function mergeResetCountMaps() {
+      var merged = {}
+      for (var i = 0; i < arguments.length; i++) {
+        var map = arguments[i] || {}
+        for (var k in map) {
+          if (!Object.prototype.hasOwnProperty.call(map, k)) continue
+          var n = Number(map[k]) || 0
+          if (n > 0) merged[k] = Math.max(merged[k] || 0, n)
+        }
+      }
+      return merged
+    }
+
+    function syncResetCountsOnline() {
+      if (!navigator.onLine) return Promise.resolve()
+      var local = readResetCounts()
+      return fetch('/api/grind-reset-counts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ counts: local }),
+      }).then(function(res) {
+        if (!res.ok) return null
+        return res.json()
+      }).then(function(data) {
+        if (!data || !data.counts) return
+        var merged = mergeResetCountMaps(local, data.counts)
+        try { localStorage.setItem(RESET_COUNTS_KEY, JSON.stringify(merged)) } catch (e) {}
+        updateResetButtonLabels()
+      }).catch(function() {})
     }
 
     function flashCopyButton(btn) {
@@ -612,6 +643,8 @@
       if (!online) {
         wasOffline = true
         try { sessionStorage.setItem('lm_grind_was_offline', '1') } catch (e) {}
+      } else {
+        void syncResetCountsOnline()
       }
     }
     function refreshEditorStampIfNewDay() {
@@ -642,7 +675,10 @@
     window.addEventListener('online', updateConnectivityUI)
     window.addEventListener('offline', updateConnectivityUI)
     document.addEventListener('visibilitychange', function() {
-      if (document.visibilityState === 'visible') refreshEditorStampIfNewDay()
+      if (document.visibilityState === 'visible') {
+        refreshEditorStampIfNewDay()
+        if (navigator.onLine) void syncResetCountsOnline()
+      }
     })
     window.addEventListener('focus', refreshEditorStampIfNewDay)
     scheduleMidnightRefresh()

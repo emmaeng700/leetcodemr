@@ -9,7 +9,7 @@ import { saveGrindSession } from '@/lib/db'
 import {
   writeGrindDraft,
 } from '@/lib/grindStorage'
-import { readGrindResetCount, incrementGrindResetCount } from '@/lib/grindResets'
+import { readGrindResetCount, incrementGrindResetCount, GRIND_RESET_CHANGED } from '@/lib/grindResets'
 import {
   applyGrindStampOnEdit,
   getGrindSessionChipLabel,
@@ -434,7 +434,14 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
   }, [editorExpanded])
 
   useEffect(() => {
-    setResetCount(readGrindResetCount(question.id))
+    const refresh = () => setResetCount(readGrindResetCount(question.id))
+    refresh()
+    window.addEventListener(GRIND_RESET_CHANGED, refresh)
+    window.addEventListener('storage', refresh)
+    return () => {
+      window.removeEventListener(GRIND_RESET_CHANGED, refresh)
+      window.removeEventListener('storage', refresh)
+    }
   }, [question.id])
 
   useEffect(() => {
