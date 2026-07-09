@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import Navbar from '@/components/Navbar'
 import ScrollRestorer from '@/components/ScrollRestorer'
+import RouteRestorer from '@/components/RouteRestorer'
 import { Toaster } from 'react-hot-toast'
 import QuestionSearchGate from '@/components/QuestionSearchGate'
 import OfflineWarmupGate from '@/components/OfflineWarmupGate'
@@ -10,6 +11,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <OfflineWarmupGate>
       <div className="min-h-screen bg-[var(--bg)] overflow-x-hidden">
         <ScrollRestorer />
+        <Suspense fallback={null}>
+          <RouteRestorer />
+        </Suspense>
         <Suspense fallback={<div className="sticky top-0 z-[90] h-14 border-b border-[var(--border)] bg-[var(--bg-card)]" />}>
           <Navbar />
         </Suspense>
