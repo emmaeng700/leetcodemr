@@ -301,10 +301,6 @@
   border-bottom: 1px solid var(--grind-overlay);
 }
 
-.grind-shell .grind-q-wrap.on .grind-q {
-  background: var(--grind-card);
-}
-
 .grind-shell .grind-q {
   display: block;
   flex: 1;
@@ -315,6 +311,20 @@
   color: var(--grind-text);
   padding: 0.45rem 0.5rem;
   cursor: pointer;
+}
+
+.grind-shell .grind-q-id {
+  font-size: 0.58rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--grind-subtle);
+  flex-shrink: 0;
+}
+
+.grind-shell .grind-q-title {
+  font-size: 0.68rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .grind-shell .grind-q-lc {
@@ -337,6 +347,98 @@
 .grind-shell .grind-q-lc:focus-visible {
   color: var(--grind-orange);
   border-color: var(--grind-subtle);
+}
+
+/* Selected row — high-contrast white so it never blends into the dark list */
+.grind-shell .grind-q-wrap.on {
+  background: #ffffff;
+  box-shadow: inset 3px 0 0 #89b4fa;
+}
+
+.grind-shell .grind-q-wrap.on .grind-q {
+  background: transparent;
+  color: #11111b;
+}
+
+.grind-shell .grind-q-wrap.on .grind-q-id {
+  color: #585b70;
+}
+
+.grind-shell .grind-q-wrap.on .grind-q-title {
+  color: #11111b;
+  font-weight: 700;
+}
+
+.grind-shell .grind-q-wrap.on .grind-set-1 {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #93c5fd;
+}
+
+.grind-shell .grind-q-wrap.on .grind-set-2 {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.grind-shell .grind-q-wrap.on .grind-set-3 {
+  background: #f3e8ff;
+  color: #7e22ce;
+  border-color: #d8b4fe;
+}
+
+.grind-shell .grind-q-wrap.on .grind-diff-easy {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.grind-shell .grind-q-wrap.on .grind-diff-medium {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fcd34d;
+}
+
+.grind-shell .grind-q-wrap.on .grind-diff-hard {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+.grind-shell .grind-q-wrap.on .grind-prio-high {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+.grind-shell .grind-q-wrap.on .grind-prio-mid {
+  background: #ffedd5;
+  color: #c2410c;
+  border-color: #fdba74;
+}
+
+.grind-shell .grind-q-wrap.on .grind-prio-low {
+  background: #e4e4e7;
+  color: #3f3f46;
+  border-color: #a1a1aa;
+}
+
+.grind-shell .grind-q-wrap.on .grind-q-reset {
+  color: #1d4ed8;
+  opacity: 1;
+}
+
+.grind-shell .grind-q-wrap.on .grind-q-lc {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #93c5fd;
+}
+
+.grind-shell .grind-q-wrap.on .grind-q-lc:hover,
+.grind-shell .grind-q-wrap.on .grind-q-lc:focus-visible {
+  color: #1e40af;
+  border-color: #60a5fa;
+  background: #dbeafe;
 }
 
 .grind-shell .grind-set-badge {

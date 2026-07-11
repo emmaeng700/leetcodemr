@@ -77,6 +77,7 @@ function GrindInner() {
   const [listOpen, setListOpen] = useState(false)
   const [resetCounts, setResetCounts] = useState<Record<number, number>>(() => readAllGrindResetCounts())
   const prefetchRef = useRef(false)
+  const activeRowRef = useRef<HTMLDivElement | null>(null)
 
   const spKey = sp.toString()
 
@@ -244,6 +245,16 @@ function GrindInner() {
     setResetCounts(prev => ({ ...prev, [id]: readGrindResetCount(id) }))
   }
 
+  useEffect(() => {
+    if (!selectedId) return
+    const el = activeRowRef.current
+    if (!el) return
+    // Keep the selected row visible when picking from search / prev-next / deep links.
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+    })
+  }, [selectedId, listOpen, loading, listEntries.length])
+
   function onSearchSubmit(e: React.FormEvent) {
     e.preventDefault()
     const first = filtered[0]
@@ -369,18 +380,22 @@ function GrindInner() {
               const pri = priorityFromSection(q.section)
               const lcHref = leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))
               return (
-                <div key={entry.key} className={`grind-q-wrap ${active ? 'on' : ''}`}>
+                <div
+                  key={entry.key}
+                  ref={active ? activeRowRef : undefined}
+                  className={`grind-q-wrap ${active ? 'on' : ''}`}
+                >
                   <button type="button" className="grind-q" onClick={() => selectQuestion(q)}>
                     <div className="flex items-center gap-1 min-w-0">
                       <span className={`grind-set-badge grind-set-${q.set}`}>S{q.set}</span>
-                      <span className="text-[0.58rem] text-[#6c7086] font-mono shrink-0">#{q.id}</span>
-                      <span className="text-[0.68rem] truncate">{q.title}</span>
+                      <span className="grind-q-id">#{q.id}</span>
+                      <span className="grind-q-title">{q.title}</span>
                     </div>
                     <div className="flex flex-wrap gap-1 mt-0.5 items-center">
                       <span className={`grind-pill ${diffClass(q.difficulty)}`}>{q.difficulty}</span>
                       {pri && <span className={`grind-pill ${prioClass(pri)}`}>{pri}</span>}
                       {(resetCounts[q.id] ?? 0) > 0 && (
-                        <span className="text-[0.52rem] font-mono text-[#89b4fa] opacity-70 leading-none">
+                        <span className="grind-q-reset text-[0.52rem] font-mono text-[#89b4fa] opacity-70 leading-none">
                           ↺{resetCounts[q.id]}
                         </span>
                       )}

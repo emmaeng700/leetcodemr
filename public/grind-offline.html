@@ -62,7 +62,6 @@
     .q-wrap {
       display: flex; align-items: stretch; border-bottom: 1px solid #313244;
     }
-    .q-wrap.on .q { background: #1e1e2e; }
     .q {
       display: block; flex: 1; min-width: 0; text-align: left; border: none;
       background: transparent; color: #cdd6f4; padding: 0.45rem 0.5rem; cursor: pointer;
@@ -79,6 +78,28 @@
     .q-id { font-size: 0.58rem; color: #6c7086; font-family: monospace; flex-shrink: 0; }
     .q-title { font-size: 0.68rem; line-height: 1.3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .q-meta { display: flex; flex-wrap: wrap; gap: 0.2rem; margin-top: 0.15rem; align-items: center; }
+    .q-wrap.on {
+      background: #ffffff;
+      box-shadow: inset 3px 0 0 #89b4fa;
+    }
+    .q-wrap.on .q { background: transparent; color: #11111b; }
+    .q-wrap.on .q-id { color: #585b70; }
+    .q-wrap.on .q-title { color: #11111b; font-weight: 700; }
+    .q-wrap.on .set-badge-1 { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
+    .q-wrap.on .set-badge-2 { background: #dcfce7; color: #15803d; border-color: #86efac; }
+    .q-wrap.on .set-badge-3 { background: #f3e8ff; color: #7e22ce; border-color: #d8b4fe; }
+    .q-wrap.on .diff-easy { background: #dcfce7; color: #15803d; border-color: #86efac; }
+    .q-wrap.on .diff-medium { background: #fef3c7; color: #b45309; border-color: #fcd34d; }
+    .q-wrap.on .diff-hard { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+    .q-wrap.on .prio-high { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+    .q-wrap.on .prio-mid { background: #ffedd5; color: #c2410c; border-color: #fdba74; }
+    .q-wrap.on .prio-low { background: #e4e4e7; color: #3f3f46; border-color: #a1a1aa; }
+    .q-wrap.on .q-lc {
+      background: #eff6ff; color: #1d4ed8; border-color: #93c5fd;
+    }
+    .q-wrap.on .q-lc:hover, .q-wrap.on .q-lc:focus-visible {
+      color: #1e40af; border-color: #60a5fa; background: #dbeafe;
+    }
     .set-badge {
       font-size: 0.52rem; font-weight: 700; padding: 0.05rem 0.22rem; border-radius: 0.2rem; border: 1px solid; flex-shrink: 0;
     }
@@ -445,7 +466,7 @@
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
-    <span id="offline-version" hidden>v29</span>
+    <span id="offline-version" hidden>v30</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
@@ -479,7 +500,7 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v29'
+    var OFFLINE_VERSION = 'v30'
     var SW_CACHE = 'lm-v26'
     var midnightTimer = null
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v1'
@@ -1433,6 +1454,12 @@
         list.appendChild(wrap)
       })
       updateNavUI()
+      var active = list.querySelector('.q-wrap.on')
+      if (active && typeof active.scrollIntoView === 'function') {
+        requestAnimationFrame(function() {
+          active.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+        })
+      }
     }
 
     function syncLangButtons() {
