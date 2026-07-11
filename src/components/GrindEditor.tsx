@@ -235,7 +235,18 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
       base,
       question.interviewApproach,
     )
-    applyRecheckResult(piped)
+    let nextCode = piped.code
+    try {
+      const accepted = await resolveGrindLcAcceptedCode(question.id, question.slug, lang)
+      nextCode = applyAcceptedResolveToCode(nextCode, lang, accepted)
+      if (nextCode !== piped.code) {
+        writeGrindDraft(question.id, lang, nextCode)
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+          saveGrindSession(question.id, lang, nextCode).catch(() => {})
+        }
+      }
+    } catch { /* keep pipeline code */ }
+    applyRecheckResult({ ...piped, code: nextCode })
   }, [loading, starter, question, lang, applyRecheckResult])
 
   useEffect(() => {

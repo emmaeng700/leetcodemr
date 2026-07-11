@@ -15,6 +15,8 @@ export type GrindLcAcceptedCache = {
   code: string
   fetchedAt: string
   empty: boolean
+  /** LeetCode submission unix timestamp (seconds). Used to detect newer ACs. */
+  submissionTs?: number
 }
 
 /** How we resolved accepted code for the editor section. */
@@ -49,10 +51,15 @@ export function readGrindLcAcceptedCache(
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<GrindLcAcceptedCache>
     if (typeof parsed.code !== 'string' || typeof parsed.fetchedAt !== 'string') return null
+    const submissionTs =
+      typeof parsed.submissionTs === 'number' && Number.isFinite(parsed.submissionTs)
+        ? parsed.submissionTs
+        : undefined
     return {
       code: parsed.code,
       fetchedAt: parsed.fetchedAt,
       empty: parsed.empty === true || !parsed.code.trim(),
+      ...(submissionTs != null ? { submissionTs } : {}),
     }
   } catch {
     return null
@@ -63,13 +70,16 @@ export function writeGrindLcAcceptedCache(
   questionId: number,
   lang: GrindLang,
   code: string,
-  options?: { syncRemote?: boolean; fetchedAt?: string },
+  options?: { syncRemote?: boolean; fetchedAt?: string; submissionTs?: number },
 ): void {
   if (typeof window === 'undefined') return
   const entry: GrindLcAcceptedCache = {
     code: code.trim(),
     fetchedAt: options?.fetchedAt ?? new Date().toISOString(),
     empty: !code.trim(),
+    ...(options?.submissionTs != null && Number.isFinite(options.submissionTs)
+      ? { submissionTs: options.submissionTs }
+      : {}),
   }
   try {
     localStorage.setItem(cacheKey(questionId, lang), JSON.stringify(entry))
@@ -302,15 +312,20 @@ function isSolvedOnLcList(questionId: number): boolean {
   return Boolean(sync?.solvedIds?.includes(questionId))
 }
 
-/**
- * Fetch most recent accepted submission for this grind language.
- * Returns '' when none found (caller should cache empty state).
- * Returns null when session missing / offline / network error (keep prior cache).
- */
-export async function fetchGrindLcAcceptedCode(
+export type GrindLcAcceptedFetch = {
+  code: string
+  submissionTs: number
+}
+
+type AcceptedSubmissionMeta =
+  | { kind: 'hit'; id: number; submissionTs: number }
+  | { kind: 'empty' }
+
+/** Latest accepted submission id + timestamp for this language (list query only). */
+async function fetchLatestAcceptedSubmissionMeta(
   slug: string,
   lang: GrindLang,
-): Promise<string | null> {
+): Promise<AcceptedSubmissionMeta | null> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return null
 
   const { session, csrfToken } = getLcCredentials()
@@ -334,23 +349,50 @@ export async function fetchGrindLcAcceptedCode(
       return l === 'cpp'
     })
 
-    if (!match) return ''
+    if (!match) return { kind: 'empty' }
+    const submissionTs = Number(match.timestamp) || 0
+    return { kind: 'hit', id: Number(match.id), submissionTs }
+  } catch {
+    return null
+  }
+}
 
+async function fetchSubmissionCodeById(submissionId: number): Promise<string | null> {
+  const { session, csrfToken } = getLcCredentials()
+  if (!session || !csrfToken) return null
+  try {
     const r2 = await lcGraphql(
       session,
       csrfToken,
       `query($id:Int!){submissionDetails(submissionId:$id){code}}`,
-      { id: Number(match.id) },
+      { id: submissionId },
     )
-    const code = String(r2?.data?.submissionDetails?.code ?? '').trim()
-    return code
+    return String(r2?.data?.submissionDetails?.code ?? '').trim()
   } catch {
     return null
   }
 }
 
 /**
- * Online: fetch + cache (refresh empty if LC list says solved).
+ * Fetch most recent accepted submission for this grind language.
+ * Returns { code: '', submissionTs: 0 } when none found (caller should cache empty).
+ * Returns null when session missing / offline / network error (keep prior cache).
+ */
+export async function fetchGrindLcAcceptedCode(
+  slug: string,
+  lang: GrindLang,
+): Promise<GrindLcAcceptedFetch | null> {
+  const meta = await fetchLatestAcceptedSubmissionMeta(slug, lang)
+  if (meta === null) return null
+  if (meta.kind === 'empty') return { code: '', submissionTs: 0 }
+
+  const code = await fetchSubmissionCodeById(meta.id)
+  if (code === null) return null
+  return { code, submissionTs: meta.submissionTs }
+}
+
+/**
+ * Online: check LeetCode for a newer AC (by submission timestamp), then cache.
  * Offline: use cache; uncached if never downloaded.
  */
 export async function resolveGrindLcAcceptedCode(
@@ -369,15 +411,38 @@ export async function resolveGrindLcAcceptedCode(
       return { status: 'uncached' }
     }
 
-    // Keep good cache; re-fetch empty when list sync says this problem is solved.
-    if (cached && !cached.empty) return { status: 'ready', code: cached.code }
+    const meta = await fetchLatestAcceptedSubmissionMeta(slug, lang)
+    if (meta === null) {
+      // Network/session error — keep prior cache.
+      if (cached && !cached.empty) return { status: 'ready', code: cached.code }
+      if (cached?.empty && !solvedHint) return { status: 'empty' }
+      return { status: 'uncached' }
+    }
 
-    const fetched = await fetchGrindLcAcceptedCode(slug, lang)
-    if (fetched !== null) {
-      writeGrindLcAcceptedCache(questionId, lang, fetched)
-      if (fetched.trim()) return { status: 'ready', code: fetched }
+    if (meta.kind === 'empty') {
+      writeGrindLcAcceptedCache(questionId, lang, '', { submissionTs: 0 })
       return { status: 'empty' }
     }
+
+    // Same submission already cached — skip code download.
+    if (
+      cached &&
+      !cached.empty &&
+      cached.submissionTs != null &&
+      cached.submissionTs === meta.submissionTs
+    ) {
+      return { status: 'ready', code: cached.code }
+    }
+
+    const code = await fetchSubmissionCodeById(meta.id)
+    if (code === null) {
+      if (cached && !cached.empty) return { status: 'ready', code: cached.code }
+      return { status: 'uncached' }
+    }
+
+    writeGrindLcAcceptedCache(questionId, lang, code, { submissionTs: meta.submissionTs })
+    if (code.trim()) return { status: 'ready', code }
+    return { status: 'empty' }
   }
 
   if (cached && !cached.empty) return { status: 'ready', code: cached.code }
@@ -469,8 +534,10 @@ export async function prefetchGrindLcAcceptedForOffline(
     const fetched = await fetchGrindLcAcceptedCode(q.slug, lang)
     if (ac.signal.aborted) break
     if (fetched !== null) {
-      writeGrindLcAcceptedCache(q.id, lang, fetched)
-      if (fetched.trim()) cached++
+      writeGrindLcAcceptedCache(q.id, lang, fetched.code, {
+        submissionTs: fetched.submissionTs,
+      })
+      if (fetched.code.trim()) cached++
     }
     done++
     onProgress?.({ done, total: pool.length, cached, running: true })

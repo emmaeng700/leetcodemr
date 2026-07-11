@@ -483,7 +483,7 @@
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
-    <span id="offline-version" hidden>v34</span>
+    <span id="offline-version" hidden>v35</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
@@ -517,7 +517,7 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v34'
+    var OFFLINE_VERSION = 'v35'
     var SW_CACHE = 'lm-v26'
     var midnightTimer = null
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v1'
@@ -941,20 +941,28 @@
         if (!raw) return null
         var parsed = JSON.parse(raw)
         if (typeof parsed.code !== 'string') return null
-        return {
+        var out = {
           code: parsed.code,
           empty: parsed.empty === true || !String(parsed.code).trim(),
+          submissionTs: undefined,
         }
+        if (typeof parsed.submissionTs === 'number' && isFinite(parsed.submissionTs)) {
+          out.submissionTs = parsed.submissionTs
+        }
+        return out
       } catch (e) {
         return null
       }
     }
 
-    function writeLcAcceptedCache(id, code) {
+    function writeLcAcceptedCache(id, code, submissionTs) {
       var entry = {
         code: String(code || '').trim(),
         fetchedAt: new Date().toISOString(),
         empty: !String(code || '').trim(),
+      }
+      if (typeof submissionTs === 'number' && isFinite(submissionTs)) {
+        entry.submissionTs = submissionTs
       }
       try {
         localStorage.setItem(lcAcceptedCacheKey(id), JSON.stringify(entry))
@@ -1058,7 +1066,7 @@
       return ''
     }
 
-    function fetchLcAcceptedCode(slug) {
+    function fetchLatestAcceptedMeta(slug) {
       if (!navigator.onLine) return Promise.resolve(null)
       var session = ''
       var csrf = ''
@@ -1086,20 +1094,47 @@
           if (want === 'python' && (l === 'python3' || l === 'python')) { match = subs[i]; break }
           if (want === 'cpp' && l === 'cpp') { match = subs[i]; break }
         }
-        if (!match) return ''
-        return fetch('/api/leetcode', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            session: session,
-            csrfToken: csrf,
-            query: 'query($id:Int!){submissionDetails(submissionId:$id){code}}',
-            variables: { id: Number(match.id) },
-          }),
-        }).then(function(r) { return r.json() }).then(function(r2) {
-          return String((((r2 || {}).data || {}).submissionDetails || {}).code || '').trim()
-        })
+        if (!match) return { kind: 'empty' }
+        return {
+          kind: 'hit',
+          id: Number(match.id),
+          submissionTs: Number(match.timestamp) || 0,
+        }
       }).catch(function() { return null })
+    }
+
+    function fetchSubmissionCodeById(submissionId, session, csrf) {
+      return fetch('/api/leetcode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session: session,
+          csrfToken: csrf,
+          query: 'query($id:Int!){submissionDetails(submissionId:$id){code}}',
+          variables: { id: Number(submissionId) },
+        }),
+      }).then(function(r) { return r.json() }).then(function(r2) {
+        return String((((r2 || {}).data || {}).submissionDetails || {}).code || '').trim()
+      }).catch(function() { return null })
+    }
+
+    function fetchLcAcceptedCode(slug) {
+      var session = ''
+      var csrf = ''
+      try {
+        session = localStorage.getItem('lc_session') || ''
+        csrf = localStorage.getItem('lc_csrf') || getCookieFromHeader(session, 'csrftoken')
+      } catch (e) {}
+      if (!session || !csrf) return Promise.resolve(null)
+
+      return fetchLatestAcceptedMeta(slug).then(function(meta) {
+        if (meta === null) return null
+        if (meta.kind === 'empty') return { code: '', submissionTs: 0 }
+        return fetchSubmissionCodeById(meta.id, session, csrf).then(function(code) {
+          if (code === null) return null
+          return { code: code, submissionTs: meta.submissionTs }
+        })
+      })
     }
 
     function resolveLcAcceptedCode(q) {
@@ -1119,17 +1154,45 @@
         return Promise.resolve({ status: 'uncached' })
       }
 
-      if (cached && !cached.empty) return Promise.resolve({ status: 'ready', code: cached.code })
+      var session = ''
+      var csrf = ''
+      try {
+        session = localStorage.getItem('lc_session') || ''
+        csrf = localStorage.getItem('lc_csrf') || getCookieFromHeader(session, 'csrftoken')
+      } catch (e) {}
+      if (!session || !csrf) {
+        if (cached && !cached.empty) return Promise.resolve({ status: 'ready', code: cached.code })
+        if (cached && cached.empty && !solvedHint) return Promise.resolve({ status: 'empty' })
+        return Promise.resolve({ status: 'uncached' })
+      }
 
-      return fetchLcAcceptedCode(q.slug).then(function(fetched) {
-        if (fetched !== null) {
-          writeLcAcceptedCache(q.id, fetched)
-          if (fetched.trim()) return { status: 'ready', code: fetched }
+      return fetchLatestAcceptedMeta(q.slug).then(function(meta) {
+        if (meta === null) {
+          if (cached && !cached.empty) return { status: 'ready', code: cached.code }
+          if (cached && cached.empty && !solvedHint) return { status: 'empty' }
+          return { status: 'uncached' }
+        }
+        if (meta.kind === 'empty') {
+          writeLcAcceptedCache(q.id, '', 0)
           return { status: 'empty' }
         }
-        if (cached && !cached.empty) return { status: 'ready', code: cached.code }
-        if (cached && cached.empty && !solvedHint) return { status: 'empty' }
-        return { status: 'uncached' }
+        if (
+          cached &&
+          !cached.empty &&
+          typeof cached.submissionTs === 'number' &&
+          cached.submissionTs === meta.submissionTs
+        ) {
+          return { status: 'ready', code: cached.code }
+        }
+        return fetchSubmissionCodeById(meta.id, session, csrf).then(function(code) {
+          if (code === null) {
+            if (cached && !cached.empty) return { status: 'ready', code: cached.code }
+            return { status: 'uncached' }
+          }
+          writeLcAcceptedCache(q.id, code, meta.submissionTs)
+          if (String(code).trim()) return { status: 'ready', code: code }
+          return { status: 'empty' }
+        })
       })
     }
 
@@ -1217,8 +1280,8 @@
           var q = todo[i++]
           return fetchLcAcceptedCode(q.slug).then(function(fetched) {
             if (fetched !== null) {
-              writeLcAcceptedCache(q.id, fetched)
-              if (fetched.trim()) cached++
+              writeLcAcceptedCache(q.id, fetched.code, fetched.submissionTs)
+              if (fetched.code && fetched.code.trim()) cached++
             }
             done++
             setCacheBanner('Caching accepted solutions for offline (syncs across devices)… ' + done + '/' + pool.length + ' (' + cached + ' ready)', true)
