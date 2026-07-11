@@ -466,7 +466,7 @@
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
-    <span id="offline-version" hidden>v30</span>
+    <span id="offline-version" hidden>v31</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
@@ -500,7 +500,7 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v30'
+    var OFFLINE_VERSION = 'v31'
     var SW_CACHE = 'lm-v26'
     var midnightTimer = null
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v1'
@@ -894,6 +894,8 @@
     var DESCRIPTION_MARKER_CPP = '// -- Problem Description --'
     var INTERVIEW_MARKER_PY = '# -- Interview Approach - STAR-LC --'
     var INTERVIEW_MARKER_CPP = '// -- Interview Approach - STAR-LC --'
+    var ACCEPTED_MARKER_PY = '# -- Your LeetCode Accepted --'
+    var ACCEPTED_MARKER_CPP = '// -- Your LeetCode Accepted --'
     var LEARNING_SEP = '\n\n\n\n'
 
     function descriptionMarker() {
@@ -902,6 +904,155 @@
 
     function interviewMarker() {
       return lang === 'python3' ? INTERVIEW_MARKER_PY : INTERVIEW_MARKER_CPP
+    }
+
+    function acceptedMarker() {
+      return lang === 'python3' ? ACCEPTED_MARKER_PY : ACCEPTED_MARKER_CPP
+    }
+
+    function lcAcceptedCacheKey(id) {
+      return 'lm_grind_lc_ac_' + id + '_' + lang
+    }
+
+    function readLcAcceptedCache(id) {
+      try {
+        var raw = localStorage.getItem(lcAcceptedCacheKey(id))
+        if (!raw) return null
+        var parsed = JSON.parse(raw)
+        if (typeof parsed.code !== 'string') return null
+        return {
+          code: parsed.code,
+          empty: parsed.empty === true || !String(parsed.code).trim(),
+        }
+      } catch (e) {
+        return null
+      }
+    }
+
+    function writeLcAcceptedCache(id, code) {
+      try {
+        localStorage.setItem(lcAcceptedCacheKey(id), JSON.stringify({
+          code: String(code || '').trim(),
+          fetchedAt: new Date().toISOString(),
+          empty: !String(code || '').trim(),
+        }))
+      } catch (e) {}
+    }
+
+    function commentLine(text) {
+      text = text == null ? '' : String(text)
+      if (lang === 'python3') return text ? '# ' + text : '#'
+      return text ? '// ' + text : '//'
+    }
+
+    function formatAcceptedSection(acceptedCode) {
+      var marker = acceptedMarker()
+      if (!acceptedCode || !String(acceptedCode).trim()) {
+        return [
+          marker,
+          commentLine('Latest accepted submission from leetcode.com (cached for offline).'),
+          commentLine(''),
+          commentLine('No accepted solution found for this language yet.'),
+          commentLine('Go to LeetCode, get Accepted, then reopen Grind while online'),
+          commentLine('so it can cache this section for offline use.'),
+        ].join('\n')
+      }
+      var body = String(acceptedCode).replace(/\r\n/g, '\n').replace(/\s+$/, '').split('\n').map(function(line) {
+        return commentLine(line)
+      })
+      return [marker, commentLine('Latest accepted submission from leetcode.com (cached for offline).'), commentLine('')].concat(body).join('\n')
+    }
+
+    function stripAcceptedSection(code) {
+      var idx = code.indexOf(acceptedMarker())
+      if (idx < 0) return code
+      return code.slice(0, idx).replace(/\s+$/, '')
+    }
+
+    function upsertAcceptedSection(code, acceptedCode) {
+      var section = formatAcceptedSection(acceptedCode)
+      var base = stripAcceptedSection(code).replace(/\s+$/, '')
+      return base + LEARNING_SEP + section + '\n'
+    }
+
+    function getCookieFromHeader(cookieHeader, name) {
+      var parts = String(cookieHeader || '').replace(/^cookie:\s*/i, '').split(';')
+      for (var i = 0; i < parts.length; i++) {
+        var eq = parts[i].indexOf('=')
+        if (eq < 0) continue
+        if (parts[i].slice(0, eq).trim() === name) return parts[i].slice(eq + 1).trim()
+      }
+      return ''
+    }
+
+    function fetchLcAcceptedCode(slug) {
+      if (!navigator.onLine) return Promise.resolve(null)
+      var session = ''
+      var csrf = ''
+      try {
+        session = localStorage.getItem('lc_session') || ''
+        csrf = localStorage.getItem('lc_csrf') || getCookieFromHeader(session, 'csrftoken')
+      } catch (e) {}
+      if (!session || !csrf) return Promise.resolve(null)
+
+      var want = lang === 'python3' ? 'python' : 'cpp'
+      return fetch('/api/leetcode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session: session,
+          csrfToken: csrf,
+          query: 'query($slug:String!,$offset:Int!,$limit:Int!){questionSubmissionList(questionSlug:$slug,offset:$offset,limit:$limit,status:10){submissions{id lang timestamp}}}',
+          variables: { slug: slug, offset: 0, limit: 40 },
+        }),
+      }).then(function(r) { return r.json() }).then(function(r1) {
+        var subs = (((r1 || {}).data || {}).questionSubmissionList || {}).submissions || []
+        var match = null
+        for (var i = 0; i < subs.length; i++) {
+          var l = String(subs[i].lang || '').toLowerCase()
+          if (want === 'python' && (l === 'python3' || l === 'python')) { match = subs[i]; break }
+          if (want === 'cpp' && l === 'cpp') { match = subs[i]; break }
+        }
+        if (!match) return ''
+        return fetch('/api/leetcode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session: session,
+            csrfToken: csrf,
+            query: 'query($id:Int!){submissionDetails(submissionId:$id){code}}',
+            variables: { id: Number(match.id) },
+          }),
+        }).then(function(r) { return r.json() }).then(function(r2) {
+          return String((((r2 || {}).data || {}).submissionDetails || {}).code || '').trim()
+        })
+      }).catch(function() { return null })
+    }
+
+    function resolveLcAcceptedCode(q) {
+      var cached = readLcAcceptedCache(q.id)
+      if (!navigator.onLine) {
+        return Promise.resolve(cached ? (cached.empty ? null : cached.code) : null)
+      }
+      return fetchLcAcceptedCode(q.slug).then(function(fetched) {
+        if (fetched !== null) {
+          writeLcAcceptedCache(q.id, fetched)
+          return fetched.trim() ? fetched : null
+        }
+        return cached ? (cached.empty ? null : cached.code) : null
+      })
+    }
+
+    function applyAcceptedToEditor(q, code) {
+      return resolveLcAcceptedCode(q).then(function(accepted) {
+        var next = upsertAcceptedSection(code, accepted)
+        if (next !== code) {
+          try { localStorage.setItem(draftKey(q.id), next) } catch (e) {}
+          if (editorHandle && selectedId === q.id) editorHandle.setDoc(next)
+          updateSessionChip(next, q.id)
+        }
+        return next
+      })
     }
 
     function htmlToPlainText(html) {
@@ -961,7 +1112,7 @@
     }
 
     function stripLearningSections(code) {
-      var markers = [descriptionMarker(), interviewMarker(), lang === 'python3' ? '# PHASE 1' : '// PHASE 1']
+      var markers = [descriptionMarker(), interviewMarker(), acceptedMarker(), lang === 'python3' ? '# PHASE 1' : '// PHASE 1']
       var cut = code.length
       for (var mi = 0; mi < markers.length; mi++) {
         var idx = code.indexOf(markers[mi])
@@ -978,9 +1129,11 @@
       var tail = code.slice(start)
       var iaIdx = tail.indexOf(interviewMarker())
       var phaseIdx = tail.indexOf(lang === 'python3' ? '# PHASE 1' : '// PHASE 1')
+      var acIdx = tail.indexOf(acceptedMarker())
       var end = tail.length
       if (iaIdx > 0) end = Math.min(end, iaIdx)
       if (phaseIdx > 0) end = Math.min(end, phaseIdx)
+      if (acIdx > 0) end = Math.min(end, acIdx)
       var before = code.slice(0, start).replace(/\s+$/, '')
       var after = tail.slice(end).replace(/^\s+/, '')
       if (!after) return before
@@ -1010,9 +1163,11 @@
       var tail = starter.slice(start)
       var iaIdx = tail.indexOf(interviewMarker())
       var phaseIdx = tail.indexOf(lang === 'python3' ? '# PHASE 1' : '// PHASE 1')
+      var acIdx = tail.indexOf(acceptedMarker())
       var end = tail.length
       if (iaIdx > 0) end = Math.min(end, iaIdx)
       if (phaseIdx > 0) end = Math.min(end, phaseIdx)
+      if (acIdx > 0) end = Math.min(end, acIdx)
       return tail.slice(0, end).replace(/\s+$/, '')
     }
 
@@ -1041,11 +1196,15 @@
     function extractInterviewSection(starter) {
       var marker = interviewMarker()
       var markerIdx = starter.indexOf(marker)
-      if (markerIdx >= 0) return starter.slice(markerIdx).replace(/\s+$/, '')
-      var phase = lang === 'python3' ? '# PHASE 1' : '// PHASE 1'
-      var phaseIdx = starter.indexOf(phase)
-      if (phaseIdx >= 0) return starter.slice(phaseIdx).replace(/\s+$/, '')
-      return ''
+      if (markerIdx < 0) {
+        var phase = lang === 'python3' ? '# PHASE 1' : '// PHASE 1'
+        markerIdx = starter.indexOf(phase)
+      }
+      if (markerIdx < 0) return ''
+      var tail = starter.slice(markerIdx)
+      var acIdx = tail.indexOf(acceptedMarker())
+      if (acIdx > 0) return tail.slice(0, acIdx).replace(/\s+$/, '')
+      return tail.replace(/\s+$/, '')
     }
 
     function starterHasExamples(starter) {
@@ -1093,7 +1252,7 @@
         var end = testIdx
         for (var j = testIdx + 1; j < lines.length; j++) {
           var u = lines[j].trim()
-          if (u.indexOf('Problem Description') >= 0 || u.indexOf('Interview Approach') >= 0 || u.indexOf('PHASE 1') >= 0) break
+          if (u.indexOf('Problem Description') >= 0 || u.indexOf('Interview Approach') >= 0 || u.indexOf('Your LeetCode Accepted') >= 0 || u.indexOf('PHASE 1') >= 0) break
           end = j
         }
         return lines.slice(0, end + 1).join('\n')
@@ -1147,6 +1306,7 @@
 
     function loadCode(q) {
       var starter = starterFor(q)
+      var code = starter
       try {
         var d = localStorage.getItem(draftKey(q.id))
         if (d !== null) {
@@ -1154,10 +1314,12 @@
           if (piped.code !== d) {
             try { localStorage.setItem(draftKey(q.id), piped.code) } catch (e) {}
           }
-          return piped.code
+          code = piped.code
         }
       } catch (e) {}
-      return starter
+      var cached = readLcAcceptedCache(q.id)
+      code = upsertAcceptedSection(code, cached && !cached.empty ? cached.code : null)
+      return code
     }
 
     function saveCode(id, code) {
@@ -1180,9 +1342,11 @@
       var q = currentQuestion()
       if (!q) return
       var starter = starterFor(q)
-      try { localStorage.setItem(draftKey(q.id), starter) } catch (e) {}
-      if (editorHandle) editorHandle.setDoc(starter)
-      updateSessionChip(starter, q.id)
+      var cached = readLcAcceptedCache(q.id)
+      var next = upsertAcceptedSection(starter, cached && !cached.empty ? cached.code : null)
+      try { localStorage.setItem(draftKey(q.id), next) } catch (e) {}
+      if (editorHandle) editorHandle.setDoc(next)
+      updateSessionChip(next, q.id)
       incrementResetCount(q.id)
       updateResetButtonLabels()
       var status = document.getElementById('status')
@@ -1656,9 +1820,15 @@
       if (editorHandle) {
         var doc = loadCode(q)
         editorHandle.setDoc(doc)
-        if (q) updateSessionChip(doc, q.id)
+        if (q) {
+          updateSessionChip(doc, q.id)
+          void applyAcceptedToEditor(q, doc)
+        }
       } else if (!isMobile() || editorExpanded) initEditor()
-      else if (q) updateSessionChip(loadCode(q), q.id)
+      else if (q) {
+        updateSessionChip(loadCode(q), q.id)
+        void applyAcceptedToEditor(q, loadCode(q))
+      }
     }
 
     function setListOpen(open) {

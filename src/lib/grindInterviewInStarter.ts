@@ -1,5 +1,6 @@
 import type { GrindLang } from '@/lib/grindStorage'
 import { formatDescriptionPlain } from '@/lib/formatDescription'
+import { acceptedMarker } from '@/lib/grindLcAccepted'
 
 export const DESCRIPTION_MARKER_PY = '# -- Problem Description --'
 export const DESCRIPTION_MARKER_CPP = '// -- Problem Description --'
@@ -26,9 +27,11 @@ export function stripDescriptionSection(code: string, lang: GrindLang): string {
   const tail = code.slice(start)
   const iaIdx = tail.indexOf(interviewMarker(lang))
   const phaseIdx = tail.indexOf(lang === 'python3' ? '# PHASE 1' : '// PHASE 1')
+  const acIdx = tail.indexOf(acceptedMarker(lang))
   let end = tail.length
   if (iaIdx > 0) end = Math.min(end, iaIdx)
   if (phaseIdx > 0) end = Math.min(end, phaseIdx)
+  if (acIdx > 0) end = Math.min(end, acIdx)
 
   const before = code.slice(0, start).replace(/\s+$/, '')
   const after = tail.slice(end).replace(/^\s+/, '')
@@ -116,6 +119,7 @@ function stripLearningSections(code: string, lang: GrindLang): string {
   const markers = [
     descriptionMarker(lang),
     interviewMarker(lang),
+    acceptedMarker(lang),
     lang === 'python3' ? '# PHASE 1' : '// PHASE 1',
   ]
   let cut = code.length
@@ -148,6 +152,7 @@ export function codeBaseForLearningInsert(code: string, lang: GrindLang): string
       if (
         t.startsWith(descriptionMarker(lang)) ||
         t.startsWith(interviewMarker(lang)) ||
+        t.startsWith(acceptedMarker(lang)) ||
         t.startsWith('# PHASE 1') ||
         t.startsWith('// PHASE 1')
       ) {
@@ -194,23 +199,28 @@ export function extractDescriptionSection(starter: string, lang: GrindLang): str
   const tail = starter.slice(start)
   const iaIdx = tail.indexOf(interviewMarker(lang))
   const phaseIdx = tail.indexOf(lang === 'python3' ? '# PHASE 1' : '// PHASE 1')
+  const acIdx = tail.indexOf(acceptedMarker(lang))
   let end = tail.length
   if (iaIdx > 0) end = Math.min(end, iaIdx)
   if (phaseIdx > 0) end = Math.min(end, phaseIdx)
+  if (acIdx > 0) end = Math.min(end, acIdx)
   return tail.slice(0, end).trimEnd()
 }
 
 /** Pull the interview tail from a full starter (marker + STAR-LC script). */
 export function extractInterviewSection(starter: string, lang: GrindLang): string | null {
   const marker = interviewMarker(lang)
-  const markerIdx = starter.indexOf(marker)
-  if (markerIdx >= 0) return starter.slice(markerIdx).trimEnd()
+  let markerIdx = starter.indexOf(marker)
+  if (markerIdx < 0) {
+    const phase = lang === 'python3' ? '# PHASE 1' : '// PHASE 1'
+    markerIdx = starter.indexOf(phase)
+  }
+  if (markerIdx < 0) return null
 
-  const phase = lang === 'python3' ? '# PHASE 1' : '// PHASE 1'
-  const phaseIdx = starter.indexOf(phase)
-  if (phaseIdx >= 0) return starter.slice(phaseIdx).trimEnd()
-
-  return null
+  const tail = starter.slice(markerIdx)
+  const acIdx = tail.indexOf(acceptedMarker(lang))
+  if (acIdx > 0) return tail.slice(0, acIdx).trimEnd()
+  return tail.trimEnd()
 }
 
 function buildLearningTail(

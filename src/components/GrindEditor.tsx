@@ -21,6 +21,11 @@ import {
 import { scheduleMidnightGrindRefresh } from '@/lib/grindPipeline'
 import { runGrindRecheckPipeline } from '@/lib/grindRecheck'
 import { resolveGrindCodeForLoad } from '@/lib/grindSync'
+import {
+  readGrindLcAcceptedCache,
+  resolveGrindLcAcceptedCode,
+  upsertAcceptedSection,
+} from '@/lib/grindLcAccepted'
 import type { GrindQuestion } from '@/lib/grindQuestions'
 import { formatDescriptionPlain } from '@/lib/formatDescription'
 import { loadQuestionsDataAllRows } from '@/lib/grindQuestions'
@@ -123,7 +128,20 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
       )
       if (cancelled || gen !== loadGenRef.current) return
 
-      setCode(loaded.code)
+      let nextCode = loaded.code
+      try {
+        const accepted = await resolveGrindLcAcceptedCode(question.id, question.slug, lang)
+        if (cancelled || gen !== loadGenRef.current) return
+        nextCode = upsertAcceptedSection(nextCode, lang, accepted)
+        if (nextCode !== loaded.code) {
+          writeGrindDraft(question.id, lang, nextCode)
+          if (typeof navigator !== 'undefined' && navigator.onLine) {
+            saveGrindSession(question.id, lang, nextCode).catch(() => {})
+          }
+        }
+      } catch { /* keep loaded code */ }
+
+      setCode(nextCode)
       setSessionLabel(loaded.sessionLabel)
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         setSyncState('offline')
@@ -276,15 +294,21 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
   )
 
   const reset = useCallback(() => {
-    setCode(starter)
-    setSessionLabel(getGrindSessionChipLabel(question.id, lang, starter))
-    writeGrindDraft(question.id, lang, starter)
+    const cached = readGrindLcAcceptedCache(question.id, lang)
+    const next = upsertAcceptedSection(
+      starter,
+      lang,
+      cached && !cached.empty ? cached.code : null,
+    )
+    setCode(next)
+    setSessionLabel(getGrindSessionChipLabel(question.id, lang, next))
+    writeGrindDraft(question.id, lang, next)
     if (typeof navigator !== 'undefined' && navigator.onLine) {
-      saveGrindSession(question.id, lang, starter).catch(() => {})
+      saveGrindSession(question.id, lang, next).catch(() => {})
     }
     setSyncState(typeof navigator !== 'undefined' && navigator.onLine ? 'synced' : 'offline')
-    const next = incrementGrindResetCount(question.id)
-    setResetCount(next)
+    const count = incrementGrindResetCount(question.id)
+    setResetCount(count)
     onReset?.(question.id)
   }, [starter, question.id, lang, onReset])
 
