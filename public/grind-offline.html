@@ -220,6 +220,22 @@
       color: #89b4fa; font-weight: 600; flex-shrink: 0;
     }
     .reset-count-badge.hidden { display: none; }
+    .q-reset {
+      display: inline-flex; align-items: center;
+      font-size: 0.58rem; font-weight: 800; font-family: monospace;
+      padding: 0.12rem 0.35rem; border-radius: 999px;
+      background: rgba(137,180,250,0.2); color: #89b4fa;
+      border: 1px solid rgba(137,180,250,0.45); line-height: 1;
+    }
+    .q-wrap.on .q-reset {
+      background: #dbeafe; color: #1d4ed8; border-color: #93c5fd;
+    }
+    .cache-banner {
+      padding: 0.4rem 0.65rem; background: #1a2332; border-bottom: 1px solid #313244;
+      font-size: 0.65rem; color: #89b4fa; flex-shrink: 0; display: none;
+    }
+    .cache-banner.show { display: block; }
+    .cache-banner strong { color: #cdd6f4; }
     .desc-card {
       flex: 0 0 auto; height: clamp(6.5rem, 26vh, 11rem);
       margin: 0.25rem 0.35rem 0.3rem; background: #181825;
@@ -462,11 +478,12 @@
         <button type="button" class="chip-btn mob-only" id="btn-list" aria-label="Open question list">List</button>
       </div>
     </header>
+    <div id="cache-banner" class="cache-banner" role="status"></div>
     <div class="body" id="body">
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
-    <span id="offline-version" hidden>v32</span>
+    <span id="offline-version" hidden>v33</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
@@ -500,7 +517,7 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v32'
+    var OFFLINE_VERSION = 'v33'
     var SW_CACHE = 'lm-v26'
     var midnightTimer = null
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v1'
@@ -535,6 +552,7 @@
       var all = readResetCounts()
       all[String(id)] = (all[String(id)] || 0) + 1
       try { localStorage.setItem(RESET_COUNTS_KEY, JSON.stringify(all)) } catch (e) {}
+      try { renderList() } catch (e) {}
       return all[String(id)]
     }
 
@@ -595,6 +613,7 @@
         var merged = mergeResetCountMaps(local, data.counts)
         try { localStorage.setItem(RESET_COUNTS_KEY, JSON.stringify(merged)) } catch (e) {}
         updateResetButtonLabels()
+        try { renderList() } catch (e) {}
       }).catch(function() {})
     }
 
@@ -664,8 +683,10 @@
       if (!online) {
         wasOffline = true
         try { sessionStorage.setItem('lm_grind_was_offline', '1') } catch (e) {}
+        setCacheBanner('', false)
       } else {
         void syncResetCountsOnline()
+        void prefetchAcceptedForOffline()
       }
     }
     function refreshEditorStampIfNewDay() {
@@ -945,14 +966,21 @@
       return text ? '// ' + text : '//'
     }
 
-    function formatAcceptedSection(acceptedCode) {
+    function formatAcceptedSection(acceptedCode, kind) {
       var marker = acceptedMarker()
       var header = [
         marker,
         commentLine('Latest accepted submission from leetcode.com (cached for offline).'),
         commentLine(''),
       ].join('\n')
-      if (!acceptedCode || !String(acceptedCode).trim()) {
+      if (kind === 'uncached') {
+        return [
+          header,
+          commentLine('Not downloaded for offline yet.'),
+          commentLine('Stay online in Grind - it caches accepted solutions in the background.'),
+        ].join('\n')
+      }
+      if (kind === 'empty' || !acceptedCode || !String(acceptedCode).trim()) {
         return [
           header,
           commentLine('No accepted solution found for this language yet.'),
@@ -960,7 +988,6 @@
           commentLine('so it can cache this section for offline use.'),
         ].join('\n')
       }
-      // Keep real code formatting — do not comment every line.
       var body = String(acceptedCode).replace(/\r\n/g, '\n').replace(/\s+$/, '')
       return header + '\n' + body
     }
@@ -971,8 +998,8 @@
       return code.slice(0, idx).replace(/\s+$/, '')
     }
 
-    function upsertAcceptedSection(code, acceptedCode) {
-      var section = formatAcceptedSection(acceptedCode)
+    function upsertAcceptedSection(code, acceptedCode, kind) {
+      var section = formatAcceptedSection(acceptedCode, kind || (acceptedCode && String(acceptedCode).trim() ? 'ready' : 'empty'))
       var base = stripAcceptedSection(code).replace(/\s+$/, '')
       return base + LEARNING_SEP + section + '\n'
     }
@@ -1033,21 +1060,41 @@
 
     function resolveLcAcceptedCode(q) {
       var cached = readLcAcceptedCache(q.id)
+      var solvedHint = false
+      try {
+        var syncRaw = localStorage.getItem('lm_leetcode_list_sync')
+        if (syncRaw) {
+          var sync = JSON.parse(syncRaw)
+          if (sync && Array.isArray(sync.solvedIds)) solvedHint = sync.solvedIds.indexOf(q.id) >= 0
+        }
+      } catch (e) {}
+
       if (!navigator.onLine) {
-        return Promise.resolve(cached ? (cached.empty ? null : cached.code) : null)
+        if (cached && !cached.empty) return Promise.resolve({ status: 'ready', code: cached.code })
+        if (cached && cached.empty && !solvedHint) return Promise.resolve({ status: 'empty' })
+        return Promise.resolve({ status: 'uncached' })
       }
+
+      if (cached && !cached.empty) return Promise.resolve({ status: 'ready', code: cached.code })
+
       return fetchLcAcceptedCode(q.slug).then(function(fetched) {
         if (fetched !== null) {
           writeLcAcceptedCache(q.id, fetched)
-          return fetched.trim() ? fetched : null
+          if (fetched.trim()) return { status: 'ready', code: fetched }
+          return { status: 'empty' }
         }
-        return cached ? (cached.empty ? null : cached.code) : null
+        if (cached && !cached.empty) return { status: 'ready', code: cached.code }
+        if (cached && cached.empty && !solvedHint) return { status: 'empty' }
+        return { status: 'uncached' }
       })
     }
 
     function applyAcceptedToEditor(q, code) {
-      return resolveLcAcceptedCode(q).then(function(accepted) {
-        var next = upsertAcceptedSection(code, accepted)
+      return resolveLcAcceptedCode(q).then(function(resolved) {
+        var next = code
+        if (resolved.status === 'ready') next = upsertAcceptedSection(code, resolved.code, 'ready')
+        else if (resolved.status === 'empty') next = upsertAcceptedSection(code, null, 'empty')
+        else next = upsertAcceptedSection(code, null, 'uncached')
         if (next !== code) {
           try { localStorage.setItem(draftKey(q.id), next) } catch (e) {}
           if (editorHandle && selectedId === q.id) editorHandle.setDoc(next)
@@ -1055,6 +1102,76 @@
         }
         return next
       })
+    }
+
+    function setCacheBanner(text, show) {
+      var el = document.getElementById('cache-banner')
+      if (!el) return
+      el.textContent = text || ''
+      el.classList.toggle('show', !!show)
+    }
+
+    function prefetchAcceptedForOffline() {
+      if (!navigator.onLine) {
+        setCacheBanner('', false)
+        return Promise.resolve()
+      }
+      var session = ''
+      var csrf = ''
+      try {
+        session = localStorage.getItem('lc_session') || ''
+        csrf = localStorage.getItem('lc_csrf') || getCookieFromHeader(session, 'csrftoken')
+      } catch (e) {}
+      if (!session || !csrf) {
+        setCacheBanner('Online: connect LeetCode session (Clipboard Use) to cache accepted solutions offline.', true)
+        return Promise.resolve()
+      }
+
+      var solvedIds = []
+      try {
+        var syncRaw = localStorage.getItem('lm_leetcode_list_sync')
+        if (syncRaw) {
+          var sync = JSON.parse(syncRaw)
+          if (sync && Array.isArray(sync.solvedIds)) solvedIds = sync.solvedIds
+        }
+      } catch (e) {}
+
+      var pool = solvedIds.length
+        ? questions.filter(function(q) { return solvedIds.indexOf(q.id) >= 0 })
+        : []
+      if (!pool.length) {
+        setCacheBanner('Online: sync LeetCode list once, then Grind will cache accepted solutions for offline.', true)
+        return Promise.resolve()
+      }
+
+      var todo = pool.filter(function(q) {
+        var c = readLcAcceptedCache(q.id)
+        if (c && !c.empty) return false
+        if (c && c.empty && solvedIds.indexOf(q.id) >= 0) return true
+        return !c
+      })
+      var done = pool.length - todo.length
+      var cached = done
+      setCacheBanner('Caching accepted solutions for offline… ' + done + '/' + pool.length, true)
+
+      var i = 0
+      function tick() {
+        if (!navigator.onLine || i >= todo.length) {
+          setCacheBanner('Offline cache ready: ' + cached + ' accepted solutions saved for ' + (lang === 'python3' ? 'Python' : 'C++'), true)
+          return Promise.resolve()
+        }
+        var q = todo[i++]
+        return fetchLcAcceptedCode(q.slug).then(function(fetched) {
+          if (fetched !== null) {
+            writeLcAcceptedCache(q.id, fetched)
+            if (fetched.trim()) cached++
+          }
+          done++
+          setCacheBanner('Caching accepted solutions for offline… ' + done + '/' + pool.length + ' (' + cached + ' ready)', true)
+          return new Promise(function(resolve) { setTimeout(resolve, 350) }).then(tick)
+        })
+      }
+      return tick()
     }
 
     function htmlToPlainText(html) {
@@ -1320,7 +1437,9 @@
         }
       } catch (e) {}
       var cached = readLcAcceptedCache(q.id)
-      code = upsertAcceptedSection(code, cached && !cached.empty ? cached.code : null)
+      if (cached && !cached.empty) code = upsertAcceptedSection(code, cached.code, 'ready')
+      else if (cached && cached.empty) code = upsertAcceptedSection(code, null, 'empty')
+      else code = upsertAcceptedSection(code, null, 'uncached')
       return code
     }
 
@@ -1345,7 +1464,11 @@
       if (!q) return
       var starter = starterFor(q)
       var cached = readLcAcceptedCache(q.id)
-      var next = upsertAcceptedSection(starter, cached && !cached.empty ? cached.code : null)
+      var next = cached && !cached.empty
+        ? upsertAcceptedSection(starter, cached.code, 'ready')
+        : cached && cached.empty
+          ? upsertAcceptedSection(starter, null, 'empty')
+          : upsertAcceptedSection(starter, null, 'uncached')
       try { localStorage.setItem(draftKey(q.id), next) } catch (e) {}
       if (editorHandle) editorHandle.setDoc(next)
       updateSessionChip(next, q.id)
@@ -1526,6 +1649,10 @@
       var prioHtml = pri
         ? '<span class="prio-badge prio-' + pri.toLowerCase() + '">' + pri + '</span>'
         : ''
+      var resetCount = readResetCount(q.id)
+      var resetHtml = resetCount > 0
+        ? '<span class="q-reset" title="Reset ' + resetCount + ' times">↺' + resetCount + '</span>'
+        : ''
       return (
         '<div class="q-row">' +
           '<span class="set-badge set-badge-' + q.set + '">S' + q.set + '</span>' +
@@ -1535,6 +1662,7 @@
         '<div class="q-meta">' +
           '<span class="diff-badge ' + diffClass + '">' + q.difficulty + '</span>' +
           prioHtml +
+          resetHtml +
         '</div>'
       )
     }
@@ -2041,9 +2169,13 @@
       lang = next
       syncLangButtons()
       var q = currentQuestion()
-      if (!editorHandle || !q) return
-      editorHandle.setLang(next)
-      editorHandle.setDoc(loadCode(q))
+      if (editorHandle && q) {
+        editorHandle.setLang(next)
+        var doc = loadCode(q)
+        editorHandle.setDoc(doc)
+        void applyAcceptedToEditor(q, doc)
+      }
+      if (navigator.onLine) void prefetchAcceptedForOffline()
     }
 
     document.getElementById('btn-py').onclick = function() { setLang('python3') }

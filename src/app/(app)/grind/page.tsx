@@ -22,6 +22,16 @@ import {
   syncAllGrindResetsToSupabase,
   GRIND_RESET_CHANGED,
 } from '@/lib/grindResets'
+import {
+  prefetchGrindLcAcceptedForOffline,
+  stopGrindLcAcceptedPrefetch,
+  type GrindLcAcceptedPrefetchProgress,
+} from '@/lib/grindLcAccepted'
+import {
+  ensureLcSessionForSync,
+  readLcListSync,
+  syncLeetCodeListAccepted,
+} from '@/lib/leetcodeListSync'
 import { useMobileViewport } from '@/hooks/useMobileViewport'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 
@@ -78,6 +88,7 @@ function GrindInner() {
   const [resetCounts, setResetCounts] = useState<Record<number, number>>(() => readAllGrindResetCounts())
   const prefetchRef = useRef(false)
   const activeRowRef = useRef<HTMLDivElement | null>(null)
+  const [acCacheProgress, setAcCacheProgress] = useState<GrindLcAcceptedPrefetchProgress | null>(null)
 
   const spKey = sp.toString()
 
@@ -222,6 +233,43 @@ function GrindInner() {
     setTimeout(tick, 800)
   }, [loading, questions, selected])
 
+  // Background-cache accepted LeetCode solutions for offline Grind.
+  useEffect(() => {
+    if (loading || questions.length === 0 || !online) {
+      stopGrindLcAcceptedPrefetch()
+      if (!online) setAcCacheProgress(null)
+      return
+    }
+
+    let cancelled = false
+    void (async () => {
+      await ensureLcSessionForSync()
+      if (cancelled) return
+
+      // Need solved IDs so we only download accepted code for problems you AC'd.
+      if (!readLcListSync()?.solvedIds?.length) {
+        const { session, csrf } = await ensureLcSessionForSync()
+        if (session && csrf) {
+          await syncLeetCodeListAccepted(questions, session, csrf)
+        }
+      }
+      if (cancelled) return
+
+      await prefetchGrindLcAcceptedForOffline(
+        questions.map(q => ({ id: q.id, slug: q.slug })),
+        lang,
+        p => {
+          if (!cancelled) setAcCacheProgress(p)
+        },
+      )
+    })()
+
+    return () => {
+      cancelled = true
+      stopGrindLcAcceptedPrefetch()
+    }
+  }, [loading, questions, online, lang])
+
   function navigateToQuestion(q: GrindQuestion) {
     writeGrindLastQuestionId(q.id)
     setSelectedId(q.id)
@@ -358,6 +406,26 @@ function GrindInner() {
         </form>
       </header>
 
+      {online && acCacheProgress && acCacheProgress.total > 0 && (
+        <div className="grind-cache-banner" role="status">
+          {acCacheProgress.running ? (
+            <>
+              Caching accepted solutions for offline…{' '}
+              <strong className="tabular-nums">
+                {acCacheProgress.done}/{acCacheProgress.total}
+              </strong>
+              {' '}({acCacheProgress.cached} ready)
+            </>
+          ) : (
+            <>
+              Offline cache ready:{' '}
+              <strong className="tabular-nums">{acCacheProgress.cached}</strong>
+              {' '}accepted solution{acCacheProgress.cached === 1 ? '' : 's'} saved for {lang === 'python3' ? 'Python' : 'C++'}
+            </>
+          )}
+        </div>
+      )}
+
       <div className="grind-body">
         <button
           type="button"
@@ -395,7 +463,7 @@ function GrindInner() {
                       <span className={`grind-pill ${diffClass(q.difficulty)}`}>{q.difficulty}</span>
                       {pri && <span className={`grind-pill ${prioClass(pri)}`}>{pri}</span>}
                       {(resetCounts[q.id] ?? 0) > 0 && (
-                        <span className="grind-q-reset text-[0.52rem] font-mono text-[#89b4fa] opacity-70 leading-none">
+                        <span className="grind-q-reset" title={`Reset ${resetCounts[q.id]} times`}>
                           ↺{resetCounts[q.id]}
                         </span>
                       )}

@@ -6,6 +6,7 @@
 import type { GrindLang } from '@/lib/grindStorage'
 import { getCookieFromHeader } from '@/lib/leetcodeHttp'
 import { lcFetch } from '@/lib/leetcodeLocalConnector'
+import { readLcListSync } from '@/lib/leetcodeListSync'
 
 export const ACCEPTED_MARKER_PY = '# -- Your LeetCode Accepted --'
 export const ACCEPTED_MARKER_CPP = '// -- Your LeetCode Accepted --'
@@ -14,6 +15,20 @@ export type GrindLcAcceptedCache = {
   code: string
   fetchedAt: string
   empty: boolean
+}
+
+/** How we resolved accepted code for the editor section. */
+export type GrindLcAcceptedResolve =
+  | { status: 'ready'; code: string }
+  | { status: 'empty' }
+  | { status: 'uncached' }
+  | { status: 'skipped' }
+
+export type GrindLcAcceptedPrefetchProgress = {
+  done: number
+  total: number
+  cached: number
+  running: boolean
 }
 
 function cacheKey(questionId: number, lang: GrindLang): string {
@@ -60,13 +75,33 @@ export function writeGrindLcAcceptedCache(
   } catch { /* quota */ }
 }
 
+export function countCachedGrindLcAccepted(
+  questionIds: number[],
+  lang: GrindLang,
+): { ready: number; empty: number; missing: number } {
+  let ready = 0
+  let empty = 0
+  let missing = 0
+  for (const id of questionIds) {
+    const c = readGrindLcAcceptedCache(id, lang)
+    if (!c) missing++
+    else if (c.empty) empty++
+    else ready++
+  }
+  return { ready, empty, missing }
+}
+
 function commentLine(lang: GrindLang, text = ''): string {
   if (lang === 'python3') return text ? `# ${text}` : '#'
   return text ? `// ${text}` : '//'
 }
 
-/** Format accepted solution (or empty guidance) as a section after interview. */
-export function formatAcceptedSection(lang: GrindLang, acceptedCode: string | null): string {
+/** Format accepted solution (or empty / uncached guidance). */
+export function formatAcceptedSection(
+  lang: GrindLang,
+  acceptedCode: string | null,
+  kind: 'ready' | 'empty' | 'uncached' = acceptedCode?.trim() ? 'ready' : 'empty',
+): string {
   const marker = acceptedMarker(lang)
   const header = [
     marker,
@@ -74,7 +109,15 @@ export function formatAcceptedSection(lang: GrindLang, acceptedCode: string | nu
     commentLine(lang, ''),
   ].join('\n')
 
-  if (!acceptedCode?.trim()) {
+  if (kind === 'uncached') {
+    return [
+      header,
+      commentLine(lang, 'Not downloaded for offline yet.'),
+      commentLine(lang, 'Stay online in Grind - it caches accepted solutions in the background.'),
+    ].join('\n')
+  }
+
+  if (kind === 'empty' || !acceptedCode?.trim()) {
     return [
       header,
       commentLine(lang, 'No accepted solution found for this language yet.'),
@@ -83,7 +126,6 @@ export function formatAcceptedSection(lang: GrindLang, acceptedCode: string | nu
     ].join('\n')
   }
 
-  // Keep real code formatting (indentation, syntax) - do not comment every line.
   const body = acceptedCode.replace(/\r\n/g, '\n').trimEnd()
   return `${header}\n${body}`
 }
@@ -100,15 +142,13 @@ export function stripAcceptedSection(code: string, lang: GrindLang): string {
   return code.slice(0, idx).replace(/\s+$/, '')
 }
 
-/**
- * Replace or append the accepted section. Does not touch solution / interview body.
- */
 export function upsertAcceptedSection(
   code: string,
   lang: GrindLang,
   acceptedCode: string | null,
+  kind: 'ready' | 'empty' | 'uncached' = acceptedCode?.trim() ? 'ready' : 'empty',
 ): string {
-  const section = formatAcceptedSection(lang, acceptedCode)
+  const section = formatAcceptedSection(lang, acceptedCode, kind)
   const without = stripAcceptedSection(code, lang)
   const base = without.replace(/\s+$/, '')
   return `${base}\n\n\n\n${section}\n`
@@ -138,6 +178,11 @@ async function lcGraphql(
     body: JSON.stringify({ session, csrfToken, query, variables }),
   })
   return res.json()
+}
+
+function isSolvedOnLcList(questionId: number): boolean {
+  const sync = readLcListSync()
+  return Boolean(sync?.solvedIds?.includes(questionId))
 }
 
 /**
@@ -188,24 +233,130 @@ export async function fetchGrindLcAcceptedCode(
 }
 
 /**
- * Online: fetch + cache. Offline / no session: use cache.
- * Always returns a string|null for upsert (null = show empty guidance).
+ * Online: fetch + cache (refresh empty if LC list says solved).
+ * Offline: use cache; uncached if never downloaded.
  */
 export async function resolveGrindLcAcceptedCode(
   questionId: number,
   slug: string,
   lang: GrindLang,
-): Promise<string | null> {
+): Promise<GrindLcAcceptedResolve> {
   const cached = readGrindLcAcceptedCache(questionId, lang)
+  const solvedHint = isSolvedOnLcList(questionId)
 
   if (typeof navigator !== 'undefined' && navigator.onLine) {
+    const { session, csrfToken } = getLcCredentials()
+    if (!session || !csrfToken) {
+      if (cached && !cached.empty) return { status: 'ready', code: cached.code }
+      if (cached?.empty && !solvedHint) return { status: 'empty' }
+      return { status: 'uncached' }
+    }
+
+    // Keep good cache; re-fetch empty when list sync says this problem is solved.
+    if (cached && !cached.empty) return { status: 'ready', code: cached.code }
+
     const fetched = await fetchGrindLcAcceptedCode(slug, lang)
     if (fetched !== null) {
       writeGrindLcAcceptedCache(questionId, lang, fetched)
-      return fetched.trim() ? fetched : null
+      if (fetched.trim()) return { status: 'ready', code: fetched }
+      return { status: 'empty' }
     }
   }
 
-  if (cached) return cached.empty ? null : cached.code
-  return null
+  if (cached && !cached.empty) return { status: 'ready', code: cached.code }
+  if (cached?.empty && !solvedHint) return { status: 'empty' }
+  if (cached?.empty && solvedHint) return { status: 'uncached' }
+  return { status: 'uncached' }
+}
+
+export function applyAcceptedResolveToCode(
+  code: string,
+  lang: GrindLang,
+  resolved: GrindLcAcceptedResolve,
+): string {
+  if (resolved.status === 'skipped') return code
+  if (resolved.status === 'ready') return upsertAcceptedSection(code, lang, resolved.code, 'ready')
+  if (resolved.status === 'empty') return upsertAcceptedSection(code, lang, null, 'empty')
+  return upsertAcceptedSection(code, lang, null, 'uncached')
+}
+
+type PrefetchQuestion = { id: number; slug: string }
+
+let prefetchAbort: AbortController | null = null
+
+/** Background-download accepted solutions for solved grind questions (current lang). */
+export async function prefetchGrindLcAcceptedForOffline(
+  questions: PrefetchQuestion[],
+  lang: GrindLang,
+  onProgress?: (p: GrindLcAcceptedPrefetchProgress) => void,
+): Promise<void> {
+  if (typeof window === 'undefined') return
+  if (!navigator.onLine) return
+
+  const { session, csrfToken } = getLcCredentials()
+  if (!session || !csrfToken) {
+    onProgress?.({ done: 0, total: 0, cached: 0, running: false })
+    return
+  }
+
+  prefetchAbort?.abort()
+  const ac = new AbortController()
+  prefetchAbort = ac
+
+  const sync = readLcListSync()
+  const solvedSet = new Set(sync?.solvedIds ?? [])
+  // Prefer known-solved from LeetCode list sync; if none synced yet, skip bulk fetch.
+  const pool = solvedSet.size > 0
+    ? questions.filter(q => solvedSet.has(q.id))
+    : []
+
+  if (pool.length === 0) {
+    onProgress?.({ done: 0, total: 0, cached: 0, running: false })
+    return
+  }
+
+  const todo = pool.filter(q => {
+    const c = readGrindLcAcceptedCache(q.id, lang)
+    // Skip ready caches; refresh empty when list says solved.
+    if (c && !c.empty) return false
+    if (c?.empty && solvedSet.size > 0 && !solvedSet.has(q.id)) return false
+    if (c?.empty && solvedSet.has(q.id)) return true
+    return !c
+  })
+
+  const already = pool.length - todo.length
+  onProgress?.({
+    done: already,
+    total: pool.length,
+    cached: already,
+    running: todo.length > 0,
+  })
+
+  let done = already
+  let cached = already
+
+  for (const q of todo) {
+    if (ac.signal.aborted || !navigator.onLine) break
+    const fetched = await fetchGrindLcAcceptedCode(q.slug, lang)
+    if (ac.signal.aborted) break
+    if (fetched !== null) {
+      writeGrindLcAcceptedCache(q.id, lang, fetched)
+      if (fetched.trim()) cached++
+    }
+    done++
+    onProgress?.({ done, total: pool.length, cached, running: true })
+    await new Promise(r => setTimeout(r, 350))
+  }
+
+  onProgress?.({
+    done: Math.min(done, pool.length),
+    total: pool.length,
+    cached,
+    running: false,
+  })
+}
+
+export function stopGrindLcAcceptedPrefetch(): void {
+  prefetchAbort?.abort()
+  prefetchAbort = null
 }

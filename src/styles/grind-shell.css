@@ -194,6 +194,34 @@
   flex-shrink: 0;
 }
 
+.grind-shell .grind-cache-banner {
+  padding: 0.4rem 0.65rem;
+  background: #1a2332;
+  border-bottom: 1px solid #313244;
+  font-size: 0.65rem;
+  color: #89b4fa;
+  flex-shrink: 0;
+}
+
+.grind-shell .grind-cache-banner strong {
+  color: #cdd6f4;
+}
+
+.grind-shell .grind-q-reset {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.58rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0.12rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(137, 180, 250, 0.2);
+  color: #89b4fa;
+  border: 1px solid rgba(137, 180, 250, 0.45);
+  flex-shrink: 0;
+}
+
 .grind-shell .grind-online-banner {
   padding: 0.55rem 0.65rem;
   background: #16352a;
@@ -424,7 +452,9 @@
 }
 
 .grind-shell .grind-q-wrap.on .grind-q-reset {
+  background: #dbeafe;
   color: #1d4ed8;
+  border-color: #93c5fd;
   opacity: 1;
 }
 

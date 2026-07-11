@@ -24,6 +24,7 @@ import { resolveGrindCodeForLoad } from '@/lib/grindSync'
 import {
   readGrindLcAcceptedCache,
   resolveGrindLcAcceptedCode,
+  applyAcceptedResolveToCode,
   upsertAcceptedSection,
 } from '@/lib/grindLcAccepted'
 import type { GrindQuestion } from '@/lib/grindQuestions'
@@ -132,7 +133,7 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
       try {
         const accepted = await resolveGrindLcAcceptedCode(question.id, question.slug, lang)
         if (cancelled || gen !== loadGenRef.current) return
-        nextCode = upsertAcceptedSection(nextCode, lang, accepted)
+        nextCode = applyAcceptedResolveToCode(nextCode, lang, accepted)
         if (nextCode !== loaded.code) {
           writeGrindDraft(question.id, lang, nextCode)
           if (typeof navigator !== 'undefined' && navigator.onLine) {
@@ -295,11 +296,11 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
 
   const reset = useCallback(() => {
     const cached = readGrindLcAcceptedCache(question.id, lang)
-    const next = upsertAcceptedSection(
-      starter,
-      lang,
-      cached && !cached.empty ? cached.code : null,
-    )
+    const next = cached && !cached.empty
+      ? upsertAcceptedSection(starter, lang, cached.code, 'ready')
+      : cached?.empty
+        ? upsertAcceptedSection(starter, lang, null, 'empty')
+        : upsertAcceptedSection(starter, lang, null, 'uncached')
     setCode(next)
     setSessionLabel(getGrindSessionChipLabel(question.id, lang, next))
     writeGrindDraft(question.id, lang, next)
