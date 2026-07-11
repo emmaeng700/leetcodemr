@@ -65,33 +65,27 @@ function commentLine(lang: GrindLang, text = ''): string {
   return text ? `// ${text}` : '//'
 }
 
-/** Format accepted solution (or empty guidance) as a comment section. */
+/** Format accepted solution (or empty guidance) as a section after interview. */
 export function formatAcceptedSection(lang: GrindLang, acceptedCode: string | null): string {
   const marker = acceptedMarker(lang)
+  const header = [
+    marker,
+    commentLine(lang, 'Latest accepted submission from leetcode.com (cached for offline).'),
+    commentLine(lang, ''),
+  ].join('\n')
 
   if (!acceptedCode?.trim()) {
     return [
-      marker,
-      commentLine(lang, 'Latest accepted submission from leetcode.com (cached for offline).'),
-      commentLine(lang, ''),
+      header,
       commentLine(lang, 'No accepted solution found for this language yet.'),
       commentLine(lang, 'Go to LeetCode, get Accepted, then reopen Grind while online'),
       commentLine(lang, 'so it can cache this section for offline use.'),
     ].join('\n')
   }
 
-  const body = acceptedCode
-    .replace(/\r\n/g, '\n')
-    .trimEnd()
-    .split('\n')
-    .map(line => commentLine(lang, line))
-
-  return [
-    marker,
-    commentLine(lang, 'Latest accepted submission from leetcode.com (cached for offline).'),
-    commentLine(lang, ''),
-    ...body,
-  ].join('\n')
+  // Keep real code formatting (indentation, syntax) — do not comment every line.
+  const body = acceptedCode.replace(/\r\n/g, '\n').trimEnd()
+  return `${header}\n${body}`
 }
 
 export function starterHasAcceptedSection(code: string, lang: GrindLang): boolean {
