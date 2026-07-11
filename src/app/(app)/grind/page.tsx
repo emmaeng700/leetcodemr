@@ -410,7 +410,7 @@ function GrindInner() {
         <div className="grind-cache-banner" role="status">
           {acCacheProgress.running ? (
             <>
-              Caching accepted solutions for offline…{' '}
+              Caching accepted solutions for offline (syncs across devices)…{' '}
               <strong className="tabular-nums">
                 {acCacheProgress.done}/{acCacheProgress.total}
               </strong>
@@ -418,9 +418,9 @@ function GrindInner() {
             </>
           ) : (
             <>
-              Offline cache ready:{' '}
+              Offline + cloud cache ready:{' '}
               <strong className="tabular-nums">{acCacheProgress.cached}</strong>
-              {' '}accepted solution{acCacheProgress.cached === 1 ? '' : 's'} saved for {lang === 'python3' ? 'Python' : 'C++'}
+              {' '}accepted solution{acCacheProgress.cached === 1 ? '' : 's'} for {lang === 'python3' ? 'Python' : 'C++'}
             </>
           )}
         </div>

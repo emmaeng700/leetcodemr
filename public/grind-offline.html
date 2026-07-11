@@ -483,7 +483,7 @@
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
-    <span id="offline-version" hidden>v33</span>
+    <span id="offline-version" hidden>v34</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
@@ -517,7 +517,7 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v33'
+    var OFFLINE_VERSION = 'v34'
     var SW_CACHE = 'lm-v26'
     var midnightTimer = null
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v1'
@@ -951,13 +951,57 @@
     }
 
     function writeLcAcceptedCache(id, code) {
+      var entry = {
+        code: String(code || '').trim(),
+        fetchedAt: new Date().toISOString(),
+        empty: !String(code || '').trim(),
+      }
       try {
-        localStorage.setItem(lcAcceptedCacheKey(id), JSON.stringify({
-          code: String(code || '').trim(),
-          fetchedAt: new Date().toISOString(),
-          empty: !String(code || '').trim(),
-        }))
+        localStorage.setItem(lcAcceptedCacheKey(id), JSON.stringify(entry))
       } catch (e) {}
+      if (!navigator.onLine) return
+      fetch('/api/grind-lc-accepted', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          item: {
+            question_id: id,
+            lang: lang,
+            code: entry.code,
+            empty: entry.empty,
+            fetched_at: entry.fetchedAt,
+          },
+        }),
+      }).catch(function() {})
+    }
+
+    function hydrateLcAcceptedFromRemote() {
+      if (!navigator.onLine) return Promise.resolve(0)
+      return fetch('/api/grind-lc-accepted', { cache: 'no-store' })
+        .then(function(r) { return r.ok ? r.json() : null })
+        .then(function(data) {
+          if (!data || !Array.isArray(data.items)) return 0
+          var ready = 0
+          data.items.forEach(function(item) {
+            if (item.lang !== lang) return
+            var local = readLcAcceptedCache(item.question_id)
+            var remoteReady = !item.empty && item.code && String(item.code).trim()
+            if (remoteReady && (!local || local.empty)) {
+              try {
+                localStorage.setItem(lcAcceptedCacheKey(item.question_id), JSON.stringify({
+                  code: String(item.code).trim(),
+                  fetchedAt: item.fetched_at || new Date().toISOString(),
+                  empty: false,
+                }))
+              } catch (e) {}
+              ready++
+            } else if (remoteReady) {
+              ready++
+            }
+          })
+          return ready
+        })
+        .catch(function() { return 0 })
     }
 
     function commentLine(text) {
@@ -1122,56 +1166,67 @@
         session = localStorage.getItem('lc_session') || ''
         csrf = localStorage.getItem('lc_csrf') || getCookieFromHeader(session, 'csrftoken')
       } catch (e) {}
-      if (!session || !csrf) {
-        setCacheBanner('Online: connect LeetCode session (Clipboard Use) to cache accepted solutions offline.', true)
-        return Promise.resolve()
-      }
 
-      var solvedIds = []
-      try {
-        var syncRaw = localStorage.getItem('lm_leetcode_list_sync')
-        if (syncRaw) {
-          var sync = JSON.parse(syncRaw)
-          if (sync && Array.isArray(sync.solvedIds)) solvedIds = sync.solvedIds
-        }
-      } catch (e) {}
-
-      var pool = solvedIds.length
-        ? questions.filter(function(q) { return solvedIds.indexOf(q.id) >= 0 })
-        : []
-      if (!pool.length) {
-        setCacheBanner('Online: sync LeetCode list once, then Grind will cache accepted solutions for offline.', true)
-        return Promise.resolve()
-      }
-
-      var todo = pool.filter(function(q) {
-        var c = readLcAcceptedCache(q.id)
-        if (c && !c.empty) return false
-        if (c && c.empty && solvedIds.indexOf(q.id) >= 0) return true
-        return !c
-      })
-      var done = pool.length - todo.length
-      var cached = done
-      setCacheBanner('Caching accepted solutions for offline… ' + done + '/' + pool.length, true)
-
-      var i = 0
-      function tick() {
-        if (!navigator.onLine || i >= todo.length) {
-          setCacheBanner('Offline cache ready: ' + cached + ' accepted solutions saved for ' + (lang === 'python3' ? 'Python' : 'C++'), true)
-          return Promise.resolve()
-        }
-        var q = todo[i++]
-        return fetchLcAcceptedCode(q.slug).then(function(fetched) {
-          if (fetched !== null) {
-            writeLcAcceptedCache(q.id, fetched)
-            if (fetched.trim()) cached++
+      return hydrateLcAcceptedFromRemote().then(function(remoteReady) {
+        if (!session || !csrf) {
+          if (remoteReady > 0) {
+            setCacheBanner('Synced ' + remoteReady + ' accepted solutions from your other devices.', true)
+          } else {
+            setCacheBanner('Online: connect LeetCode session (Clipboard Use) to cache accepted solutions offline.', true)
           }
-          done++
-          setCacheBanner('Caching accepted solutions for offline… ' + done + '/' + pool.length + ' (' + cached + ' ready)', true)
-          return new Promise(function(resolve) { setTimeout(resolve, 350) }).then(tick)
+          return
+        }
+
+        var solvedIds = []
+        try {
+          var syncRaw = localStorage.getItem('lm_leetcode_list_sync')
+          if (syncRaw) {
+            var sync = JSON.parse(syncRaw)
+            if (sync && Array.isArray(sync.solvedIds)) solvedIds = sync.solvedIds
+          }
+        } catch (e) {}
+
+        var pool = solvedIds.length
+          ? questions.filter(function(q) { return solvedIds.indexOf(q.id) >= 0 })
+          : []
+        if (!pool.length) {
+          if (remoteReady > 0) {
+            setCacheBanner('Synced ' + remoteReady + ' accepted solutions from your other devices.', true)
+          } else {
+            setCacheBanner('Online: sync LeetCode list once, then Grind will cache accepted solutions for offline.', true)
+          }
+          return
+        }
+
+        var todo = pool.filter(function(q) {
+          var c = readLcAcceptedCache(q.id)
+          if (c && !c.empty) return false
+          if (c && c.empty && solvedIds.indexOf(q.id) >= 0) return true
+          return !c
         })
-      }
-      return tick()
+        var done = pool.length - todo.length
+        var cached = done
+        setCacheBanner('Caching accepted solutions for offline (syncs across devices)… ' + done + '/' + pool.length, true)
+
+        var i = 0
+        function tick() {
+          if (!navigator.onLine || i >= todo.length) {
+            setCacheBanner('Offline + cloud cache ready: ' + cached + ' accepted solutions for ' + (lang === 'python3' ? 'Python' : 'C++'), true)
+            return Promise.resolve()
+          }
+          var q = todo[i++]
+          return fetchLcAcceptedCode(q.slug).then(function(fetched) {
+            if (fetched !== null) {
+              writeLcAcceptedCache(q.id, fetched)
+              if (fetched.trim()) cached++
+            }
+            done++
+            setCacheBanner('Caching accepted solutions for offline (syncs across devices)… ' + done + '/' + pool.length + ' (' + cached + ' ready)', true)
+            return new Promise(function(resolve) { setTimeout(resolve, 350) }).then(tick)
+          })
+        }
+        return tick()
+      })
     }
 
     function htmlToPlainText(html) {

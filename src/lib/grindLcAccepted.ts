@@ -63,16 +63,132 @@ export function writeGrindLcAcceptedCache(
   questionId: number,
   lang: GrindLang,
   code: string,
+  options?: { syncRemote?: boolean; fetchedAt?: string },
 ): void {
   if (typeof window === 'undefined') return
   const entry: GrindLcAcceptedCache = {
     code: code.trim(),
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: options?.fetchedAt ?? new Date().toISOString(),
     empty: !code.trim(),
   }
   try {
     localStorage.setItem(cacheKey(questionId, lang), JSON.stringify(entry))
   } catch { /* quota */ }
+
+  if (options?.syncRemote === false) return
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return
+
+  void fetch('/api/grind-lc-accepted', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      item: {
+        question_id: questionId,
+        lang,
+        code: entry.code,
+        empty: entry.empty,
+        fetched_at: entry.fetchedAt,
+      },
+    }),
+  }).catch(() => {})
+}
+
+/** Pull Supabase cache into localStorage (cross-device). Returns how many ready codes landed locally. */
+export async function hydrateGrindLcAcceptedFromRemote(
+  lang?: GrindLang,
+): Promise<{ ready: number; total: number }> {
+  if (typeof window === 'undefined') return { ready: 0, total: 0 }
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return { ready: 0, total: 0 }
+
+  try {
+    const res = await fetch('/api/grind-lc-accepted', { cache: 'no-store' })
+    if (!res.ok) return { ready: 0, total: 0 }
+    const data = await res.json() as {
+      items?: Array<{
+        question_id: number
+        lang: string
+        code: string
+        empty: boolean
+        fetched_at: string
+      }>
+    }
+
+    let ready = 0
+    let total = 0
+    for (const item of data.items ?? []) {
+      const itemLang = item.lang === 'cpp' ? 'cpp' : item.lang === 'python3' ? 'python3' : null
+      if (!itemLang) continue
+      if (lang && itemLang !== lang) continue
+      total++
+
+      const local = readGrindLcAcceptedCache(item.question_id, itemLang)
+      const remoteReady = !item.empty && Boolean(item.code?.trim())
+      const localReady = Boolean(local && !local.empty)
+
+      // Prefer non-empty; if both ready, keep newer fetchedAt.
+      if (remoteReady) {
+        if (!localReady) {
+          writeGrindLcAcceptedCache(item.question_id, itemLang, item.code, {
+            syncRemote: false,
+            fetchedAt: item.fetched_at,
+          })
+          ready++
+        } else if (local && Date.parse(item.fetched_at) > Date.parse(local.fetchedAt)) {
+          writeGrindLcAcceptedCache(item.question_id, itemLang, item.code, {
+            syncRemote: false,
+            fetchedAt: item.fetched_at,
+          })
+          ready++
+        } else {
+          ready++
+        }
+      } else if (!local) {
+        writeGrindLcAcceptedCache(item.question_id, itemLang, '', {
+          syncRemote: false,
+          fetchedAt: item.fetched_at,
+        })
+      }
+    }
+    return { ready, total }
+  } catch {
+    return { ready: 0, total: 0 }
+  }
+}
+
+/** Push local ready caches that remote may be missing (batch). */
+export async function pushLocalGrindLcAcceptedToRemote(
+  questionIds: number[],
+  lang: GrindLang,
+): Promise<void> {
+  if (typeof window === 'undefined') return
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return
+
+  const items = []
+  for (const id of questionIds) {
+    const c = readGrindLcAcceptedCache(id, lang)
+    if (!c || c.empty || !c.code.trim()) continue
+    items.push({
+      question_id: id,
+      lang,
+      code: c.code,
+      empty: false,
+      fetched_at: c.fetchedAt,
+    })
+  }
+  if (items.length === 0) return
+
+  // Chunk to keep payloads reasonable
+  const chunkSize = 40
+  for (let i = 0; i < items.length; i += chunkSize) {
+    const chunk = items.slice(i, i + chunkSize)
+    try {
+      await fetch('/api/grind-lc-accepted', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: chunk }),
+      })
+    } catch { /* ignore */ }
+  }
 }
 
 export function countCachedGrindLcAccepted(
@@ -112,8 +228,9 @@ export function formatAcceptedSection(
   if (kind === 'uncached') {
     return [
       header,
-      commentLine(lang, 'Not downloaded for offline yet.'),
-      commentLine(lang, 'Stay online in Grind - it caches accepted solutions in the background.'),
+      commentLine(lang, 'Not on this device yet.'),
+      commentLine(lang, 'Stay online in Grind - it pulls from your cloud cache / LeetCode'),
+      commentLine(lang, 'and syncs accepted solutions across phone and desktop.'),
     ].join('\n')
   }
 
@@ -303,6 +420,10 @@ export async function prefetchGrindLcAcceptedForOffline(
   const ac = new AbortController()
   prefetchAbort = ac
 
+  // Cross-device: pull anything another device already cached, push local ready codes.
+  const hydrated = await hydrateGrindLcAcceptedFromRemote(lang)
+  if (ac.signal.aborted) return
+
   const sync = readLcListSync()
   const solvedSet = new Set(sync?.solvedIds ?? [])
   // Prefer known-solved from LeetCode list sync; if none synced yet, skip bulk fetch.
@@ -311,9 +432,17 @@ export async function prefetchGrindLcAcceptedForOffline(
     : []
 
   if (pool.length === 0) {
-    onProgress?.({ done: 0, total: 0, cached: 0, running: false })
+    onProgress?.({
+      done: hydrated.ready,
+      total: hydrated.total || hydrated.ready,
+      cached: hydrated.ready,
+      running: false,
+    })
     return
   }
+
+  await pushLocalGrindLcAcceptedToRemote(pool.map(q => q.id), lang)
+  if (ac.signal.aborted) return
 
   const todo = pool.filter(q => {
     const c = readGrindLcAcceptedCache(q.id, lang)
