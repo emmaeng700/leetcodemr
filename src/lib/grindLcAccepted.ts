@@ -83,7 +83,7 @@ export function formatAcceptedSection(lang: GrindLang, acceptedCode: string | nu
     ].join('\n')
   }
 
-  // Keep real code formatting (indentation, syntax) — do not comment every line.
+  // Keep real code formatting (indentation, syntax) - do not comment every line.
   const body = acceptedCode.replace(/\r\n/g, '\n').trimEnd()
   return `${header}\n${body}`
 }
