@@ -981,7 +981,20 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
         ('RIGHTPADDING',  (0,0), (-1,-1), 0),
     ]))
     items.append(title_tbl)
-    items.append(Spacer(1, 2))
+    items.append(Spacer(1, 1))
+    # Prominent "Open on LeetCode" link right below the title
+    # (URI re-injected after imposition in _add_links_1x1 via "Open on LeetCode" search)
+    items.append(Paragraph(
+        f'<a href="https://leetcode.com/problems/{slug}/" color="#0000EE">'
+        f'<b>Open on LeetCode ↗</b></a>',
+        ParagraphStyle(
+            f'lc_open_{qid}', fontName='LG-Bold',
+            fontSize=S['title'].fontSize,
+            textColor=HexColor('#0000EE'),
+            leading=S['title'].leading,
+            leftIndent=2, spaceAfter=1,
+        ),
+    ))
     items.append(hr(GRAY_300, 0.3))
 
     links = (
@@ -3049,10 +3062,11 @@ def _add_links_1x1(output_path: Path, page_types: dict,
     n_uri = 0
     if qid_to_slug:
         _SITE_SEARCHES = [
-            ('LeetDoocs', lambda qid, slug: f'https://leetcode.doocs.org/en/lc/{qid}/'),
-            ('SimplyLeet', lambda qid, slug: f'https://www.simplyleet.com/{slug}'),
-            ('WalkCC',     lambda qid, slug: f'https://walkccc.me/LeetCode/problems/{qid}/'),
-            ('LeetCode',   lambda qid, slug: f'https://leetcode.com/problems/{slug}/'),
+            ('Open on LeetCode', lambda qid, slug: f'https://leetcode.com/problems/{slug}/'),
+            ('LeetDoocs',        lambda qid, slug: f'https://leetcode.doocs.org/en/lc/{qid}/'),
+            ('SimplyLeet',       lambda qid, slug: f'https://www.simplyleet.com/{slug}'),
+            ('WalkCC',           lambda qid, slug: f'https://walkccc.me/LeetCode/problems/{qid}/'),
+            ('LeetCode',         lambda qid, slug: f'https://leetcode.com/problems/{slug}/'),
         ]
         for sh in range(n_sheets):
             if sh in toc_sheets:
