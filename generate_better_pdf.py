@@ -326,7 +326,23 @@ TOC_ARROW_PAD = 4.0
 # ─── Styles ──────────────────────────────────────────────────────────────────
 # 4×4 mode: inner pages match cell size (no scaling), so use full readable sizes.
 # Default: pages scaled down ~58% when imposed, so source sizes are small.
-if GRID_4X4:
+if MODE_ALL727:
+    # 1×1 portrait scales mini-pages ~2.9× — use tighter fonts to match code-box size.
+    _RUN_PT, _RUN_LD = 4.5, 5.8
+    S = {
+        'title':       ParagraphStyle('ttl', fontName='LG-Bold',    fontSize=5.0, textColor=BLACK, leading=6.5,  spaceAfter=1),
+        'body':        ParagraphStyle('bd',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
+        'body_sm':     ParagraphStyle('bds', fontName='LG-Bold',    fontSize=4.0, textColor=BLACK, leading=5.2,  spaceAfter=1),
+        'code':        ParagraphStyle('cd',  fontName='Menlo-Bold', fontSize=3.2, textColor=BLACK, leading=4.2),
+        'head2':       ParagraphStyle('h2',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
+        'toc':         ParagraphStyle('tc',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD),
+        'cover_title': ParagraphStyle('ct',  fontName='LG-Bold',    fontSize=10,  textColor=BLACK, alignment=TA_CENTER, leading=13),
+        'cover_sub':   ParagraphStyle('cs',  fontName='LG-Bold',    fontSize=6,   textColor=BLACK, alignment=TA_CENTER, leading=8),
+    }
+    TOC_CB_PT     = float(_RUN_PT)
+    TOC_CB_GAP    = _RUN_PT + 1
+    TOC_ARROW_PAD = max(4.0, round(_RUN_PT * 0.57, 1))
+elif GRID_4X4:
     S = {
         'title':       ParagraphStyle('ttl', fontName='LG-Bold',    fontSize=11, textColor=BLACK, leading=14,  spaceAfter=1),
         'body':        ParagraphStyle('bd',  fontName='LG-Bold',    fontSize=11, textColor=BLACK, leading=14,  spaceAfter=1),
