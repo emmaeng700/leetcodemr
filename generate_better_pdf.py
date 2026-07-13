@@ -2761,6 +2761,7 @@ def _add_links_1x1(output_path: Path, page_types: dict,
                    round_page_registry: dict,
                    pat_page_registry: dict,
                    qid_difficulty: dict = None,
+                   qid_to_slug: dict = None,
                    GAP: float = 8.0,
                    src_w: float = 204.0, src_h: float = 264.0,
                    L_W: float = 612.0, L_H: float = 792.0):
@@ -2769,6 +2770,8 @@ def _add_links_1x1(output_path: Path, page_types: dict,
     All link destinations are recalculated for inner_pg == output_sheet.
     Features: TOC arrows, checkboxes, difficulty dots, smart ← Contents,
               solution checkboxes, master Done checkbox, → Next button.
+    When qid_to_slug is provided, also re-adds clickable URI links for the
+    LeetDoocs / SimplyLeet / WalkCC / LeetCode links line on each question page.
     """
     _SOL_LABELS = [f'● {site_label}' for _, site_label in SITE_META] + ['● My LeetCode Solution']
     _qid_diff   = qid_difficulty or {}
@@ -3040,12 +3043,41 @@ def _add_links_1x1(output_path: Path, page_types: dict,
             out_pg.add_widget(wd)
             n_sol += 1
 
+    # ── External URI links for the site links line ────────────────────────────
+    # Re-add "LeetDoocs · SimplyLeet · WalkCC · LeetCode" as clickable URI links.
+    # These are lost during show_pdf_page imposition so we re-inject them here.
+    n_uri = 0
+    if qid_to_slug:
+        _SITE_SEARCHES = [
+            ('LeetDoocs', lambda qid, slug: f'https://leetcode.doocs.org/en/lc/{qid}/'),
+            ('SimplyLeet', lambda qid, slug: f'https://www.simplyleet.com/{slug}'),
+            ('WalkCC',     lambda qid, slug: f'https://walkccc.me/LeetCode/problems/{qid}/'),
+            ('LeetCode',   lambda qid, slug: f'https://leetcode.com/problems/{slug}/'),
+        ]
+        for sh in range(n_sheets):
+            if sh in toc_sheets:
+                continue
+            qid = inner_page_current_qid.get(sh)
+            if not qid:
+                continue
+            slug = qid_to_slug.get(qid, '')
+            out_pg = doc[sh]
+            for label, url_fn in _SITE_SEARCHES:
+                hits = out_pg.search_for(label)
+                if not hits:
+                    continue
+                url = url_fn(qid, slug)
+                r = hits[0]
+                out_pg.insert_link({'kind': fitz.LINK_URI, 'from': r, 'uri': url})
+                n_uri += 1
+
     tmp = output_path.with_suffix('.tmp.pdf')
     doc.save(str(tmp), garbage=4, deflate=True, incremental=False)
     doc.close()
     tmp.replace(output_path)
+    uri_info = f'  |  URI links: {n_uri}' if n_uri else ''
     print(f'  Links: {n_links} (↗)  |  {n_sec} round/pat  |  TOC cb: {n_boxes}  |  '
-          f'Sol cb: {n_sol}  |  Done: {n_done}  |  Next: {n_next}  |  ← Cont: {n_cont}')
+          f'Sol cb: {n_sol}  |  Done: {n_done}  |  Next: {n_next}  |  ← Cont: {n_cont}{uri_info}')
 
 
 # ─── NeetCode-150 / AlgoMaster-600 category mode support ─────────────────────
@@ -3290,10 +3322,12 @@ if __name__ == '__main__':
 
         print('Adding precise hyperlinks to 1×1 version…')
         qid_difficulty = {q['id']: q.get('difficulty', 'Easy') for q in questions}
+        qid_to_slug    = {q['id']: q.get('slug', '')            for q in questions}
         _add_links_1x1(
             OUTPUT_1UP, page_types, qid_first_page, toc_link_rects, toc_section_rects,
             round_page_registry, pat_page_registry,
             qid_difficulty=qid_difficulty,
+            qid_to_slug=qid_to_slug,
         )
 
         INNER_PDF.unlink(missing_ok=True)
