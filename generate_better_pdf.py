@@ -26,6 +26,7 @@ MODE_NC150     = '--neetcode'   in sys.argv
 MODE_AM600     = '--am600'      in sys.argv
 MODE_NC_EXTRA  = '--nc-extra'   in sys.argv   # 32 NC150 questions not in Set 1
 MODE_AM_EXTRA  = '--am-extra'   in sys.argv   # 344 AM600 questions not in Set 1 or NC150
+MODE_ALL727    = '--all'        in sys.argv   # All 727 questions (Set 1 + 2 + 3)
 
 # ─── Font registration ────────────────────────────────────────────────────────
 from reportlab.pdfbase import pdfmetrics
@@ -83,6 +84,10 @@ PLAYBOOK_PATH = SCRIPT_DIR / "public" / "playbook_data.json"
 _PLAYBOOK: dict = (
     json.loads(PLAYBOOK_PATH.read_text()) if PLAYBOOK_PATH.exists() else {}
 )
+if MODE_ALL727:
+    _ALL_PB = SCRIPT_DIR / 'public' / 'playbook_data_all.json'
+    if _ALL_PB.exists():
+        _PLAYBOOK.update(json.loads(_ALL_PB.read_text()))
 
 # ─── My LeetCode Solution loader ─────────────────────────────────────────────
 _SB_URL  = "https://azrokoorufejfoeddzrw.supabase.co"
@@ -221,6 +226,12 @@ elif MODE_AM600:
     OUTPUT_1UP      = SCRIPT_DIR / 'am600_1up.pdf'
     _COVER_TITLE    = 'AlgoMaster 600'
     _COVER_SUBTITLE = 'Priority-Grouped · Category-Ordered · 2×1 Landscape'
+elif MODE_ALL727:
+    INNER_PDF       = SCRIPT_DIR / '_all727_inner.pdf'
+    OUTPUT_PDF      = SCRIPT_DIR / 'ultimate_study.pdf'
+    OUTPUT_1UP      = SCRIPT_DIR / 'ultimate_1up.pdf'
+    _COVER_TITLE    = 'LeetMastery Ultimate'
+    _COVER_SUBTITLE = 'All 727 Questions  ·  Set 1 + Set 2 + Set 3'
 else:
     INNER_PDF       = SCRIPT_DIR / '_better_inner.pdf'
     OUTPUT_PDF      = SCRIPT_DIR / ('the_digest.pdf' if CHAPTER2_PDF else 'better.pdf')
@@ -814,6 +825,52 @@ class PageCounter:
         if _PAGE_STATE['round']:
             canvas.drawString(MG, MG - 3, _PAGE_STATE['round'])
         canvas.restoreState()
+
+# ─── All-727: round builder for a single set ──────────────────────────────────
+def build_rounds_for_set(questions_in_set: list, base_round: int = 1) -> list:
+    """Build 9 rounds from one set using the section field from grind_questions.json."""
+    from collections import defaultdict
+    PRIO_ORDER = ['High', 'Mid', 'Low']
+    DIFF_ORDER = ['Easy', 'Medium', 'Hard']
+
+    def _parse_section(q):
+        section = (q.get('section') or '').strip()
+        if section and ' - ' in section:
+            pd, pat = section.split(' - ', 1)
+            parts = pd.split()
+            pri = parts[0] if parts else 'Low'
+            dif = parts[1] if len(parts) > 1 else q.get('difficulty', 'Easy')
+            return pri, dif, pat.strip()
+        pat = (q.get('pattern') or 'Unknown').strip()
+        dif = q.get('difficulty', 'Easy')
+        pri = PATTERN_PRIORITY.get(pat, 'Low')
+        return pri, dif, pat
+
+    buckets: dict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    for q in questions_in_set:
+        pri, dif, pat = _parse_section(q)
+        buckets[pri][dif][pat].append(q)
+
+    result = []
+    rn = base_round
+    for pri in PRIO_ORDER:
+        for dif in DIFF_ORDER:
+            pgs = []
+            seen: set = set()
+            for pat_name in DISPLAY_PATTERN_ORDER:
+                qs = sorted(buckets[pri][dif].get(pat_name, []), key=lambda q: q['id'])
+                if qs:
+                    pgs.append(({'name': pat_name, 'tags': [], 'color': '#6B7280', 'hex': '#6B7280'}, qs))
+                seen.add(pat_name)
+            for pat_name in sorted(buckets[pri][dif]):
+                if pat_name not in seen:
+                    qs = sorted(buckets[pri][dif][pat_name], key=lambda q: q['id'])
+                    if qs:
+                        pgs.append(({'name': pat_name, 'tags': [], 'color': '#6B7280', 'hex': '#6B7280'}, qs))
+            result.append((rn, pri, dif, pgs))
+            rn += 1
+    return result
+
 
 # ─── Question block ───────────────────────────────────────────────────────────
 def build_interview_approach(qid: int) -> list:
@@ -1410,6 +1467,225 @@ def build_inner_pdf(rounds: list, sites: dict, doocs: dict, my_solutions: dict |
     doc.build(story, onFirstPage=counter.on_page, onLaterPages=counter.on_page)
     print(f'Inner PDF: {counter.n} mini-pages → {INNER_PDF.name}')
     return counter.n, round_page_registry, pat_page_registry
+
+
+# ─── All-727 inner PDF builder ────────────────────────────────────────────────
+def build_all727_inner_pdf(sets_and_rounds: list, sites: dict, doocs: dict,
+                            my_solutions: dict | None = None):
+    """
+    Builds the inner mini-page PDF for all 727 questions across 3 sets.
+    sets_and_rounds: [(set_num, set_name, rounds_9), ...]
+    Each rounds_9 is a 9-entry list from build_rounds_for_set().
+    Output is the same visual style as build_inner_pdf() (1×1 portrait).
+    """
+    counter = PageCounter()
+    round_page_registry: dict[int, int] = {}
+    pat_page_registry: dict[tuple[int, str], int] = {}
+
+    total_qs = sum(
+        len(qs)
+        for _, _, rounds in sets_and_rounds
+        for _, _, _, pgs in rounds
+        for _, qs in pgs
+    )
+
+    doc = SimpleDocTemplate(
+        str(INNER_PDF),
+        pagesize=(MP_W, MP_H),
+        rightMargin=MG, leftMargin=MG,
+        topMargin=MG, bottomMargin=MG + 5,
+    )
+    story = []
+
+    # ── Cover ─────────────────────────────────────────────────────────────────
+    story.append(Spacer(1, 28))
+    story.append(Paragraph(_COVER_TITLE, _inner_ps('brand', 'cover_title', alignment=TA_CENTER)))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(_COVER_SUBTITLE, S['cover_title']))
+    subtitle = 'Python Only  ·  Priority-Grouped  ·  Difficulty-First  ·  1×1 Portrait'
+    detail   = f'{total_qs} questions  ·  3 Sets  ·  27 Rounds  ·  Inline Quick Review'
+    story.append(Paragraph(subtitle, _inner_ps('sub2', 'cover_sub', alignment=TA_CENTER)))
+    story.append(Spacer(1, 8))
+    story.append(hr())
+    story.append(Spacer(1, 5))
+    story.append(Paragraph(detail, _inner_ps('ci', 'body', alignment=TA_CENTER)))
+    story.append(Paragraph(
+        'High Easy → High Med → High Hard → Mid Easy → Mid Med → Mid Hard → Low Easy → Low Med → Low Hard',
+        _inner_ps('ci2', 'body', alignment=TA_CENTER)))
+    story.append(PageBreak())
+
+    # ── Table of Contents ─────────────────────────────────────────────────────
+    story.append(Paragraph('<b>Contents</b>', _inner_ps('toch', 'title', spaceAfter=4)))
+    story.append(Paragraph(
+        f'<b>{premium_star_markup()} = LeetCode Premium</b>',
+        _inner_ps('tochint', 'body', spaceAfter=3)))
+    story.append(hr())
+
+    _SET_COLORS = {1: HexColor('#1E3A5F'), 2: HexColor('#1A5C36'), 3: HexColor('#5C1A1A')}
+
+    for set_num, set_name, rounds in sets_and_rounds:
+        set_qs_total = sum(len(qs) for _, _, _, pgs in rounds for _, qs in pgs)
+        if not set_qs_total:
+            continue
+        set_col = _SET_COLORS.get(set_num, HexColor('#1E3A5F'))
+        set_hdr = Table([[Paragraph(
+            f'<font color="#FFFFFF"><b>── {safe_xml(set_name)}  ({set_qs_total} questions) ──</b></font>',
+            _inner_ps(f'toc_set{set_num}', 'title', alignment=TA_CENTER),
+        )]], colWidths=[USE_W])
+        set_hdr.setStyle(TableStyle([
+            ('BACKGROUND',    (0,0), (-1,-1), set_col),
+            ('TOPPADDING',    (0,0), (-1,-1), 3),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+            ('LEFTPADDING',   (0,0), (-1,-1), 4),
+            ('RIGHTPADDING',  (0,0), (-1,-1), 4),
+        ]))
+        story.append(Spacer(1, 4))
+        story.append(set_hdr)
+
+        pat_st = ParagraphStyle(
+            f'tocpat_{set_num}', fontName='LG-Bold', fontSize=S['toc'].fontSize,
+            textColor=BLACK, leading=S['toc'].leading, spaceAfter=2, leftIndent=12,
+        )
+        q_left = TOC_CB_PT + TOC_CB_GAP + 4
+
+        for round_num, priority, difficulty, pattern_groups in rounds:
+            all_qs_in_round = [(pat, q) for pat, qs in pattern_groups for q in qs]
+            if not all_qs_in_round:
+                continue
+            n_q = len(all_qs_in_round)
+            pri_c = PRIORITY_COLORS.get(priority, PRIORITY_COLORS['Low'])
+            rnd_label = round_toc_label(round_num, priority, difficulty, n_q)
+            rnd_xml   = _toc_link_visual(rnd_label)
+            row = Table([[Paragraph(rnd_xml, _inner_ps(f'toch2r{round_num}', 'title'))]], colWidths=[USE_W])
+            row.setStyle(TableStyle([
+                ('BACKGROUND',    (0,0), (-1,-1), pri_c['pill_bg']),
+                ('TOPPADDING',    (0,0), (-1,-1), 2),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+                ('LEFTPADDING',   (0,0), (-1,-1), 4),
+                ('RIGHTPADDING',  (0,0), (-1,-1), 4),
+            ]))
+            story.append(row)
+            for pat, qs in pattern_groups:
+                pat_xml = _toc_link_visual(safe_xml(f'{pat["name"]} ({len(qs)})'))
+                story.append(Paragraph(pat_xml, pat_st))
+                for q in qs:
+                    label = f'{premium_question_prefix(q)}#{q["id"]} {safe_xml(q["title"])}'
+                    tqe_st = ParagraphStyle(
+                        f'tqe{q["id"]}', fontName='LG-Bold', fontSize=S['toc'].fontSize,
+                        textColor=BLACK, leading=S['toc'].leading,
+                        spaceAfter=4, alignment=TA_LEFT, leftIndent=q_left,
+                    )
+                    story.append(Paragraph(f'<b>{label}</b>', tqe_st))
+    story.append(PageBreak())
+
+    # ── Content: Set → Rounds → Patterns → Questions ──────────────────────────
+    for set_num, set_name, rounds in sets_and_rounds:
+        set_qs_total = sum(len(qs) for _, _, _, pgs in rounds for _, qs in pgs)
+        if not set_qs_total:
+            continue
+        set_col = _SET_COLORS.get(set_num, HexColor('#1E3A5F'))
+
+        # Set splash page
+        story.append(SetRound(f'{set_name}  ·  {set_qs_total} questions'))
+        story.append(Spacer(1, USE_H * 0.12))
+        set_banner = Table([[Paragraph(
+            f'<font color="#FFFFFF"><b>{safe_xml(set_name)}</b></font>',
+            _inner_ps(f'snum{set_num}', 'title', alignment=TA_CENTER,
+                      fontSize=S['title'].fontSize + 2, leading=S['title'].leading + 2),
+        )]], colWidths=[USE_W])
+        set_banner.setStyle(TableStyle([
+            ('BACKGROUND',    (0,0), (-1,-1), set_col),
+            ('TOPPADDING',    (0,0), (-1,-1), 10),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 10),
+            ('BOX',           (0,0), (-1,-1), 1.5, set_col),
+        ]))
+        story.append(set_banner)
+        story.append(Spacer(1, 5))
+        story.append(Paragraph(
+            f'<b>{set_qs_total} questions  ·  9 Rounds  ·  Priority → Difficulty → Pattern</b>',
+            _inner_ps(f'sct{set_num}', 'body', alignment=TA_CENTER)))
+        story.append(PageBreak())
+
+        for round_num, priority, difficulty, pattern_groups in rounds:
+            all_qs_in_round = [(pat, q) for pat, qs in pattern_groups for q in qs]
+            if not all_qs_in_round:
+                continue
+
+            pri_c      = PRIORITY_COLORS.get(priority, PRIORITY_COLORS['Low'])
+            diff_dot   = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}.get(difficulty, '')
+            round_label = f'Round {round_num}  ·  {priority} · {difficulty}'
+            story.append(SetRound(round_label))
+
+            ra = anchor_round(round_num)
+            story.append(RoundPageMark(round_num, round_page_registry))
+            story += _anchor_para(ra)
+            story.append(Spacer(1, USE_H * 0.12))
+            banner = Table([[Paragraph(
+                f'<b>{safe_xml(set_name)}  ·  Round {round_num}</b>',
+                _inner_ps(f'rnum{round_num}', 'title', alignment=TA_CENTER,
+                          fontSize=S['title'].fontSize, leading=S['title'].leading),
+            )]], colWidths=[USE_W])
+            banner.setStyle(TableStyle([
+                ('BACKGROUND',    (0,0), (-1,-1), pri_c['pill_bg']),
+                ('TOPPADDING',    (0,0), (-1,-1), 6),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+                ('BOX',           (0,0), (-1,-1), 1.0, pri_c['bar']),
+            ]))
+            story.append(banner)
+            story.append(Spacer(1, 5))
+            story.append(Paragraph(
+                f'<b>{priority} Priority  ·  {diff_dot} {difficulty}</b>',
+                _inner_ps(f'rlab{round_num}', 'title', alignment=TA_CENTER,
+                          fontSize=S['title'].fontSize, leading=S['title'].leading)))
+            story.append(Spacer(1, 3))
+            story.append(Paragraph(
+                f'{len(all_qs_in_round)} question{"s" if len(all_qs_in_round) != 1 else ""}  ·  '
+                f'{len(pattern_groups)} pattern{"s" if len(pattern_groups) != 1 else ""}',
+                _inner_ps(f'rct{round_num}', 'body', alignment=TA_CENTER)))
+            story.append(Spacer(1, 4))
+            story.append(hr(GRAY_300, 0.4))
+            for pat, qs in pattern_groups:
+                q_ids = '  '.join(f'#{q["id"]}' for q in qs)
+                story.append(Paragraph(
+                    f'<b>{safe_xml(pat["name"])}</b>  {safe_xml(q_ids)}',
+                    ParagraphStyle(
+                        f'splash_pat{round_num}_{pat["name"][:8]}',
+                        fontName='LG-Bold', fontSize=S['body'].fontSize,
+                        textColor=BLACK, leading=S['body'].leading, spaceBefore=2,
+                    )))
+            story.append(PageBreak())
+
+            for pat, qs in pattern_groups:
+                pa = anchor_pat(pat['name'])
+                story.append(PatPageMark(round_num, pat['name'], pat_page_registry))
+                story += _anchor_para(pa)
+                story.append(Spacer(1, USE_H * 0.15))
+                pat_banner = Table([[Paragraph(
+                    f'<b>{safe_xml(pat["name"])}</b>',
+                    _inner_ps(f'pbnr{round_num}_{pat["name"][:8]}', 'title', alignment=TA_CENTER,
+                              fontSize=S['title'].fontSize, leading=S['title'].leading),
+                )]], colWidths=[USE_W])
+                pat_banner.setStyle(TableStyle([
+                    ('BACKGROUND',    (0,0), (-1,-1), GRAY_100),
+                    ('TOPPADDING',    (0,0), (-1,-1), 6),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+                    ('BOX',           (0,0), (-1,-1), 0.5, GRAY_300),
+                ]))
+                story.append(pat_banner)
+                story.append(Spacer(1, 3))
+                story.append(Paragraph(
+                    f'{safe_xml(set_name)}  ·  Round {round_num}  ·  {priority} · {difficulty}  ·  '
+                    f'{len(qs)} question{"s" if len(qs) != 1 else ""}',
+                    _inner_ps(f'psub{round_num}_{pat["name"][:8]}', 'body', alignment=TA_CENTER)))
+                story.append(PageBreak())
+
+                for q in qs:
+                    story += build_question_block(q, sites, doocs, pat['name'], pat, my_solutions)
+
+    doc.build(story, onFirstPage=counter.on_page, onLaterPages=counter.on_page)
+    print(f'All-727 inner PDF: {counter.n} mini-pages → {INNER_PDF.name}')
+    return counter.n, round_page_registry, pat_page_registry
+
 
 # ─── 36-up portrait imposer (6×6 grid, matching the original 92-page format) ──
 def impose_36up_portrait(src_path: Path, dst_path: Path):
@@ -2929,8 +3205,103 @@ def _load_mode_data() -> tuple[list, dict, dict, list]:
     return questions, sites, doocs, rounds
 
 
+def _load_all727_data():
+    """
+    Load all 727 questions from grind_questions.json for --all mode.
+    Pre-populates doocs_cache with descriptionHtml for all questions.
+    Returns (questions, sites, doocs, all_rounds, sets_and_rounds).
+    """
+    grind_path = SCRIPT_DIR / 'public' / 'grind_questions.json'
+    grind_qs   = json.loads(grind_path.read_text()) if grind_path.exists() else []
+
+    sites = json.loads(SITES_CACHE.read_text()) if SITES_CACHE.exists() else {}
+    doocs = json.loads(DOOCS_CACHE.read_text()) if DOOCS_CACHE.exists() else {}
+    n_rep = repair_doocs_cache(doocs)
+    if n_rep:
+        print(f'  Repaired {n_rep} doocs description(s)')
+
+    # Inject descriptions from grind_questions.json into doocs cache
+    injected = 0
+    for gq in grind_qs:
+        qid_str = str(gq['id'])
+        html = gq.get('descriptionHtml') or ''
+        if html and qid_str not in doocs:
+            doocs[qid_str] = {'desc_html': html, 'blocks': []}
+            injected += 1
+        elif html and not doocs[qid_str].get('desc_html'):
+            doocs[qid_str]['desc_html'] = html
+            injected += 1
+    if injected:
+        print(f'  Injected {injected} descriptions from grind_questions.json into doocs cache')
+
+    # Normalise question objects
+    questions = []
+    for gq in grind_qs:
+        questions.append({
+            'id':         gq['id'],
+            'title':      gq['title'],
+            'slug':       gq['slug'],
+            'difficulty': gq.get('difficulty', 'Easy'),
+            'pattern':    gq.get('pattern'),
+            'section':    gq.get('section'),
+            'set':        gq.get('set', 1),
+            'tags':       [],
+            'source':     [],
+        })
+
+    # Partition by set and build 9 rounds per set (27 total)
+    sets_data: dict[int, list] = {}
+    for q in questions:
+        s = q.get('set', 1)
+        sets_data.setdefault(s, []).append(q)
+
+    all_rounds  = []
+    sets_and_rounds = []
+    base = 1
+    for set_num in sorted(sets_data.keys()):
+        rounds_9 = build_rounds_for_set(sets_data[set_num], base)
+        all_rounds.extend(rounds_9)
+        sets_and_rounds.append((set_num, f'Set {set_num}', rounds_9))
+        base += 9
+
+    return questions, sites, doocs, all_rounds, sets_and_rounds
+
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
+    if MODE_ALL727:
+        print('Loading all-727 data (Set 1 + Set 2 + Set 3)…')
+        questions, sites, doocs, rounds, sets_and_rounds = _load_all727_data()
+        print(f'  {len(questions)} questions · sites: {len(sites)} · doocs: {len(doocs)}')
+
+        my_solutions = load_my_solutions()
+
+        print('\nBuilding all-727 inner mini-page PDF…')
+        n_pages, round_page_registry, pat_page_registry = build_all727_inner_pdf(
+            sets_and_rounds, sites, doocs, my_solutions)
+
+        print('Analyzing inner PDF for link structure…')
+        page_types, qid_first_page, toc_link_rects, toc_section_rects = (
+            _analyze_inner_for_links(INNER_PDF, rounds)
+        )
+
+        print('Imposing 1×1 portrait (one page per sheet)…')
+        _impose_1up(INNER_PDF, OUTPUT_1UP)
+
+        print('Adding precise hyperlinks to 1×1 version…')
+        qid_difficulty = {q['id']: q.get('difficulty', 'Easy') for q in questions}
+        _add_links_1x1(
+            OUTPUT_1UP, page_types, qid_first_page, toc_link_rects, toc_section_rects,
+            round_page_registry, pat_page_registry,
+            qid_difficulty=qid_difficulty,
+        )
+
+        INNER_PDF.unlink(missing_ok=True)
+        kb1u = OUTPUT_1UP.stat().st_size // 1024
+        print(f'\nDone → {OUTPUT_1UP}  ({kb1u:,} KB)  [1×1 single-page]')
+        print(f'Inner pages: {n_pages}')
+        sys.exit(0)
+
     mode_label = ('NeetCode Exclusives' if MODE_NC_EXTRA else
                   'AlgoMaster Exclusives' if MODE_AM_EXTRA else
                   'NeetCode 150' if MODE_NC150 else
