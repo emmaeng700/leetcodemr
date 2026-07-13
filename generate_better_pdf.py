@@ -327,17 +327,17 @@ TOC_ARROW_PAD = 4.0
 # 4×4 mode: inner pages match cell size (no scaling), so use full readable sizes.
 # Default: pages scaled down ~58% when imposed, so source sizes are small.
 if MODE_ALL727:
-    # 1×1 portrait scales mini-pages ~2.9× — use tighter fonts to match code-box size.
-    _RUN_PT, _RUN_LD = 4.5, 5.8
+    # Match example-box text size throughout: 3.2pt mini-page → ~9pt after 2.9× scale-up.
+    _RUN_PT, _RUN_LD = 3.2, 4.2
     S = {
-        'title':       ParagraphStyle('ttl', fontName='LG-Bold',    fontSize=5.0, textColor=BLACK, leading=6.5,  spaceAfter=1),
-        'body':        ParagraphStyle('bd',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
-        'body_sm':     ParagraphStyle('bds', fontName='LG-Bold',    fontSize=4.0, textColor=BLACK, leading=5.2,  spaceAfter=1),
-        'code':        ParagraphStyle('cd',  fontName='Menlo-Bold', fontSize=3.2, textColor=BLACK, leading=4.2),
-        'head2':       ParagraphStyle('h2',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=1),
+        'title':       ParagraphStyle('ttl', fontName='LG-Bold',    fontSize=3.5, textColor=BLACK, leading=4.6,  spaceAfter=0),
+        'body':        ParagraphStyle('bd',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=0),
+        'body_sm':     ParagraphStyle('bds', fontName='LG-Bold',    fontSize=3.0, textColor=BLACK, leading=4.0,  spaceAfter=0),
+        'code':        ParagraphStyle('cd',  fontName='Menlo-Bold', fontSize=2.8, textColor=BLACK, leading=3.7),
+        'head2':       ParagraphStyle('h2',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD, spaceAfter=0),
         'toc':         ParagraphStyle('tc',  fontName='LG-Bold',    fontSize=_RUN_PT, textColor=BLACK, leading=_RUN_LD),
-        'cover_title': ParagraphStyle('ct',  fontName='LG-Bold',    fontSize=10,  textColor=BLACK, alignment=TA_CENTER, leading=13),
-        'cover_sub':   ParagraphStyle('cs',  fontName='LG-Bold',    fontSize=6,   textColor=BLACK, alignment=TA_CENTER, leading=8),
+        'cover_title': ParagraphStyle('ct',  fontName='LG-Bold',    fontSize=8,   textColor=BLACK, alignment=TA_CENTER, leading=10),
+        'cover_sub':   ParagraphStyle('cs',  fontName='LG-Bold',    fontSize=4,   textColor=BLACK, alignment=TA_CENTER, leading=5.5),
     }
     TOC_CB_PT     = float(_RUN_PT)
     TOC_CB_GAP    = _RUN_PT + 1
