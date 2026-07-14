@@ -328,15 +328,9 @@ export default function LeetCodeListPage() {
 
       if (slug && data.code !== 'lc_not_logged_in') {
         saveLcListHashes({ ...lcListHashes, [lcListKey]: slug })
-        const openUrl = data.practiceUrl
-          ?? (filtered[0]
-            ? leetCodeListPracticeUrl(resolveLeetCodeSlug(filtered[0].id, filtered[0].slug), slug)
-            : (data.listUrl ?? leetCodeListUrl(slug)))
+        const openUrl = data.listUrl ?? leetCodeListUrl(slug)
         openExternalUrl(openUrl)
-        toast.success(
-          `"${listName}" ready on LeetCode — use ‹ › next to Problem List.`,
-          { duration: 5000 },
-        )
+        toast.success(`"${listName}" ready on LeetCode.`, { duration: 5000 })
       } else {
         const msg = data.code === 'lc_not_logged_in' || /not logged in/i.test(data.error ?? '')
           ? 'LeetCode session expired — open leetcode.com, copy Cookie (F12 → Network), then Clipboard → Use'
@@ -552,7 +546,8 @@ export default function LeetCodeListPage() {
           <div className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-[12px] text-orange-800 leading-snug">
             <span className="font-semibold">Create lists here.</span>{' '}
             Filter by set / tier / pattern, then tap{' '}
-            <span className="font-semibold">LC List +</span> to build a LeetCode favorite list with Prev/Next.
+            <span className="font-semibold">New List</span>. Use{' '}
+            <span className="font-semibold">Open LC List</span> to view it on LeetCode.
           </div>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] overflow-hidden shadow-sm">
             <div className="p-3 border-b border-[var(--border-soft)] space-y-2">
@@ -582,43 +577,29 @@ export default function LeetCodeListPage() {
                   {filtered.length} / {questions.length}
                 </span>
 
-                {/* Open as LeetCode List */}
+                {/* Open / create LeetCode List */}
                 {lcListLoading ? (
-                  <span className="text-xs text-[var(--text-subtle)] animate-pulse shrink-0">Creating…</span>
+                  <span className="text-xs text-[var(--text-subtle)] animate-pulse shrink-0">Working…</span>
                 ) : lcListHashes[lcListKey] ? (
                   <div className="flex items-center gap-0.5 shrink-0">
-                    {filtered[0] && (
-                      <a
-                        href={leetCodeListPracticeUrl(
-                          resolveLeetCodeSlug(filtered[0].id, filtered[0].slug),
-                          lcListHashes[lcListKey],
-                        )}
-                        onClick={e =>
-                          openExternalLink(
-                            e,
-                            leetCodeListPracticeUrl(
-                              resolveLeetCodeSlug(filtered[0].id, filtered[0].slug),
-                              lcListHashes[lcListKey],
-                            ),
-                          )
-                        }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Open first filtered problem with list Prev/Next"
-                        className="flex items-center gap-1 px-2.5 py-2 rounded-l-xl border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition"
-                      >
-                        <ExternalLink size={12} /> Practice
-                      </a>
-                    )}
                     <a
                       href={leetCodeListUrl(lcListHashes[lcListKey])}
                       onClick={e => openExternalLink(e, leetCodeListUrl(lcListHashes[lcListKey]))}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`flex items-center gap-1 px-2.5 py-2 border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition ${filtered[0] ? 'border-l-0' : 'rounded-l-xl'}`}
+                      title="Open this list on LeetCode"
+                      className="flex items-center gap-1 px-2.5 py-2 rounded-l-xl border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition"
                     >
                       <ExternalLink size={12} /> Open LC List
                     </a>
+                    <button
+                      type="button"
+                      onClick={() => void handleCreateLcList()}
+                      title={`Replace/rebuild this list from the ${filtered.length} filtered questions`}
+                      className="flex items-center gap-1 px-2.5 py-2 border border-l-0 border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition"
+                    >
+                      New List
+                    </button>
                     <button
                       type="button"
                       onClick={() => void handleDeleteLcList()}
@@ -633,9 +614,9 @@ export default function LeetCodeListPage() {
                     type="button"
                     onClick={() => void handleCreateLcList()}
                     title={`Create a LeetCode Favorite List from these ${filtered.length} questions`}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[var(--border)] text-xs font-semibold text-[var(--text-muted)] hover:border-orange-400 hover:text-orange-500 transition shrink-0"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition shrink-0"
                   >
-                    <ExternalLink size={12} /> LC List +
+                    <ExternalLink size={12} /> New List
                   </button>
                 )}
               </div>
