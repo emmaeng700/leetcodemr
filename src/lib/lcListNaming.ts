@@ -168,11 +168,14 @@ export function lcListStorageKey(parts: {
   tier?: string | null
   pattern?: string | null
   difficulties?: ReadonlySet<LcDifficulty> | null
+  priorities?: ReadonlySet<LcPriority> | null
 }): string {
   const bits: string[] = []
   if (parts.set) bits.push(`s${parts.set}`)
   if (parts.tier && parts.tier !== 'all') bits.push(parts.tier.replace(/\s+/g, '-').toLowerCase())
   if (parts.pattern && parts.pattern !== 'all') bits.push(parts.pattern)
+  const priTag = parts.priorities ? priorityLabel(parts.priorities) : null
+  if (priTag) bits.push(`p-${priTag.toLowerCase()}`)
   const diffTag = parts.difficulties ? difficultyLabel(parts.difficulties) : null
   if (diffTag) bits.push(diffTag.toLowerCase())
   return bits.length ? bits.join('|') : 'all'
@@ -188,6 +191,7 @@ export function storageKeyForPlan(
   },
   split: LcBatchSplit,
   difficulties?: ReadonlySet<LcDifficulty>,
+  priorities?: ReadonlySet<LcPriority>,
 ): string {
   const qs = plan.questions
   const set =
@@ -208,7 +212,13 @@ export function storageKeyForPlan(
       : split === 'pattern'
         ? plan.key.split(':').slice(1).join(':')
         : commonPattern(qs)
-  return lcListStorageKey({ set, tier, pattern, difficulties: difficulties ?? null })
+  return lcListStorageKey({
+    set,
+    tier,
+    pattern,
+    difficulties: difficulties ?? null,
+    priorities: priorities ?? null,
+  })
 }
 
 export function priorityForPattern(pattern: string | null): string | null {
@@ -223,6 +233,7 @@ export function questionMatchesFilters(
     tierFilter: 'all' | StudyTier
     patternFilter: string
     difficulties?: ReadonlySet<LcDifficulty> | LcDifficulty[]
+    priorities?: ReadonlySet<LcPriority> | LcPriority[]
   },
 ): boolean {
   if (opts.setFilter !== 'all' && q.set !== opts.setFilter) return false
@@ -230,26 +241,49 @@ export function questionMatchesFilters(
   if (opts.patternFilter !== 'all' && q.pattern !== opts.patternFilter) return false
   if (opts.difficulties) {
     const set = opts.difficulties instanceof Set ? opts.difficulties : new Set(opts.difficulties)
-    if (set.size > 0 && set.size < 3 && !set.has(q.difficulty as LcDifficulty)) return false
     if (set.size === 0) return false
+    if (set.size < 3 && !set.has(q.difficulty as LcDifficulty)) return false
+  }
+  if (opts.priorities) {
+    const set = opts.priorities instanceof Set ? opts.priorities : new Set(opts.priorities)
+    if (set.size === 0) return false
+    if (set.size < 3) {
+      const pri = priorityForPattern(q.pattern) as LcPriority | null
+      if (!pri || !set.has(pri)) return false
+    }
   }
   return true
 }
 
 export type LcDifficulty = 'Easy' | 'Medium' | 'Hard'
+export type LcPriority = 'High' | 'Mid' | 'Low'
 
 export const LC_DIFFICULTIES: LcDifficulty[] = ['Easy', 'Medium', 'Hard']
+export const LC_PRIORITIES: LcPriority[] = ['High', 'Mid', 'Low']
 
 export function difficultyLabel(diffs: ReadonlySet<LcDifficulty>): string | null {
   if (diffs.size === 0 || diffs.size === 3) return null
   return LC_DIFFICULTIES.filter(d => diffs.has(d)).join('+')
 }
 
+export function priorityLabel(pris: ReadonlySet<LcPriority>): string | null {
+  if (pris.size === 0 || pris.size === 3) return null
+  return LC_PRIORITIES.filter(p => pris.has(p)).join('+')
+}
+
+export function withBatchSuffixes(
+  listName: string,
+  difficulties: ReadonlySet<LcDifficulty>,
+  priorities: ReadonlySet<LcPriority>,
+): string {
+  const tags = [priorityLabel(priorities), difficultyLabel(difficulties)].filter(Boolean) as string[]
+  if (!tags.length) return listName
+  if (listName === 'LeetMastery All 727') return tags.join(' · ')
+  return `${listName} · ${tags.join(' · ')}`
+}
+
 export function withDifficultySuffix(listName: string, diffs: ReadonlySet<LcDifficulty>): string {
-  const label = difficultyLabel(diffs)
-  if (!label) return listName
-  if (listName === 'LeetMastery All 727') return label
-  return `${listName} · ${label}`
+  return withBatchSuffixes(listName, diffs, new Set(LC_PRIORITIES))
 }
 
 export type LcBatchPreset = {
@@ -318,6 +352,7 @@ export function planPresetLcLists(
   preset: LcBatchPreset,
   nameOrder: LcNamePart[],
   difficulties: ReadonlySet<LcDifficulty> = new Set(LC_DIFFICULTIES),
+  priorities: ReadonlySet<LcPriority> = new Set(LC_PRIORITIES),
 ): BatchListPlan[] {
   const pool = allQuestions.filter(q =>
     questionMatchesFilters(q, {
@@ -325,6 +360,7 @@ export function planPresetLcLists(
       tierFilter: preset.tierFilter,
       patternFilter: preset.patternFilter,
       difficulties,
+      priorities,
     }),
   )
   return planBatchLcLists(pool, preset.split, nameOrder, {
@@ -334,29 +370,41 @@ export function planPresetLcLists(
   })
     .map(plan => ({
       ...plan,
-      listName: withDifficultySuffix(plan.listName, difficulties),
+      listName: withBatchSuffixes(plan.listName, difficulties, priorities),
     }))
     .filter(plan => plan.questions.length > 0)
 }
 
-/** Apply difficulty ticks to an already-planned batch (e.g. current page filters). */
+/** Apply difficulty + priority ticks to an already-planned batch. */
+export function applyBatchTicks(
+  plans: BatchListPlan[],
+  difficulties: ReadonlySet<LcDifficulty>,
+  priorities: ReadonlySet<LcPriority>,
+): BatchListPlan[] {
+  return plans
+    .map(plan => {
+      const questions = plan.questions.filter(q => {
+        if (difficulties.size === 0 || priorities.size === 0) return false
+        if (difficulties.size < 3 && !difficulties.has(q.difficulty as LcDifficulty)) return false
+        if (priorities.size < 3) {
+          const pri = priorityForPattern(q.pattern) as LcPriority | null
+          if (!pri || !priorities.has(pri)) return false
+        }
+        return true
+      })
+      return {
+        ...plan,
+        questions,
+        listName: withBatchSuffixes(plan.listName, difficulties, priorities),
+      }
+    })
+    .filter(plan => plan.questions.length > 0)
+}
+
+/** @deprecated use applyBatchTicks */
 export function applyBatchDifficulties(
   plans: BatchListPlan[],
   difficulties: ReadonlySet<LcDifficulty>,
 ): BatchListPlan[] {
-  return plans
-    .map(plan => {
-      const questions =
-        difficulties.size === 0
-          ? []
-          : difficulties.size === 3
-            ? plan.questions
-            : plan.questions.filter(q => difficulties.has(q.difficulty as LcDifficulty))
-      return {
-        ...plan,
-        questions,
-        listName: withDifficultySuffix(plan.listName, difficulties),
-      }
-    })
-    .filter(plan => plan.questions.length > 0)
+  return applyBatchTicks(plans, difficulties, new Set(LC_PRIORITIES))
 }
