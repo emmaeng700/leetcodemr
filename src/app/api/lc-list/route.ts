@@ -34,18 +34,29 @@ async function lcGql(session: string, csrf: string, body: object) {
 }
 
 async function createLcFavorite(session: string, csrf: string, name: string): Promise<{ hash: string | null; raw: unknown }> {
+  // Introspect first so we know the real return-type fields
+  const intro = await lcGql(session, csrf, {
+    query: `{ __type(name:"CreateEmptyFavorite"){fields{name}} }`,
+  })
+  const fields: string[] = (intro.data?.data?.__type?.fields ?? []).map((f: { name: string }) => f.name)
+
+  // Build field list from what's actually available
+  const wantedFields = ['ok', 'error', 'idHash', 'favoriteIdHash', 'id', 'slug', 'hash']
+  const safeFields = wantedFields.filter(f => fields.includes(f))
+  const fieldStr = safeFields.length ? safeFields.join(' ') : 'ok error'
+
   const result = await lcGql(session, csrf, {
     operationName: 'createEmptyFavorite',
     variables: { name, isPublicFavorite: false },
     query: `mutation createEmptyFavorite($name: String!, $isPublicFavorite: Boolean!) {
       createEmptyFavorite(name: $name, isPublicFavorite: $isPublicFavorite) {
-        ok error name idHash isPublicFavorite
+        ${fieldStr}
       }
     }`,
   })
   const fav = result.data?.data?.createEmptyFavorite
-  const hash = fav?.idHash ?? fav?.favoriteIdHash ?? null
-  return { hash, raw: result.data }
+  const hash = fav?.idHash ?? fav?.favoriteIdHash ?? fav?.id ?? fav?.slug ?? fav?.hash ?? null
+  return { hash, raw: { introFields: fields, createResult: result.data } }
 }
 
 async function addToFavorite(session: string, csrf: string, favoriteIdHash: string, questionId: number): Promise<boolean> {
