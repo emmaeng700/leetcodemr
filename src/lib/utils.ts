@@ -27,6 +27,28 @@ export function leetCodeUrl(slug: string | null | undefined): string {
   return `https://leetcode.com/problems/${encodeURIComponent(s)}/description/`
 }
 
+/** Custom My List overview (problem-list-v2). */
+export function leetCodeListUrl(listSlug: string | null | undefined): string {
+  const id = String(listSlug ?? '').trim()
+  if (!id) return 'https://leetcode.com/problemset/all/'
+  return `https://leetcode.com/problem-list/${encodeURIComponent(id)}`
+}
+
+/**
+ * Open a problem inside a custom LC list so Prev/Next follows that list.
+ * envType must be problem-list-v2 (not legacy favorite-list).
+ */
+export function leetCodeListPracticeUrl(
+  problemSlug: string | null | undefined,
+  listSlug: string | null | undefined,
+): string {
+  const s = String(problemSlug ?? '').trim()
+  const id = String(listSlug ?? '').trim()
+  if (!s) return leetCodeUrl(s)
+  if (!id) return leetCodeUrl(s)
+  return `https://leetcode.com/problems/${encodeURIComponent(s)}/description/?envType=problem-list-v2&envId=${encodeURIComponent(id)}`
+}
+
 // ── Time formatting ───────────────────────────────────────────────────────────
 export function formatTime(secs: number): string {
   const m = Math.floor(secs / 60)

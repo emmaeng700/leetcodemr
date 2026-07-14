@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { leetCodeGraphqlHeaders, lcFetchInit, resolveLcSessionCredentials } from '@/lib/leetcodeHttp'
-import { resolveLeetCodeSlug } from '@/lib/utils'
+import { leetCodeListPracticeUrl, leetCodeListUrl, resolveLeetCodeSlug } from '@/lib/utils'
 
 const LC_GQL = 'https://leetcode.com/graphql'
 const USER_ID = 'emmanuel'
@@ -350,9 +350,7 @@ export async function POST(req: NextRequest) {
       }
 
       const firstSlug = uniqueSlugs[0] ?? null
-      const practiceUrl = firstSlug
-        ? `https://leetcode.com/problems/${encodeURIComponent(firstSlug)}/?envType=favorite-list&envId=${encodeURIComponent(favoriteSlug)}`
-        : null
+      const practiceUrl = firstSlug ? leetCodeListPracticeUrl(firstSlug, favoriteSlug) : null
 
       return NextResponse.json({
         ok: true,
@@ -362,7 +360,7 @@ export async function POST(req: NextRequest) {
         verified,
         total: questions.length,
         addErrors: addErrors.slice(0, 5),
-        listUrl: `https://leetcode.com/problem-list/${favoriteSlug}`,
+        listUrl: leetCodeListUrl(favoriteSlug),
         practiceUrl,
         firstSlug,
       })

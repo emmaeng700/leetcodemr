@@ -22,7 +22,7 @@ import {
   type LcListSyncState,
 } from '@/lib/leetcodeListSync'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
-import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
+import { leetCodeListPracticeUrl, leetCodeListUrl, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 
 type SetFilter = 'all' | 1 | 2 | 3
 type DiffFilter = 'all' | 'Easy' | 'Medium' | 'Hard'
@@ -262,9 +262,12 @@ export default function LeetCodeListPage() {
       const data = await res.json()
       const slug = data.favoriteSlug ?? data.favoriteIdHash
       if (slug) {
-        const listUrl = data.listUrl ?? `https://leetcode.com/problem-list/${slug}`
+        const listUrl = data.listUrl ?? leetCodeListUrl(slug)
         saveLcListHashes({ ...lcListHashes, [lcListKey]: slug })
-        const openUrl = data.practiceUrl ?? listUrl
+        const openUrl = data.practiceUrl
+          ?? (filtered[0]
+            ? leetCodeListPracticeUrl(resolveLeetCodeSlug(filtered[0].id, filtered[0].slug), slug)
+            : listUrl)
         window.open(openUrl, '_blank', 'noopener')
         const added = data.verified ?? data.added ?? 0
         const total = data.total ?? filtered.length
@@ -272,7 +275,7 @@ export default function LeetCodeListPage() {
           toast.error(`Only ${added}/${total} added to LC list. Check LeetCode session.`)
         } else {
           toast.success(
-            `"${listName}" ready — ${added} questions. Log into leetcode.com in that browser, then use Prev/Next while solving.`,
+            `"${listName}" ready — ${added} questions. Use ‹ › next to Problem List on LeetCode.`,
             { duration: 6000 },
           )
         }
@@ -486,11 +489,25 @@ export default function LeetCodeListPage() {
                   <span className="text-xs text-[var(--text-subtle)] animate-pulse shrink-0">Creating…</span>
                 ) : lcListHashes[lcListKey] ? (
                   <div className="flex items-center gap-0.5 shrink-0">
+                    {filtered[0] && (
+                      <a
+                        href={leetCodeListPracticeUrl(
+                          resolveLeetCodeSlug(filtered[0].id, filtered[0].slug),
+                          lcListHashes[lcListKey],
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open first filtered problem with list Prev/Next"
+                        className="flex items-center gap-1 px-2.5 py-2 rounded-l-xl border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition"
+                      >
+                        <ExternalLink size={12} /> Practice
+                      </a>
+                    )}
                     <a
-                      href={`https://leetcode.com/problem-list/${lcListHashes[lcListKey]}`}
+                      href={leetCodeListUrl(lcListHashes[lcListKey])}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 px-2.5 py-2 rounded-l-xl border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition"
+                      className={`flex items-center gap-1 px-2.5 py-2 border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition ${filtered[0] ? 'border-l-0' : 'rounded-l-xl'}`}
                     >
                       <ExternalLink size={12} /> Open LC List
                     </a>
@@ -595,7 +612,11 @@ export default function LeetCodeListPage() {
 
                   const q = entry.q
                   const solved = solvedFn(q)
-                  const lcHref = leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))
+                  const lcSlug = resolveLeetCodeSlug(q.id, q.slug)
+                  const listSlug = lcListHashes[lcListKey]
+                  const lcHref = listSlug
+                    ? leetCodeListPracticeUrl(lcSlug, listSlug)
+                    : leetCodeUrl(lcSlug)
 
                   return (
                     <div
