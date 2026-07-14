@@ -265,7 +265,8 @@ export default function LeetCodeListPage() {
         window.open(`https://leetcode.com/list/?selectedList=${data.favoriteIdHash}`, '_blank', 'noopener')
         toast.success(`"${listName}" ready — ${data.added}/${data.total} added. Open the list then click a problem for prev/next nav.`)
       } else {
-        toast.error(data.error ?? 'Failed to create LC list')
+        const detail = data.lcResponse ? JSON.stringify(data.lcResponse).slice(0, 200) : ''
+        toast.error((data.error ?? 'Failed to create LC list') + (detail ? ` — ${detail}` : ''))
       }
     } catch {
       toast.error('Failed to create LC list')

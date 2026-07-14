@@ -33,7 +33,7 @@ async function lcGql(session: string, csrf: string, body: object) {
   try { return { ok: res.ok, data: JSON.parse(text) } } catch { return { ok: false, data: null } }
 }
 
-async function createLcFavorite(session: string, csrf: string, name: string): Promise<string | null> {
+async function createLcFavorite(session: string, csrf: string, name: string): Promise<{ hash: string | null; raw: unknown }> {
   const result = await lcGql(session, csrf, {
     operationName: 'createFavorite',
     variables: { name, isPublicFavorite: false },
@@ -43,7 +43,8 @@ async function createLcFavorite(session: string, csrf: string, name: string): Pr
       }
     }`,
   })
-  return result.data?.data?.createFavorite?.favoriteIdHash ?? null
+  const hash = result.data?.data?.createFavorite?.favoriteIdHash ?? null
+  return { hash, raw: result.data }
 }
 
 async function addToFavorite(session: string, csrf: string, favoriteIdHash: string, questionId: number): Promise<boolean> {
@@ -105,8 +106,8 @@ export async function POST(req: NextRequest) {
         await deleteLcFavorite(session, csrf, body.existingHash)
       }
 
-      const favoriteIdHash = await createLcFavorite(session, csrf, listName)
-      if (!favoriteIdHash) return NextResponse.json({ error: 'failed to create list on LeetCode — session may be stale' }, { status: 502 })
+      const { hash: favoriteIdHash, raw: lcRaw } = await createLcFavorite(session, csrf, listName)
+      if (!favoriteIdHash) return NextResponse.json({ error: 'failed to create list on LeetCode', lcResponse: lcRaw }, { status: 502 })
 
       // Add questions in batches of 5 with a delay between batches
       let added = 0
