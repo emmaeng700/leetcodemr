@@ -14,7 +14,7 @@ import {
   type GrindQuestion,
 } from '@/lib/grindQuestions'
 import { DISPLAY_PATTERN_ORDER } from '@/lib/constants'
-import { grindListWithDividers, grindSummaryCounts, matchesStudyTier, STUDY_TIER_ORDER, type StudyTier } from '@/lib/grindList'
+import { grindListWithDividers, grindSummaryCounts, matchesStudyTier, SET_SHORT_LABEL, STUDY_TIER_ORDER, type StudyTier } from '@/lib/grindList'
 import {
   formatSyncTime,
   ensureLcSessionForSync,
@@ -23,7 +23,7 @@ import {
   type LcListSyncState,
 } from '@/lib/leetcodeListSync'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
-import { leetCodeListPracticeUrl, leetCodeListUrl, leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
+import { leetCodeListPracticeUrl, leetCodeListUrl, leetCodeUrl, openExternalLink, openExternalUrl, resolveLeetCodeSlug } from '@/lib/utils'
 
 type SetFilter = 'all' | 1 | 2 | 3
 type DiffFilter = 'all' | 'Easy' | 'Medium' | 'Hard'
@@ -41,6 +41,38 @@ const SET_BADGE: Record<1 | 2 | 3, string> = {
   1: 'bg-indigo-50 text-indigo-700 border-indigo-200',
   2: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   3: 'bg-purple-50 text-purple-700 border-purple-200',
+}
+
+function buildLcListName(
+  setFilter: SetFilter,
+  tierFilter: TierFilter,
+  patternFilter: string,
+  diffFilter: DiffFilter,
+  priorityFilter: PriorityFilter,
+): string {
+  const parts: string[] = []
+  if (setFilter !== 'all') parts.push(SET_SHORT_LABEL[setFilter])
+  if (tierFilter !== 'all') parts.push(tierFilter)
+  if (patternFilter !== 'all') parts.push(patternFilter)
+  else if (tierFilter === 'all' && diffFilter !== 'all') parts.push(diffFilter)
+  else if (tierFilter === 'all' && priorityFilter !== 'all') parts.push(priorityFilter)
+  return parts.length ? parts.join(' · ') : 'LeetMastery All 727'
+}
+
+function buildFilterLabel(
+  setFilter: SetFilter,
+  tierFilter: TierFilter,
+  patternFilter: string,
+  diffFilter: DiffFilter,
+  priorityFilter: PriorityFilter,
+): string {
+  const parts: string[] = []
+  parts.push(setFilter !== 'all' ? SET_SHORT_LABEL[setFilter] : 'All sets')
+  if (tierFilter !== 'all') parts.push(tierFilter)
+  if (patternFilter !== 'all') parts.push(patternFilter)
+  else if (tierFilter === 'all' && diffFilter !== 'all') parts.push(diffFilter)
+  else if (tierFilter === 'all' && priorityFilter !== 'all') parts.push(priorityFilter)
+  return parts.join(' · ')
 }
 
 type DividerEntry = Extract<ReturnType<typeof grindListWithDividers>[number], { type: 'divider' }>
@@ -87,16 +119,49 @@ function LeetCodeListDivider({ entry }: { entry: DividerEntry }) {
   )
 }
 
-function CountPill({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1 text-[11px] font-semibold tabular-nums">
+function CountPill({
+  label,
+  value,
+  color,
+  active,
+  onClick,
+}: {
+  label: string
+  value: number
+  color: string
+  active?: boolean
+  onClick?: () => void
+}) {
+  const inner = (
+    <>
       <span className={color}>{label}</span>
       <span className="text-[var(--text-muted)]">{value}</span>
-    </span>
+    </>
   )
+  const cls = `inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold tabular-nums transition ${
+    active
+      ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-200'
+      : 'border-[var(--border)] bg-[var(--bg-input)] hover:bg-[var(--bg-muted)]'
+  }`
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cls}>
+        {inner}
+      </button>
+    )
+  }
+  return <span className={cls}>{inner}</span>
 }
 
-function CountStrip({ counts }: { counts: ReturnType<typeof grindSummaryCounts> }) {
+function CountStrip({
+  counts,
+  setFilter,
+  onSetFilter,
+}: {
+  counts: ReturnType<typeof grindSummaryCounts>
+  setFilter: SetFilter
+  onSetFilter: (set: SetFilter) => void
+}) {
   return (
     <div className="-mx-1 px-1 overflow-x-auto">
       <div className="flex items-center gap-1.5 min-w-max">
@@ -108,9 +173,9 @@ function CountStrip({ counts }: { counts: ReturnType<typeof grindSummaryCounts> 
         <CountPill label="Mid" value={counts.byPriority.Mid ?? 0} color="text-orange-600" />
         <CountPill label="Low" value={counts.byPriority.Low ?? 0} color="text-gray-500" />
         <span className="mx-1 h-5 w-px bg-[var(--border)]" />
-        <CountPill label="S1" value={counts.bySet[1] ?? 0} color="text-indigo-600" />
-        <CountPill label="S2" value={counts.bySet[2] ?? 0} color="text-emerald-600" />
-        <CountPill label="S3" value={counts.bySet[3] ?? 0} color="text-purple-600" />
+        <CountPill label="S1" value={counts.bySet[1] ?? 0} color="text-indigo-600" active={setFilter === 1} onClick={() => onSetFilter(setFilter === 1 ? 'all' : 1)} />
+        <CountPill label="S2" value={counts.bySet[2] ?? 0} color="text-emerald-600" active={setFilter === 2} onClick={() => onSetFilter(setFilter === 2 ? 'all' : 2)} />
+        <CountPill label="S3" value={counts.bySet[3] ?? 0} color="text-purple-600" active={setFilter === 3} onClick={() => onSetFilter(setFilter === 3 ? 'all' : 3)} />
       </div>
     </div>
   )
@@ -244,13 +309,7 @@ export default function LeetCodeListPage() {
         setLcListLoading(false)
         return
       }
-      const parts: string[] = []
-      if (tierFilter !== 'all') parts.push(tierFilter)
-      if (patternFilter !== 'all') parts.push(patternFilter)
-      else if (setFilter !== 'all') parts.push(`Set ${setFilter}`)
-      if (tierFilter === 'all' && diffFilter !== 'all') parts.push(diffFilter)
-      if (tierFilter === 'all' && priorityFilter !== 'all') parts.push(priorityFilter)
-      const listName = parts.length ? parts.join(' · ') : 'LeetMastery All 727'
+      const listName = buildLcListName(setFilter, tierFilter, patternFilter, diffFilter, priorityFilter)
       const existingHash = lcListHashes[lcListKey] ?? null
       const res = await fetch('/api/lc-list', {
         method: 'POST',
@@ -273,7 +332,7 @@ export default function LeetCodeListPage() {
           ?? (filtered[0]
             ? leetCodeListPracticeUrl(resolveLeetCodeSlug(filtered[0].id, filtered[0].slug), slug)
             : listUrl)
-        window.open(openUrl, '_blank', 'noopener')
+        openExternalUrl(openUrl)
         const added = data.verified ?? data.added ?? 0
         const total = data.total ?? filtered.length
         if (added < total) {
@@ -375,6 +434,16 @@ export default function LeetCodeListPage() {
 
   const summary = useMemo(() => grindSummaryCounts(filtered), [filtered])
   const allSummary = useMemo(() => grindSummaryCounts(questions), [questions])
+
+  const filterLabel = useMemo(
+    () => buildFilterLabel(setFilter, tierFilter, patternFilter, diffFilter, priorityFilter),
+    [setFilter, tierFilter, patternFilter, diffFilter, priorityFilter],
+  )
+
+  const tierChipLabel = useCallback(
+    (tier: StudyTier) => (setFilter !== 'all' ? `${SET_SHORT_LABEL[setFilter]} ${tier}` : tier),
+    [setFilter],
+  )
 
   const stats = useMemo(() => {
     const pool = setFilter === 'all' ? questions : questions.filter(q => q.set === setFilter)
@@ -526,7 +595,15 @@ export default function LeetCodeListPage() {
                           resolveLeetCodeSlug(filtered[0].id, filtered[0].slug),
                           lcListHashes[lcListKey],
                         )}
-                        target="_blank"
+                        onClick={e =>
+                          openExternalLink(
+                            e,
+                            leetCodeListPracticeUrl(
+                              resolveLeetCodeSlug(filtered[0].id, filtered[0].slug),
+                              lcListHashes[lcListKey],
+                            ),
+                          )
+                        }
                         rel="noopener noreferrer"
                         title="Open first filtered problem with list Prev/Next"
                         className="flex items-center gap-1 px-2.5 py-2 rounded-l-xl border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition"
@@ -536,7 +613,7 @@ export default function LeetCodeListPage() {
                     )}
                     <a
                       href={leetCodeListUrl(lcListHashes[lcListKey])}
-                      target="_blank"
+                      onClick={e => openExternalLink(e, leetCodeListUrl(lcListHashes[lcListKey]))}
                       rel="noopener noreferrer"
                       className={`flex items-center gap-1 px-2.5 py-2 border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition ${filtered[0] ? 'border-l-0' : 'rounded-l-xl'}`}
                     >
@@ -563,10 +640,41 @@ export default function LeetCodeListPage() {
                 )}
               </div>
 
-              <CountStrip counts={summary} />
+              <CountStrip counts={summary} setFilter={setFilter} onSetFilter={setSetFilter} />
+
+              {(setFilter !== 'all' || tierFilter !== 'all' || patternFilter !== 'all') && (
+                <p className="text-[11px] font-semibold text-indigo-700 truncate" title={filterLabel}>
+                  {filterLabel}
+                  <span className="font-normal text-[var(--text-subtle)] ml-1">({filtered.length})</span>
+                </p>
+              )}
 
               {showFilters && (
                 <div className="space-y-2 pt-1">
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-subtle)] shrink-0">Set</span>
+                    {(['all', 1, 2, 3] as const).map(s => {
+                      const active = setFilter === s
+                      const count = s === 'all' ? questions.length : allSummary.bySet[s]
+                      const label = s === 'all' ? 'All' : SET_SHORT_LABEL[s]
+                      const color = s === 1 ? 'text-indigo-600' : s === 2 ? 'text-emerald-600' : s === 3 ? 'text-purple-600' : 'text-[var(--text-muted)]'
+                      return (
+                        <button
+                          key={String(s)}
+                          type="button"
+                          onClick={() => setSetFilter(s)}
+                          className={`text-[11px] font-semibold px-2 py-1 rounded-full border tabular-nums transition ${
+                            active
+                              ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                              : 'border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg-muted)]'
+                          }`}
+                        >
+                          <span className={active ? '' : color}>{label}</span>
+                          <span className="opacity-70 ml-1">({count})</span>
+                        </button>
+                      )
+                    })}
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
@@ -603,7 +711,7 @@ export default function LeetCodeListPage() {
                               : 'border-[var(--border)] hover:bg-[var(--bg-muted)]'
                           }`}
                         >
-                          <span className={active ? '' : pri}>{tier}</span>
+                          <span className={active ? '' : pri}>{tierChipLabel(tier)}</span>
                           <span className="opacity-70 ml-1">({count})</span>
                         </button>
                       )
@@ -637,7 +745,7 @@ export default function LeetCodeListPage() {
                     <option value="all">Study tier (High Easy…)</option>
                     {STUDY_TIER_ORDER.map(tier => (
                       <option key={tier} value={tier}>
-                        {tier} ({tierSummary.byTier[tier] ?? 0})
+                        {tierChipLabel(tier)} ({tierSummary.byTier[tier] ?? 0})
                       </option>
                     ))}
                   </select>
@@ -669,7 +777,9 @@ export default function LeetCodeListPage() {
                     className="text-xs rounded-lg border border-[var(--border)] max-w-[14rem] bg-[var(--bg-input)] px-2 py-1.5 text-[var(--text)]"
                   >
                     <option value="all">
-                      {tierFilter !== 'all' ? `All patterns in ${tierFilter}` : 'All patterns'}
+                      {tierFilter !== 'all'
+                        ? `All patterns in ${tierChipLabel(tierFilter as StudyTier)}`
+                        : 'All patterns'}
                     </option>
                     {patternsInScope.map(({ pattern, count }) => (
                       <option key={pattern} value={pattern}>{pattern} ({count})</option>
@@ -732,7 +842,7 @@ export default function LeetCodeListPage() {
                       <div className="min-w-0 flex items-center gap-2 flex-wrap">
                         <a
                           href={lcHref}
-                          target="_blank"
+                          onClick={e => openExternalLink(e, lcHref)}
                           rel="noopener noreferrer"
                           className="text-sm font-medium text-indigo-600 hover:text-indigo-500 hover:underline truncate"
                         >

@@ -49,6 +49,45 @@ export function leetCodeListPracticeUrl(
   return `https://leetcode.com/problems/${encodeURIComponent(s)}/description/?envType=problem-list-v2&envId=${encodeURIComponent(id)}`
 }
 
+/** True when running as an installed home-screen app (iOS/Android PWA). */
+export function isStandalonePwa(): boolean {
+  if (typeof window === 'undefined') return false
+  const nav = window.navigator as Navigator & { standalone?: boolean }
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    nav.standalone === true
+  )
+}
+
+export function isMobileBrowser(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia('(max-width: 767px)').matches
+}
+
+/**
+ * Open an external URL. Mobile/PWA blocks window.open (async popups too).
+ * Navigate in-place so iOS/Android can hand off to the LeetCode app via universal links.
+ */
+export function openExternalUrl(url: string): void {
+  if (typeof window === 'undefined') return
+  const u = String(url ?? '').trim()
+  if (!u) return
+
+  if (isMobileBrowser() || isStandalonePwa()) {
+    window.location.assign(u)
+    return
+  }
+
+  const popup = window.open(u, '_blank', 'noopener,noreferrer')
+  if (!popup) window.location.assign(u)
+}
+
+/** onClick handler for external LeetCode links (use with href for fallback). */
+export function openExternalLink(e: { preventDefault(): void }, url: string): void {
+  e.preventDefault()
+  openExternalUrl(url)
+}
+
 // ── Time formatting ───────────────────────────────────────────────────────────
 export function formatTime(secs: number): string {
   const m = Math.floor(secs / 60)

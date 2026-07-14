@@ -21,6 +21,12 @@ const SET_LABEL: Record<1 | 2 | 3, string> = {
   3: 'Set 3 - AlgoMaster',
 }
 
+export const SET_SHORT_LABEL: Record<1 | 2 | 3, string> = {
+  1: 'Set 1',
+  2: 'Set 2',
+  3: 'Set 3',
+}
+
 /** "High Easy - Arrays & Hashing" -> { tier: "High Easy", pattern: "Arrays & Hashing" } */
 export function parseGrindSection(section: string): { tier: string; pattern: string } {
   const m = section.match(/^(High|Mid|Low) (Easy|Medium|Hard) - (.+)$/)
@@ -128,7 +134,7 @@ export function grindListWithDividers(questions: GrindQuestion[]): GrindListEntr
       if (tier !== lastTier) {
         out.push({
           type: 'divider',
-          label: tier,
+          label: `${SET_SHORT_LABEL[q.set as 1 | 2 | 3]} · ${tier}`,
           key: `tier-${q.set}-${tier}`,
           variant: 'tier',
           count: tierCounts.get(setTierKey(q.set, tier)) ?? 0,
