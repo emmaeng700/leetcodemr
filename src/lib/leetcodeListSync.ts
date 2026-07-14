@@ -195,15 +195,24 @@ export async function syncLeetCodeListAccepted(
     body: JSON.stringify({ session, csrfToken: csrf }),
   })
 
-  let data: { bySlug?: Record<string, number>; error?: string }
+  let data: { bySlug?: Record<string, number>; error?: string; code?: string }
   try {
     data = await res.json()
   } catch {
     return { solvedIds: [], totalAcProblems: 0, grindAcCount: 0, extraAcCount: 0, error: 'Sync failed - invalid response.' }
   }
 
-  if (data.error === 'no_session') {
+  if (data.error === 'no_session' || data.code === 'lc_no_session') {
     return { solvedIds: [], totalAcProblems: 0, grindAcCount: 0, extraAcCount: 0, error: 'No LeetCode session saved.' }
+  }
+  if (data.code === 'lc_not_logged_in' || /not logged in|expired/i.test(data.error ?? '')) {
+    return {
+      solvedIds: [],
+      totalAcProblems: 0,
+      grindAcCount: 0,
+      extraAcCount: 0,
+      error: 'LeetCode session expired — open leetcode.com, copy Cookie (F12 → Network), then Clipboard → Use.',
+    }
   }
   if (data.error && !data.bySlug) {
     return { solvedIds: [], totalAcProblems: 0, grindAcCount: 0, extraAcCount: 0, error: String(data.error) }

@@ -190,13 +190,13 @@ export default function LeetCodeListPage() {
     setSyncing(true)
     try {
       const { session, csrf } = await ensureLcSessionForSync()
-      if (!session) {
-        toast.error('No session found. MCP → Clipboard: tap Use on your saved token, then sync again.')
+      if (!session || !csrf) {
+        toast.error('No LC session — Clipboard → Use with cookie from leetcode.com')
         return
       }
       const result = await syncLeetCodeListAccepted(questions, session, csrf)
       if (result.error) {
-        toast.error(result.error)
+        toast.error(result.error, { duration: 7000 })
         return
       }
       const state = readLcListSync()
