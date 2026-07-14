@@ -35,15 +35,16 @@ async function lcGql(session: string, csrf: string, body: object) {
 
 async function createLcFavorite(session: string, csrf: string, name: string): Promise<{ hash: string | null; raw: unknown }> {
   const result = await lcGql(session, csrf, {
-    operationName: 'createFavorite',
+    operationName: 'createEmptyFavorite',
     variables: { name, isPublicFavorite: false },
-    query: `mutation createFavorite($name: String!, $isPublicFavorite: Boolean!) {
-      createFavorite(name: $name, isPublicFavorite: $isPublicFavorite) {
-        ok error name favoriteIdHash isPublicFavorite
+    query: `mutation createEmptyFavorite($name: String!, $isPublicFavorite: Boolean!) {
+      createEmptyFavorite(name: $name, isPublicFavorite: $isPublicFavorite) {
+        ok error name idHash isPublicFavorite
       }
     }`,
   })
-  const hash = result.data?.data?.createFavorite?.favoriteIdHash ?? null
+  const fav = result.data?.data?.createEmptyFavorite
+  const hash = fav?.idHash ?? fav?.favoriteIdHash ?? null
   return { hash, raw: result.data }
 }
 
