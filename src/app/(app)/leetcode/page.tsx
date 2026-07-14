@@ -556,6 +556,11 @@ export default function LeetCodeListPage() {
         </aside>
 
         <div className="flex-1 min-w-0 flex flex-col gap-3">
+          <div className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-[12px] text-orange-800 leading-snug">
+            <span className="font-semibold">Create lists here.</span>{' '}
+            Filter by set / tier / pattern, then tap{' '}
+            <span className="font-semibold">LC List +</span> to build a LeetCode favorite list with Prev/Next.
+          </div>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] overflow-hidden shadow-sm">
             <div className="p-3 border-b border-[var(--border-soft)] space-y-2">
               <div className="flex flex-wrap gap-2 items-center">
