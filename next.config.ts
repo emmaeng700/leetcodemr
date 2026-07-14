@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ['192.168.1.173'],
   env: {
     NEXT_PUBLIC_COMMIT_SHA: (process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || "dev").slice(0, 7),
+    // Production host for Get Latest — preview deploys stay frozen on their own commit.
+    NEXT_PUBLIC_APP_ORIGIN: process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : (process.env.NEXT_PUBLIC_APP_ORIGIN || "https://leetcodemr.vercel.app"),
   },
   async redirects() {
     return [
