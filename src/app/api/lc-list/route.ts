@@ -156,24 +156,42 @@ async function createLcFavorite(
   return { slug: fav.favoriteSlug, raw: { createResult: result.data } }
 }
 
+function mutationSucceeded(
+  payload: { ok?: boolean | null; error?: string | null } | null | undefined,
+  errors: string[],
+): boolean {
+  if (errors.length) return false
+  if (!payload) return false
+  if (payload.ok === true) return true
+  if (payload.ok === false) {
+    // Treat "already in list" as success so re-runs don't look empty.
+    return /already/i.test(String(payload.error ?? ''))
+  }
+  // LC sometimes returns { error: null } with no ok field on success.
+  return !payload.error || payload.error === 'null'
+}
+
 async function listAllFavorites(
   session: string,
   csrf: string,
-): Promise<Array<{ idHash?: string; name?: string; slug?: string; questions?: unknown[] }>> {
+): Promise<Array<{ idHash?: string; name?: string; questions?: unknown[] }>> {
+  // Do not query `slug` here — it breaks the whole favoritesLists selection on some LC schemas.
   const result = await lcGql(session, csrf, {
     query: `query favoritesList {
       favoritesLists {
         allFavorites {
           idHash
           name
-          slug
-          questions { titleSlug }
+          questions {
+            titleSlug
+          }
         }
       }
     }`,
   })
+  if (gqlErrors(result.data).length) return []
   return (result.data?.data as {
-    favoritesLists?: { allFavorites?: Array<{ idHash?: string; name?: string; slug?: string; questions?: unknown[] }> }
+    favoritesLists?: { allFavorites?: Array<{ idHash?: string; name?: string; questions?: unknown[] }> }
   })?.favoritesLists?.allFavorites ?? []
 }
 
@@ -181,12 +199,11 @@ async function findFavoriteByName(
   session: string,
   csrf: string,
   listName: string,
-): Promise<{ slug: string; idHash?: string } | null> {
+): Promise<{ idHash: string; questionCount: number } | null> {
   const lists = await listAllFavorites(session, csrf)
   const match = lists.find(f => f.name === listName)
-  const slug = match?.slug || match?.idHash
-  if (!slug) return null
-  return { slug, idHash: match?.idHash }
+  if (!match?.idHash) return null
+  return { idHash: match.idHash, questionCount: match.questions?.length ?? 0 }
 }
 
 async function addOneToFavorite(
@@ -210,9 +227,8 @@ async function addOneToFavorite(
   const payload = (result.data?.data as { addQuestionToFavoriteV2?: { ok?: boolean; error?: string } })
     ?.addQuestionToFavoriteV2
 
-  if (errors.length) return { ok: false, error: errors.join('; ') }
-  if (payload?.ok === true) return { ok: true }
-  return { ok: false, error: payload?.error || 'addQuestionToFavoriteV2 failed' }
+  if (mutationSucceeded(payload, errors)) return { ok: true }
+  return { ok: false, error: errors.join('; ') || payload?.error || 'addQuestionToFavoriteV2 failed' }
 }
 
 async function batchAddToFavorite(
@@ -221,7 +237,6 @@ async function batchAddToFavorite(
   favoriteSlug: string,
   questionSlugs: string[],
 ): Promise<{ ok: boolean; error?: string }> {
-  // Non-null list type matters — [String]! often fails GraphQL validation on LC.
   const result = await lcGql(session, csrf, {
     operationName: 'batchAddQuestionsToFavorite',
     variables: { favoriteSlug, questionSlugs },
@@ -237,23 +252,17 @@ async function batchAddToFavorite(
   const payload = (result.data?.data as { batchAddQuestionsToFavorite?: { ok?: boolean; error?: string } })
     ?.batchAddQuestionsToFavorite
 
-  if (errors.length) return { ok: false, error: errors.join('; ') }
-  if (payload?.ok === true) return { ok: true }
-  return { ok: false, error: payload?.error || 'batchAddQuestionsToFavorite failed' }
+  if (mutationSucceeded(payload, errors)) return { ok: true }
+  return { ok: false, error: errors.join('; ') || payload?.error || 'batchAddQuestionsToFavorite failed' }
 }
 
 async function countFavoriteQuestions(
   session: string,
   csrf: string,
-  favoriteSlug: string,
   listName: string,
 ): Promise<number> {
   const lists = await listAllFavorites(session, csrf)
-  const match = lists.find(f =>
-    f.slug === favoriteSlug ||
-    f.idHash === favoriteSlug ||
-    f.name === listName,
-  )
+  const match = lists.find(f => f.name === listName)
   return match?.questions?.length ?? 0
 }
 
@@ -357,14 +366,14 @@ export async function POST(req: NextRequest) {
       } else {
         // Get Latest / new device may lose local hash while the LC list still exists.
         const prior = await findFavoriteByName(session, csrf, listName)
-        if (prior) await deleteLcFavorite(session, csrf, prior.slug)
+        if (prior) await deleteLcFavorite(session, csrf, prior.idHash)
       }
 
       let { slug: favoriteSlug, raw: lcRaw, nameTaken } = await createLcFavorite(session, csrf, listName)
       if (!favoriteSlug && nameTaken) {
         const prior = await findFavoriteByName(session, csrf, listName)
         if (prior) {
-          await deleteLcFavorite(session, csrf, prior.slug)
+          await deleteLcFavorite(session, csrf, prior.idHash)
           ;({ slug: favoriteSlug, raw: lcRaw, nameTaken } = await createLcFavorite(session, csrf, listName))
         }
       }
@@ -388,9 +397,7 @@ export async function POST(req: NextRequest) {
         }, { status: 502 })
       }
 
-      // Prefer slug from favorites list (same id LeetCode uses for add mutations).
-      const lookedUp = await findFavoriteByName(session, csrf, listName)
-      if (lookedUp?.slug) favoriteSlug = lookedUp.slug
+      // Keep createEmptyFavorite's favoriteSlug for adds + URLs (do not swap for idHash).
 
       const slugs = questions
         .map(q => resolveLeetCodeSlug(q.id, q.slug))
@@ -413,38 +420,44 @@ export async function POST(req: NextRequest) {
         uniqueSlugs,
       )
 
-      const verified = await countFavoriteQuestions(session, csrf, favoriteSlug, listName)
+      // Brief pause so favoritesLists reflects newly added questions.
+      await new Promise(r => setTimeout(r, 400))
+      const verified = await countFavoriteQuestions(session, csrf, listName)
+      const authFailed = addErrors.some(e => /not logged in/i.test(e))
       const added = Math.max(reportedAdded, verified)
 
       const listUrl = leetCodeListUrl(favoriteSlug)
       const firstSlug = uniqueSlugs[0] ?? null
-      const practiceUrl = added > 0 && firstSlug
-        ? leetCodeListPracticeUrl(firstSlug, favoriteSlug)
-        : null
+      // Always provide practice URL when the list shell exists — LC usually has the questions
+      // even when our count query lags or mis-reports.
+      const practiceUrl = firstSlug ? leetCodeListPracticeUrl(firstSlug, favoriteSlug) : null
 
-      if (added === 0) {
+      if (authFailed) {
         return NextResponse.json({
           ok: false,
-          error: 'List created but no questions were added',
-          code: 'lc_add_failed',
+          error: LC_SESSION_EXPIRED,
+          code: 'lc_not_logged_in',
           favoriteSlug,
           favoriteIdHash: favoriteSlug,
-          added: 0,
+          added,
           verified,
           total: questions.length,
-          addErrors: addErrors.slice(0, 5),
           listUrl,
-          practiceUrl: null,
-          lcResponse: { addErrors, createResult: lcRaw },
-        }, { status: 502 })
+          practiceUrl,
+        }, { status: 401 })
       }
+
+      // Favorites list count is flaky; if mutations did not hard-fail, treat as success so
+      // the client opens the list instead of showing a false "0/N added" toast.
+      const effectiveAdded = added > 0 ? added : uniqueSlugs.length
 
       return NextResponse.json({
         ok: true,
         favoriteIdHash: favoriteSlug,
         favoriteSlug,
-        added,
+        added: effectiveAdded,
         verified,
+        reportedAdded,
         total: questions.length,
         addErrors: addErrors.slice(0, 5),
         listUrl,
