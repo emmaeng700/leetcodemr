@@ -325,24 +325,36 @@ export default function LeetCodeListPage() {
       })
       const data = await res.json()
       const slug = data.favoriteSlug ?? data.favoriteIdHash
-      if (slug) {
-        const listUrl = data.listUrl ?? leetCodeListUrl(slug)
+      const added = Number(data.verified ?? data.added ?? 0)
+      const total = Number(data.total ?? filtered.length)
+
+      if (data.ok && slug && added > 0) {
         saveLcListHashes({ ...lcListHashes, [lcListKey]: slug })
         const openUrl = data.practiceUrl
           ?? (filtered[0]
             ? leetCodeListPracticeUrl(resolveLeetCodeSlug(filtered[0].id, filtered[0].slug), slug)
-            : listUrl)
+            : (data.listUrl ?? leetCodeListUrl(slug)))
         openExternalUrl(openUrl)
-        const added = data.verified ?? data.added ?? 0
-        const total = data.total ?? filtered.length
         if (added < total) {
-          toast.error(`Only ${added}/${total} added to LC list. Check LeetCode session.`)
+          toast.error(`Only ${added}/${total} added to LC list — opened what we could.`)
         } else {
           toast.success(
             `"${listName}" ready — ${added} questions. Use ‹ › next to Problem List on LeetCode.`,
             { duration: 6000 },
           )
         }
+      } else if (slug) {
+        // List shell exists but empty — keep the hash so Open LC List works; don't open a broken practice URL.
+        saveLcListHashes({ ...lcListHashes, [lcListKey]: slug })
+        const why = Array.isArray(data.addErrors) && data.addErrors.length
+          ? ` (${String(data.addErrors[0]).slice(0, 80)})`
+          : ''
+        toast.error(
+          data.error
+            ? `${data.error}${why}. Use Open LC List after fixing session, or tap LC List + again.`
+            : `Only ${added}/${total} added to LC list${why}`,
+          { duration: 8000 },
+        )
       } else {
         const msg = data.code === 'lc_not_logged_in' || /not logged in/i.test(data.error ?? '')
           ? 'LeetCode session expired — open leetcode.com, copy Cookie (F12 → Network), then Clipboard → Use'

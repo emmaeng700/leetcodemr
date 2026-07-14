@@ -6,6 +6,9 @@ import { leetCodeListPracticeUrl, leetCodeListUrl, resolveLeetCodeSlug } from '@
 const LC_GQL = 'https://leetcode.com/graphql'
 const USER_ID = 'emmanuel'
 
+/** Vercel hobby/pro: large list batch-adds need headroom. */
+export const maxDuration = 60
+
 function supabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -208,7 +211,8 @@ async function addOneToFavorite(
     ?.addQuestionToFavoriteV2
 
   if (errors.length) return { ok: false, error: errors.join('; ') }
-  return { ok: payload?.ok === true, error: payload?.error }
+  if (payload?.ok === true) return { ok: true }
+  return { ok: false, error: payload?.error || 'addQuestionToFavoriteV2 failed' }
 }
 
 async function batchAddToFavorite(
@@ -217,10 +221,11 @@ async function batchAddToFavorite(
   favoriteSlug: string,
   questionSlugs: string[],
 ): Promise<{ ok: boolean; error?: string }> {
+  // Non-null list type matters — [String]! often fails GraphQL validation on LC.
   const result = await lcGql(session, csrf, {
     operationName: 'batchAddQuestionsToFavorite',
     variables: { favoriteSlug, questionSlugs },
-    query: `mutation batchAddQuestionsToFavorite($favoriteSlug: String!, $questionSlugs: [String]!) {
+    query: `mutation batchAddQuestionsToFavorite($favoriteSlug: String!, $questionSlugs: [String!]!) {
       batchAddQuestionsToFavorite(favoriteSlug: $favoriteSlug, questionSlugs: $questionSlugs) {
         ok
         error
@@ -233,7 +238,8 @@ async function batchAddToFavorite(
     ?.batchAddQuestionsToFavorite
 
   if (errors.length) return { ok: false, error: errors.join('; ') }
-  return { ok: payload?.ok === true, error: payload?.error }
+  if (payload?.ok === true) return { ok: true }
+  return { ok: false, error: payload?.error || 'batchAddQuestionsToFavorite failed' }
 }
 
 async function countFavoriteQuestions(
@@ -259,7 +265,7 @@ async function addQuestionsToFavorite(
 ): Promise<{ added: number; errors: string[] }> {
   const errors: string[] = []
   let added = 0
-  const batchSize = 10
+  const batchSize = 40
 
   for (let i = 0; i < slugs.length; i += batchSize) {
     const batch = slugs.slice(i, i + batchSize)
@@ -268,19 +274,31 @@ async function addQuestionsToFavorite(
       added += batch.length
     } else {
       if (batchRes.error) errors.push(batchRes.error)
+      // Schema / auth errors fail every slug — don't burn the whole timeout.
+      if (/not logged in|cannot query field|unknown argument|validation/i.test(batchRes.error ?? '')) {
+        return { added, errors }
+      }
+      let hardFail = 0
       for (const slug of batch) {
         const one = await addOneToFavorite(session, csrf, favoriteSlug, slug)
-        if (one.ok) added++
-        else if (one.error) errors.push(`${slug}: ${one.error}`)
-        await new Promise(r => setTimeout(r, 120))
+        if (one.ok) {
+          added++
+          hardFail = 0
+        } else {
+          if (one.error) errors.push(`${slug}: ${one.error}`)
+          hardFail++
+          if (hardFail >= 3 && /not logged in|cannot query field|unknown argument/i.test(one.error ?? '')) {
+            return { added, errors }
+          }
+        }
       }
     }
     if (i + batchSize < slugs.length) {
-      await new Promise(r => setTimeout(r, 200))
+      await new Promise(r => setTimeout(r, 80))
     }
   }
 
-  return { added, errors }
+  return { added, errors: errors.slice(0, 12) }
 }
 
 async function deleteLcFavorite(session: string, csrf: string, favoriteSlug: string): Promise<boolean> {
@@ -370,10 +388,23 @@ export async function POST(req: NextRequest) {
         }, { status: 502 })
       }
 
+      // Prefer slug from favorites list (same id LeetCode uses for add mutations).
+      const lookedUp = await findFavoriteByName(session, csrf, listName)
+      if (lookedUp?.slug) favoriteSlug = lookedUp.slug
+
       const slugs = questions
         .map(q => resolveLeetCodeSlug(q.id, q.slug))
+        .map(s => s.trim())
         .filter(Boolean)
       const uniqueSlugs = [...new Set(slugs)]
+
+      if (uniqueSlugs.length === 0) {
+        return NextResponse.json({
+          error: 'No valid question slugs to add',
+          favoriteSlug,
+          listUrl: leetCodeListUrl(favoriteSlug),
+        }, { status: 400 })
+      }
 
       const { added: reportedAdded, errors: addErrors } = await addQuestionsToFavorite(
         session,
@@ -385,16 +416,28 @@ export async function POST(req: NextRequest) {
       const verified = await countFavoriteQuestions(session, csrf, favoriteSlug, listName)
       const added = Math.max(reportedAdded, verified)
 
+      const listUrl = leetCodeListUrl(favoriteSlug)
+      const firstSlug = uniqueSlugs[0] ?? null
+      const practiceUrl = added > 0 && firstSlug
+        ? leetCodeListPracticeUrl(firstSlug, favoriteSlug)
+        : null
+
       if (added === 0) {
         return NextResponse.json({
+          ok: false,
           error: 'List created but no questions were added',
+          code: 'lc_add_failed',
           favoriteSlug,
+          favoriteIdHash: favoriteSlug,
+          added: 0,
+          verified,
+          total: questions.length,
+          addErrors: addErrors.slice(0, 5),
+          listUrl,
+          practiceUrl: null,
           lcResponse: { addErrors, createResult: lcRaw },
         }, { status: 502 })
       }
-
-      const firstSlug = uniqueSlugs[0] ?? null
-      const practiceUrl = firstSlug ? leetCodeListPracticeUrl(firstSlug, favoriteSlug) : null
 
       return NextResponse.json({
         ok: true,
@@ -404,7 +447,7 @@ export async function POST(req: NextRequest) {
         verified,
         total: questions.length,
         addErrors: addErrors.slice(0, 5),
-        listUrl: leetCodeListUrl(favoriteSlug),
+        listUrl,
         practiceUrl,
         firstSlug,
       })
