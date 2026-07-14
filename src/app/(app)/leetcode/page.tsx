@@ -155,6 +155,8 @@ export default function LeetCodeListPage() {
   const [patternFilter, setPatternFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [showFilters, setShowFilters] = useState(false)
+  const [lcListHashes, setLcListHashes] = useState<Record<string, string>>({})
+  const [lcListLoading, setLcListLoading] = useState(false)
 
   const solvedSet = useMemo(() => new Set(lcSync?.solvedIds ?? []), [lcSync])
 
@@ -206,6 +208,92 @@ export default function LeetCodeListPage() {
       setSyncing(false)
     }
   }, [questions, syncing])
+
+  const lcListKey = useMemo(() => {
+    const parts: string[] = []
+    if (setFilter !== 'all') parts.push(`s${setFilter}`)
+    if (diffFilter !== 'all') parts.push(diffFilter.toLowerCase())
+    if (priorityFilter !== 'all') parts.push(priorityFilter.toLowerCase())
+    if (patternFilter !== 'all') parts.push(patternFilter)
+    return parts.length ? parts.join('|') : 'all'
+  }, [setFilter, diffFilter, priorityFilter, patternFilter])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('lm_lc_lists')
+      if (raw) setLcListHashes(JSON.parse(raw))
+    } catch {}
+  }, [])
+
+  const saveLcListHashes = (next: Record<string, string>) => {
+    setLcListHashes(next)
+    try { localStorage.setItem('lm_lc_lists', JSON.stringify(next)) } catch {}
+  }
+
+  const handleCreateLcList = async () => {
+    if (lcListLoading) return
+    setLcListLoading(true)
+    try {
+      const { session, csrf } = await ensureLcSessionForSync()
+      if (!session) {
+        toast.error('No LC session — sync first to load your session')
+        setLcListLoading(false)
+        return
+      }
+      const parts: string[] = []
+      if (patternFilter !== 'all') parts.push(patternFilter)
+      else if (setFilter !== 'all') parts.push(`Set ${setFilter}`)
+      if (diffFilter !== 'all') parts.push(diffFilter)
+      if (priorityFilter !== 'all') parts.push(priorityFilter)
+      const listName = parts.length ? parts.join(' · ') : 'LeetMastery All 727'
+      const existingHash = lcListHashes[lcListKey] ?? null
+      const res = await fetch('/api/lc-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          session,
+          csrf,
+          listName,
+          existingHash,
+          questions: filtered.map(q => ({ id: q.id, slug: q.slug })),
+        }),
+      })
+      const data = await res.json()
+      if (data.favoriteIdHash) {
+        saveLcListHashes({ ...lcListHashes, [lcListKey]: data.favoriteIdHash })
+        window.open(`https://leetcode.com/list/?selectedList=${data.favoriteIdHash}`, '_blank', 'noopener')
+        toast.success(`"${listName}" ready — ${data.added}/${data.total} added. Open the list then click a problem for prev/next nav.`)
+      } else {
+        toast.error(data.error ?? 'Failed to create LC list')
+      }
+    } catch {
+      toast.error('Failed to create LC list')
+    }
+    setLcListLoading(false)
+  }
+
+  const handleDeleteLcList = async () => {
+    if (lcListLoading) return
+    const hash = lcListHashes[lcListKey]
+    if (!hash) return
+    setLcListLoading(true)
+    try {
+      const { session, csrf } = await ensureLcSessionForSync()
+      await fetch('/api/lc-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', session, csrf, favoriteIdHash: hash }),
+      })
+      const next = { ...lcListHashes }
+      delete next[lcListKey]
+      saveLcListHashes(next)
+      toast.success('LC list deleted')
+    } catch {
+      toast.error('Failed to delete LC list')
+    }
+    setLcListLoading(false)
+  }
 
   const patterns = useMemo(() => {
     const set = new Set<string>()
@@ -374,6 +462,39 @@ export default function LeetCodeListPage() {
                 <span className="text-xs text-[var(--text-subtle)] tabular-nums shrink-0">
                   {filtered.length} / {questions.length}
                 </span>
+
+                {/* Open as LeetCode List */}
+                {lcListLoading ? (
+                  <span className="text-xs text-[var(--text-subtle)] animate-pulse shrink-0">Creating…</span>
+                ) : lcListHashes[lcListKey] ? (
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <a
+                      href={`https://leetcode.com/list/?selectedList=${lcListHashes[lcListKey]}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 px-2.5 py-2 rounded-l-xl border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition"
+                    >
+                      <ExternalLink size={12} /> Open LC List
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteLcList()}
+                      title="Delete this LC list"
+                      className="px-2 py-2 rounded-r-xl border border-l-0 border-orange-300 bg-orange-50 text-orange-300 hover:text-red-500 text-xs transition"
+                    >
+                      🗑
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateLcList()}
+                    title={`Create a LeetCode Favorite List from these ${filtered.length} questions`}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[var(--border)] text-xs font-semibold text-[var(--text-muted)] hover:border-orange-400 hover:text-orange-500 transition shrink-0"
+                  >
+                    <ExternalLink size={12} /> LC List +
+                  </button>
+                )}
               </div>
 
               <CountStrip counts={summary} />

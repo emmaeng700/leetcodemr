@@ -75,7 +75,14 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { action } = body
 
-    const { session, csrf } = await getLcSession()
+    // Prefer session passed directly from client (already resolved, avoids extra LC round-trip)
+    let session = body.session as string | undefined
+    let csrf = body.csrf as string | undefined
+    if (!session) {
+      const creds = await getLcSession()
+      session = creds.session
+      csrf = creds.csrf
+    }
     if (!session) return NextResponse.json({ error: 'no LC session' }, { status: 401 })
 
     if (action === 'delete') {
