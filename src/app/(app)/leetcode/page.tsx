@@ -26,9 +26,11 @@ import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
 import {
   buildOrderedLcListName,
   DEFAULT_LC_NAME_ORDER,
+  LC_BATCH_PRESETS,
   LC_NAME_PART_LABEL,
   moveNamePart,
   planBatchLcLists,
+  planPresetLcLists,
   readLcNameOrder,
   saveLcNameOrder,
   storageKeyForPlan,
@@ -227,6 +229,8 @@ export default function LeetCodeListPage() {
   const [nameOrder, setNameOrder] = useState<LcNamePart[]>(DEFAULT_LC_NAME_ORDER)
   const [showBatch, setShowBatch] = useState(false)
   const [batchSplit, setBatchSplit] = useState<LcBatchSplit>('pattern')
+  /** null = use current page filters; otherwise a Set 1/2/3 all-patterns (etc.) preset */
+  const [batchPresetId, setBatchPresetId] = useState<string | null>(null)
   const [batchProgress, setBatchProgress] = useState<string | null>(null)
 
   const solvedSet = useMemo(() => new Set(lcSync?.solvedIds ?? []), [lcSync])
@@ -364,69 +368,6 @@ export default function LeetCodeListPage() {
     setLcListLoading(false)
   }
 
-  const handleBatchCreate = async () => {
-    if (lcListLoading || batchPlans.length === 0) return
-    setLcListLoading(true)
-    setBatchProgress(`0 / ${batchPlans.length}`)
-    let ok = 0
-    let hashes = { ...lcListHashes }
-    let lastSlug: string | null = null
-
-    try {
-      const { session, csrf } = await ensureLcSessionForSync()
-      if (!session || !csrf) {
-        toast.error('No LC session — Clipboard → Use with cookie from leetcode.com')
-        setLcListLoading(false)
-        setBatchProgress(null)
-        return
-      }
-
-      for (let i = 0; i < batchPlans.length; i++) {
-        const plan = batchPlans[i]
-        setBatchProgress(`${i + 1} / ${batchPlans.length}: ${plan.listName}`)
-        const storageKey = storageKeyForPlan(plan, { setFilter, tierFilter, patternFilter }, batchSplit)
-        const existingHash = hashes[storageKey] ?? null
-        const res = await fetch('/api/lc-list', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'create',
-            session,
-            csrf,
-            listName: plan.listName,
-            existingHash,
-            questions: plan.questions.map(q => ({ id: q.id, slug: q.slug })),
-          }),
-        })
-        const data = await res.json()
-        if (data.code === 'lc_not_logged_in' || /not logged in/i.test(data.error ?? '')) {
-          toast.error('LeetCode session expired mid-batch — paste a fresh cookie and retry')
-          break
-        }
-        const slug = data.favoriteSlug ?? data.favoriteIdHash
-        if (slug) {
-          hashes = { ...hashes, [storageKey]: slug }
-          lastSlug = slug
-          ok++
-        }
-        // Brief pause between creates so LC rate limits stay happy.
-        if (i + 1 < batchPlans.length) await new Promise(r => setTimeout(r, 350))
-      }
-
-      saveLcListHashes(hashes)
-      if (ok > 0 && lastSlug) {
-        openExternalUrl(leetCodeListUrl(lastSlug))
-        toast.success(`Created ${ok}/${batchPlans.length} LC lists.`, { duration: 6000 })
-      } else {
-        toast.error('No lists were created')
-      }
-    } catch {
-      toast.error('Batch create failed')
-    }
-    setBatchProgress(null)
-    setLcListLoading(false)
-  }
-
   const handleDeleteLcList = async () => {
     if (lcListLoading) return
     const hash = lcListHashes[lcListKey]
@@ -499,15 +440,106 @@ export default function LeetCodeListPage() {
     })
   }, [questions, search, setFilter, tierFilter, diffFilter, priorityFilter, patternFilter, statusFilter, solvedFn])
 
-  const batchPlans = useMemo(
-    () =>
-      planBatchLcLists(filtered, batchSplit, nameOrder, {
-        setFilter,
-        tierFilter,
-        patternFilter,
-      }),
-    [filtered, batchSplit, nameOrder, setFilter, tierFilter, patternFilter],
+  const activeBatchPreset = useMemo(
+    () => (batchPresetId ? LC_BATCH_PRESETS.find(p => p.id === batchPresetId) ?? null : null),
+    [batchPresetId],
   )
+
+  const batchScopeFilters = useMemo(
+    () =>
+      activeBatchPreset
+        ? {
+            setFilter: activeBatchPreset.setFilter,
+            tierFilter: activeBatchPreset.tierFilter,
+            patternFilter: activeBatchPreset.patternFilter,
+          }
+        : { setFilter, tierFilter, patternFilter },
+    [activeBatchPreset, setFilter, tierFilter, patternFilter],
+  )
+
+  const batchSplitEffective = activeBatchPreset?.split ?? batchSplit
+
+  const batchPlans = useMemo(() => {
+    if (activeBatchPreset) {
+      return planPresetLcLists(questions, activeBatchPreset, nameOrder)
+    }
+    return planBatchLcLists(filtered, batchSplit, nameOrder, {
+      setFilter,
+      tierFilter,
+      patternFilter,
+    })
+  }, [
+    activeBatchPreset,
+    questions,
+    filtered,
+    batchSplit,
+    nameOrder,
+    setFilter,
+    tierFilter,
+    patternFilter,
+  ])
+
+  const handleBatchCreate = async () => {
+    if (lcListLoading || batchPlans.length === 0) return
+    setLcListLoading(true)
+    setBatchProgress(`0 / ${batchPlans.length}`)
+    let ok = 0
+    let hashes = { ...lcListHashes }
+    let lastSlug: string | null = null
+
+    try {
+      const { session, csrf } = await ensureLcSessionForSync()
+      if (!session || !csrf) {
+        toast.error('No LC session — Clipboard → Use with cookie from leetcode.com')
+        setLcListLoading(false)
+        setBatchProgress(null)
+        return
+      }
+
+      for (let i = 0; i < batchPlans.length; i++) {
+        const plan = batchPlans[i]
+        setBatchProgress(`${i + 1} / ${batchPlans.length}: ${plan.listName}`)
+        const storageKey = storageKeyForPlan(plan, batchScopeFilters, batchSplitEffective)
+        const existingHash = hashes[storageKey] ?? null
+        const res = await fetch('/api/lc-list', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'create',
+            session,
+            csrf,
+            listName: plan.listName,
+            existingHash,
+            questions: plan.questions.map(q => ({ id: q.id, slug: q.slug })),
+          }),
+        })
+        const data = await res.json()
+        if (data.code === 'lc_not_logged_in' || /not logged in/i.test(data.error ?? '')) {
+          toast.error('LeetCode session expired mid-batch — paste a fresh cookie and retry')
+          break
+        }
+        const slug = data.favoriteSlug ?? data.favoriteIdHash
+        if (slug) {
+          hashes = { ...hashes, [storageKey]: slug }
+          lastSlug = slug
+          ok++
+        }
+        if (i + 1 < batchPlans.length) await new Promise(r => setTimeout(r, 350))
+      }
+
+      saveLcListHashes(hashes)
+      if (ok > 0 && lastSlug) {
+        openExternalUrl(leetCodeListUrl(lastSlug))
+        toast.success(`Created ${ok}/${batchPlans.length} LC lists.`, { duration: 6000 })
+      } else {
+        toast.error('No lists were created')
+      }
+    } catch {
+      toast.error('Batch create failed')
+    }
+    setBatchProgress(null)
+    setLcListLoading(false)
+  }
 
   const listEntries = useMemo(() => grindListWithDividers(filtered), [filtered])
 
@@ -760,42 +792,84 @@ export default function LeetCodeListPage() {
 
               {showBatch && (
                 <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-3 space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] font-semibold text-orange-800">Split filtered into</span>
-                    {([
-                      ['pattern', 'Pattern'],
-                      ['tier', 'Priority Diff'],
-                      ['set', 'Set'],
-                    ] as const).map(([value, label]) => (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-semibold text-orange-800 shrink-0">Quick</span>
+                    {LC_BATCH_PRESETS.map(preset => (
                       <button
-                        key={value}
+                        key={preset.id}
                         type="button"
-                        onClick={() => setBatchSplit(value)}
+                        onClick={() => {
+                          setBatchPresetId(preset.id)
+                          setBatchSplit(preset.split)
+                        }}
                         className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition ${
-                          batchSplit === value
+                          batchPresetId === preset.id
                             ? 'border-orange-400 bg-orange-100 text-orange-800'
                             : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:bg-[var(--bg-muted)]'
                         }`}
                       >
-                        {label}
+                        {preset.label}
                       </button>
                     ))}
                     <button
                       type="button"
+                      onClick={() => setBatchPresetId(null)}
+                      className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition ${
+                        batchPresetId === null
+                          ? 'border-orange-400 bg-orange-100 text-orange-800'
+                          : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:bg-[var(--bg-muted)]'
+                      }`}
+                    >
+                      Current filters
+                    </button>
+                  </div>
+
+                  {batchPresetId === null && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] font-semibold text-orange-800">Split filtered into</span>
+                      {([
+                        ['pattern', 'Pattern'],
+                        ['tier', 'Priority Diff'],
+                        ['set', 'Set'],
+                      ] as const).map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => {
+                            setBatchSplit(value)
+                            setBatchPresetId(null)
+                          }}
+                          className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition ${
+                            batchSplit === value
+                              ? 'border-orange-400 bg-orange-100 text-orange-800'
+                              : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:bg-[var(--bg-muted)]'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-[10px] text-orange-800/80 flex-1 min-w-[12rem]">
+                      {activeBatchPreset
+                        ? `${activeBatchPreset.label}: one LC list per ${activeBatchPreset.split} (whole set, all tiers/patterns in that split).`
+                        : `Uses current filters as the pool, then one LC favorite per ${batchSplit}.`}
+                      {' '}Names follow your order above.
+                    </p>
+                    <button
+                      type="button"
                       disabled={lcListLoading || batchPlans.length === 0}
                       onClick={() => void handleBatchCreate()}
-                      className="ml-auto text-[11px] font-bold px-3 py-1.5 rounded-lg border border-orange-400 bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 transition"
+                      className="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-orange-400 bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 transition shrink-0"
                     >
                       Create {batchPlans.length} lists
                     </button>
                   </div>
-                  <p className="text-[10px] text-orange-800/80">
-                    Uses current filters as the pool, then makes one LC favorite per {batchSplit}.
-                    Names follow your order above.
-                  </p>
                   <div className="max-h-40 overflow-y-auto space-y-1">
                     {batchPlans.length === 0 ? (
-                      <p className="text-[11px] text-[var(--text-subtle)]">No groups in the current filter.</p>
+                      <p className="text-[11px] text-[var(--text-subtle)]">No groups for this batch.</p>
                     ) : (
                       batchPlans.map(plan => (
                         <div

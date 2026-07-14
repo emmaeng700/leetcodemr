@@ -225,3 +225,83 @@ export function questionMatchesFilters(
   if (opts.patternFilter !== 'all' && q.pattern !== opts.patternFilter) return false
   return true
 }
+
+export type LcBatchPreset = {
+  id: string
+  label: string
+  setFilter: 'all' | 1 | 2 | 3
+  tierFilter: 'all' | StudyTier
+  patternFilter: string
+  split: LcBatchSplit
+}
+
+/** One-click scopes (ignore page filters except for "current filters"). */
+export const LC_BATCH_PRESETS: LcBatchPreset[] = [
+  {
+    id: 's1-patterns',
+    label: 'Set 1 · all patterns',
+    setFilter: 1,
+    tierFilter: 'all',
+    patternFilter: 'all',
+    split: 'pattern',
+  },
+  {
+    id: 's2-patterns',
+    label: 'Set 2 · all patterns',
+    setFilter: 2,
+    tierFilter: 'all',
+    patternFilter: 'all',
+    split: 'pattern',
+  },
+  {
+    id: 's3-patterns',
+    label: 'Set 3 · all patterns',
+    setFilter: 3,
+    tierFilter: 'all',
+    patternFilter: 'all',
+    split: 'pattern',
+  },
+  {
+    id: 's1-tiers',
+    label: 'Set 1 · all tiers',
+    setFilter: 1,
+    tierFilter: 'all',
+    patternFilter: 'all',
+    split: 'tier',
+  },
+  {
+    id: 's2-tiers',
+    label: 'Set 2 · all tiers',
+    setFilter: 2,
+    tierFilter: 'all',
+    patternFilter: 'all',
+    split: 'tier',
+  },
+  {
+    id: 's3-tiers',
+    label: 'Set 3 · all tiers',
+    setFilter: 3,
+    tierFilter: 'all',
+    patternFilter: 'all',
+    split: 'tier',
+  },
+]
+
+export function planPresetLcLists(
+  allQuestions: GrindQuestion[],
+  preset: LcBatchPreset,
+  nameOrder: LcNamePart[],
+): BatchListPlan[] {
+  const pool = allQuestions.filter(q =>
+    questionMatchesFilters(q, {
+      setFilter: preset.setFilter,
+      tierFilter: preset.tierFilter,
+      patternFilter: preset.patternFilter,
+    }),
+  )
+  return planBatchLcLists(pool, preset.split, nameOrder, {
+    setFilter: preset.setFilter,
+    tierFilter: preset.tierFilter,
+    patternFilter: preset.patternFilter,
+  })
+}
