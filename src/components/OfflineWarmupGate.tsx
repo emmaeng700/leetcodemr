@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { Wifi, Download, CheckCircle2, Loader2 } from 'lucide-react'
 import {
   isOfflineWarmupComplete,
@@ -10,6 +11,8 @@ import {
 } from '@/lib/offlineWarmup'
 
 export default function OfflineWarmupGate({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  const isGrind = pathname === '/grind' || pathname?.startsWith('/grind/')
   const [active, setActive] = useState(false)
   const [progress, setProgress] = useState<WarmupProgress | null>(null)
   const [failed, setFailed] = useState(false)
@@ -33,7 +36,8 @@ export default function OfflineWarmupGate({ children }: { children: React.ReactN
     }
 
     let cancelled = false
-    setActive(true)
+    // Grind is public/offline-first — never block that page with the modal.
+    if (!isGrind) setActive(true)
 
     runOfflineWarmup(p => {
       if (!cancelled) setProgress(p)
@@ -54,7 +58,12 @@ export default function OfflineWarmupGate({ children }: { children: React.ReactN
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [isGrind])
+
+  const skip = () => {
+    markOfflineWarmupComplete('skipped')
+    setActive(false)
+  }
 
   const pct =
     progress && progress.total > 0
@@ -108,11 +117,20 @@ export default function OfflineWarmupGate({ children }: { children: React.ReactN
               </p>
             </div>
 
-            <div className="flex items-center gap-1.5 mt-4 pt-3 border-t border-[var(--border-soft)]">
-              <Wifi size={12} className="text-[var(--text-subtle)]" />
-              <span className="text-[10px] text-[var(--text-subtle)]">
-                {pct}% - keep the app open until this finishes
-              </span>
+            <div className="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-[var(--border-soft)]">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Wifi size={12} className="text-[var(--text-subtle)] shrink-0" />
+                <span className="text-[10px] text-[var(--text-subtle)]">
+                  {pct}% - keep open, or skip
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={skip}
+                className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-500 shrink-0 px-2 py-1"
+              >
+                Skip →
+              </button>
             </div>
           </div>
         </div>

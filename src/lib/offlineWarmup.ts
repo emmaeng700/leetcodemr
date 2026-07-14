@@ -12,9 +12,9 @@ import {
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter } from '@/lib/grindStorage'
 import type { GrindQuestion } from '@/lib/grindQuestions'
-import { cacheAllDescriptionImages } from '@/lib/descriptionImageCache'
+import { cacheAllDescriptionImages, descriptionImagesCached } from '@/lib/descriptionImageCache'
 
-export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v24'
+export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v25'
 
 export type WarmupPhase = 'pages' | 'questions' | 'starters' | 'done'
 
@@ -30,7 +30,7 @@ export function isOfflineWarmupComplete(): boolean {
   return !!localStorage.getItem(OFFLINE_WARMUP_KEY)
 }
 
-export function markOfflineWarmupComplete(status: 'done' | 'partial' | 'skipped-offline' | 'dev-skip' = 'done') {
+export function markOfflineWarmupComplete(status: 'done' | 'partial' | 'skipped-offline' | 'dev-skip' | 'skipped' = 'done') {
   try {
     localStorage.setItem(OFFLINE_WARMUP_KEY, status === 'done' ? String(Date.now()) : status)
   } catch {
@@ -60,6 +60,12 @@ function startersNeedingFetch(questions: GrindQuestion[]): GrindQuestion[] {
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
+/** Kick off diagram caching without blocking the rest of warm-up. */
+function startDescriptionImagesInBackground() {
+  if (descriptionImagesCached()) return
+  void cacheAllDescriptionImages().catch(() => {})
+}
+
 /** One-time warm-up: cache offline Grind page, questions JSON, and starter code. */
 export async function runOfflineWarmup(
   onProgress: (p: WarmupProgress) => void,
@@ -72,7 +78,7 @@ export async function runOfflineWarmup(
 
   postCachePagesToSw()
 
-  const pageTotal = 5 + GRIND_OFFLINE_ASSETS.length
+  const pageTotal = 4 + GRIND_OFFLINE_ASSETS.length
   let done = 0
 
   const tickPages = (label: string) => {
@@ -87,7 +93,7 @@ export async function runOfflineWarmup(
   try {
     await fetch('/playbook_data_all.json', { cache: 'reload' })
   } catch {
-    /* offline or network error - generic .json fallback in SW still serves cached copy */
+    /* continue */
   }
   done += 1
 
@@ -99,10 +105,9 @@ export async function runOfflineWarmup(
   }
   done += 1
 
-  tickPages('Saving description diagrams...')
-  await cacheAllDescriptionImages((d, t) => {
-    tickPages(`Saving description diagrams (${d}/${t})...`)
-  })
+  // Diagrams are large (~445 images) — do not block the gate on them.
+  tickPages('Queuing description diagrams...')
+  startDescriptionImagesInBackground()
   done += 1
 
   for (const path of GRIND_OFFLINE_ASSETS) {
@@ -119,7 +124,7 @@ export async function runOfflineWarmup(
       /* continue */
     }
     done += 1
-    await sleep(80)
+    await sleep(40)
   }
 
   tickPages('Writing offline cache...')
@@ -169,7 +174,7 @@ export async function runOfflineWarmup(
         ? ensureGrindStarterCached(q, 'cpp')
         : Promise.resolve(),
     ])
-    await sleep(350)
+    await sleep(200)
   }
 
   onProgress({ phase: 'done', label: 'Ready for offline use', done: grandTotal, total: grandTotal })

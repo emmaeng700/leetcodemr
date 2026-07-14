@@ -518,7 +518,7 @@
     var questions = []
     var descriptions = {}
     var OFFLINE_VERSION = 'v35'
-    var SW_CACHE = 'lm-v28'
+    var SW_CACHE = 'lm-v29'
     var midnightTimer = null
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v1'
     var filtered = []
@@ -2315,7 +2315,7 @@
 
     function fetchCached(url) {
       if (!('caches' in window)) return Promise.reject(new Error('no cache'))
-      var names = [SW_CACHE, 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
+      var names = [SW_CACHE, 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
       var i = 0
       function tryNext() {
         if (i >= names.length) return Promise.reject(new Error('missing'))

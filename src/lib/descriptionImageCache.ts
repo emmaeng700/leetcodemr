@@ -13,7 +13,7 @@ export async function loadDescriptionImagePaths(): Promise<string[]> {
   }
 
   if (typeof caches !== 'undefined') {
-    for (const cacheName of ['lm-v28', 'lm-v27', 'lm-v26', 'lm-v25', 'lm-v24', 'lm-v23', 'lm-v22', 'lm-v21', 'lm-v20', 'lm-v16', 'lm-v15', 'lm-v13']) {
+    for (const cacheName of ['lm-v29', 'lm-v28', 'lm-v27', 'lm-v26', 'lm-v25', 'lm-v24', 'lm-v23', 'lm-v22', 'lm-v21', 'lm-v20', 'lm-v16', 'lm-v15', 'lm-v13']) {
       try {
         const cache = await caches.open(cacheName)
         const cached = await cache.match(DESC_IMAGES_MANIFEST, { ignoreSearch: true })
@@ -91,7 +91,7 @@ export async function cacheAllDescriptionImages(
           }
           navigator.serviceWorker.addEventListener('message', onMsg)
           worker.postMessage({ type: 'CACHE_DESCRIPTION_IMAGES', paths })
-          setTimeout(finish, 180_000)
+          setTimeout(finish, 45_000)
         })
         try {
           localStorage.setItem(DESC_IMAGES_CACHE_KEY, String(Date.now()))

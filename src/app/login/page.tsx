@@ -86,6 +86,14 @@ export default function LoginPage() {
         <p className="text-center text-xs text-gray-400 mt-6">
           LeetMastery &middot; Private access only
         </p>
+        <p className="text-center mt-3">
+          <a
+            href="/grind"
+            className="text-sm font-semibold text-indigo-600 hover:text-indigo-500 hover:underline"
+          >
+            Continue to Grind without login →
+          </a>
+        </p>
       </div>
     </div>
   )
