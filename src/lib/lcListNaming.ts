@@ -167,11 +167,14 @@ export function lcListStorageKey(parts: {
   set?: 1 | 2 | 3 | null
   tier?: string | null
   pattern?: string | null
+  difficulties?: ReadonlySet<LcDifficulty> | null
 }): string {
   const bits: string[] = []
   if (parts.set) bits.push(`s${parts.set}`)
   if (parts.tier && parts.tier !== 'all') bits.push(parts.tier.replace(/\s+/g, '-').toLowerCase())
   if (parts.pattern && parts.pattern !== 'all') bits.push(parts.pattern)
+  const diffTag = parts.difficulties ? difficultyLabel(parts.difficulties) : null
+  if (diffTag) bits.push(diffTag.toLowerCase())
   return bits.length ? bits.join('|') : 'all'
 }
 
@@ -184,6 +187,7 @@ export function storageKeyForPlan(
     patternFilter: string
   },
   split: LcBatchSplit,
+  difficulties?: ReadonlySet<LcDifficulty>,
 ): string {
   const qs = plan.questions
   const set =
@@ -204,7 +208,7 @@ export function storageKeyForPlan(
       : split === 'pattern'
         ? plan.key.split(':').slice(1).join(':')
         : commonPattern(qs)
-  return lcListStorageKey({ set, tier, pattern })
+  return lcListStorageKey({ set, tier, pattern, difficulties: difficulties ?? null })
 }
 
 export function priorityForPattern(pattern: string | null): string | null {
@@ -218,12 +222,34 @@ export function questionMatchesFilters(
     setFilter: 'all' | 1 | 2 | 3
     tierFilter: 'all' | StudyTier
     patternFilter: string
+    difficulties?: ReadonlySet<LcDifficulty> | LcDifficulty[]
   },
 ): boolean {
   if (opts.setFilter !== 'all' && q.set !== opts.setFilter) return false
   if (opts.tierFilter !== 'all' && !matchesStudyTier(q, opts.tierFilter)) return false
   if (opts.patternFilter !== 'all' && q.pattern !== opts.patternFilter) return false
+  if (opts.difficulties) {
+    const set = opts.difficulties instanceof Set ? opts.difficulties : new Set(opts.difficulties)
+    if (set.size > 0 && set.size < 3 && !set.has(q.difficulty as LcDifficulty)) return false
+    if (set.size === 0) return false
+  }
   return true
+}
+
+export type LcDifficulty = 'Easy' | 'Medium' | 'Hard'
+
+export const LC_DIFFICULTIES: LcDifficulty[] = ['Easy', 'Medium', 'Hard']
+
+export function difficultyLabel(diffs: ReadonlySet<LcDifficulty>): string | null {
+  if (diffs.size === 0 || diffs.size === 3) return null
+  return LC_DIFFICULTIES.filter(d => diffs.has(d)).join('+')
+}
+
+export function withDifficultySuffix(listName: string, diffs: ReadonlySet<LcDifficulty>): string {
+  const label = difficultyLabel(diffs)
+  if (!label) return listName
+  if (listName === 'LeetMastery All 727') return label
+  return `${listName} · ${label}`
 }
 
 export type LcBatchPreset = {
@@ -291,12 +317,14 @@ export function planPresetLcLists(
   allQuestions: GrindQuestion[],
   preset: LcBatchPreset,
   nameOrder: LcNamePart[],
+  difficulties: ReadonlySet<LcDifficulty> = new Set(LC_DIFFICULTIES),
 ): BatchListPlan[] {
   const pool = allQuestions.filter(q =>
     questionMatchesFilters(q, {
       setFilter: preset.setFilter,
       tierFilter: preset.tierFilter,
       patternFilter: preset.patternFilter,
+      difficulties,
     }),
   )
   return planBatchLcLists(pool, preset.split, nameOrder, {
@@ -304,4 +332,31 @@ export function planPresetLcLists(
     tierFilter: preset.tierFilter,
     patternFilter: preset.patternFilter,
   })
+    .map(plan => ({
+      ...plan,
+      listName: withDifficultySuffix(plan.listName, difficulties),
+    }))
+    .filter(plan => plan.questions.length > 0)
+}
+
+/** Apply difficulty ticks to an already-planned batch (e.g. current page filters). */
+export function applyBatchDifficulties(
+  plans: BatchListPlan[],
+  difficulties: ReadonlySet<LcDifficulty>,
+): BatchListPlan[] {
+  return plans
+    .map(plan => {
+      const questions =
+        difficulties.size === 0
+          ? []
+          : difficulties.size === 3
+            ? plan.questions
+            : plan.questions.filter(q => difficulties.has(q.difficulty as LcDifficulty))
+      return {
+        ...plan,
+        questions,
+        listName: withDifficultySuffix(plan.listName, difficulties),
+      }
+    })
+    .filter(plan => plan.questions.length > 0)
 }

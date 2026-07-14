@@ -24,9 +24,11 @@ import {
 } from '@/lib/leetcodeListSync'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
 import {
+  applyBatchDifficulties,
   buildOrderedLcListName,
   DEFAULT_LC_NAME_ORDER,
   LC_BATCH_PRESETS,
+  LC_DIFFICULTIES,
   LC_NAME_PART_LABEL,
   moveNamePart,
   planBatchLcLists,
@@ -35,6 +37,7 @@ import {
   saveLcNameOrder,
   storageKeyForPlan,
   type LcBatchSplit,
+  type LcDifficulty,
   type LcNamePart,
 } from '@/lib/lcListNaming'
 import { leetCodeListPracticeUrl, leetCodeListUrl, leetCodeUrl, openExternalLink, openExternalUrl, resolveLeetCodeSlug } from '@/lib/utils'
@@ -231,6 +234,9 @@ export default function LeetCodeListPage() {
   const [batchSplit, setBatchSplit] = useState<LcBatchSplit>('pattern')
   /** null = use current page filters; otherwise a Set 1/2/3 all-patterns (etc.) preset */
   const [batchPresetId, setBatchPresetId] = useState<string | null>(null)
+  const [batchDiffs, setBatchDiffs] = useState<Set<LcDifficulty>>(
+    () => new Set(LC_DIFFICULTIES),
+  )
   const [batchProgress, setBatchProgress] = useState<string | null>(null)
 
   const solvedSet = useMemo(() => new Set(lcSync?.solvedIds ?? []), [lcSync])
@@ -461,13 +467,16 @@ export default function LeetCodeListPage() {
 
   const batchPlans = useMemo(() => {
     if (activeBatchPreset) {
-      return planPresetLcLists(questions, activeBatchPreset, nameOrder)
+      return planPresetLcLists(questions, activeBatchPreset, nameOrder, batchDiffs)
     }
-    return planBatchLcLists(filtered, batchSplit, nameOrder, {
-      setFilter,
-      tierFilter,
-      patternFilter,
-    })
+    return applyBatchDifficulties(
+      planBatchLcLists(filtered, batchSplit, nameOrder, {
+        setFilter,
+        tierFilter,
+        patternFilter,
+      }),
+      batchDiffs,
+    )
   }, [
     activeBatchPreset,
     questions,
@@ -477,7 +486,17 @@ export default function LeetCodeListPage() {
     setFilter,
     tierFilter,
     patternFilter,
+    batchDiffs,
   ])
+
+  const toggleBatchDiff = (d: LcDifficulty) => {
+    setBatchDiffs(prev => {
+      const next = new Set(prev)
+      if (next.has(d)) next.delete(d)
+      else next.add(d)
+      return next
+    })
+  }
 
   const handleBatchCreate = async () => {
     if (lcListLoading || batchPlans.length === 0) return
@@ -499,7 +518,7 @@ export default function LeetCodeListPage() {
       for (let i = 0; i < batchPlans.length; i++) {
         const plan = batchPlans[i]
         setBatchProgress(`${i + 1} / ${batchPlans.length}: ${plan.listName}`)
-        const storageKey = storageKeyForPlan(plan, batchScopeFilters, batchSplitEffective)
+        const storageKey = storageKeyForPlan(plan, batchScopeFilters, batchSplitEffective, batchDiffs)
         const existingHash = hashes[storageKey] ?? null
         const res = await fetch('/api/lc-list', {
           method: 'POST',
@@ -793,6 +812,34 @@ export default function LeetCodeListPage() {
               {showBatch && (
                 <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-3 space-y-2">
                   <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-semibold text-orange-800 shrink-0">Difficulty</span>
+                    {LC_DIFFICULTIES.map(d => {
+                      const on = batchDiffs.has(d)
+                      return (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => toggleBatchDiff(d)}
+                          className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition ${
+                            on
+                              ? 'border-orange-400 bg-orange-100 text-orange-800'
+                              : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-subtle)] hover:bg-[var(--bg-muted)]'
+                          }`}
+                        >
+                          {on ? '✓ ' : ''}{d}
+                        </button>
+                      )
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => setBatchDiffs(new Set(LC_DIFFICULTIES))}
+                      className="text-[10px] font-semibold text-orange-700 hover:underline"
+                    >
+                      All
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-[11px] font-semibold text-orange-800 shrink-0">Quick</span>
                     {LC_BATCH_PRESETS.map(preset => (
                       <button
@@ -854,9 +901,10 @@ export default function LeetCodeListPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-[10px] text-orange-800/80 flex-1 min-w-[12rem]">
                       {activeBatchPreset
-                        ? `${activeBatchPreset.label}: one LC list per ${activeBatchPreset.split} (whole set, all tiers/patterns in that split).`
+                        ? `${activeBatchPreset.label}: one LC list per ${activeBatchPreset.split}.`
                         : `Uses current filters as the pool, then one LC favorite per ${batchSplit}.`}
-                      {' '}Names follow your order above.
+                      {' '}Difficulties: {[...batchDiffs].join('+') || 'none'}. Names follow your order
+                      {batchDiffs.size > 0 && batchDiffs.size < 3 ? ' (+ difficulty tag)' : ''}.
                     </p>
                     <button
                       type="button"
