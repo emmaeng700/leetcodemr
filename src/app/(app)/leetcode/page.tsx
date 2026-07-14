@@ -13,7 +13,8 @@ import {
   loadQuestionsFullJson,
   type GrindQuestion,
 } from '@/lib/grindQuestions'
-import { grindListWithDividers, grindSummaryCounts } from '@/lib/grindList'
+import { DISPLAY_PATTERN_ORDER } from '@/lib/constants'
+import { grindListWithDividers, grindSummaryCounts, matchesStudyTier, STUDY_TIER_ORDER, type StudyTier } from '@/lib/grindList'
 import {
   formatSyncTime,
   ensureLcSessionForSync,
@@ -27,6 +28,7 @@ import { leetCodeListPracticeUrl, leetCodeListUrl, leetCodeUrl, resolveLeetCodeS
 type SetFilter = 'all' | 1 | 2 | 3
 type DiffFilter = 'all' | 'Easy' | 'Medium' | 'Hard'
 type PriorityFilter = 'all' | PatternPriority
+type TierFilter = 'all' | StudyTier
 type StatusFilter = 'all' | 'solved' | 'unsolved'
 
 const SET_LABEL: Record<1 | 2 | 3, string> = {
@@ -150,6 +152,7 @@ export default function LeetCodeListPage() {
 
   const [search, setSearch] = useState('')
   const [setFilter, setSetFilter] = useState<SetFilter>('all')
+  const [tierFilter, setTierFilter] = useState<TierFilter>('all')
   const [diffFilter, setDiffFilter] = useState<DiffFilter>('all')
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all')
   const [patternFilter, setPatternFilter] = useState<string>('all')
@@ -212,11 +215,12 @@ export default function LeetCodeListPage() {
   const lcListKey = useMemo(() => {
     const parts: string[] = []
     if (setFilter !== 'all') parts.push(`s${setFilter}`)
-    if (diffFilter !== 'all') parts.push(diffFilter.toLowerCase())
-    if (priorityFilter !== 'all') parts.push(priorityFilter.toLowerCase())
+    if (tierFilter !== 'all') parts.push(tierFilter.replace(/\s+/g, '-').toLowerCase())
+    else if (diffFilter !== 'all') parts.push(diffFilter.toLowerCase())
+    if (tierFilter === 'all' && priorityFilter !== 'all') parts.push(priorityFilter.toLowerCase())
     if (patternFilter !== 'all') parts.push(patternFilter)
     return parts.length ? parts.join('|') : 'all'
-  }, [setFilter, diffFilter, priorityFilter, patternFilter])
+  }, [setFilter, tierFilter, diffFilter, priorityFilter, patternFilter])
 
   useEffect(() => {
     try {
@@ -241,10 +245,11 @@ export default function LeetCodeListPage() {
         return
       }
       const parts: string[] = []
+      if (tierFilter !== 'all') parts.push(tierFilter)
       if (patternFilter !== 'all') parts.push(patternFilter)
       else if (setFilter !== 'all') parts.push(`Set ${setFilter}`)
-      if (diffFilter !== 'all') parts.push(diffFilter)
-      if (priorityFilter !== 'all') parts.push(priorityFilter)
+      if (tierFilter === 'all' && diffFilter !== 'all') parts.push(diffFilter)
+      if (tierFilter === 'all' && priorityFilter !== 'all') parts.push(priorityFilter)
       const listName = parts.length ? parts.join(' · ') : 'LeetMastery All 727'
       const existingHash = lcListHashes[lcListKey] ?? null
       const res = await fetch('/api/lc-list', {
@@ -316,29 +321,55 @@ export default function LeetCodeListPage() {
     setLcListLoading(false)
   }
 
-  const patterns = useMemo(() => {
-    const set = new Set<string>()
-    for (const q of questions) {
-      if (q.pattern) set.add(q.pattern)
+  const tierPool = useMemo(() => {
+    return questions.filter(q => {
+      if (setFilter !== 'all' && q.set !== setFilter) return false
+      return true
+    })
+  }, [questions, setFilter])
+
+  const tierSummary = useMemo(() => grindSummaryCounts(tierPool), [tierPool])
+
+  const patternsInScope = useMemo(() => {
+    const scoped = tierPool.filter(q => {
+      if (tierFilter === 'all') return true
+      return matchesStudyTier(q, tierFilter)
+    })
+    const counts = new Map<string, number>()
+    for (const q of scoped) {
+      if (q.pattern) counts.set(q.pattern, (counts.get(q.pattern) ?? 0) + 1)
     }
-    return Array.from(set).sort((a, b) => a.localeCompare(b))
-  }, [questions])
+    return DISPLAY_PATTERN_ORDER
+      .filter(p => counts.has(p))
+      .map(p => ({ pattern: p, count: counts.get(p)! }))
+  }, [tierPool, tierFilter])
+
+  useEffect(() => {
+    if (patternFilter === 'all') return
+    if (!patternsInScope.some(p => p.pattern === patternFilter)) {
+      setPatternFilter('all')
+    }
+  }, [patternsInScope, patternFilter])
 
   const filtered = useMemo(() => {
     return questions.filter(q => {
       if (!matchesQuestionSearch(q, search)) return false
       if (setFilter !== 'all' && q.set !== setFilter) return false
-      if (diffFilter !== 'all' && q.difficulty !== diffFilter) return false
-      if (priorityFilter !== 'all') {
-        const pri = q.pattern ? PATTERN_PRIORITY[q.pattern] : null
-        if (pri !== priorityFilter) return false
+      if (tierFilter !== 'all') {
+        if (!matchesStudyTier(q, tierFilter)) return false
+      } else {
+        if (diffFilter !== 'all' && q.difficulty !== diffFilter) return false
+        if (priorityFilter !== 'all') {
+          const pri = q.pattern ? PATTERN_PRIORITY[q.pattern] : null
+          if (pri !== priorityFilter) return false
+        }
       }
       if (patternFilter !== 'all' && q.pattern !== patternFilter) return false
       if (statusFilter === 'solved' && !solvedFn(q)) return false
       if (statusFilter === 'unsolved' && solvedFn(q)) return false
       return true
     })
-  }, [questions, search, setFilter, diffFilter, priorityFilter, patternFilter, statusFilter, solvedFn])
+  }, [questions, search, setFilter, tierFilter, diffFilter, priorityFilter, patternFilter, statusFilter, solvedFn])
 
   const listEntries = useMemo(() => grindListWithDividers(filtered), [filtered])
 
@@ -535,7 +566,51 @@ export default function LeetCodeListPage() {
               <CountStrip counts={summary} />
 
               {showFilters && (
-                <div className="flex flex-wrap gap-2 pt-1">
+                <div className="space-y-2 pt-1">
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTierFilter('all')
+                        setPatternFilter('all')
+                      }}
+                      className={`text-[11px] font-semibold px-2 py-1 rounded-full border transition ${
+                        tierFilter === 'all'
+                          ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                          : 'border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg-muted)]'
+                      }`}
+                    >
+                      All tiers
+                    </button>
+                    {STUDY_TIER_ORDER.map(tier => {
+                      const count = tierSummary.byTier[tier] ?? 0
+                      if (count === 0) return null
+                      const active = tierFilter === tier
+                      const pri = tier.startsWith('High') ? 'text-red-600' : tier.startsWith('Mid') ? 'text-orange-600' : 'text-gray-500'
+                      return (
+                        <button
+                          key={tier}
+                          type="button"
+                          onClick={() => {
+                            setTierFilter(tier)
+                            setDiffFilter('all')
+                            setPriorityFilter('all')
+                            setPatternFilter('all')
+                          }}
+                          className={`text-[11px] font-semibold px-2 py-1 rounded-full border tabular-nums transition ${
+                            active
+                              ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                              : 'border-[var(--border)] hover:bg-[var(--bg-muted)]'
+                          }`}
+                        >
+                          <span className={active ? '' : pri}>{tier}</span>
+                          <span className="opacity-70 ml-1">({count})</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
                   <select
                     value={String(setFilter)}
                     onChange={e => setSetFilter(e.target.value === 'all' ? 'all' : Number(e.target.value) as SetFilter)}
@@ -547,9 +622,30 @@ export default function LeetCodeListPage() {
                     <option value="3">Set 3 ({allSummary.bySet[3]})</option>
                   </select>
                   <select
+                    value={tierFilter}
+                    onChange={e => {
+                      const next = e.target.value as TierFilter
+                      setTierFilter(next)
+                      if (next !== 'all') {
+                        setDiffFilter('all')
+                        setPriorityFilter('all')
+                        setPatternFilter('all')
+                      }
+                    }}
+                    className="text-xs rounded-lg border border-indigo-300 bg-indigo-50/50 px-2 py-1.5 text-[var(--text)] font-semibold"
+                  >
+                    <option value="all">Study tier (High Easy…)</option>
+                    {STUDY_TIER_ORDER.map(tier => (
+                      <option key={tier} value={tier}>
+                        {tier} ({tierSummary.byTier[tier] ?? 0})
+                      </option>
+                    ))}
+                  </select>
+                  <select
                     value={diffFilter}
+                    disabled={tierFilter !== 'all'}
                     onChange={e => setDiffFilter(e.target.value as DiffFilter)}
-                    className="text-xs rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1.5 text-[var(--text)]"
+                    className="text-xs rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1.5 text-[var(--text)] disabled:opacity-45"
                   >
                     <option value="all">All difficulties</option>
                     <option value="Easy">Easy ({allSummary.byDifficulty.Easy ?? 0})</option>
@@ -558,8 +654,9 @@ export default function LeetCodeListPage() {
                   </select>
                   <select
                     value={priorityFilter}
+                    disabled={tierFilter !== 'all'}
                     onChange={e => setPriorityFilter(e.target.value as PriorityFilter)}
-                    className="text-xs rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1.5 text-[var(--text)]"
+                    className="text-xs rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1.5 text-[var(--text)] disabled:opacity-45"
                   >
                     <option value="all">All priorities</option>
                     <option value="High">High ({allSummary.byPriority.High ?? 0})</option>
@@ -569,11 +666,13 @@ export default function LeetCodeListPage() {
                   <select
                     value={patternFilter}
                     onChange={e => setPatternFilter(e.target.value)}
-                    className="text-xs rounded-lg border border-[var(--border)] max-w-[12rem] bg-[var(--bg-input)] px-2 py-1.5 text-[var(--text)]"
+                    className="text-xs rounded-lg border border-[var(--border)] max-w-[14rem] bg-[var(--bg-input)] px-2 py-1.5 text-[var(--text)]"
                   >
-                    <option value="all">All patterns</option>
-                    {patterns.map(p => (
-                      <option key={p} value={p}>{p} ({allSummary.byPattern[p] ?? 0})</option>
+                    <option value="all">
+                      {tierFilter !== 'all' ? `All patterns in ${tierFilter}` : 'All patterns'}
+                    </option>
+                    {patternsInScope.map(({ pattern, count }) => (
+                      <option key={pattern} value={pattern}>{pattern} ({count})</option>
                     ))}
                   </select>
                   <select
@@ -585,6 +684,7 @@ export default function LeetCodeListPage() {
                     <option value="solved">AC on LeetCode</option>
                     <option value="unsolved">Not on LeetCode</option>
                   </select>
+                  </div>
                 </div>
               )}
             </div>

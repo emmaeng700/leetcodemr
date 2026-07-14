@@ -28,6 +28,31 @@ export function parseGrindSection(section: string): { tier: string; pattern: str
   return { tier: `${m[1]} ${m[2]}`, pattern: m[3] }
 }
 
+/** Study rounds in PDF order (priority × difficulty). */
+export const STUDY_TIER_ORDER = [
+  'High Easy',
+  'High Medium',
+  'High Hard',
+  'Mid Easy',
+  'Mid Medium',
+  'Mid Hard',
+  'Low Easy',
+  'Low Medium',
+  'Low Hard',
+] as const
+
+export type StudyTier = (typeof STUDY_TIER_ORDER)[number]
+
+export function questionStudyTier(q: Pick<GrindQuestion, 'section'>): StudyTier | null {
+  if (!q.section) return null
+  const { tier } = parseGrindSection(q.section)
+  return (STUDY_TIER_ORDER as readonly string[]).includes(tier) ? (tier as StudyTier) : null
+}
+
+export function matchesStudyTier(q: Pick<GrindQuestion, 'section'>, tier: StudyTier): boolean {
+  return questionStudyTier(q) === tier
+}
+
 function setTierKey(set: number, tier: string) {
   return `${set}|${tier}`
 }
