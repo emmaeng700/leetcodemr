@@ -604,6 +604,7 @@ export default function LeetCodeListPage() {
                             ),
                           )
                         }
+                        target="_blank"
                         rel="noopener noreferrer"
                         title="Open first filtered problem with list Prev/Next"
                         className="flex items-center gap-1 px-2.5 py-2 rounded-l-xl border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition"
@@ -614,6 +615,7 @@ export default function LeetCodeListPage() {
                     <a
                       href={leetCodeListUrl(lcListHashes[lcListKey])}
                       onClick={e => openExternalLink(e, leetCodeListUrl(lcListHashes[lcListKey]))}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className={`flex items-center gap-1 px-2.5 py-2 border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition ${filtered[0] ? 'border-l-0' : 'rounded-l-xl'}`}
                     >
@@ -843,6 +845,7 @@ export default function LeetCodeListPage() {
                         <a
                           href={lcHref}
                           onClick={e => openExternalLink(e, lcHref)}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm font-medium text-indigo-600 hover:text-indigo-500 hover:underline truncate"
                         >

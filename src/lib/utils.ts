@@ -67,6 +67,7 @@ export function isMobileBrowser(): boolean {
 /**
  * Open an external URL. Mobile/PWA blocks window.open (async popups too).
  * Navigate in-place so iOS/Android can hand off to the LeetCode app via universal links.
+ * Desktop: new tab only — never navigate the current page away.
  */
 export function openExternalUrl(url: string): void {
   if (typeof window === 'undefined') return
@@ -78,14 +79,24 @@ export function openExternalUrl(url: string): void {
     return
   }
 
-  const popup = window.open(u, '_blank', 'noopener,noreferrer')
-  if (!popup) window.location.assign(u)
+  // Prefer a user-gesture-friendly anchor click. Do not use window.open(..., 'noopener')
+  // — modern browsers return null for that, and we must not fall back to location.assign.
+  const a = document.createElement('a')
+  a.href = u
+  a.target = '_blank'
+  a.rel = 'noopener noreferrer'
+  a.click()
 }
 
-/** onClick handler for external LeetCode links (use with href for fallback). */
+/**
+ * onClick for LeetCode links. On desktop, leave the native <a target="_blank"> alone
+ * so only the new tab opens. On mobile/PWA, navigate in-place for app handoff.
+ */
 export function openExternalLink(e: { preventDefault(): void }, url: string): void {
-  e.preventDefault()
-  openExternalUrl(url)
+  if (isMobileBrowser() || isStandalonePwa()) {
+    e.preventDefault()
+    openExternalUrl(url)
+  }
 }
 
 // ── Time formatting ───────────────────────────────────────────────────────────
