@@ -11,7 +11,7 @@ import type { GrindQuestion } from '@/lib/grindQuestions'
 export type LcNamePart = 'pattern' | 'tier' | 'set'
 export type LcBatchSplit = 'pattern' | 'tier' | 'set'
 
-/** User preference: Pattern ù High Easy ù Set 1 */
+/** User preference: Pattern ¬∑ High Easy ¬∑ Set 1 */
 export const DEFAULT_LC_NAME_ORDER: LcNamePart[] = ['pattern', 'tier', 'set']
 
 export const LC_NAME_PART_LABEL: Record<LcNamePart, string> = {
@@ -71,7 +71,7 @@ export function buildOrderedLcListName(order: LcNamePart[], ctx: NameCtx): strin
     set: ctx.set ? SET_SHORT_LABEL[ctx.set] : null,
   }
   const parts = order.map(p => map[p]).filter((x): x is string => !!x)
-  return parts.length ? parts.join(' ù ') : 'LeetMastery All 727'
+  return parts.length ? parts.join(' ¬∑ ') : 'LeetMastery All 727'
 }
 
 export type BatchListPlan = {
