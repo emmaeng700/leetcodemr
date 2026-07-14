@@ -76,8 +76,8 @@ export async function POST(req: NextRequest) {
     const { action } = body
 
     // Prefer session passed directly from client (already resolved, avoids extra LC round-trip)
-    let session = body.session as string | undefined
-    let csrf = body.csrf as string | undefined
+    let session: string = body.session ?? ''
+    let csrf: string = body.csrf ?? ''
     if (!session) {
       const creds = await getLcSession()
       session = creds.session
