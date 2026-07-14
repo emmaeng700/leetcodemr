@@ -264,8 +264,18 @@ export default function LeetCodeListPage() {
       if (slug) {
         const listUrl = data.listUrl ?? `https://leetcode.com/problem-list/${slug}`
         saveLcListHashes({ ...lcListHashes, [lcListKey]: slug })
-        window.open(listUrl, '_blank', 'noopener')
-        toast.success(`"${listName}" ready — ${data.added}/${data.total} added. Open the list then click a problem for prev/next nav.`)
+        const openUrl = data.practiceUrl ?? listUrl
+        window.open(openUrl, '_blank', 'noopener')
+        const added = data.verified ?? data.added ?? 0
+        const total = data.total ?? filtered.length
+        if (added < total) {
+          toast.error(`Only ${added}/${total} added to LC list. Check LeetCode session.`)
+        } else {
+          toast.success(
+            `"${listName}" ready — ${added} questions. Log into leetcode.com in that browser, then use Prev/Next while solving.`,
+            { duration: 6000 },
+          )
+        }
       } else {
         const detail = data.lcResponse ? JSON.stringify(data.lcResponse).slice(0, 200) : ''
         toast.error((data.error ?? 'Failed to create LC list') + (detail ? ` — ${detail}` : ''))

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { leetCodeGraphqlHeaders, lcFetchInit, resolveLcSessionCredentials } from '@/lib/leetcodeHttp'
+import { resolveLeetCodeSlug } from '@/lib/utils'
 
 const LC_GQL = 'https://leetcode.com/graphql'
 const USER_ID = 'emmanuel'
@@ -84,6 +85,31 @@ async function createLcFavorite(
   return { slug: fav.favoriteSlug, raw: { createResult: result.data } }
 }
 
+async function addOneToFavorite(
+  session: string,
+  csrf: string,
+  favoriteSlug: string,
+  questionSlug: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const result = await lcGql(session, csrf, {
+    operationName: 'addQuestionToFavoriteV2',
+    variables: { favoriteSlug, questionSlug },
+    query: `mutation addQuestionToFavoriteV2($favoriteSlug: String!, $questionSlug: String!) {
+      addQuestionToFavoriteV2(favoriteSlug: $favoriteSlug, questionSlug: $questionSlug) {
+        ok
+        error
+      }
+    }`,
+  })
+
+  const errors = gqlErrors(result.data)
+  const payload = (result.data?.data as { addQuestionToFavoriteV2?: { ok?: boolean; error?: string } })
+    ?.addQuestionToFavoriteV2
+
+  if (errors.length) return { ok: false, error: errors.join('; ') }
+  return { ok: payload?.ok === true, error: payload?.error }
+}
+
 async function batchAddToFavorite(
   session: string,
   csrf: string,
@@ -93,7 +119,7 @@ async function batchAddToFavorite(
   const result = await lcGql(session, csrf, {
     operationName: 'batchAddQuestionsToFavorite',
     variables: { favoriteSlug, questionSlugs },
-    query: `mutation batchAddQuestionsToFavorite($favoriteSlug: String!, $questionSlugs: [String!]!) {
+    query: `mutation batchAddQuestionsToFavorite($favoriteSlug: String!, $questionSlugs: [String]!) {
       batchAddQuestionsToFavorite(favoriteSlug: $favoriteSlug, questionSlugs: $questionSlugs) {
         ok
         error
@@ -109,20 +135,90 @@ async function batchAddToFavorite(
   return { ok: payload?.ok === true, error: payload?.error }
 }
 
-async function deleteLcFavorite(session: string, csrf: string, favoriteSlug: string): Promise<boolean> {
+async function countFavoriteQuestions(
+  session: string,
+  csrf: string,
+  favoriteSlug: string,
+  listName: string,
+): Promise<number> {
   const result = await lcGql(session, csrf, {
-    operationName: 'resetFavoriteSessionV2',
-    variables: { favoriteSlug, deleteSyncedCode: true },
-    query: `mutation resetFavoriteSessionV2($favoriteSlug: String!, $deleteSyncedCode: Boolean) {
-      resetFavoriteSessionV2(favoriteSlug: $favoriteSlug, deleteSyncedCode: $deleteSyncedCode) {
-        ok
-        error
+    query: `query favoritesList {
+      favoritesLists {
+        allFavorites {
+          idHash
+          name
+          slug
+          questions { titleSlug }
+        }
       }
     }`,
   })
 
-  const payload = (result.data?.data as { resetFavoriteSessionV2?: { ok?: boolean } })?.resetFavoriteSessionV2
-  return payload?.ok === true
+  const lists = (result.data?.data as {
+    favoritesLists?: { allFavorites?: Array<{ idHash?: string; name?: string; slug?: string; questions?: unknown[] }> }
+  })?.favoritesLists?.allFavorites ?? []
+
+  const match = lists.find(f =>
+    f.slug === favoriteSlug ||
+    f.idHash === favoriteSlug ||
+    f.name === listName,
+  )
+  return match?.questions?.length ?? 0
+}
+
+async function addQuestionsToFavorite(
+  session: string,
+  csrf: string,
+  favoriteSlug: string,
+  slugs: string[],
+): Promise<{ added: number; errors: string[] }> {
+  const errors: string[] = []
+  let added = 0
+  const batchSize = 10
+
+  for (let i = 0; i < slugs.length; i += batchSize) {
+    const batch = slugs.slice(i, i + batchSize)
+    const batchRes = await batchAddToFavorite(session, csrf, favoriteSlug, batch)
+    if (batchRes.ok) {
+      added += batch.length
+    } else {
+      if (batchRes.error) errors.push(batchRes.error)
+      for (const slug of batch) {
+        const one = await addOneToFavorite(session, csrf, favoriteSlug, slug)
+        if (one.ok) added++
+        else if (one.error) errors.push(`${slug}: ${one.error}`)
+        await new Promise(r => setTimeout(r, 120))
+      }
+    }
+    if (i + batchSize < slugs.length) {
+      await new Promise(r => setTimeout(r, 200))
+    }
+  }
+
+  return { added, errors }
+}
+
+async function deleteLcFavorite(session: string, csrf: string, favoriteSlug: string): Promise<boolean> {
+  const result = await lcGql(session, csrf, {
+    operationName: 'deleteFavorite',
+    variables: { favoriteSlug },
+    query: `mutation deleteFavorite($favoriteSlug: String!) {
+      deleteFavorite(favoriteSlug: $favoriteSlug) { ok error }
+    }`,
+  })
+
+  const payload = (result.data?.data as { deleteFavorite?: { ok?: boolean } })?.deleteFavorite
+  if (payload?.ok === true) return true
+
+  const fallback = await lcGql(session, csrf, {
+    operationName: 'deleteFavorite',
+    variables: { favoriteIdHash: favoriteSlug },
+    query: `mutation deleteFavorite($favoriteIdHash: String!) {
+      deleteFavorite(favoriteIdHash: $favoriteIdHash) { ok error }
+    }`,
+  })
+  const fb = (fallback.data?.data as { deleteFavorite?: { ok?: boolean } })?.deleteFavorite
+  return fb?.ok === true
 }
 
 export async function POST(req: NextRequest) {
@@ -163,25 +259,45 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'failed to create list on LeetCode', lcResponse: lcRaw }, { status: 502 })
       }
 
-      const slugs = questions.map(q => q.slug).filter(Boolean)
-      let added = 0
-      const batchSize = 40
-      for (let i = 0; i < slugs.length; i += batchSize) {
-        const batch = slugs.slice(i, i + batchSize)
-        const res = await batchAddToFavorite(session, csrf, favoriteSlug, batch)
-        if (res.ok) added += batch.length
-        if (i + batchSize < slugs.length) {
-          await new Promise(r => setTimeout(r, 250))
-        }
+      const slugs = questions
+        .map(q => resolveLeetCodeSlug(q.id, q.slug))
+        .filter(Boolean)
+      const uniqueSlugs = [...new Set(slugs)]
+
+      const { added: reportedAdded, errors: addErrors } = await addQuestionsToFavorite(
+        session,
+        csrf,
+        favoriteSlug,
+        uniqueSlugs,
+      )
+
+      const verified = await countFavoriteQuestions(session, csrf, favoriteSlug, listName)
+      const added = Math.max(reportedAdded, verified)
+
+      if (added === 0) {
+        return NextResponse.json({
+          error: 'List created but no questions were added',
+          favoriteSlug,
+          lcResponse: { addErrors, createResult: lcRaw },
+        }, { status: 502 })
       }
+
+      const firstSlug = uniqueSlugs[0] ?? null
+      const practiceUrl = firstSlug
+        ? `https://leetcode.com/problems/${encodeURIComponent(firstSlug)}/?envType=favorite-list&envId=${encodeURIComponent(favoriteSlug)}`
+        : null
 
       return NextResponse.json({
         ok: true,
         favoriteIdHash: favoriteSlug,
         favoriteSlug,
         added,
+        verified,
         total: questions.length,
+        addErrors: addErrors.slice(0, 5),
         listUrl: `https://leetcode.com/problem-list/${favoriteSlug}`,
+        practiceUrl,
+        firstSlug,
       })
     }
 
