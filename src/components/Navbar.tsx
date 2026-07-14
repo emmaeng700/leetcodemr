@@ -280,16 +280,19 @@ export default function Navbar() {
   const checkForUpdate = useCallback(async () => {
     setUpdateStatus('checking')
     try {
+      // Wipe all SW caches so the reload fetches fresh from server
+      if ('caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(keys.map(k => caches.delete(k)))
+      }
       if ('serviceWorker' in navigator) {
         const reg = await navigator.serviceWorker.getRegistration()
         if (reg?.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' })
-        await fetch(`/sw.js?reload=${Date.now()}`, { cache: 'no-store' }).catch(() => {})
-        await fetch(`/sw-v26.js?reload=${Date.now()}`, { cache: 'no-store' }).catch(() => {})
-        void reg?.update()
+        await reg?.update().catch(() => {})
       }
       window.location.reload()
     } catch {
-      setUpdateStatus('idle')
+      window.location.reload()
     }
   }, [])
 
