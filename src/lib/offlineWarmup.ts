@@ -12,7 +12,7 @@ import {
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
 import { readCachedStarter } from '@/lib/grindStorage'
 import type { GrindQuestion } from '@/lib/grindQuestions'
-import { cacheAllDescriptionImages, descriptionImagesCached } from '@/lib/descriptionImageCache'
+import { cacheAllDescriptionImages, areDescriptionImagesReady } from '@/lib/descriptionImageCache'
 
 export const OFFLINE_WARMUP_KEY = 'lm_offline_warmup_v25'
 
@@ -62,8 +62,11 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 /** Kick off diagram caching without blocking the rest of warm-up. */
 function startDescriptionImagesInBackground() {
-  if (descriptionImagesCached()) return
-  void cacheAllDescriptionImages().catch(() => {})
+  void areDescriptionImagesReady()
+    .then(ready => {
+      if (!ready) return cacheAllDescriptionImages()
+    })
+    .catch(() => {})
 }
 
 /** One-time warm-up: cache offline Grind page, questions JSON, and starter code. */

@@ -518,9 +518,9 @@
     var questions = []
     var descriptions = {}
     var OFFLINE_VERSION = 'v35'
-    var SW_CACHE = 'lm-v29'
+    var SW_CACHE = 'lm-v30'
     var midnightTimer = null
-    var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v1'
+    var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v2'
     var filtered = []
     var selectedId = 0
     var lang = 'python3'
@@ -1959,6 +1959,14 @@
       })
     }
 
+    function isUsableImageResponse(res, path) {
+      if (!res || !res.ok) return false
+      var ct = (res.headers.get('content-type') || '').toLowerCase()
+      if (ct.indexOf('text/html') >= 0 || ct.indexOf('application/json') >= 0 || ct.indexOf('text/plain') >= 0) return false
+      if (ct.indexOf('image/') === 0) return true
+      return /\.(png|jpe?g|gif|webp|svg)$/i.test(path || '')
+    }
+
     function cacheAllDescriptionImages() {
       if (!navigator.onLine) return Promise.resolve()
       return fetch('/description-images-manifest.json', { cache: 'reload' })
@@ -1979,10 +1987,15 @@
                 i += batch
                 return Promise.all(slice.map(function(p) {
                   return cache.match(p, { ignoreSearch: true }).then(function(hit) {
-                    if (hit) return hit
-                    return fetch(p, { cache: 'reload' }).then(function(res) {
-                      if (res.ok) return cache.put(p, res.clone())
-                    }).catch(function() {})
+                    if (hit && isUsableImageResponse(hit, p)) return
+                    var clear = hit
+                      ? cache.delete(p).catch(function() {})
+                      : Promise.resolve()
+                    return clear.then(function() {
+                      return fetch(p, { cache: 'reload', credentials: 'same-origin' }).then(function(res) {
+                        if (isUsableImageResponse(res, p)) return cache.put(p, res.clone())
+                      }).catch(function() {})
+                    })
                   })
                 })).then(nextBatch)
               }
@@ -2001,9 +2014,25 @@
               }
               navigator.serviceWorker.addEventListener('message', onMsg)
               worker.postMessage({ type: 'CACHE_DESCRIPTION_IMAGES', paths: paths })
-              setTimeout(finish, 180000)
+              setTimeout(finish, 90000)
             }).then(function() {
-              try { localStorage.setItem(DESC_IMG_CACHE_KEY, String(Date.now())) } catch (e) {}
+              return caches.open('lm-images').then(function(cache) {
+                var checkN = Math.min(paths.length, 40)
+                var sample = []
+                for (var s = 0; s < checkN; s++) sample.push(paths[Math.floor((s / checkN) * paths.length)])
+                return Promise.all(sample.map(function(p) {
+                  return cache.match(p, { ignoreSearch: true }).then(function(hit) {
+                    return hit && isUsableImageResponse(hit, p)
+                  })
+                })).then(function(hits) {
+                  var ok = hits.filter(Boolean).length
+                  if (ok >= Math.floor(sample.length * 0.9)) {
+                    try { localStorage.setItem(DESC_IMG_CACHE_KEY, String(Date.now())) } catch (e) {}
+                    return
+                  }
+                  return cacheDirect()
+                })
+              })
             })
           }).catch(function() { return cacheDirect() })
         })
@@ -2315,7 +2344,7 @@
 
     function fetchCached(url) {
       if (!('caches' in window)) return Promise.reject(new Error('no cache'))
-      var names = [SW_CACHE, 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
+      var names = [SW_CACHE, 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
       var i = 0
       function tryNext() {
         if (i >= names.length) return Promise.reject(new Error('missing'))

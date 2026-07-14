@@ -1,6 +1,9 @@
 'use client'
 import { useEffect } from 'react'
-import { cacheAllDescriptionImages, descriptionImagesCached } from '@/lib/descriptionImageCache'
+import {
+  areDescriptionImagesReady,
+  cacheAllDescriptionImages,
+} from '@/lib/descriptionImageCache'
 import { cacheGrindOfflineAssets, OFFLINE_PAGES } from '@/lib/offlinePages'
 
 function cacheOfflinePages(registration: ServiceWorkerRegistration) {
@@ -11,8 +14,12 @@ function cacheOfflinePages(registration: ServiceWorkerRegistration) {
 }
 
 function warmDescriptionImages() {
-  if (!navigator.onLine || descriptionImagesCached()) return
-  void cacheAllDescriptionImages()
+  if (!navigator.onLine) return
+  void areDescriptionImagesReady()
+    .then(ready => {
+      if (!ready) return cacheAllDescriptionImages()
+    })
+    .catch(() => {})
 }
 
 function isLocalDevHost(): boolean {
