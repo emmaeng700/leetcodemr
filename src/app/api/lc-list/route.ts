@@ -30,70 +30,99 @@ async function lcGql(session: string, csrf: string, body: object) {
     ...lcFetchInit,
   })
   const text = await res.text()
-  try { return { ok: res.ok, data: JSON.parse(text) } } catch { return { ok: false, data: null } }
+  try {
+    return { ok: res.ok, data: JSON.parse(text) as Record<string, unknown> }
+  } catch {
+    return { ok: false, data: null }
+  }
 }
 
-async function createLcFavorite(session: string, csrf: string, name: string): Promise<{ hash: string | null; raw: unknown }> {
-  // Introspect enum values + mutation return type in one call
-  const intro = await lcGql(session, csrf, {
-    query: `{
-      enumType: __type(name:"FavoriteTypeEnum"){enumValues{name}}
-      mutType: __type(name:"Mutation"){fields{name type{name kind fields{name} ofType{name kind fields{name}}}}}
-    }`,
-  })
-  const enumVals: string[] = (intro.data?.data?.enumType?.enumValues ?? []).map((v: { name: string }) => v.name)
-  const favoriteType = enumVals.find(v => /GENERAL|PROBLEM/i.test(v)) ?? enumVals[0] ?? 'GENERAL_PROBLEM_LIST'
+function gqlErrors(data: Record<string, unknown> | null): string[] {
+  const errs = data?.errors
+  if (!Array.isArray(errs)) return []
+  return errs.map(e => String((e as { message?: string })?.message ?? e))
+}
 
-  // Find createEmptyFavorite's return type fields
-  const mutFields: { name: string; type: { name: string | null; fields: { name: string }[] | null; ofType: { name: string | null; fields: { name: string }[] | null } | null } }[] =
-    intro.data?.data?.mutType?.fields ?? []
-  const cef = mutFields.find(f => f.name === 'createEmptyFavorite')
-  const retFields: string[] = (cef?.type?.fields ?? cef?.type?.ofType?.fields ?? []).map(f => f.name)
-
-  const wantedHash = ['idHash', 'favoriteIdHash', 'id', 'slug', 'hash']
-  const hashFields = wantedHash.filter(f => retFields.length === 0 || retFields.includes(f))
-  const baseFields = ['ok', 'error']
-  const safeFields = retFields.length
-    ? [...baseFields, ...hashFields].filter(f => retFields.includes(f))
-    : [...baseFields, ...hashFields]
-  const fieldStr = safeFields.join(' ')
-
+async function createLcFavorite(
+  session: string,
+  csrf: string,
+  name: string,
+): Promise<{ slug: string | null; raw: unknown }> {
   const result = await lcGql(session, csrf, {
     operationName: 'createEmptyFavorite',
-    variables: { name, isPublicFavorite: false, favoriteType },
-    query: `mutation createEmptyFavorite($name: String!, $isPublicFavorite: Boolean!, $favoriteType: FavoriteTypeEnum!) {
-      createEmptyFavorite(name: $name, isPublicFavorite: $isPublicFavorite, favoriteType: $favoriteType) {
-        ${fieldStr}
+    variables: {
+      name,
+      description: '',
+      favoriteType: 'NORMAL',
+      isPublicFavorite: false,
+    },
+    query: `mutation createEmptyFavorite($name: String!, $description: String, $favoriteType: FavoriteTypeEnum!, $isPublicFavorite: Boolean) {
+      createEmptyFavorite(
+        name: $name,
+        description: $description,
+        favoriteType: $favoriteType,
+        isPublicFavorite: $isPublicFavorite
+      ) {
+        ok
+        error
+        favoriteSlug
       }
     }`,
   })
-  const fav = result.data?.data?.createEmptyFavorite
-  const hash = fav?.idHash ?? fav?.favoriteIdHash ?? fav?.id ?? fav?.slug ?? fav?.hash ?? null
-  return { hash, raw: { enumVals, favoriteType, retFields, fieldStr, createResult: result.data } }
+
+  const errors = gqlErrors(result.data)
+  const fav = (result.data?.data as { createEmptyFavorite?: { ok?: boolean; error?: string; favoriteSlug?: string } })
+    ?.createEmptyFavorite
+
+  if (errors.length) {
+    return { slug: null, raw: { errors, createResult: result.data } }
+  }
+  if (!fav?.ok || !fav.favoriteSlug) {
+    return { slug: null, raw: { createResult: result.data, fav } }
+  }
+
+  return { slug: fav.favoriteSlug, raw: { createResult: result.data } }
 }
 
-async function addToFavorite(session: string, csrf: string, favoriteIdHash: string, questionId: number): Promise<boolean> {
+async function batchAddToFavorite(
+  session: string,
+  csrf: string,
+  favoriteSlug: string,
+  questionSlugs: string[],
+): Promise<{ ok: boolean; error?: string }> {
   const result = await lcGql(session, csrf, {
-    operationName: 'addQuestionToFavorite',
-    variables: { favoriteIdHash, questionId },
-    query: `mutation addQuestionToFavorite($favoriteIdHash: String!, $questionId: Int!) {
-      addQuestionToFavorite(favoriteIdHash: $favoriteIdHash, questionId: $questionId) {
-        ok error
+    operationName: 'batchAddQuestionsToFavorite',
+    variables: { favoriteSlug, questionSlugs },
+    query: `mutation batchAddQuestionsToFavorite($favoriteSlug: String!, $questionSlugs: [String!]!) {
+      batchAddQuestionsToFavorite(favoriteSlug: $favoriteSlug, questionSlugs: $questionSlugs) {
+        ok
+        error
       }
     }`,
   })
-  return result.data?.data?.addQuestionToFavorite?.ok === true
+
+  const errors = gqlErrors(result.data)
+  const payload = (result.data?.data as { batchAddQuestionsToFavorite?: { ok?: boolean; error?: string } })
+    ?.batchAddQuestionsToFavorite
+
+  if (errors.length) return { ok: false, error: errors.join('; ') }
+  return { ok: payload?.ok === true, error: payload?.error }
 }
 
-async function deleteLcFavorite(session: string, csrf: string, favoriteIdHash: string): Promise<boolean> {
+async function deleteLcFavorite(session: string, csrf: string, favoriteSlug: string): Promise<boolean> {
   const result = await lcGql(session, csrf, {
-    operationName: 'deleteFavorite',
-    variables: { favoriteIdHash },
-    query: `mutation deleteFavorite($favoriteIdHash: String!) {
-      deleteFavorite(favoriteIdHash: $favoriteIdHash) { ok error }
+    operationName: 'resetFavoriteSessionV2',
+    variables: { favoriteSlug, deleteSyncedCode: true },
+    query: `mutation resetFavoriteSessionV2($favoriteSlug: String!, $deleteSyncedCode: Boolean) {
+      resetFavoriteSessionV2(favoriteSlug: $favoriteSlug, deleteSyncedCode: $deleteSyncedCode) {
+        ok
+        error
+      }
     }`,
   })
-  return result.data?.data?.deleteFavorite?.ok === true
+
+  const payload = (result.data?.data as { resetFavoriteSessionV2?: { ok?: boolean } })?.resetFavoriteSessionV2
+  return payload?.ok === true
 }
 
 export async function POST(req: NextRequest) {
@@ -101,7 +130,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { action } = body
 
-    // Prefer session passed directly from client (already resolved, avoids extra LC round-trip)
     let session: string = body.session ?? ''
     let csrf: string = body.csrf ?? ''
     if (!session) {
@@ -112,9 +140,9 @@ export async function POST(req: NextRequest) {
     if (!session) return NextResponse.json({ error: 'no LC session' }, { status: 401 })
 
     if (action === 'delete') {
-      const { favoriteIdHash } = body as { favoriteIdHash: string }
-      if (!favoriteIdHash) return NextResponse.json({ ok: true })
-      await deleteLcFavorite(session, csrf, favoriteIdHash)
+      const slug = (body.favoriteIdHash ?? body.favoriteSlug) as string
+      if (!slug) return NextResponse.json({ ok: true })
+      await deleteLcFavorite(session, csrf, slug)
       return NextResponse.json({ ok: true })
     }
 
@@ -126,33 +154,34 @@ export async function POST(req: NextRequest) {
 
       if (!questions?.length) return NextResponse.json({ error: 'no questions' }, { status: 400 })
 
-      // Delete existing list if hash provided (replace it)
       if (body.existingHash) {
         await deleteLcFavorite(session, csrf, body.existingHash)
       }
 
-      const { hash: favoriteIdHash, raw: lcRaw } = await createLcFavorite(session, csrf, listName)
-      if (!favoriteIdHash) return NextResponse.json({ error: 'failed to create list on LeetCode', lcResponse: lcRaw }, { status: 502 })
+      const { slug: favoriteSlug, raw: lcRaw } = await createLcFavorite(session, csrf, listName)
+      if (!favoriteSlug) {
+        return NextResponse.json({ error: 'failed to create list on LeetCode', lcResponse: lcRaw }, { status: 502 })
+      }
 
-      // Add questions in batches of 5 with a delay between batches
+      const slugs = questions.map(q => q.slug).filter(Boolean)
       let added = 0
-      const batchSize = 5
-      for (let i = 0; i < questions.length; i += batchSize) {
-        const batch = questions.slice(i, i + batchSize)
-        await Promise.allSettled(
-          batch.map(q => addToFavorite(session, csrf, favoriteIdHash, q.id).then(ok => { if (ok) added++ }))
-        )
-        if (i + batchSize < questions.length) {
-          await new Promise(r => setTimeout(r, 300))
+      const batchSize = 40
+      for (let i = 0; i < slugs.length; i += batchSize) {
+        const batch = slugs.slice(i, i + batchSize)
+        const res = await batchAddToFavorite(session, csrf, favoriteSlug, batch)
+        if (res.ok) added += batch.length
+        if (i + batchSize < slugs.length) {
+          await new Promise(r => setTimeout(r, 250))
         }
       }
 
       return NextResponse.json({
         ok: true,
-        favoriteIdHash,
+        favoriteIdHash: favoriteSlug,
+        favoriteSlug,
         added,
         total: questions.length,
-        listUrl: `https://leetcode.com/list/?selectedList=${favoriteIdHash}`,
+        listUrl: `https://leetcode.com/problem-list/${favoriteSlug}`,
       })
     }
 

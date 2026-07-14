@@ -260,9 +260,11 @@ export default function LeetCodeListPage() {
         }),
       })
       const data = await res.json()
-      if (data.favoriteIdHash) {
-        saveLcListHashes({ ...lcListHashes, [lcListKey]: data.favoriteIdHash })
-        window.open(`https://leetcode.com/list/?selectedList=${data.favoriteIdHash}`, '_blank', 'noopener')
+      const slug = data.favoriteSlug ?? data.favoriteIdHash
+      if (slug) {
+        const listUrl = data.listUrl ?? `https://leetcode.com/problem-list/${slug}`
+        saveLcListHashes({ ...lcListHashes, [lcListKey]: slug })
+        window.open(listUrl, '_blank', 'noopener')
         toast.success(`"${listName}" ready — ${data.added}/${data.total} added. Open the list then click a problem for prev/next nav.`)
       } else {
         const detail = data.lcResponse ? JSON.stringify(data.lcResponse).slice(0, 200) : ''
@@ -470,7 +472,7 @@ export default function LeetCodeListPage() {
                 ) : lcListHashes[lcListKey] ? (
                   <div className="flex items-center gap-0.5 shrink-0">
                     <a
-                      href={`https://leetcode.com/list/?selectedList=${lcListHashes[lcListKey]}`}
+                      href={`https://leetcode.com/problem-list/${lcListHashes[lcListKey]}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 px-2.5 py-2 rounded-l-xl border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition"

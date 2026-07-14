@@ -4,6 +4,7 @@ import AppNavLink from '@/components/AppNavLink'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { getOpenQuestionContext } from '@/lib/openQuestionContext'
 import { grindHrefForLastQuestion } from '@/lib/grindStorage'
+import { forceAppReload } from '@/lib/appUpdate'
 import {
   Menu, X, Home, BarChart2, Brain,
   Layers, GitBranch, Server, Clock,
@@ -280,17 +281,7 @@ export default function Navbar() {
   const checkForUpdate = useCallback(async () => {
     setUpdateStatus('checking')
     try {
-      // Wipe all SW caches so the reload fetches fresh from server
-      if ('caches' in window) {
-        const keys = await caches.keys()
-        await Promise.all(keys.map(k => caches.delete(k)))
-      }
-      if ('serviceWorker' in navigator) {
-        const reg = await navigator.serviceWorker.getRegistration()
-        if (reg?.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' })
-        await reg?.update().catch(() => {})
-      }
-      window.location.reload()
+      await forceAppReload()
     } catch {
       window.location.reload()
     }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Settings, Bell, Globe, Save, Loader2, Check, BookOpen, RefreshCw, Smartphone, Target, RotateCcw } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { forceAppReload } from '@/lib/appUpdate'
 
 const TIMEZONES = [
   { value: 'America/New_York',    label: 'Eastern (ET)' },
@@ -72,14 +73,7 @@ export default function SettingsPage() {
   const checkForUpdate = useCallback(async () => {
     setUpdateStatus('checking')
     try {
-      if ('serviceWorker' in navigator) {
-        const reg = await navigator.serviceWorker.getRegistration()
-        if (reg?.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' })
-        await fetch(`/sw.js?reload=${Date.now()}`, { cache: 'no-store' }).catch(() => {})
-        await fetch(`/sw-v26.js?reload=${Date.now()}`, { cache: 'no-store' }).catch(() => {})
-        void reg?.update()
-      }
-      window.location.href = window.location.href
+      await forceAppReload()
     } catch {
       toast.error('Could not update — try closing and reopening the app')
       setUpdateStatus('idle')
