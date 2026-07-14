@@ -287,7 +287,7 @@ export default function Navbar() {
         await fetch(`/sw-v26.js?reload=${Date.now()}`, { cache: 'no-store' }).catch(() => {})
         void reg?.update()
       }
-      window.location.href = window.location.href
+      window.location.reload()
     } catch {
       setUpdateStatus('idle')
     }
