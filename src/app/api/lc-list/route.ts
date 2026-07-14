@@ -34,29 +34,42 @@ async function lcGql(session: string, csrf: string, body: object) {
 }
 
 async function createLcFavorite(session: string, csrf: string, name: string): Promise<{ hash: string | null; raw: unknown }> {
-  // Introspect first so we know the real return-type fields
+  // Introspect enum values + mutation return type in one call
   const intro = await lcGql(session, csrf, {
-    query: `{ __type(name:"CreateEmptyFavorite"){fields{name}} }`,
+    query: `{
+      enumType: __type(name:"FavoriteTypeEnum"){enumValues{name}}
+      mutType: __type(name:"Mutation"){fields{name type{name kind fields{name} ofType{name kind fields{name}}}}}
+    }`,
   })
-  const fields: string[] = (intro.data?.data?.__type?.fields ?? []).map((f: { name: string }) => f.name)
+  const enumVals: string[] = (intro.data?.data?.enumType?.enumValues ?? []).map((v: { name: string }) => v.name)
+  const favoriteType = enumVals.find(v => /GENERAL|PROBLEM/i.test(v)) ?? enumVals[0] ?? 'GENERAL_PROBLEM_LIST'
 
-  // Build field list from what's actually available
-  const wantedFields = ['ok', 'error', 'idHash', 'favoriteIdHash', 'id', 'slug', 'hash']
-  const safeFields = wantedFields.filter(f => fields.includes(f))
-  const fieldStr = safeFields.length ? safeFields.join(' ') : 'ok error'
+  // Find createEmptyFavorite's return type fields
+  const mutFields: { name: string; type: { name: string | null; fields: { name: string }[] | null; ofType: { name: string | null; fields: { name: string }[] | null } | null } }[] =
+    intro.data?.data?.mutType?.fields ?? []
+  const cef = mutFields.find(f => f.name === 'createEmptyFavorite')
+  const retFields: string[] = (cef?.type?.fields ?? cef?.type?.ofType?.fields ?? []).map(f => f.name)
+
+  const wantedHash = ['idHash', 'favoriteIdHash', 'id', 'slug', 'hash']
+  const hashFields = wantedHash.filter(f => retFields.length === 0 || retFields.includes(f))
+  const baseFields = ['ok', 'error']
+  const safeFields = retFields.length
+    ? [...baseFields, ...hashFields].filter(f => retFields.includes(f))
+    : [...baseFields, ...hashFields]
+  const fieldStr = safeFields.join(' ')
 
   const result = await lcGql(session, csrf, {
     operationName: 'createEmptyFavorite',
-    variables: { name, isPublicFavorite: false },
-    query: `mutation createEmptyFavorite($name: String!, $isPublicFavorite: Boolean!) {
-      createEmptyFavorite(name: $name, isPublicFavorite: $isPublicFavorite) {
+    variables: { name, isPublicFavorite: false, favoriteType },
+    query: `mutation createEmptyFavorite($name: String!, $isPublicFavorite: Boolean!, $favoriteType: FavoriteTypeEnum!) {
+      createEmptyFavorite(name: $name, isPublicFavorite: $isPublicFavorite, favoriteType: $favoriteType) {
         ${fieldStr}
       }
     }`,
   })
   const fav = result.data?.data?.createEmptyFavorite
   const hash = fav?.idHash ?? fav?.favoriteIdHash ?? fav?.id ?? fav?.slug ?? fav?.hash ?? null
-  return { hash, raw: { introFields: fields, createResult: result.data } }
+  return { hash, raw: { enumVals, favoriteType, retFields, fieldStr, createResult: result.data } }
 }
 
 async function addToFavorite(session: string, csrf: string, favoriteIdHash: string, questionId: number): Promise<boolean> {
