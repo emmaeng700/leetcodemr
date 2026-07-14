@@ -23,6 +23,18 @@ import {
   type LcListSyncState,
 } from '@/lib/leetcodeListSync'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
+import {
+  buildOrderedLcListName,
+  DEFAULT_LC_NAME_ORDER,
+  LC_NAME_PART_LABEL,
+  moveNamePart,
+  planBatchLcLists,
+  readLcNameOrder,
+  saveLcNameOrder,
+  storageKeyForPlan,
+  type LcBatchSplit,
+  type LcNamePart,
+} from '@/lib/lcListNaming'
 import { leetCodeListPracticeUrl, leetCodeListUrl, leetCodeUrl, openExternalLink, openExternalUrl, resolveLeetCodeSlug } from '@/lib/utils'
 
 type SetFilter = 'all' | 1 | 2 | 3
@@ -43,36 +55,23 @@ const SET_BADGE: Record<1 | 2 | 3, string> = {
   3: 'bg-purple-50 text-purple-700 border-purple-200',
 }
 
-function buildLcListName(
-  setFilter: SetFilter,
-  tierFilter: TierFilter,
-  patternFilter: string,
-  diffFilter: DiffFilter,
-  priorityFilter: PriorityFilter,
-): string {
-  const parts: string[] = []
-  if (setFilter !== 'all') parts.push(SET_SHORT_LABEL[setFilter])
-  if (tierFilter !== 'all') parts.push(tierFilter)
-  if (patternFilter !== 'all') parts.push(patternFilter)
-  else if (tierFilter === 'all' && diffFilter !== 'all') parts.push(diffFilter)
-  else if (tierFilter === 'all' && priorityFilter !== 'all') parts.push(priorityFilter)
-  return parts.length ? parts.join(' · ') : 'LeetMastery All 727'
-}
-
 function buildFilterLabel(
   setFilter: SetFilter,
   tierFilter: TierFilter,
   patternFilter: string,
   diffFilter: DiffFilter,
   priorityFilter: PriorityFilter,
+  nameOrder: LcNamePart[] = DEFAULT_LC_NAME_ORDER,
 ): string {
-  const parts: string[] = []
-  parts.push(setFilter !== 'all' ? SET_SHORT_LABEL[setFilter] : 'All sets')
-  if (tierFilter !== 'all') parts.push(tierFilter)
-  if (patternFilter !== 'all') parts.push(patternFilter)
-  else if (tierFilter === 'all' && diffFilter !== 'all') parts.push(diffFilter)
-  else if (tierFilter === 'all' && priorityFilter !== 'all') parts.push(priorityFilter)
-  return parts.join(' · ')
+  return buildOrderedLcListName(nameOrder, {
+    set: setFilter === 'all' ? null : setFilter,
+    tier: tierFilter === 'all' ? null : tierFilter,
+    pattern: patternFilter === 'all' ? null : patternFilter,
+  }) + (tierFilter === 'all' && patternFilter === 'all' && diffFilter !== 'all'
+    ? ` · ${diffFilter}`
+    : tierFilter === 'all' && patternFilter === 'all' && priorityFilter !== 'all'
+      ? ` · ${priorityFilter}`
+      : '')
 }
 
 type DividerEntry = Extract<ReturnType<typeof grindListWithDividers>[number], { type: 'divider' }>
@@ -225,6 +224,10 @@ export default function LeetCodeListPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [lcListHashes, setLcListHashes] = useState<Record<string, string>>({})
   const [lcListLoading, setLcListLoading] = useState(false)
+  const [nameOrder, setNameOrder] = useState<LcNamePart[]>(DEFAULT_LC_NAME_ORDER)
+  const [showBatch, setShowBatch] = useState(false)
+  const [batchSplit, setBatchSplit] = useState<LcBatchSplit>('pattern')
+  const [batchProgress, setBatchProgress] = useState<string | null>(null)
 
   const solvedSet = useMemo(() => new Set(lcSync?.solvedIds ?? []), [lcSync])
 
@@ -292,6 +295,7 @@ export default function LeetCodeListPage() {
       const raw = localStorage.getItem('lm_lc_lists')
       if (raw) setLcListHashes(JSON.parse(raw))
     } catch {}
+    setNameOrder(readLcNameOrder())
   }, [])
 
   const saveLcListHashes = (next: Record<string, string>) => {
@@ -299,18 +303,33 @@ export default function LeetCodeListPage() {
     try { localStorage.setItem('lm_lc_lists', JSON.stringify(next)) } catch {}
   }
 
+  const updateNameOrder = (next: LcNamePart[]) => {
+    setNameOrder(next)
+    saveLcNameOrder(next)
+  }
+
+  const singleListName = useMemo(
+    () =>
+      buildOrderedLcListName(nameOrder, {
+        set: setFilter === 'all' ? null : setFilter,
+        tier: tierFilter === 'all' ? null : tierFilter,
+        pattern: patternFilter === 'all' ? null : patternFilter,
+      }),
+    [nameOrder, setFilter, tierFilter, patternFilter],
+  )
+
   const handleCreateLcList = async () => {
-    if (lcListLoading) return
+    if (lcListLoading || filtered.length === 0) return
     setLcListLoading(true)
     try {
+      const listName = singleListName
+      const existingHash = lcListHashes[lcListKey] ?? null
       const { session, csrf } = await ensureLcSessionForSync()
       if (!session || !csrf) {
         toast.error('No LC session — open Clipboard → Use with your leetcode.com Cookie')
         setLcListLoading(false)
         return
       }
-      const listName = buildLcListName(setFilter, tierFilter, patternFilter, diffFilter, priorityFilter)
-      const existingHash = lcListHashes[lcListKey] ?? null
       const res = await fetch('/api/lc-list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -342,6 +361,69 @@ export default function LeetCodeListPage() {
     } catch {
       toast.error('Failed to create LC list')
     }
+    setLcListLoading(false)
+  }
+
+  const handleBatchCreate = async () => {
+    if (lcListLoading || batchPlans.length === 0) return
+    setLcListLoading(true)
+    setBatchProgress(`0 / ${batchPlans.length}`)
+    let ok = 0
+    let hashes = { ...lcListHashes }
+    let lastSlug: string | null = null
+
+    try {
+      const { session, csrf } = await ensureLcSessionForSync()
+      if (!session || !csrf) {
+        toast.error('No LC session — Clipboard → Use with cookie from leetcode.com')
+        setLcListLoading(false)
+        setBatchProgress(null)
+        return
+      }
+
+      for (let i = 0; i < batchPlans.length; i++) {
+        const plan = batchPlans[i]
+        setBatchProgress(`${i + 1} / ${batchPlans.length}: ${plan.listName}`)
+        const storageKey = storageKeyForPlan(plan, { setFilter, tierFilter, patternFilter }, batchSplit)
+        const existingHash = hashes[storageKey] ?? null
+        const res = await fetch('/api/lc-list', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'create',
+            session,
+            csrf,
+            listName: plan.listName,
+            existingHash,
+            questions: plan.questions.map(q => ({ id: q.id, slug: q.slug })),
+          }),
+        })
+        const data = await res.json()
+        if (data.code === 'lc_not_logged_in' || /not logged in/i.test(data.error ?? '')) {
+          toast.error('LeetCode session expired mid-batch — paste a fresh cookie and retry')
+          break
+        }
+        const slug = data.favoriteSlug ?? data.favoriteIdHash
+        if (slug) {
+          hashes = { ...hashes, [storageKey]: slug }
+          lastSlug = slug
+          ok++
+        }
+        // Brief pause between creates so LC rate limits stay happy.
+        if (i + 1 < batchPlans.length) await new Promise(r => setTimeout(r, 350))
+      }
+
+      saveLcListHashes(hashes)
+      if (ok > 0 && lastSlug) {
+        openExternalUrl(leetCodeListUrl(lastSlug))
+        toast.success(`Created ${ok}/${batchPlans.length} LC lists.`, { duration: 6000 })
+      } else {
+        toast.error('No lists were created')
+      }
+    } catch {
+      toast.error('Batch create failed')
+    }
+    setBatchProgress(null)
     setLcListLoading(false)
   }
 
@@ -417,14 +499,24 @@ export default function LeetCodeListPage() {
     })
   }, [questions, search, setFilter, tierFilter, diffFilter, priorityFilter, patternFilter, statusFilter, solvedFn])
 
+  const batchPlans = useMemo(
+    () =>
+      planBatchLcLists(filtered, batchSplit, nameOrder, {
+        setFilter,
+        tierFilter,
+        patternFilter,
+      }),
+    [filtered, batchSplit, nameOrder, setFilter, tierFilter, patternFilter],
+  )
+
   const listEntries = useMemo(() => grindListWithDividers(filtered), [filtered])
 
   const summary = useMemo(() => grindSummaryCounts(filtered), [filtered])
   const allSummary = useMemo(() => grindSummaryCounts(questions), [questions])
 
   const filterLabel = useMemo(
-    () => buildFilterLabel(setFilter, tierFilter, patternFilter, diffFilter, priorityFilter),
-    [setFilter, tierFilter, patternFilter, diffFilter, priorityFilter],
+    () => buildFilterLabel(setFilter, tierFilter, patternFilter, diffFilter, priorityFilter, nameOrder),
+    [setFilter, tierFilter, patternFilter, diffFilter, priorityFilter, nameOrder],
   )
 
   const tierChipLabel = useCallback(
@@ -545,9 +637,8 @@ export default function LeetCodeListPage() {
         <div className="flex-1 min-w-0 flex flex-col gap-3">
           <div className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-[12px] text-orange-800 leading-snug">
             <span className="font-semibold">Create lists here.</span>{' '}
-            Filter by set / tier / pattern, then tap{' '}
-            <span className="font-semibold">New List</span>. Use{' '}
-            <span className="font-semibold">Open LC List</span> to view it on LeetCode.
+            Filter first, set name order, then <span className="font-semibold">New List</span> (one)
+            or <span className="font-semibold">Batch</span> (many by pattern / tier / set).
           </div>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] overflow-hidden shadow-sm">
             <div className="p-3 border-b border-[var(--border-soft)] space-y-2">
@@ -579,47 +670,146 @@ export default function LeetCodeListPage() {
 
                 {/* Open / create LeetCode List */}
                 {lcListLoading ? (
-                  <span className="text-xs text-[var(--text-subtle)] animate-pulse shrink-0">Working…</span>
-                ) : lcListHashes[lcListKey] ? (
+                  <span className="text-xs text-[var(--text-subtle)] animate-pulse shrink-0">
+                    {batchProgress ?? 'Working…'}
+                  </span>
+                ) : (
                   <div className="flex items-center gap-0.5 shrink-0">
-                    <a
-                      href={leetCodeListUrl(lcListHashes[lcListKey])}
-                      onClick={e => openExternalLink(e, leetCodeListUrl(lcListHashes[lcListKey]))}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Open this list on LeetCode"
-                      className="flex items-center gap-1 px-2.5 py-2 rounded-l-xl border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition"
-                    >
-                      <ExternalLink size={12} /> Open LC List
-                    </a>
+                    {lcListHashes[lcListKey] && (
+                      <a
+                        href={leetCodeListUrl(lcListHashes[lcListKey])}
+                        onClick={e => openExternalLink(e, leetCodeListUrl(lcListHashes[lcListKey]))}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open this list on LeetCode"
+                        className="flex items-center gap-1 px-2.5 py-2 rounded-l-xl border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition"
+                      >
+                        <ExternalLink size={12} /> Open
+                      </a>
+                    )}
                     <button
                       type="button"
                       onClick={() => void handleCreateLcList()}
-                      title={`Replace/rebuild this list from the ${filtered.length} filtered questions`}
-                      className="flex items-center gap-1 px-2.5 py-2 border border-l-0 border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition"
+                      title={`Create one LC list: ${singleListName} (${filtered.length})`}
+                      className={`flex items-center gap-1 px-2.5 py-2 border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition ${
+                        lcListHashes[lcListKey] ? 'border-l-0' : 'rounded-l-xl'
+                      }`}
                     >
                       New List
                     </button>
                     <button
                       type="button"
-                      onClick={() => void handleDeleteLcList()}
-                      title="Delete this LC list"
-                      className="px-2 py-2 rounded-r-xl border border-l-0 border-orange-300 bg-orange-50 text-orange-300 hover:text-red-500 text-xs transition"
+                      onClick={() => setShowBatch(v => !v)}
+                      title="Create many lists from the current filters"
+                      className={`flex items-center gap-1 px-2.5 py-2 border border-l-0 border-orange-300 text-xs font-semibold transition ${
+                        showBatch
+                          ? 'bg-orange-100 text-orange-700'
+                          : 'bg-orange-50 text-orange-600 hover:bg-orange-100'
+                      }`}
                     >
-                      🗑
+                      Batch
                     </button>
+                    {lcListHashes[lcListKey] ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteLcList()}
+                        title="Delete this LC list"
+                        className="px-2 py-2 rounded-r-xl border border-l-0 border-orange-300 bg-orange-50 text-orange-300 hover:text-red-500 text-xs transition"
+                      >
+                        🗑
+                      </button>
+                    ) : (
+                      <span className="rounded-r-xl border border-l-0 border-orange-300 bg-orange-50 px-1 py-2" />
+                    )}
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => void handleCreateLcList()}
-                    title={`Create a LeetCode Favorite List from these ${filtered.length} questions`}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition shrink-0"
-                  >
-                    <ExternalLink size={12} /> New List
-                  </button>
                 )}
               </div>
+
+              {/* Name order + batch panel */}
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span className="text-[var(--text-subtle)] font-semibold shrink-0">Name order</span>
+                {nameOrder.map((part, i) => (
+                  <span key={part} className="inline-flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      disabled={i === 0}
+                      onClick={() => updateNameOrder(moveNamePart(nameOrder, i, -1))}
+                      className="px-1 rounded border border-[var(--border)] text-[var(--text-subtle)] disabled:opacity-30 hover:bg-[var(--bg-muted)]"
+                      title="Move earlier"
+                    >
+                      ‹
+                    </button>
+                    <span className="px-2 py-0.5 rounded-full border border-orange-200 bg-orange-50 text-orange-700 font-semibold">
+                      {i + 1}. {LC_NAME_PART_LABEL[part]}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={i === nameOrder.length - 1}
+                      onClick={() => updateNameOrder(moveNamePart(nameOrder, i, 1))}
+                      className="px-1 rounded border border-[var(--border)] text-[var(--text-subtle)] disabled:opacity-30 hover:bg-[var(--bg-muted)]"
+                      title="Move later"
+                    >
+                      ›
+                    </button>
+                  </span>
+                ))}
+                <span className="text-[var(--text-subtle)] truncate ml-1" title={singleListName}>
+                  → {singleListName}
+                </span>
+              </div>
+
+              {showBatch && (
+                <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-3 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-semibold text-orange-800">Split filtered into</span>
+                    {([
+                      ['pattern', 'Pattern'],
+                      ['tier', 'Priority Diff'],
+                      ['set', 'Set'],
+                    ] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setBatchSplit(value)}
+                        className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition ${
+                          batchSplit === value
+                            ? 'border-orange-400 bg-orange-100 text-orange-800'
+                            : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:bg-[var(--bg-muted)]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={lcListLoading || batchPlans.length === 0}
+                      onClick={() => void handleBatchCreate()}
+                      className="ml-auto text-[11px] font-bold px-3 py-1.5 rounded-lg border border-orange-400 bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 transition"
+                    >
+                      Create {batchPlans.length} lists
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-orange-800/80">
+                    Uses current filters as the pool, then makes one LC favorite per {batchSplit}.
+                    Names follow your order above.
+                  </p>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {batchPlans.length === 0 ? (
+                      <p className="text-[11px] text-[var(--text-subtle)]">No groups in the current filter.</p>
+                    ) : (
+                      batchPlans.map(plan => (
+                        <div
+                          key={plan.key}
+                          className="flex items-center justify-between gap-2 text-[11px] px-2 py-1 rounded-lg bg-[var(--bg-card)] border border-[var(--border-soft)]"
+                        >
+                          <span className="font-semibold text-[var(--text)] truncate">{plan.listName}</span>
+                          <span className="tabular-nums text-[var(--text-subtle)] shrink-0">{plan.questions.length}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
 
               <CountStrip counts={summary} setFilter={setFilter} onSetFilter={setSetFilter} />
 
