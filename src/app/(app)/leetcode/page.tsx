@@ -235,8 +235,8 @@ export default function LeetCodeListPage() {
     setLcListLoading(true)
     try {
       const { session, csrf } = await ensureLcSessionForSync()
-      if (!session) {
-        toast.error('No LC session — sync first to load your session')
+      if (!session || !csrf) {
+        toast.error('No LC session — open Clipboard → Use with your leetcode.com Cookie')
         setLcListLoading(false)
         return
       }
@@ -277,8 +277,13 @@ export default function LeetCodeListPage() {
           )
         }
       } else {
-        const detail = data.lcResponse ? JSON.stringify(data.lcResponse).slice(0, 200) : ''
-        toast.error((data.error ?? 'Failed to create LC list') + (detail ? ` — ${detail}` : ''))
+        const msg = data.code === 'lc_not_logged_in' || /not logged in/i.test(data.error ?? '')
+          ? 'LeetCode session expired — open leetcode.com, copy Cookie (F12 → Network), then Clipboard → Use'
+          : (data.error ?? 'Failed to create LC list')
+        const detail = data.lcResponse && !/not logged in/i.test(data.error ?? '')
+          ? ` — ${JSON.stringify(data.lcResponse).slice(0, 120)}`
+          : ''
+        toast.error(msg + detail, { duration: 7000 })
       }
     } catch {
       toast.error('Failed to create LC list')

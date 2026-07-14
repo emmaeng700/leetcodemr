@@ -44,6 +44,63 @@ function gqlErrors(data: Record<string, unknown> | null): string[] {
   return errs.map(e => String((e as { message?: string })?.message ?? e))
 }
 
+function isLcNotLoggedIn(errors: string[]): boolean {
+  return errors.some(e => /not logged in/i.test(e))
+}
+
+const LC_SESSION_EXPIRED =
+  'LeetCode session expired. Open leetcode.com (logged in) → F12 → Network → any request → copy Cookie header → Clipboard → Use.'
+
+async function resolveRequestSession(
+  body: Record<string, unknown>,
+): Promise<{ session: string; csrf: string; error?: string }> {
+  let session = String(body.session ?? body.lc_session ?? '')
+  let csrf = String(body.csrf ?? body.csrfToken ?? body.lc_csrf ?? '')
+
+  const tryResolve = async (s: string, c: string) => {
+    if (!s) return { session: '', csrf: '' }
+    const resolved = await resolveLcSessionCredentials(s, c)
+    return { session: resolved.session, csrf: resolved.csrf }
+  }
+
+  if (session) {
+    const first = await tryResolve(session, csrf)
+    session = first.session
+    csrf = first.csrf
+  } else {
+    const fromDb = await getLcSession()
+    session = fromDb.session
+    csrf = fromDb.csrf
+  }
+
+  if (!session) return { session: '', csrf: '', error: 'no LC session' }
+  if (!csrf) return { session, csrf: '', error: LC_SESSION_EXPIRED }
+
+  const probe = await lcGql(session, csrf, {
+    query: '{ favoritesLists { allFavorites { name } } }',
+  })
+  const probeErrors = gqlErrors(probe.data)
+  if (!isLcNotLoggedIn(probeErrors)) {
+    return { session, csrf }
+  }
+
+  // Client session stale — try Supabase copy once.
+  const fromDb = await getLcSession()
+  if (fromDb.session && fromDb.session !== session) {
+    const retry = await tryResolve(fromDb.session, fromDb.csrf)
+    if (retry.session && retry.csrf) {
+      const probe2 = await lcGql(retry.session, retry.csrf, {
+        query: '{ favoritesLists { allFavorites { name } } }',
+      })
+      if (!isLcNotLoggedIn(gqlErrors(probe2.data))) {
+        return { session: retry.session, csrf: retry.csrf }
+      }
+    }
+  }
+
+  return { session, csrf, error: LC_SESSION_EXPIRED }
+}
+
 async function createLcFavorite(
   session: string,
   csrf: string,
@@ -76,7 +133,14 @@ async function createLcFavorite(
     ?.createEmptyFavorite
 
   if (errors.length) {
-    return { slug: null, raw: { errors, createResult: result.data } }
+    return {
+      slug: null,
+      raw: {
+        errors,
+        notLoggedIn: isLcNotLoggedIn(errors),
+        createResult: result.data,
+      },
+    }
   }
   if (!fav?.ok || !fav.favoriteSlug) {
     return { slug: null, raw: { createResult: result.data, fav } }
@@ -226,14 +290,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { action } = body
 
-    let session: string = body.session ?? ''
-    let csrf: string = body.csrf ?? ''
+    const { session, csrf, error: sessionError } = await resolveRequestSession(body)
     if (!session) {
-      const creds = await getLcSession()
-      session = creds.session
-      csrf = creds.csrf
+      return NextResponse.json({ error: sessionError ?? 'no LC session', code: 'lc_no_session' }, { status: 401 })
     }
-    if (!session) return NextResponse.json({ error: 'no LC session' }, { status: 401 })
+    if (!csrf || sessionError) {
+      return NextResponse.json({ error: sessionError ?? LC_SESSION_EXPIRED, code: 'lc_not_logged_in' }, { status: 401 })
+    }
 
     if (action === 'delete') {
       const slug = (body.favoriteIdHash ?? body.favoriteSlug) as string
@@ -256,6 +319,10 @@ export async function POST(req: NextRequest) {
 
       const { slug: favoriteSlug, raw: lcRaw } = await createLcFavorite(session, csrf, listName)
       if (!favoriteSlug) {
+        const raw = lcRaw as { notLoggedIn?: boolean; errors?: string[] }
+        if (raw.notLoggedIn || isLcNotLoggedIn(raw.errors ?? [])) {
+          return NextResponse.json({ error: LC_SESSION_EXPIRED, code: 'lc_not_logged_in', lcResponse: lcRaw }, { status: 401 })
+        }
         return NextResponse.json({ error: 'failed to create list on LeetCode', lcResponse: lcRaw }, { status: 502 })
       }
 
