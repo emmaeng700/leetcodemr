@@ -27,6 +27,7 @@ MODE_AM600     = '--am600'      in sys.argv
 MODE_NC_EXTRA  = '--nc-extra'   in sys.argv   # 32 NC150 questions not in Set 1
 MODE_AM_EXTRA  = '--am-extra'   in sys.argv   # 344 AM600 questions not in Set 1 or NC150
 MODE_ALL727    = '--all'        in sys.argv   # All 727 questions (Set 1 + 2 + 3)
+FORCE_REFRESH_SOLS = '--refresh-solutions' in sys.argv  # Clear cache, re-fetch all
 
 # ─── Font registration ────────────────────────────────────────────────────────
 from reportlab.pdfbase import pdfmetrics
@@ -74,11 +75,12 @@ from generate_patterns_pdf import (
 )
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
-SCRIPT_DIR    = Path(__file__).parent
-QUESTIONS     = SCRIPT_DIR / "public" / "questions_full.json"
-SITES_CACHE   = SCRIPT_DIR / ".full_langs_cache.json"
-DOOCS_CACHE   = SCRIPT_DIR / ".doocs_cache.json"
-PLAYBOOK_PATH = SCRIPT_DIR / "public" / "playbook_data.json"
+SCRIPT_DIR       = Path(__file__).parent
+QUESTIONS        = SCRIPT_DIR / "public" / "questions_full.json"
+SITES_CACHE      = SCRIPT_DIR / ".full_langs_cache.json"
+DOOCS_CACHE      = SCRIPT_DIR / ".doocs_cache.json"
+PLAYBOOK_PATH    = SCRIPT_DIR / "public" / "playbook_data.json"
+_SOLUTIONS_CACHE = SCRIPT_DIR / ".my_solutions_cache.json"   # persists fetched solutions
 
 # Load interview approach scripts keyed by question ID (string)
 _PLAYBOOK: dict = (
@@ -147,12 +149,92 @@ def _fetch_ac_submission(slug, session, csrf):
     return chosen["lang"], code
 
 
-def load_my_solutions() -> dict:
-    """Return {qid: (lang, code)} combining pinned Supabase rows + live LC fetches."""
-    print("Loading my LeetCode solutions…")
-    q_map = {q["id"]: q for q in json.loads(QUESTIONS.read_text())}
+_SOLUTIONS_JSON = SCRIPT_DIR / "my_solutions.json"   # full scraped solutions with metadata
 
-    # Pinned solutions from best_solutions table
+
+def _lc_ac_questions(session: str, csrf: str) -> list:
+    """Return list of {qid, slug, title} for every AC'd question, slugs from LC directly."""
+    r = requests.get(
+        "https://leetcode.com/api/problems/all/",
+        headers={
+            "Cookie": f"LEETCODE_SESSION={session}; csrftoken={csrf}",
+            "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                           "AppleWebKit/537.36 (KHTML, like Gecko) "
+                           "Chrome/120.0.0.0 Safari/537.36"),
+            "Referer": "https://leetcode.com/",
+            "x-csrftoken": csrf,
+        },
+        timeout=30,
+    )
+    r.raise_for_status()
+    out = []
+    for p in r.json().get("stat_status_pairs", []):
+        if p.get("status") == "ac":
+            out.append({
+                "qid":   int(p["stat"]["frontend_question_id"]),
+                "slug":  p["stat"]["question__title_slug"],
+                "title": p["stat"]["question__title"],
+            })
+    return sorted(out, key=lambda x: x["qid"])
+
+
+def scrape_solutions_to_json(session: str, csrf: str, force: bool = False) -> dict:
+    """Scrape ALL accepted LC submissions → my_solutions.json.
+    Returns {str(qid): {qid, slug, title, lang, code}}.
+    Skips questions already in the JSON unless force=True."""
+    print("Scraping all LeetCode accepted solutions…")
+
+    # Load existing JSON so we don't re-fetch everything on every run
+    existing: dict = {}
+    if not force and _SOLUTIONS_JSON.exists():
+        try:
+            existing = json.loads(_SOLUTIONS_JSON.read_text())
+            print(f"  {len(existing)} already in my_solutions.json")
+        except Exception:
+            existing = {}
+    elif force:
+        print("  force=True — re-fetching everything from scratch")
+
+    # Get full AC list with slugs straight from LC (no q_map lookup needed)
+    ac_qs = _lc_ac_questions(session, csrf)
+    print(f"  {len(ac_qs)} questions AC'd on LeetCode")
+
+    result = dict(existing)
+    newly_fetched, failed = 0, []
+
+    for i, q in enumerate(ac_qs, 1):
+        key = str(q["qid"])
+        if key in result and not force:
+            continue   # already have it
+
+        lang, code = _fetch_ac_submission(q["slug"], session, csrf)
+        if code:
+            result[key] = {"qid": q["qid"], "slug": q["slug"],
+                           "title": q["title"], "lang": lang, "code": code}
+            newly_fetched += 1
+        else:
+            failed.append(q)
+
+        if i % 10 == 0:
+            print(f"    {i}/{len(ac_qs)} processed…")
+            _SOLUTIONS_JSON.write_text(json.dumps(result, ensure_ascii=False, indent=2))
+        time.sleep(0.35)
+
+    _SOLUTIONS_JSON.write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    print(f"  {newly_fetched} newly fetched · {len(result)} total → my_solutions.json")
+    if failed:
+        print(f"  ⚠ {len(failed)} questions returned no code from LC:")
+        for f in failed:
+            print(f"    #{f['qid']:4d}  {f['title']}  ({f['slug']})")
+    return result
+
+
+def load_my_solutions() -> dict:
+    """Return {qid: (lang, code)}.
+    Scrapes all accepted submissions to my_solutions.json first, then loads from it."""
+    print("Loading my LeetCode solutions…")
+
+    # Pinned / curated solutions from Supabase best_solutions
     try:
         pinned_rows = _sb_get("best_solutions",
                               "&order=question_id.asc&select=question_id,language,code")
@@ -163,7 +245,7 @@ def load_my_solutions() -> dict:
         print(f"  ⚠ Could not fetch pinned solutions: {e}")
         pinned = {}
 
-    # LeetCode session
+    # LeetCode session from Supabase user_settings
     try:
         rows = requests.get(
             f"{_SB_URL}/rest/v1/user_settings?user_id=eq.{_USER_ID}&select=lc_session,lc_csrf",
@@ -173,32 +255,27 @@ def load_my_solutions() -> dict:
     except Exception:
         lc_session, lc_csrf = "", ""
 
-    # Solved question IDs not yet pinned
-    live = {}
+    scraped: dict = {}
     if lc_session:
-        try:
-            solved_rows = _sb_get("progress", "&solved=eq.true&select=question_id")
-            to_fetch = sorted(
-                {int(r["question_id"]) for r in solved_rows} - set(pinned.keys()))
-            print(f"  {len(to_fetch)} questions need live LC fetch…")
-            for i, qid in enumerate(to_fetch, 1):
-                slug = q_map.get(qid, {}).get("slug", "")
-                if not slug:
-                    continue
-                lang, code = _fetch_ac_submission(slug, lc_session, lc_csrf)
-                if code:
-                    live[qid] = (lang, code)
-                if i % 10 == 0:
-                    print(f"    {i}/{len(to_fetch)} fetched…")
-                time.sleep(0.3)
-            print(f"  {len(live)} live submissions fetched")
-        except Exception as e:
-            print(f"  ⚠ Live fetch failed: {e}")
+        # Always scrape into JSON first — uses LC slugs directly, never misses a question
+        scraped_raw = scrape_solutions_to_json(lc_session, lc_csrf,
+                                               force=FORCE_REFRESH_SOLS)
+        scraped = {int(k): (v["lang"], v["code"]) for k, v in scraped_raw.items()}
     else:
-        print("  ⚠ No LeetCode session — only pinned solutions will appear")
+        # No live session — fall back to existing JSON if present
+        if _SOLUTIONS_JSON.exists():
+            try:
+                raw = json.loads(_SOLUTIONS_JSON.read_text())
+                scraped = {int(k): (v["lang"], v["code"]) for k, v in raw.items()}
+                print(f"  ⚠ No LC session — loaded {len(scraped)} from my_solutions.json")
+            except Exception:
+                pass
+        else:
+            print("  ⚠ No LeetCode session and no my_solutions.json — solutions will be empty")
 
-    result = {**pinned, **live}  # live LC takes priority — most recent submission wins
-    print(f"  {len(result)} total my-solutions loaded")
+    # Merge: scraped < pinned (pinned = user's curated best choice, always wins)
+    result = {**scraped, **pinned}
+    print(f"  {len(result)} total solutions available")
     return result
 
 
@@ -966,6 +1043,19 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
     qid      = q['id']
     diff_key = q.get('difficulty', 'easy').lower()
     bg, fg   = DIFF_COLORS_PILL.get(q.get('difficulty', 'Easy'), (GRAY_100, BLACK))
+
+    # Each question must start on its own minipage so Next/Prev navigation
+    # always lands at the question title, never mid-page on previous content.
+    items.append(PageBreak())
+
+    # Invisible question-start marker — used by _analyze_inner_for_links to
+    # reliably identify which question owns each page, even when the interview
+    # approach or description cross-references other question IDs.
+    items.append(Paragraph(
+        f'##QID={qid}##',
+        ParagraphStyle(f'qstart_{qid}', fontName='LG-Bold', fontSize=0.5,
+                       textColor=HexColor('#FFFFFF'), leading=0.5, spaceAfter=0),
+    ))
 
     items.append(cat_bar(pattern_name))
     items.append(Spacer(1, 2))
@@ -2517,9 +2607,10 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
       toc_link_rects     {inner_pg → {qid → {line, title}}}
       toc_section_rects  {inner_pg → [(kind, key, fitz.Rect)]}  kind: 'round'|'pat'
     """
-    doc     = fitz.open(str(inner_pdf_path))
-    all_ids = {q['id'] for _, _, _, pgs in rounds for _, qs in pgs for q in qs}
-    qid_re  = re.compile(r'#(\d+)')
+    doc        = fitz.open(str(inner_pdf_path))
+    all_ids    = {q['id'] for _, _, _, pgs in rounds for _, qs in pgs for q in qs}
+    qid_re     = re.compile(r'#(\d+)')
+    marker_re  = re.compile(r'##QID=(\d+)##')
 
     page_types         = {}
     qid_first_page     = {}
@@ -2533,8 +2624,8 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
         unique = list(dict.fromkeys(found))   # dedupe, preserve order
 
         if len(unique) >= 5:
-            # Distinguish real TOC pages (vertical list) from chapter splash pages
-            # (horizontal row of IDs).  Sample up to 6 qids and check y-spread.
+            # Could be TOC, chapter splash, or a question page with many cross-references.
+            # Check y-spread first to catch chapter splash pages (IDs on one horizontal line).
             sample_ys = []
             for qid in unique[:6]:
                 h = page.search_for(f'#{qid} ') or page.search_for(f'#{qid}')
@@ -2543,20 +2634,11 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
             y_spread = (max(sample_ys) - min(sample_ys)) if len(sample_ys) >= 2 else 0
 
             if y_spread < 12:
-                # Chapter splash page — all IDs on the same horizontal line
                 page_types[pg] = 'chapter'
                 continue
 
-            # Real TOC page — vertical list of questions
-            page_types[pg] = 'toc'
-            rects = {}
-            for qid in unique:
-                entry = _find_toc_entry_rects(page, qid)
-                if entry is None:
-                    continue
-                rects[qid] = entry
-            toc_link_rects[pg] = rects
-
+            # Confirm it's a real TOC page by looking for round section markers.
+            # A question page that happens to reference many QIDs will have no round markers.
             sections = []
             for round_num, priority, difficulty, pattern_groups in rounds:
                 n_q = sum(len(qs) for _, qs in pattern_groups)
@@ -2570,13 +2652,35 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
                     prect = _find_text_line_rect(page, f'{pat_obj["name"]} ({len(qs)})')
                     if prect is not None:
                         sections.append(('pat', (round_num, pat_obj['name']), prect))
+
             if sections:
+                # Confirmed real TOC page
+                page_types[pg] = 'toc'
+                rects = {}
+                for qid in unique:
+                    entry = _find_toc_entry_rects(page, qid)
+                    if entry is None:
+                        continue
+                    rects[qid] = entry
+                toc_link_rects[pg] = rects
                 toc_section_rects[pg] = sections
-        elif unique:
+                continue
+
+            # No round markers found — it's a question page with many cross-references.
+            # Fall through to the question-page handler below.
+
+        if unique:
             page_types[pg] = 'question'
-            for qid in unique:
-                if qid not in qid_first_page:
-                    qid_first_page[qid] = pg
+            # ONLY the ##QID=N## marker can register qid_first_page.
+            # Continuation pages cross-reference other question IDs (e.g. Q54's
+            # Phase 6 says "(#59)", Q112's says "(#113)"). Without this guard,
+            # those cross-references corrupt qid_first_page for questions that
+            # appear later in the PDF, making Next/Prev land on wrong pages.
+            m = marker_re.search(text)
+            if m:
+                primary = int(m.group(1))
+                if primary in all_ids and primary not in qid_first_page:
+                    qid_first_page[primary] = pg
         else:
             page_types[pg] = 'other'
 
