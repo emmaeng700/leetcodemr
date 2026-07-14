@@ -346,8 +346,10 @@ export default function LeetCodeListPage() {
       } else {
         const msg = data.code === 'lc_not_logged_in' || /not logged in/i.test(data.error ?? '')
           ? 'LeetCode session expired — open leetcode.com, copy Cookie (F12 → Network), then Clipboard → Use'
-          : (data.error ?? 'Failed to create LC list')
-        const detail = data.lcResponse && !/not logged in/i.test(data.error ?? '')
+          : data.code === 'lc_name_taken'
+            ? (data.error as string)
+            : (data.error ?? 'Failed to create LC list')
+        const detail = data.lcResponse && data.code !== 'lc_not_logged_in' && data.code !== 'lc_name_taken'
           ? ` — ${JSON.stringify(data.lcResponse).slice(0, 120)}`
           : ''
         toast.error(msg + detail, { duration: 7000 })

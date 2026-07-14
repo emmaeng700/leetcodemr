@@ -105,7 +105,7 @@ async function createLcFavorite(
   session: string,
   csrf: string,
   name: string,
-): Promise<{ slug: string | null; raw: unknown }> {
+): Promise<{ slug: string | null; raw: unknown; nameTaken?: boolean }> {
   const result = await lcGql(session, csrf, {
     operationName: 'createEmptyFavorite',
     variables: {
@@ -131,10 +131,14 @@ async function createLcFavorite(
   const errors = gqlErrors(result.data)
   const fav = (result.data?.data as { createEmptyFavorite?: { ok?: boolean; error?: string; favoriteSlug?: string } })
     ?.createEmptyFavorite
+  const nameTaken =
+    errors.some(e => /name already exists/i.test(e)) ||
+    /name already exists/i.test(fav?.error ?? '')
 
   if (errors.length) {
     return {
       slug: null,
+      nameTaken,
       raw: {
         errors,
         notLoggedIn: isLcNotLoggedIn(errors),
@@ -143,10 +147,43 @@ async function createLcFavorite(
     }
   }
   if (!fav?.ok || !fav.favoriteSlug) {
-    return { slug: null, raw: { createResult: result.data, fav } }
+    return { slug: null, nameTaken, raw: { createResult: result.data, fav } }
   }
 
   return { slug: fav.favoriteSlug, raw: { createResult: result.data } }
+}
+
+async function listAllFavorites(
+  session: string,
+  csrf: string,
+): Promise<Array<{ idHash?: string; name?: string; slug?: string; questions?: unknown[] }>> {
+  const result = await lcGql(session, csrf, {
+    query: `query favoritesList {
+      favoritesLists {
+        allFavorites {
+          idHash
+          name
+          slug
+          questions { titleSlug }
+        }
+      }
+    }`,
+  })
+  return (result.data?.data as {
+    favoritesLists?: { allFavorites?: Array<{ idHash?: string; name?: string; slug?: string; questions?: unknown[] }> }
+  })?.favoritesLists?.allFavorites ?? []
+}
+
+async function findFavoriteByName(
+  session: string,
+  csrf: string,
+  listName: string,
+): Promise<{ slug: string; idHash?: string } | null> {
+  const lists = await listAllFavorites(session, csrf)
+  const match = lists.find(f => f.name === listName)
+  const slug = match?.slug || match?.idHash
+  if (!slug) return null
+  return { slug, idHash: match?.idHash }
 }
 
 async function addOneToFavorite(
@@ -205,23 +242,7 @@ async function countFavoriteQuestions(
   favoriteSlug: string,
   listName: string,
 ): Promise<number> {
-  const result = await lcGql(session, csrf, {
-    query: `query favoritesList {
-      favoritesLists {
-        allFavorites {
-          idHash
-          name
-          slug
-          questions { titleSlug }
-        }
-      }
-    }`,
-  })
-
-  const lists = (result.data?.data as {
-    favoritesLists?: { allFavorites?: Array<{ idHash?: string; name?: string; slug?: string; questions?: unknown[] }> }
-  })?.favoritesLists?.allFavorites ?? []
-
+  const lists = await listAllFavorites(session, csrf)
   const match = lists.find(f =>
     f.slug === favoriteSlug ||
     f.idHash === favoriteSlug ||
@@ -315,15 +336,38 @@ export async function POST(req: NextRequest) {
 
       if (body.existingHash) {
         await deleteLcFavorite(session, csrf, body.existingHash)
+      } else {
+        // Get Latest / new device may lose local hash while the LC list still exists.
+        const prior = await findFavoriteByName(session, csrf, listName)
+        if (prior) await deleteLcFavorite(session, csrf, prior.slug)
       }
 
-      const { slug: favoriteSlug, raw: lcRaw } = await createLcFavorite(session, csrf, listName)
+      let { slug: favoriteSlug, raw: lcRaw, nameTaken } = await createLcFavorite(session, csrf, listName)
+      if (!favoriteSlug && nameTaken) {
+        const prior = await findFavoriteByName(session, csrf, listName)
+        if (prior) {
+          await deleteLcFavorite(session, csrf, prior.slug)
+          ;({ slug: favoriteSlug, raw: lcRaw, nameTaken } = await createLcFavorite(session, csrf, listName))
+        }
+      }
+      if (!favoriteSlug && nameTaken) {
+        // Last resort: unique name so create still succeeds.
+        const uniqueName = `${listName} · ${new Date().toISOString().slice(5, 16).replace('T', ' ')}`
+        ;({ slug: favoriteSlug, raw: lcRaw } = await createLcFavorite(session, csrf, uniqueName))
+      }
       if (!favoriteSlug) {
         const raw = lcRaw as { notLoggedIn?: boolean; errors?: string[] }
         if (raw.notLoggedIn || isLcNotLoggedIn(raw.errors ?? [])) {
           return NextResponse.json({ error: LC_SESSION_EXPIRED, code: 'lc_not_logged_in', lcResponse: lcRaw }, { status: 401 })
         }
-        return NextResponse.json({ error: 'failed to create list on LeetCode', lcResponse: lcRaw }, { status: 502 })
+        const taken = nameTaken || (raw.errors ?? []).some(e => /name already exists/i.test(e))
+        return NextResponse.json({
+          error: taken
+            ? `A LeetCode list named "${listName}" already exists. Delete it on leetcode.com → Lists, then try again.`
+            : 'failed to create list on LeetCode',
+          code: taken ? 'lc_name_taken' : 'lc_create_failed',
+          lcResponse: lcRaw,
+        }, { status: 502 })
       }
 
       const slugs = questions
