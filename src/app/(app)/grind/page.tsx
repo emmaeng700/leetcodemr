@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import GrindEditor from '@/components/GrindEditor'
 import GrindConnectivityBanner from '@/components/GrindConnectivityBanner'
 import GrindCountStrip, {
+  DEFAULT_GRIND_FILTERS,
   grindQuestionMatchesFilters,
   type GrindFilterState,
 } from '@/components/GrindCountStrip'
@@ -81,12 +82,12 @@ function GrindInner() {
   const router = useRouter()
   const [questions, setQuestions] = useState<GrindQuestion[]>([])
   const [loading, setLoading] = useState(true)
-  const [grindFilters, setGrindFilters] = useState<GrindFilterState>({
-    difficulties: new Set(),
-    priorities: new Set(),
-    sets: new Set(),
-    pattern: 'all',
-  })
+  const [grindFilters, setGrindFilters] = useState<GrindFilterState>(() => ({
+    ...DEFAULT_GRIND_FILTERS,
+    difficulties: new Set(DEFAULT_GRIND_FILTERS.difficulties),
+    priorities: new Set(DEFAULT_GRIND_FILTERS.priorities),
+    sets: new Set(DEFAULT_GRIND_FILTERS.sets),
+  }))
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState(() => {
     const fromUrl = Number(sp.get('id') || '0')
@@ -465,9 +466,9 @@ function GrindInner() {
             {filtered.length} question{filtered.length !== 1 ? 's' : ''}
             {search.trim() ||
             grindFilters.pattern !== 'all' ||
-            grindFilters.difficulties.size > 0 ||
-            grindFilters.priorities.size > 0 ||
-            grindFilters.sets.size > 0
+            grindFilters.difficulties.size < 3 ||
+            grindFilters.priorities.size < 3 ||
+            grindFilters.sets.size < 3
               ? ' matching filters'
               : ''}
           </div>

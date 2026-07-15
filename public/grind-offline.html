@@ -17,27 +17,41 @@
     header h1 { font-size: 0.85rem; font-weight: 700; color: #cdd6f4; }
     header .sub { font-size: 0.6rem; color: #6c7086; margin-top: 0.1rem; }
     .count-strip { font-size: 0.58rem; color: #6c7086; margin-top: 0.28rem; }
-    .count-strip-row { display: flex; flex-wrap: wrap; gap: 0.2rem 0.45rem; align-items: center; }
-    .count-strip-patterns { display: flex; flex-wrap: wrap; gap: 0.15rem 0.45rem; margin-top: 0.2rem; align-items: center; }
-    .count-sep { color: #45475a; }
+    .grind-filter-row { display: flex; flex-wrap: wrap; gap: 0.2rem 0.35rem; align-items: center; margin-top: 0.22rem; }
+    .grind-filter-row:first-child { margin-top: 0; }
+    .grind-filter-label { font-weight: 700; color: #bac2de; min-width: 3.6rem; flex-shrink: 0; }
+    .count-strip-patterns { display: flex; flex-wrap: wrap; gap: 0.2rem 0.35rem; align-items: center; }
     .count-easy { color: #a6e3a1; font-weight: 700; }
     .count-medium { color: #f9e2af; font-weight: 700; }
     .count-hard { color: #f38ba8; font-weight: 700; }
     .count-high { color: #f38ba8; font-weight: 700; }
     .count-mid { color: #fab387; font-weight: 700; }
-    .count-low { color: #6c7086; font-weight: 700; }
+    .count-low { color: #a6adc8; font-weight: 700; }
     .count-s1 { color: #89b4fa; font-weight: 700; }
     .count-s2 { color: #a6e3a1; font-weight: 700; }
     .count-s3 { color: #cba6f7; font-weight: 700; }
     .count-num { font-family: monospace; color: #bac2de; }
     .count-pattern { color: #a6adc8; max-width: 7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
-    .grind-filter-chip {
-      appearance: none; background: transparent; border: 1px solid transparent; border-radius: 999px;
-      padding: 0.1rem 0.35rem; color: inherit; cursor: pointer; line-height: 1.3; font: inherit; font-size: inherit;
+    .grind-tick {
+      appearance: none; display: inline-flex; align-items: center; gap: 0.22rem;
+      background: rgba(30, 30, 46, 0.85); border: 1px solid rgba(205, 214, 244, 0.16); border-radius: 999px;
+      padding: 0.18rem 0.48rem 0.18rem 0.35rem; color: inherit; cursor: pointer; line-height: 1.25;
+      font: inherit; font-size: inherit;
     }
-    .grind-filter-chip:hover { background: rgba(205, 214, 244, 0.06); border-color: rgba(205, 214, 244, 0.12); }
-    .grind-filter-chip.on { background: rgba(137, 180, 250, 0.14); border-color: rgba(137, 180, 250, 0.45); }
-    .grind-filter-chip.clear { color: #89b4fa; font-weight: 700; border-color: rgba(137, 180, 250, 0.35); }
+    .grind-tick:hover { background: rgba(205, 214, 244, 0.08); border-color: rgba(205, 214, 244, 0.28); }
+    .grind-tick.on { background: rgba(137, 180, 250, 0.16); border-color: rgba(137, 180, 250, 0.55); }
+    .grind-tick-mark {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 0.85rem; height: 0.85rem; border-radius: 0.2rem;
+      border: 1px solid rgba(205, 214, 244, 0.35); background: rgba(17, 17, 27, 0.7);
+      color: #89b4fa; font-size: 0.62rem; font-weight: 800; line-height: 1; flex-shrink: 0;
+    }
+    .grind-tick.on .grind-tick-mark { border-color: #89b4fa; background: rgba(137, 180, 250, 0.22); }
+    .grind-filter-all {
+      appearance: none; background: transparent; border: none; color: #89b4fa; font: inherit;
+      font-size: 0.58rem; font-weight: 700; cursor: pointer; padding: 0.1rem 0.25rem;
+      text-decoration: underline; text-underline-offset: 0.12rem;
+    }
     .grind-pattern-select {
       font-size: 0.62rem; background: #181825; color: #cdd6f4; border: 1px solid rgba(205, 214, 244, 0.18);
       border-radius: 0.4rem; padding: 0.15rem 0.35rem; max-width: 11rem;
@@ -528,16 +542,22 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v36'
+    var OFFLINE_VERSION = 'v37'
     var SW_CACHE = 'lm-v30'
     var midnightTimer = null
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v2'
-    var grindFilters = {
-      difficulties: {},
-      priorities: {},
-      sets: {},
-      pattern: 'all',
+    var ALL_DIFFS = ['Easy', 'Medium', 'Hard']
+    var ALL_PRIOS = ['High', 'Mid', 'Low']
+    var ALL_SETS = [1, 2, 3]
+    function defaultGrindFilters() {
+      return {
+        difficulties: { Easy: true, Medium: true, Hard: true },
+        priorities: { High: true, Mid: true, Low: true },
+        sets: { 1: true, 2: true, 3: true },
+        pattern: 'all',
+      }
     }
+    var grindFilters = defaultGrindFilters()
     var filtered = []
     var selectedId = 0
     var lang = 'python3'
@@ -1624,9 +1644,10 @@
       return Object.keys(map).length
     }
 
-    function isNarrowFilter(map, fullSize) {
-      var n = filterKeyCount(map)
-      return n > 0 && n < fullSize
+    function mapFromKeys(keys) {
+      var next = {}
+      keys.forEach(function(k) { next[k] = true })
+      return next
     }
 
     function toggleFilterKey(map, key) {
@@ -1639,14 +1660,21 @@
 
     function matchesGrindFilters(q, filters) {
       filters = filters || grindFilters
-      if (isNarrowFilter(filters.sets, 3) && !filters.sets[q.set]) return false
-      if (isNarrowFilter(filters.difficulties, 3) && !filters.difficulties[q.difficulty]) return false
-      if (isNarrowFilter(filters.priorities, 3)) {
-        var pri = priorityFromSection(q.section)
-        if (!pri || !filters.priorities[pri]) return false
-      }
+      if (!filters.sets[q.set]) return false
+      if (!filters.difficulties[q.difficulty]) return false
+      var pri = priorityFromSection(q.section)
+      if (!pri || !filters.priorities[pri]) return false
       if (filters.pattern !== 'all' && q.pattern !== filters.pattern) return false
       return true
+    }
+
+    function filtersCustom() {
+      return (
+        grindFilters.pattern !== 'all' ||
+        filterKeyCount(grindFilters.difficulties) < 3 ||
+        filterKeyCount(grindFilters.priorities) < 3 ||
+        filterKeyCount(grindFilters.sets) < 3
+      )
     }
 
     function applyFilters(opts) {
@@ -1668,13 +1696,7 @@
     }
 
     function filtersActive() {
-      return (
-        grindFilters.pattern !== 'all' ||
-        isNarrowFilter(grindFilters.difficulties, 3) ||
-        isNarrowFilter(grindFilters.priorities, 3) ||
-        isNarrowFilter(grindFilters.sets, 3) ||
-        !!document.getElementById('search').value.trim()
-      )
+      return filtersCustom() || !!document.getElementById('search').value.trim()
     }
 
     function navList() {
@@ -1761,31 +1783,48 @@
       var el = document.getElementById('count-strip')
       if (!el) return
       var counts = grindSummaryCounts(rows)
-      var diffs = ['Easy', 'Medium', 'Hard']
-      var prios = ['High', 'Mid', 'Low']
       var diffClass = { Easy: 'count-easy', Medium: 'count-medium', Hard: 'count-hard' }
       var prioClass = { High: 'count-high', Mid: 'count-mid', Low: 'count-low' }
-      var main = document.createElement('div')
-      main.className = 'count-strip-row'
-      main.setAttribute('role', 'group')
-      main.setAttribute('aria-label', 'Grind filters')
 
-      function addChip(parent, labelHtml, on, onClick) {
+      function addTick(parent, labelHtml, on, onClick) {
         var btn = document.createElement('button')
         btn.type = 'button'
-        btn.className = 'grind-filter-chip' + (on ? ' on' : '')
+        btn.className = 'grind-tick' + (on ? ' on' : '')
         btn.setAttribute('aria-pressed', on ? 'true' : 'false')
-        btn.innerHTML = labelHtml
+        btn.innerHTML = '<span class="grind-tick-mark" aria-hidden="true">' + (on ? '✓' : '') + '</span>' + labelHtml
         btn.onclick = onClick
         parent.appendChild(btn)
       }
 
-      var diffNarrow = isNarrowFilter(grindFilters.difficulties, 3)
-      diffs.forEach(function(d) {
-        var on = diffNarrow && !!grindFilters.difficulties[d]
-        addChip(
-          main,
-          '<span class="' + diffClass[d] + '">' + d + '</span> <span class="count-num">' + (counts.byDifficulty[d] || 0) + '</span>',
+      function addAll(parent, onClick) {
+        var btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'grind-filter-all'
+        btn.textContent = 'All'
+        btn.onclick = onClick
+        parent.appendChild(btn)
+      }
+
+      function addRow(label) {
+        var row = document.createElement('div')
+        row.className = 'grind-filter-row'
+        var lab = document.createElement('span')
+        lab.className = 'grind-filter-label'
+        lab.textContent = label
+        row.appendChild(lab)
+        return row
+      }
+
+      el.innerHTML = ''
+      el.setAttribute('role', 'group')
+      el.setAttribute('aria-label', 'Grind filters')
+
+      var diffRow = addRow('Difficulty')
+      ALL_DIFFS.forEach(function(d) {
+        var on = !!grindFilters.difficulties[d]
+        addTick(
+          diffRow,
+          '<span class="' + diffClass[d] + '">' + d + '</span><span class="count-num">' + (counts.byDifficulty[d] || 0) + '</span>',
           on,
           function() {
             grindFilters.difficulties = toggleFilterKey(grindFilters.difficulties, d)
@@ -1793,17 +1832,18 @@
           },
         )
       })
-      var sep = document.createElement('span')
-      sep.className = 'count-sep'
-      sep.textContent = '|'
-      main.appendChild(sep)
+      addAll(diffRow, function() {
+        grindFilters.difficulties = mapFromKeys(ALL_DIFFS)
+        applyFilters()
+      })
+      el.appendChild(diffRow)
 
-      var prioNarrow = isNarrowFilter(grindFilters.priorities, 3)
-      prios.forEach(function(p) {
-        var on = prioNarrow && !!grindFilters.priorities[p]
-        addChip(
-          main,
-          '<span class="' + prioClass[p] + '">' + p + '</span> <span class="count-num">' + (counts.byPriority[p] || 0) + '</span>',
+      var prioRow = addRow('Priority')
+      ALL_PRIOS.forEach(function(p) {
+        var on = !!grindFilters.priorities[p]
+        addTick(
+          prioRow,
+          '<span class="' + prioClass[p] + '">' + p + '</span><span class="count-num">' + (counts.byPriority[p] || 0) + '</span>',
           on,
           function() {
             grindFilters.priorities = toggleFilterKey(grindFilters.priorities, p)
@@ -1811,21 +1851,22 @@
           },
         )
       })
-      sep = document.createElement('span')
-      sep.className = 'count-sep'
-      sep.textContent = '|'
-      main.appendChild(sep)
+      addAll(prioRow, function() {
+        grindFilters.priorities = mapFromKeys(ALL_PRIOS)
+        applyFilters()
+      })
+      el.appendChild(prioRow)
 
-      var setNarrow = isNarrowFilter(grindFilters.sets, 3)
+      var setRow = addRow('Set')
       ;[
         ['S1', 1, 'count-s1'],
         ['S2', 2, 'count-s2'],
         ['S3', 3, 'count-s3'],
       ].forEach(function(item) {
-        var on = setNarrow && !!grindFilters.sets[item[1]]
-        addChip(
-          main,
-          '<span class="' + item[2] + '">' + item[0] + '</span> <span class="count-num">' + (counts.bySet[item[1]] || 0) + '</span>',
+        var on = !!grindFilters.sets[item[1]]
+        addTick(
+          setRow,
+          '<span class="' + item[2] + '">' + item[0] + '</span><span class="count-num">' + (counts.bySet[item[1]] || 0) + '</span>',
           on,
           function() {
             grindFilters.sets = toggleFilterKey(grindFilters.sets, item[1])
@@ -1833,30 +1874,29 @@
           },
         )
       })
-
-      if (
-        grindFilters.pattern !== 'all' ||
-        isNarrowFilter(grindFilters.difficulties, 3) ||
-        isNarrowFilter(grindFilters.priorities, 3) ||
-        isNarrowFilter(grindFilters.sets, 3)
-      ) {
-        addChip(main, 'Clear', false, function() {
-          grindFilters = { difficulties: {}, priorities: {}, sets: {}, pattern: 'all' }
+      addAll(setRow, function() {
+        grindFilters.sets = mapFromKeys(ALL_SETS)
+        applyFilters()
+      })
+      if (filtersCustom()) {
+        var reset = document.createElement('button')
+        reset.type = 'button'
+        reset.className = 'grind-filter-all'
+        reset.textContent = 'Reset'
+        reset.onclick = function() {
+          grindFilters = defaultGrindFilters()
           applyFilters()
-        })
-        main.lastChild.className = 'grind-filter-chip clear'
+        }
+        setRow.appendChild(reset)
       }
-
-      el.innerHTML = ''
-      el.appendChild(main)
+      el.appendChild(setRow)
 
       var patterns = Object.keys(counts.byPattern).sort(function(a, b) {
         return (counts.byPattern[b] || 0) - (counts.byPattern[a] || 0)
       })
       if (!patterns.length) return
 
-      var row = document.createElement('div')
-      row.className = 'count-strip-patterns'
+      var row = addRow('Pattern')
 
       var select = document.createElement('select')
       select.className = 'grind-pattern-select'
@@ -1880,11 +1920,17 @@
       }
       row.appendChild(select)
 
+      var chips = document.createElement('div')
+      chips.className = 'count-strip-patterns'
+      addTick(chips, 'All', grindFilters.pattern === 'all', function() {
+        grindFilters.pattern = 'all'
+        applyFilters()
+      })
       patterns.slice(0, 8).forEach(function(name) {
         var on = grindFilters.pattern === name
-        addChip(
-          row,
-          '<span class="count-pattern" title="' + name.replace(/"/g, '&quot;') + '">' + name + '</span> <span class="count-num">' + counts.byPattern[name] + '</span>',
+        addTick(
+          chips,
+          '<span class="count-pattern" title="' + name.replace(/"/g, '&quot;') + '">' + name + '</span><span class="count-num">' + counts.byPattern[name] + '</span>',
           on,
           function() {
             grindFilters.pattern = on ? 'all' : name
@@ -1892,6 +1938,7 @@
           },
         )
       })
+      row.appendChild(chips)
       el.appendChild(row)
     }
 
