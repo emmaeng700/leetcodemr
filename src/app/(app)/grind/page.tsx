@@ -5,7 +5,10 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import GrindEditor from '@/components/GrindEditor'
 import GrindConnectivityBanner from '@/components/GrindConnectivityBanner'
-import GrindCountStrip from '@/components/GrindCountStrip'
+import GrindCountStrip, {
+  grindQuestionMatchesFilters,
+  type GrindFilterState,
+} from '@/components/GrindCountStrip'
 import GrindListDivider from '@/components/GrindListDivider'
 import { GrindLangProvider, useGrindLang } from '@/components/grind/GrindLangContext'
 import { buildGrindQuestions, loadQuestionsFullJson, loadPlaybookMap, loadGrindQuestionsBundle, type GrindQuestion } from '@/lib/grindQuestions'
@@ -78,6 +81,12 @@ function GrindInner() {
   const router = useRouter()
   const [questions, setQuestions] = useState<GrindQuestion[]>([])
   const [loading, setLoading] = useState(true)
+  const [grindFilters, setGrindFilters] = useState<GrindFilterState>({
+    difficulties: new Set(),
+    priorities: new Set(),
+    sets: new Set(),
+    pattern: 'all',
+  })
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState(() => {
     const fromUrl = Number(sp.get('id') || '0')
@@ -193,23 +202,36 @@ function GrindInner() {
   }, [])
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return questions
-    return questions.filter(q => matchesQuestionSearch(q, search))
-  }, [questions, search])
+    return questions.filter(q => {
+      if (!grindQuestionMatchesFilters(q, grindFilters)) return false
+      if (search.trim() && !matchesQuestionSearch(q, search)) return false
+      return true
+    })
+  }, [questions, search, grindFilters])
+
+  const filterBase = useMemo(() => {
+    return questions.filter(q =>
+      grindQuestionMatchesFilters(q, { ...grindFilters, pattern: 'all' }),
+    )
+  }, [questions, grindFilters])
 
   const listEntries = useMemo(() => grindListWithDividers(filtered), [filtered])
-  const summary = useMemo(() => grindSummaryCounts(filtered), [filtered])
+  const summary = useMemo(() => grindSummaryCounts(filterBase), [filterBase])
+  const patternCounts = useMemo(() => summary.byPattern, [summary])
 
   const selected = useMemo(() => {
-    if (selectedId > 0) return questions.find(q => q.id === selectedId) ?? null
+    if (selectedId > 0) {
+      const fromFiltered = filtered.find(q => q.id === selectedId)
+      if (fromFiltered) return fromFiltered
+      return questions.find(q => q.id === selectedId) ?? null
+    }
     return filtered[0] ?? questions[0] ?? null
   }, [questions, filtered, selectedId])
 
   const navList = useMemo(() => {
-    if (!search.trim()) return questions
     if (selected && !filtered.some(q => q.id === selected.id)) return questions
-    return filtered
-  }, [search, filtered, questions, selected])
+    return filtered.length ? filtered : questions
+  }, [filtered, questions, selected])
   const navIndex = selected ? navList.findIndex(q => q.id === selected.id) : -1
 
   useEffect(() => {
@@ -333,7 +355,12 @@ function GrindInner() {
             <p className="grind-header-sub">
               PDF study order | {questions.length} questions | Set 1 then 2 then 3
             </p>
-            <GrindCountStrip counts={summary} />
+            <GrindCountStrip
+              counts={summary}
+              patternCounts={patternCounts}
+              filters={grindFilters}
+              onChange={setGrindFilters}
+            />
           </div>
           {online && (
             <nav className="grind-exit-nav" aria-label="Leave grind workspace">
@@ -436,7 +463,13 @@ function GrindInner() {
         <aside className={`grind-list-wrap ${listOpen ? 'open' : ''}`}>
           <div className="grind-list-head">
             {filtered.length} question{filtered.length !== 1 ? 's' : ''}
-            {search.trim() ? ' matching search' : ''}
+            {search.trim() ||
+            grindFilters.pattern !== 'all' ||
+            grindFilters.difficulties.size > 0 ||
+            grindFilters.priorities.size > 0 ||
+            grindFilters.sets.size > 0
+              ? ' matching filters'
+              : ''}
           </div>
           <div className="grind-list">
             {listEntries.map(entry => {

@@ -17,8 +17,8 @@
     header h1 { font-size: 0.85rem; font-weight: 700; color: #cdd6f4; }
     header .sub { font-size: 0.6rem; color: #6c7086; margin-top: 0.1rem; }
     .count-strip { font-size: 0.58rem; color: #6c7086; margin-top: 0.28rem; }
-    .count-strip-row { display: flex; flex-wrap: wrap; gap: 0.2rem 0.65rem; align-items: center; }
-    .count-strip-patterns { display: flex; flex-wrap: wrap; gap: 0.15rem 0.45rem; margin-top: 0.2rem; }
+    .count-strip-row { display: flex; flex-wrap: wrap; gap: 0.2rem 0.45rem; align-items: center; }
+    .count-strip-patterns { display: flex; flex-wrap: wrap; gap: 0.15rem 0.45rem; margin-top: 0.2rem; align-items: center; }
     .count-sep { color: #45475a; }
     .count-easy { color: #a6e3a1; font-weight: 700; }
     .count-medium { color: #f9e2af; font-weight: 700; }
@@ -30,7 +30,18 @@
     .count-s2 { color: #a6e3a1; font-weight: 700; }
     .count-s3 { color: #cba6f7; font-weight: 700; }
     .count-num { font-family: monospace; color: #bac2de; }
-    .count-pattern { color: #a6adc8; max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
+    .count-pattern { color: #a6adc8; max-width: 7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
+    .grind-filter-chip {
+      appearance: none; background: transparent; border: 1px solid transparent; border-radius: 999px;
+      padding: 0.1rem 0.35rem; color: inherit; cursor: pointer; line-height: 1.3; font: inherit; font-size: inherit;
+    }
+    .grind-filter-chip:hover { background: rgba(205, 214, 244, 0.06); border-color: rgba(205, 214, 244, 0.12); }
+    .grind-filter-chip.on { background: rgba(137, 180, 250, 0.14); border-color: rgba(137, 180, 250, 0.45); }
+    .grind-filter-chip.clear { color: #89b4fa; font-weight: 700; border-color: rgba(137, 180, 250, 0.35); }
+    .grind-pattern-select {
+      font-size: 0.62rem; background: #181825; color: #cdd6f4; border: 1px solid rgba(205, 214, 244, 0.18);
+      border-radius: 0.4rem; padding: 0.15rem 0.35rem; max-width: 11rem;
+    }
     .search {
       padding: 0.45rem 0.6rem; border-radius: 0.5rem; border: 1px solid #313244;
       background: #1e1e2e; color: #cdd6f4; font-size: 16px;
@@ -517,10 +528,16 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v35'
+    var OFFLINE_VERSION = 'v36'
     var SW_CACHE = 'lm-v30'
     var midnightTimer = null
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v2'
+    var grindFilters = {
+      difficulties: {},
+      priorities: {},
+      sets: {},
+      pattern: 'all',
+    }
     var filtered = []
     var selectedId = 0
     var lang = 'python3'
@@ -1603,13 +1620,66 @@
       return q.title.toLowerCase().indexOf(s) >= 0 || String(q.id).indexOf(byId) >= 0
     }
 
+    function filterKeyCount(map) {
+      return Object.keys(map).length
+    }
+
+    function isNarrowFilter(map, fullSize) {
+      var n = filterKeyCount(map)
+      return n > 0 && n < fullSize
+    }
+
+    function toggleFilterKey(map, key) {
+      var next = {}
+      Object.keys(map).forEach(function(k) { next[k] = true })
+      if (next[key]) delete next[key]
+      else next[key] = true
+      return next
+    }
+
+    function matchesGrindFilters(q, filters) {
+      filters = filters || grindFilters
+      if (isNarrowFilter(filters.sets, 3) && !filters.sets[q.set]) return false
+      if (isNarrowFilter(filters.difficulties, 3) && !filters.difficulties[q.difficulty]) return false
+      if (isNarrowFilter(filters.priorities, 3)) {
+        var pri = priorityFromSection(q.section)
+        if (!pri || !filters.priorities[pri]) return false
+      }
+      if (filters.pattern !== 'all' && q.pattern !== filters.pattern) return false
+      return true
+    }
+
+    function applyFilters(opts) {
+      opts = opts || {}
+      var s = document.getElementById('search').value
+      filtered = questions.filter(function(q) {
+        if (!matchesGrindFilters(q, grindFilters)) return false
+        return matches(q, s)
+      })
+      if (filtered.length && !filtered.some(function(q) { return q.id === selectedId })) {
+        selectedId = filtered[0].id
+      }
+      renderList()
+      if (!opts.skipEditor) renderEditor()
+    }
+
     function currentQuestion() {
       return questions.find(function(x) { return x.id === selectedId })
     }
 
+    function filtersActive() {
+      return (
+        grindFilters.pattern !== 'all' ||
+        isNarrowFilter(grindFilters.difficulties, 3) ||
+        isNarrowFilter(grindFilters.priorities, 3) ||
+        isNarrowFilter(grindFilters.sets, 3) ||
+        !!document.getElementById('search').value.trim()
+      )
+    }
+
     function navList() {
-      var s = document.getElementById('search').value.trim()
-      return s ? filtered : questions
+      if (selectedId && !filtered.some(function(q) { return q.id === selectedId })) return questions
+      return filtered.length ? filtered : questions
     }
 
     function navIndex() {
@@ -1697,49 +1767,132 @@
       var prioClass = { High: 'count-high', Mid: 'count-mid', Low: 'count-low' }
       var main = document.createElement('div')
       main.className = 'count-strip-row'
+      main.setAttribute('role', 'group')
+      main.setAttribute('aria-label', 'Grind filters')
+
+      function addChip(parent, labelHtml, on, onClick) {
+        var btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'grind-filter-chip' + (on ? ' on' : '')
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false')
+        btn.innerHTML = labelHtml
+        btn.onclick = onClick
+        parent.appendChild(btn)
+      }
+
+      var diffNarrow = isNarrowFilter(grindFilters.difficulties, 3)
       diffs.forEach(function(d) {
-        var span = document.createElement('span')
-        span.innerHTML = '<span class="' + diffClass[d] + '">' + d + '</span> <span class="count-num">' + (counts.byDifficulty[d] || 0) + '</span>'
-        main.appendChild(span)
+        var on = diffNarrow && !!grindFilters.difficulties[d]
+        addChip(
+          main,
+          '<span class="' + diffClass[d] + '">' + d + '</span> <span class="count-num">' + (counts.byDifficulty[d] || 0) + '</span>',
+          on,
+          function() {
+            grindFilters.difficulties = toggleFilterKey(grindFilters.difficulties, d)
+            applyFilters()
+          },
+        )
       })
       var sep = document.createElement('span')
       sep.className = 'count-sep'
       sep.textContent = '|'
       main.appendChild(sep)
+
+      var prioNarrow = isNarrowFilter(grindFilters.priorities, 3)
       prios.forEach(function(p) {
-        var span = document.createElement('span')
-        span.innerHTML = '<span class="' + prioClass[p] + '">' + p + '</span> <span class="count-num">' + (counts.byPriority[p] || 0) + '</span>'
-        main.appendChild(span)
+        var on = prioNarrow && !!grindFilters.priorities[p]
+        addChip(
+          main,
+          '<span class="' + prioClass[p] + '">' + p + '</span> <span class="count-num">' + (counts.byPriority[p] || 0) + '</span>',
+          on,
+          function() {
+            grindFilters.priorities = toggleFilterKey(grindFilters.priorities, p)
+            applyFilters()
+          },
+        )
       })
       sep = document.createElement('span')
       sep.className = 'count-sep'
       sep.textContent = '|'
       main.appendChild(sep)
+
+      var setNarrow = isNarrowFilter(grindFilters.sets, 3)
       ;[
         ['S1', 1, 'count-s1'],
         ['S2', 2, 'count-s2'],
         ['S3', 3, 'count-s3'],
       ].forEach(function(item) {
-        var span = document.createElement('span')
-        span.innerHTML = '<span class="' + item[2] + '">' + item[0] + '</span> <span class="count-num">' + (counts.bySet[item[1]] || 0) + '</span>'
-        main.appendChild(span)
+        var on = setNarrow && !!grindFilters.sets[item[1]]
+        addChip(
+          main,
+          '<span class="' + item[2] + '">' + item[0] + '</span> <span class="count-num">' + (counts.bySet[item[1]] || 0) + '</span>',
+          on,
+          function() {
+            grindFilters.sets = toggleFilterKey(grindFilters.sets, item[1])
+            applyFilters()
+          },
+        )
       })
+
+      if (
+        grindFilters.pattern !== 'all' ||
+        isNarrowFilter(grindFilters.difficulties, 3) ||
+        isNarrowFilter(grindFilters.priorities, 3) ||
+        isNarrowFilter(grindFilters.sets, 3)
+      ) {
+        addChip(main, 'Clear', false, function() {
+          grindFilters = { difficulties: {}, priorities: {}, sets: {}, pattern: 'all' }
+          applyFilters()
+        })
+        main.lastChild.className = 'grind-filter-chip clear'
+      }
+
       el.innerHTML = ''
       el.appendChild(main)
+
       var patterns = Object.keys(counts.byPattern).sort(function(a, b) {
         return (counts.byPattern[b] || 0) - (counts.byPattern[a] || 0)
-      }).slice(0, 6)
-      if (patterns.length) {
-        var row = document.createElement('div')
-        row.className = 'count-strip-patterns'
-        patterns.forEach(function(name) {
-          var span = document.createElement('span')
-          span.title = name
-          span.innerHTML = '<span class="count-pattern">' + name + '</span> <span class="count-num">' + counts.byPattern[name] + '</span>'
-          row.appendChild(span)
-        })
-        el.appendChild(row)
+      })
+      if (!patterns.length) return
+
+      var row = document.createElement('div')
+      row.className = 'count-strip-patterns'
+
+      var select = document.createElement('select')
+      select.className = 'grind-pattern-select'
+      select.setAttribute('aria-label', 'Pattern')
+      var allOpt = document.createElement('option')
+      allOpt.value = 'all'
+      allOpt.textContent = 'All patterns'
+      select.appendChild(allOpt)
+      patterns.forEach(function(name) {
+        var opt = document.createElement('option')
+        opt.value = name
+        opt.textContent = name + ' (' + counts.byPattern[name] + ')'
+        select.appendChild(opt)
+      })
+      select.value = grindFilters.pattern === 'all' || counts.byPattern[grindFilters.pattern]
+        ? grindFilters.pattern
+        : 'all'
+      select.onchange = function() {
+        grindFilters.pattern = select.value
+        applyFilters()
       }
+      row.appendChild(select)
+
+      patterns.slice(0, 8).forEach(function(name) {
+        var on = grindFilters.pattern === name
+        addChip(
+          row,
+          '<span class="count-pattern" title="' + name.replace(/"/g, '&quot;') + '">' + name + '</span> <span class="count-num">' + counts.byPattern[name] + '</span>',
+          on,
+          function() {
+            grindFilters.pattern = on ? 'all' : name
+            applyFilters()
+          },
+        )
+      })
+      el.appendChild(row)
     }
 
     function updateHeaderSub() {
@@ -1820,12 +1973,23 @@
       var head = document.getElementById('list-head')
       if (!list) return
       if (head) {
-        var s = document.getElementById('search').value.trim()
-        head.textContent = filtered.length + ' question' + (filtered.length === 1 ? '' : 's') + (s ? ' matching' : '')
+        head.textContent =
+          filtered.length +
+          ' question' +
+          (filtered.length === 1 ? '' : 's') +
+          (filtersActive() ? ' matching filters' : '')
       }
       list.innerHTML = ''
       var counts = grindGroupCounts(filtered)
-      renderCountStrip(filtered)
+      var filterBase = questions.filter(function(q) {
+        return matchesGrindFilters(q, {
+          difficulties: grindFilters.difficulties,
+          priorities: grindFilters.priorities,
+          sets: grindFilters.sets,
+          pattern: 'all',
+        })
+      })
+      renderCountStrip(filterBase)
       var lastSet = 0
       var lastTier = null
       var lastSection = null
@@ -2302,7 +2466,7 @@
       filtered = questions.slice()
       selectedId = fromUrl && questions.some(function(q) { return q.id === fromUrl }) ? fromUrl : questions[0].id
       editorHostId = 'editor-host'
-      renderList()
+      applyFilters({ skipEditor: true })
       initEditor()
       updateMeta()
       updateHeaderSub()
@@ -2332,14 +2496,8 @@
       copyEditorCode(document.getElementById('btn-copy-fs'))
     }
     document.getElementById('search').addEventListener('input', function(e) {
-      var s = e.target.value
-      filtered = questions.filter(function(q) { return matches(q, s) })
-      if (filtered.length && !filtered.some(function(q) { return q.id === selectedId })) {
-        selectedId = filtered[0].id
-      }
-      renderList()
-      renderEditor()
-      if (s.trim() && window.matchMedia('(max-width: 767px)').matches) setListOpen(true)
+      applyFilters()
+      if (e.target.value.trim() && window.matchMedia('(max-width: 767px)').matches) setListOpen(true)
     })
 
     function fetchCached(url) {
