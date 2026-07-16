@@ -1,6 +1,6 @@
 import type { SetQuestion } from '@/lib/questionSets'
 import { buildSetTagMap } from '@/lib/questionSets'
-import { PATTERN_PRIORITY, resolveQuestionPriority, type PatternPriority } from '@/lib/constants'
+import { PATTERN_PRIORITY, resolveQuestionPriority, QUESTION_ID_PATTERN_FALLBACKS, type PatternPriority } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { studyOrder } from '@/lib/studyOrder'
 import ncExtraQuestions from '../../neetcode_extra_questions.json'
@@ -178,7 +178,11 @@ export async function loadQuestionsFullJson(): Promise<Set1Row[]> {
 }
 
 function attachPriorities(qs: GrindQuestion[]): GrindQuestion[] {
-  return qs.map(q => ({ ...q, priority: resolveQuestionPriority(q) }))
+  return qs.map(q => {
+    const pattern = q.pattern ?? (q.id != null ? (QUESTION_ID_PATTERN_FALLBACKS[q.id] ?? null) : null)
+    const section = q.section ?? sectionLabel(pattern, q.difficulty)
+    return { ...q, pattern, section, priority: resolveQuestionPriority({ ...q, pattern, section }) }
+  })
 }
 
 /** Pre-built 727-question bundle (interview approach baked in) for offline Grind. */
