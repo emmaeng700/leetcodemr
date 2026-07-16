@@ -234,8 +234,10 @@ export default function LeetCodeListPage() {
   const [nameOrder, setNameOrder] = useState<LcNamePart[]>(DEFAULT_LC_NAME_ORDER)
   const [showBatch, setShowBatch] = useState(false)
   const [showManagedLists, setShowManagedLists] = useState(false)
-  const [lcRemoteLists, setLcRemoteLists] = useState<Array<{ idHash: string; name: string; questionCount: number }> | null>(null)
+  const [lcRemoteLists, setLcRemoteLists] = useState<Array<{ idHash: string; slug?: string; name: string; questionCount: number; created?: string }> | null>(null)
   const [lcRemoteLoading, setLcRemoteLoading] = useState(false)
+  const [selectedListIds, setSelectedListIds] = useState<Set<string>>(new Set())
+  const [batchDeleteProgress, setBatchDeleteProgress] = useState<string | null>(null)
   const [batchSplit, setBatchSplit] = useState<LcBatchSplit>('pattern')
   /** null = use current page filters; otherwise a Set 1/2/3 all-patterns (etc.) preset */
   const [batchPresetId, setBatchPresetId] = useState<string | null>(null)
@@ -406,9 +408,16 @@ export default function LeetCodeListPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'list', session, csrf }),
       })
-      const data = await res.json() as { ok?: boolean; lists?: Array<{ idHash: string; name: string; questionCount: number }> }
+      const data = await res.json() as { ok?: boolean; lists?: Array<{ idHash: string; slug?: string; name: string; questionCount: number; created?: string }> }
       if (data.ok && data.lists) {
-        setLcRemoteLists(data.lists.sort((a, b) => a.name.localeCompare(b.name)))
+        const sorted = data.lists[0]?.created
+          ? [...data.lists].sort((a, b) => {
+              const ta = a.created ? new Date(a.created).getTime() : 0
+              const tb = b.created ? new Date(b.created).getTime() : 0
+              return ta - tb
+            })
+          : data.lists
+        setLcRemoteLists(sorted)
       } else {
         toast.error('Failed to load lists from LeetCode')
       }
@@ -432,25 +441,65 @@ export default function LeetCodeListPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete', session, csrf, favoriteIdHash: idHash, listName: name }),
       })
-      const data = await res.json() as { ok?: boolean; lcDeleted?: boolean }
+      const data = await res.json() as { ok?: boolean; lcDeleted?: boolean; lcDebug?: unknown }
       if (localKey) {
         const next = { ...lcLists }
         delete next[localKey]
         saveLcLists(next)
       }
-      // Also remove from remote list if loaded
       if (lcRemoteLists) {
         setLcRemoteLists(prev => prev?.filter(l => l.idHash !== idHash) ?? null)
       }
       if (data.lcDeleted) {
         toast.success(`"${name}" deleted from LeetCode`)
       } else {
+        if (data.lcDebug) console.warn('[lc-list delete]', data.lcDebug)
         toast.success(`Removed${localKey ? ' locally' : ''} — may already be gone on LeetCode`)
       }
     } catch {
       toast.error('Failed to delete LC list')
     }
     setLcListLoading(false)
+  }
+
+  const deleteSelectedLists = async () => {
+    if (lcListLoading || selectedListIds.size === 0 || !lcRemoteLists) return
+    setLcListLoading(true)
+    const toDelete = lcRemoteLists.filter(l => selectedListIds.has(l.idHash))
+    const { session, csrf } = await ensureLcSessionForSync()
+    let deleted = 0
+    let failed = 0
+    for (let i = 0; i < toDelete.length; i++) {
+      const list = toDelete[i]
+      setBatchDeleteProgress(`Deleting ${i + 1} / ${toDelete.length}…`)
+      const localKey = Object.entries(lcLists).find(([, v]) => v.slug === list.idHash || v.name === list.name)?.[0]
+      try {
+        const res = await fetch('/api/lc-list', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete', session, csrf, favoriteIdHash: list.slug ?? list.idHash, listName: list.name }),
+        })
+        const data = await res.json() as { ok?: boolean; lcDeleted?: boolean; lcDebug?: unknown }
+        if (data.lcDebug) console.warn('[lc-list delete]', data.lcDebug)
+        if (localKey) {
+          const next = { ...lcLists }
+          delete next[localKey]
+          saveLcLists(next)
+        }
+        setLcRemoteLists(prev => prev?.filter(l => l.idHash !== list.idHash) ?? null)
+        setSelectedListIds(prev => { const s = new Set(prev); s.delete(list.idHash); return s })
+        deleted++
+      } catch {
+        failed++
+      }
+    }
+    setBatchDeleteProgress(null)
+    setLcListLoading(false)
+    if (failed === 0) {
+      toast.success(`${deleted} list${deleted !== 1 ? 's' : ''} deleted from LeetCode`)
+    } else {
+      toast.error(`${deleted} deleted, ${failed} failed`)
+    }
   }
 
   const handleDeleteLcList = () => {
@@ -1083,43 +1132,79 @@ export default function LeetCodeListPage() {
                   ) : lcRemoteLists.length === 0 ? (
                     <p className="text-[11px] text-[var(--text-subtle)]">No lists found on LeetCode.</p>
                   ) : (
-                    <div className="max-h-56 overflow-y-auto space-y-1">
-                      {lcRemoteLists.map(list => {
-                        const localKey = Object.entries(lcLists).find(([, v]) => v.slug === list.idHash || v.name === list.name)?.[0]
-                        return (
-                          <div
-                            key={list.idHash}
-                            className="flex items-center gap-2 text-[11px] px-2 py-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-soft)]"
+                    <>
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-1.5 cursor-pointer select-none text-[10px] text-orange-700 font-semibold">
+                          <input
+                            type="checkbox"
+                            checked={selectedListIds.size === lcRemoteLists.length}
+                            ref={el => { if (el) el.indeterminate = selectedListIds.size > 0 && selectedListIds.size < lcRemoteLists.length }}
+                            onChange={e => setSelectedListIds(e.target.checked ? new Set(lcRemoteLists.map(l => l.idHash)) : new Set())}
+                            className="accent-orange-500"
+                          />
+                          {selectedListIds.size === lcRemoteLists.length ? 'Deselect all' : 'Select all'}
+                        </label>
+                        {selectedListIds.size > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => void deleteSelectedLists()}
+                            disabled={lcListLoading}
+                            className="ml-auto text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition"
                           >
-                            <a
-                              href={leetCodeListUrl(list.idHash)}
-                              onClick={e => openExternalLink(e, leetCodeListUrl(list.idHash))}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex-1 font-semibold text-orange-600 hover:underline truncate"
-                              title={list.name}
+                            {batchDeleteProgress ?? `Delete ${selectedListIds.size}`}
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-56 overflow-y-auto space-y-1">
+                        {lcRemoteLists.map(list => {
+                          const localKey = Object.entries(lcLists).find(([, v]) => v.slug === list.idHash || v.name === list.name)?.[0]
+                          const checked = selectedListIds.has(list.idHash)
+                          return (
+                            <div
+                              key={list.idHash}
+                              className={`flex items-center gap-2 text-[11px] px-2 py-1.5 rounded-lg border transition ${checked ? 'bg-orange-100 border-orange-300' : 'bg-[var(--bg-card)] border-[var(--border-soft)]'}`}
                             >
-                              {list.name}
-                            </a>
-                            {list.questionCount > 0 && (
-                              <span className="tabular-nums text-[var(--text-subtle)] shrink-0">{list.questionCount}q</span>
-                            )}
-                            {localKey && (
-                              <span className="text-[9px] text-green-600 font-semibold shrink-0">app</span>
-                            )}
-                            <button
-                              type="button"
-                              disabled={lcListLoading}
-                              onClick={() => void deleteListEntry(list.idHash, list.name, localKey)}
-                              title={`Delete "${list.name}" from LeetCode`}
-                              className="shrink-0 text-orange-300 hover:text-red-500 disabled:opacity-40 transition px-1"
-                            >
-                              🗑
-                            </button>
-                          </div>
-                        )
-                      })}
-                    </div>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={e => setSelectedListIds(prev => {
+                                  const s = new Set(prev)
+                                  if (e.target.checked) s.add(list.idHash)
+                                  else s.delete(list.idHash)
+                                  return s
+                                })}
+                                className="accent-orange-500 shrink-0"
+                              />
+                              <a
+                                href={leetCodeListUrl(list.idHash)}
+                                onClick={e => openExternalLink(e, leetCodeListUrl(list.idHash))}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 font-semibold text-orange-600 hover:underline truncate"
+                                title={list.name}
+                              >
+                                {list.name}
+                              </a>
+                              {list.questionCount > 0 && (
+                                <span className="tabular-nums text-[var(--text-subtle)] shrink-0">{list.questionCount}q</span>
+                              )}
+                              {localKey && (
+                                <span className="text-[9px] text-green-600 font-semibold shrink-0">app</span>
+                              )}
+                              <button
+                                type="button"
+                                disabled={lcListLoading}
+                                onClick={() => void deleteListEntry(list.slug ?? list.idHash, list.name, localKey)}
+                                title={`Delete "${list.name}" from LeetCode`}
+                                className="shrink-0 text-orange-300 hover:text-red-500 disabled:opacity-40 transition px-1"
+                              >
+                                🗑
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </>
                   )}
                 </div>
               )}

@@ -174,41 +174,56 @@ function mutationSucceeded(
 async function listAllFavorites(
   session: string,
   csrf: string,
-): Promise<Array<{ idHash: string; name: string; questionCount: number }>> {
-  // Avoid querying `slug` (breaks some LC schemas). Keep fields minimal.
-  const result = await lcGql(session, csrf, {
+): Promise<Array<{ idHash: string; slug?: string; name: string; questionCount: number; created?: string }>> {
+  type Row = { idHash?: string; slug?: string; name?: string; questionCount?: number; created?: string }
+  type GqlResult = { favoritesLists?: { allFavorites?: Row[] } }
+
+  const parse = (data: Record<string, unknown> | null, hasCount: boolean, hasCreatedAt: boolean) => {
+    const rows = (data?.data as GqlResult)?.favoritesLists?.allFavorites ?? []
+    return rows
+      .filter(f => f.idHash && f.name && f.name.toLowerCase() !== 'favorite')
+      .map(f => ({
+        idHash: f.idHash!,
+        slug: f.slug ?? undefined,
+        name: f.name!,
+        questionCount: hasCount ? (f.questionCount ?? 0) : 0,
+        created: hasCreatedAt ? f.created : undefined,
+      }))
+  }
+
+  // Attempt 1: full fields with created for ordering
+  const r1 = await lcGql(session, csrf, {
     query: `query favoritesList {
-      favoritesLists {
-        allFavorites {
-          idHash
-          name
-          questionCount
-        }
-      }
+      favoritesLists { allFavorites { idHash slug name questionCount created } }
     }`,
   })
-  if (gqlErrors(result.data).length) {
-    // Fallback without questionCount in case LC schema is older
-    const r2 = await lcGql(session, csrf, {
-      query: `query favoritesList {
-        favoritesLists {
-          allFavorites {
-            idHash
-            name
-          }
-        }
-      }`,
-    })
-    if (gqlErrors(r2.data).length) return []
-    const rows = (r2.data?.data as {
-      favoritesLists?: { allFavorites?: Array<{ idHash?: string; name?: string }> }
-    })?.favoritesLists?.allFavorites ?? []
-    return rows.filter(f => f.idHash && f.name).map(f => ({ idHash: f.idHash!, name: f.name!, questionCount: 0 }))
-  }
-  const rows = (result.data?.data as {
-    favoritesLists?: { allFavorites?: Array<{ idHash?: string; name?: string; questionCount?: number }> }
-  })?.favoritesLists?.allFavorites ?? []
-  return rows.filter(f => f.idHash && f.name).map(f => ({ idHash: f.idHash!, name: f.name!, questionCount: f.questionCount ?? 0 }))
+  console.log('[listAllFavorites r1]', JSON.stringify(r1.data).slice(0, 600))
+  if (!gqlErrors(r1.data).length) return parse(r1.data, true, true)
+
+  // Attempt 2: without created
+  const r2 = await lcGql(session, csrf, {
+    query: `query favoritesList {
+      favoritesLists { allFavorites { idHash slug name questionCount } }
+    }`,
+  })
+  if (!gqlErrors(r2.data).length) return parse(r2.data, true, false)
+
+  // Attempt 3: without slug
+  const r3 = await lcGql(session, csrf, {
+    query: `query favoritesList {
+      favoritesLists { allFavorites { idHash name questionCount } }
+    }`,
+  })
+  if (!gqlErrors(r3.data).length) return parse(r3.data, true, false)
+
+  // Attempt 4: bare minimum
+  const r4 = await lcGql(session, csrf, {
+    query: `query favoritesList {
+      favoritesLists { allFavorites { idHash name } }
+    }`,
+  })
+  if (gqlErrors(r4.data).length) return []
+  return parse(r4.data, false, false)
 }
 
 async function findFavoriteByName(
@@ -329,47 +344,82 @@ async function addQuestionsToFavorite(
 async function runDeleteMutation(
   session: string,
   csrf: string,
-  idHash: string,
+  /** idHash or favoriteSlug — tried as both parameter variants */
+  value: string,
 ): Promise<boolean> {
-  // Try favoriteIdHash (most common in current LC schema)
-  const r1 = await lcGql(session, csrf, {
-    operationName: 'deleteFavorite',
-    variables: { favoriteIdHash: idHash },
-    query: `mutation deleteFavorite($favoriteIdHash: String!) { deleteFavorite(favoriteIdHash: $favoriteIdHash) { ok error } }`,
-  })
-  const p1 = (r1.data?.data as { deleteFavorite?: { ok?: boolean } })?.deleteFavorite
-  if (p1?.ok === true) return true
+  type DelPayload = { ok?: boolean | null; error?: string | null }
+  const tryMut = async (
+    field: string,
+    variables: Record<string, string>,
+    query: string,
+  ): Promise<boolean> => {
+    const r = await lcGql(session, csrf, { operationName: field, variables, query })
+    console.log(`[${field}]`, JSON.stringify(variables), '->', JSON.stringify(r.data))
+    const payload = (r.data?.data as Record<string, DelPayload | undefined>)?.[field]
+    return mutationSucceeded(payload, gqlErrors(r.data))
+  }
 
-  // Try favoriteSlug variant
-  const r2 = await lcGql(session, csrf, {
-    operationName: 'deleteFavorite',
-    variables: { favoriteSlug: idHash },
-    query: `mutation deleteFavorite($favoriteSlug: String!) { deleteFavorite(favoriteSlug: $favoriteSlug) { ok error } }`,
-  })
-  const p2 = (r2.data?.data as { deleteFavorite?: { ok?: boolean } })?.deleteFavorite
-  return p2?.ok === true
+  // LC renamed deleteFavorite → deleteFavoriteV2
+  if (await tryMut(
+    'deleteFavoriteV2',
+    { favoriteIdHash: value },
+    `mutation deleteFavoriteV2($favoriteIdHash: String!) { deleteFavoriteV2(favoriteIdHash: $favoriteIdHash) { ok error } }`,
+  )) return true
+
+  if (await tryMut(
+    'deleteFavoriteV2',
+    { favoriteSlug: value },
+    `mutation deleteFavoriteV2($favoriteSlug: String!) { deleteFavoriteV2(favoriteSlug: $favoriteSlug) { ok error } }`,
+  )) return true
+
+  return false
 }
 
 async function deleteLcFavorite(
   session: string,
   csrf: string,
+  /** storedSlug from localStorage (favoriteSlug from create) OR idHash from load-all-lists */
   storedSlug: string,
   listName?: string,
-): Promise<boolean> {
-  // Always do a fresh lookup — storedSlug (from createEmptyFavorite) may differ from idHash.
+): Promise<{ deleted: boolean; debug?: unknown }> {
+  // 1. Try direct delete with the value the caller already has.
+  //    For app-created lists storedSlug IS the favoriteSlug — this is the right value.
+  //    For LC-loaded lists storedSlug IS the idHash — will try both mutation variants.
+  if (await runDeleteMutation(session, csrf, storedSlug)) {
+    return { deleted: true }
+  }
+
+  // 2. Do a fresh lookup to resolve any slug ↔ idHash ambiguity.
   const allLists = await listAllFavorites(session, csrf)
 
-  // Find by exact idHash match, then by name
-  const byHash = allLists.find(f => f.idHash === storedSlug)
+  if (allLists.length === 0) {
+    // listAllFavorites returned nothing — likely a query failure.
+    // We already tried the direct delete above; that also failed. Report failure.
+    return { deleted: false, debug: 'listAllFavorites returned empty; direct delete also failed' }
+  }
+
+  // 3. Find the list by idHash or slug or name.
+  const byHash = allLists.find(f => f.idHash === storedSlug || f.slug === storedSlug)
   const byName = listName ? allLists.find(f => f.name === listName) : null
   const target = byHash ?? byName
 
   if (!target) {
-    // Not found on LC — already deleted there, treat as success.
-    return true
+    // Confirmed the list is genuinely absent from LC — treat as already deleted.
+    return { deleted: true }
   }
 
-  return runDeleteMutation(session, csrf, target.idHash)
+  // 4. Retry with slug first (preferred), then idHash.
+  const trySlug = target.slug && target.slug !== storedSlug
+    ? await runDeleteMutation(session, csrf, target.slug)
+    : false
+  if (trySlug) return { deleted: true }
+
+  if (target.idHash !== storedSlug) {
+    const ok = await runDeleteMutation(session, csrf, target.idHash)
+    return { deleted: ok, debug: ok ? undefined : `deleteFavorite failed for idHash=${target.idHash}` }
+  }
+
+  return { deleted: false, debug: `deleteFavorite failed for value=${storedSlug}` }
 }
 
 export async function POST(req: NextRequest) {
@@ -394,8 +444,9 @@ export async function POST(req: NextRequest) {
       const slug = (body.favoriteIdHash ?? body.favoriteSlug) as string
       const listName = body.listName as string | undefined
       if (!slug) return NextResponse.json({ ok: true, lcDeleted: false })
-      const lcDeleted = await deleteLcFavorite(session, csrf, slug, listName)
-      return NextResponse.json({ ok: true, lcDeleted })
+      if (listName?.toLowerCase() === 'favorite') return NextResponse.json({ ok: true, lcDeleted: false })
+      const result = await deleteLcFavorite(session, csrf, slug, listName)
+      return NextResponse.json({ ok: true, lcDeleted: result.deleted, lcDebug: result.debug })
     }
 
     if (action === 'create') {
