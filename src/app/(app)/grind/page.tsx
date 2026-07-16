@@ -356,22 +356,6 @@ function GrindInner() {
             <p className="grind-header-sub">
               PDF study order | {questions.length} questions | Set 1 then 2 then 3
             </p>
-            <GrindCountStrip
-              counts={summary}
-              patternCounts={patternCounts}
-              filters={grindFilters}
-              onChange={nextFilters => {
-                setGrindFilters(nextFilters)
-                const newFiltered = questions.filter(q => {
-                  if (!grindQuestionMatchesFilters(q, nextFilters)) return false
-                  if (search.trim() && !matchesQuestionSearch(q, search)) return false
-                  return true
-                })
-                if (newFiltered.length > 0 && !newFiltered.some(q => q.id === selectedId)) {
-                  navigateToQuestion(newFiltered[0])
-                }
-              }}
-            />
           </div>
           {online && (
             <nav className="grind-exit-nav" aria-label="Leave grind workspace">
@@ -402,6 +386,22 @@ function GrindInner() {
             </button>
           </div>
         </div>
+        <GrindCountStrip
+          counts={summary}
+          patternCounts={patternCounts}
+          filters={grindFilters}
+          onChange={nextFilters => {
+            setGrindFilters(nextFilters)
+            const newFiltered = questions.filter(q => {
+              if (!grindQuestionMatchesFilters(q, nextFilters)) return false
+              if (search.trim() && !matchesQuestionSearch(q, search)) return false
+              return true
+            })
+            if (newFiltered.length > 0 && !newFiltered.some(q => q.id === selectedId)) {
+              navigateToQuestion(newFiltered[0])
+            }
+          }}
+        />
 
         <form onSubmit={onSearchSubmit} className="grind-search-row">
           <button

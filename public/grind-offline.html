@@ -16,11 +16,25 @@
     .header-title-block { flex: 1; min-width: 0; }
     header h1 { font-size: 0.85rem; font-weight: 700; color: #cdd6f4; }
     header .sub { font-size: 0.6rem; color: #6c7086; margin-top: 0.1rem; }
-    .count-strip { font-size: 0.58rem; color: #6c7086; margin-top: 0.28rem; }
-    .grind-filter-row { display: flex; flex-wrap: wrap; gap: 0.2rem 0.35rem; align-items: center; margin-top: 0.22rem; }
-    .grind-filter-row:first-child { margin-top: 0; }
-    .grind-filter-label { font-weight: 700; color: #bac2de; min-width: 3.6rem; flex-shrink: 0; }
-    .count-strip-patterns { display: flex; flex-wrap: wrap; gap: 0.2rem 0.35rem; align-items: center; }
+    .count-strip { font-size: 0.58rem; color: #6c7086; width: 100%; min-width: 0; }
+    .grind-filter-toggle {
+      appearance: none; display: none; width: 100%; align-items: center; gap: 0.4rem;
+      background: rgba(30, 30, 46, 0.9); border: 1px solid rgba(205, 214, 244, 0.16);
+      border-radius: 0.45rem; padding: 0.35rem 0.55rem; color: #bac2de; cursor: pointer;
+      font: inherit; font-size: 0.68rem; font-weight: 700; text-align: left;
+    }
+    .grind-filter-toggle.active { border-color: rgba(137, 180, 250, 0.45); color: #cdd6f4; }
+    .grind-filter-toggle-summary {
+      flex: 1; min-width: 0; font-weight: 600; color: #89b4fa;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .grind-filter-toggle-caret { color: #6c7086; flex-shrink: 0; }
+    .grind-filter-panel { display: block; }
+    .grind-filter-wrap {
+      display: flex; flex-wrap: wrap; gap: 0.2rem 0.28rem; align-items: center; margin-top: 0.2rem;
+    }
+    .grind-filter-sep { color: #45475a; margin: 0 0.05rem; }
+    .count-strip-patterns { display: flex; flex-wrap: wrap; gap: 0.2rem 0.28rem; align-items: center; }
     .count-easy { color: #a6e3a1; font-weight: 700; }
     .count-medium { color: #f9e2af; font-weight: 700; }
     .count-hard { color: #f38ba8; font-weight: 700; }
@@ -31,20 +45,20 @@
     .count-s2 { color: #a6e3a1; font-weight: 700; }
     .count-s3 { color: #cba6f7; font-weight: 700; }
     .count-num { font-family: monospace; color: #bac2de; }
-    .count-pattern { color: #a6adc8; max-width: 7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
+    .count-pattern { color: #a6adc8; max-width: 6.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
     .grind-tick {
-      appearance: none; display: inline-flex; align-items: center; gap: 0.22rem;
+      appearance: none; display: inline-flex; align-items: center; gap: 0.18rem; flex: 0 0 auto;
       background: rgba(30, 30, 46, 0.85); border: 1px solid rgba(205, 214, 244, 0.16); border-radius: 999px;
-      padding: 0.18rem 0.48rem 0.18rem 0.35rem; color: inherit; cursor: pointer; line-height: 1.25;
-      font: inherit; font-size: inherit;
+      padding: 0.14rem 0.4rem 0.14rem 0.28rem; color: inherit; cursor: pointer; line-height: 1.2;
+      font: inherit; font-size: inherit; white-space: nowrap;
     }
     .grind-tick:hover { background: rgba(205, 214, 244, 0.08); border-color: rgba(205, 214, 244, 0.28); }
     .grind-tick.on { background: rgba(137, 180, 250, 0.16); border-color: rgba(137, 180, 250, 0.55); }
     .grind-tick-mark {
       display: inline-flex; align-items: center; justify-content: center;
-      width: 0.85rem; height: 0.85rem; border-radius: 0.2rem;
+      width: 0.78rem; height: 0.78rem; border-radius: 0.18rem;
       border: 1px solid rgba(205, 214, 244, 0.35); background: rgba(17, 17, 27, 0.7);
-      color: #89b4fa; font-size: 0.62rem; font-weight: 800; line-height: 1; flex-shrink: 0;
+      color: #89b4fa; font-size: 0.58rem; font-weight: 800; line-height: 1; flex-shrink: 0;
     }
     .grind-tick.on .grind-tick-mark { border-color: #89b4fa; background: rgba(137, 180, 250, 0.22); }
     .grind-filter-all {
@@ -373,6 +387,9 @@
       }
       .mob-only { display: inline-flex; }
       header .sub { display: none; }
+      .grind-filter-toggle { display: inline-flex; }
+      .grind-filter-panel { display: none; }
+      .grind-filter-panel.open { display: block; }
       .count-strip { display: block; }
       .app { max-width: none; height: 100dvh; height: 100svh; }
       .chip-btn, .nav-btn, .langs button {
@@ -488,13 +505,13 @@
         <div class="header-title-block">
           <h1>The Grind</h1>
           <p class="sub" id="header-sub">PDF study order</p>
-          <div id="count-strip" class="count-strip" aria-live="polite"></div>
         </div>
         <div class="langs">
           <button type="button" id="btn-py" class="on-py" aria-label="Python">Py</button>
           <button type="button" id="btn-cpp" aria-label="C++">C++</button>
         </div>
       </div>
+      <div id="count-strip" class="count-strip" aria-live="polite"></div>
       <div class="search-row">
         <button type="button" class="chip-btn nav-btn" id="btn-prev" aria-label="Previous question">&#8249;</button>
         <input class="search" id="search" type="search" placeholder="Search #id or title..." autocomplete="off" />
@@ -542,7 +559,7 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v37'
+    var OFFLINE_VERSION = 'v38'
     var SW_CACHE = 'lm-v30'
     var midnightTimer = null
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v2'
@@ -1779,12 +1796,28 @@
       return { total: rows.length, bySet: bySet, byDifficulty: byDifficulty, byPriority: byPriority, byPattern: byPattern }
     }
 
+    var filtersPanelOpen = false
+
+    function filterSummaryText() {
+      var parts = []
+      var diffs = Object.keys(grindFilters.difficulties)
+      var prios = Object.keys(grindFilters.priorities)
+      var sets = Object.keys(grindFilters.sets)
+      if (diffs.length < 3) parts.push(diffs.join('/') || 'none')
+      if (prios.length < 3) parts.push(prios.join('/') || 'none')
+      if (sets.length < 3) parts.push(sets.map(function(s) { return 'S' + s }).join('/') || 'none')
+      if (grindFilters.pattern !== 'all') parts.push(grindFilters.pattern)
+      return parts.length ? parts.join(' · ') : 'All'
+    }
+
     function renderCountStrip(rows) {
       var el = document.getElementById('count-strip')
       if (!el) return
       var counts = grindSummaryCounts(rows)
       var diffClass = { Easy: 'count-easy', Medium: 'count-medium', Hard: 'count-hard' }
       var prioClass = { High: 'count-high', Mid: 'count-mid', Low: 'count-low' }
+      var custom = filtersCustom()
+      if (custom) filtersPanelOpen = true
 
       function addTick(parent, labelHtml, on, onClick) {
         var btn = document.createElement('button')
@@ -1796,34 +1829,42 @@
         parent.appendChild(btn)
       }
 
-      function addAll(parent, onClick) {
-        var btn = document.createElement('button')
-        btn.type = 'button'
-        btn.className = 'grind-filter-all'
-        btn.textContent = 'All'
-        btn.onclick = onClick
-        parent.appendChild(btn)
-      }
-
-      function addRow(label) {
-        var row = document.createElement('div')
-        row.className = 'grind-filter-row'
-        var lab = document.createElement('span')
-        lab.className = 'grind-filter-label'
-        lab.textContent = label
-        row.appendChild(lab)
-        return row
+      function addSep(parent) {
+        var sep = document.createElement('span')
+        sep.className = 'grind-filter-sep'
+        sep.setAttribute('aria-hidden', 'true')
+        sep.textContent = '|'
+        parent.appendChild(sep)
       }
 
       el.innerHTML = ''
       el.setAttribute('role', 'group')
       el.setAttribute('aria-label', 'Grind filters')
 
-      var diffRow = addRow('Difficulty')
+      var toggle = document.createElement('button')
+      toggle.type = 'button'
+      toggle.className = 'grind-filter-toggle' + (custom ? ' active' : '')
+      toggle.setAttribute('aria-expanded', filtersPanelOpen ? 'true' : 'false')
+      toggle.innerHTML =
+        '<span>Filters</span>' +
+        '<span class="grind-filter-toggle-summary">' + filterSummaryText() + '</span>' +
+        '<span class="grind-filter-toggle-caret" aria-hidden="true">' + (filtersPanelOpen ? '▴' : '▾') + '</span>'
+      toggle.onclick = function() {
+        filtersPanelOpen = !filtersPanelOpen
+        applyFilters({ skipEditor: true })
+      }
+      el.appendChild(toggle)
+
+      var panel = document.createElement('div')
+      panel.className = 'grind-filter-panel' + (filtersPanelOpen ? ' open' : '')
+
+      var wrap = document.createElement('div')
+      wrap.className = 'grind-filter-wrap'
+
       ALL_DIFFS.forEach(function(d) {
         var on = !!grindFilters.difficulties[d]
         addTick(
-          diffRow,
+          wrap,
           '<span class="' + diffClass[d] + '">' + d + '</span><span class="count-num">' + (counts.byDifficulty[d] || 0) + '</span>',
           on,
           function() {
@@ -1832,17 +1873,11 @@
           },
         )
       })
-      addAll(diffRow, function() {
-        grindFilters.difficulties = mapFromKeys(ALL_DIFFS)
-        applyFilters()
-      })
-      el.appendChild(diffRow)
-
-      var prioRow = addRow('Priority')
+      addSep(wrap)
       ALL_PRIOS.forEach(function(p) {
         var on = !!grindFilters.priorities[p]
         addTick(
-          prioRow,
+          wrap,
           '<span class="' + prioClass[p] + '">' + p + '</span><span class="count-num">' + (counts.byPriority[p] || 0) + '</span>',
           on,
           function() {
@@ -1851,13 +1886,7 @@
           },
         )
       })
-      addAll(prioRow, function() {
-        grindFilters.priorities = mapFromKeys(ALL_PRIOS)
-        applyFilters()
-      })
-      el.appendChild(prioRow)
-
-      var setRow = addRow('Set')
+      addSep(wrap)
       ;[
         ['S1', 1, 'count-s1'],
         ['S2', 2, 'count-s2'],
@@ -1865,7 +1894,7 @@
       ].forEach(function(item) {
         var on = !!grindFilters.sets[item[1]]
         addTick(
-          setRow,
+          wrap,
           '<span class="' + item[2] + '">' + item[0] + '</span><span class="count-num">' + (counts.bySet[item[1]] || 0) + '</span>',
           on,
           function() {
@@ -1874,11 +1903,7 @@
           },
         )
       })
-      addAll(setRow, function() {
-        grindFilters.sets = mapFromKeys(ALL_SETS)
-        applyFilters()
-      })
-      if (filtersCustom()) {
+      if (custom) {
         var reset = document.createElement('button')
         reset.type = 'button'
         reset.className = 'grind-filter-all'
@@ -1887,59 +1912,58 @@
           grindFilters = defaultGrindFilters()
           applyFilters()
         }
-        setRow.appendChild(reset)
+        wrap.appendChild(reset)
       }
-      el.appendChild(setRow)
+      panel.appendChild(wrap)
 
       var patterns = Object.keys(counts.byPattern).sort(function(a, b) {
         return (counts.byPattern[b] || 0) - (counts.byPattern[a] || 0)
       })
-      if (!patterns.length) return
+      if (patterns.length) {
+        var patternRow = document.createElement('div')
+        patternRow.className = 'grind-filter-wrap'
 
-      var row = addRow('Pattern')
+        var select = document.createElement('select')
+        select.className = 'grind-pattern-select'
+        select.setAttribute('aria-label', 'Pattern')
+        var allOpt = document.createElement('option')
+        allOpt.value = 'all'
+        allOpt.textContent = 'All patterns'
+        select.appendChild(allOpt)
+        patterns.forEach(function(name) {
+          var opt = document.createElement('option')
+          opt.value = name
+          opt.textContent = name + ' (' + counts.byPattern[name] + ')'
+          select.appendChild(opt)
+        })
+        select.value = grindFilters.pattern === 'all' || counts.byPattern[grindFilters.pattern]
+          ? grindFilters.pattern
+          : 'all'
+        select.onchange = function() {
+          grindFilters.pattern = select.value
+          applyFilters()
+        }
+        patternRow.appendChild(select)
 
-      var select = document.createElement('select')
-      select.className = 'grind-pattern-select'
-      select.setAttribute('aria-label', 'Pattern')
-      var allOpt = document.createElement('option')
-      allOpt.value = 'all'
-      allOpt.textContent = 'All patterns'
-      select.appendChild(allOpt)
-      patterns.forEach(function(name) {
-        var opt = document.createElement('option')
-        opt.value = name
-        opt.textContent = name + ' (' + counts.byPattern[name] + ')'
-        select.appendChild(opt)
-      })
-      select.value = grindFilters.pattern === 'all' || counts.byPattern[grindFilters.pattern]
-        ? grindFilters.pattern
-        : 'all'
-      select.onchange = function() {
-        grindFilters.pattern = select.value
-        applyFilters()
+        var chips = document.createElement('div')
+        chips.className = 'count-strip-patterns'
+        patterns.slice(0, 6).forEach(function(name) {
+          var on = grindFilters.pattern === name
+          addTick(
+            chips,
+            '<span class="count-pattern" title="' + name.replace(/"/g, '&quot;') + '">' + name + '</span><span class="count-num">' + counts.byPattern[name] + '</span>',
+            on,
+            function() {
+              grindFilters.pattern = on ? 'all' : name
+              applyFilters()
+            },
+          )
+        })
+        patternRow.appendChild(chips)
+        panel.appendChild(patternRow)
       }
-      row.appendChild(select)
 
-      var chips = document.createElement('div')
-      chips.className = 'count-strip-patterns'
-      addTick(chips, 'All', grindFilters.pattern === 'all', function() {
-        grindFilters.pattern = 'all'
-        applyFilters()
-      })
-      patterns.slice(0, 8).forEach(function(name) {
-        var on = grindFilters.pattern === name
-        addTick(
-          chips,
-          '<span class="count-pattern" title="' + name.replace(/"/g, '&quot;') + '">' + name + '</span><span class="count-num">' + counts.byPattern[name] + '</span>',
-          on,
-          function() {
-            grindFilters.pattern = on ? 'all' : name
-            applyFilters()
-          },
-        )
-      })
-      row.appendChild(chips)
-      el.appendChild(row)
+      el.appendChild(panel)
     }
 
     function updateHeaderSub() {
