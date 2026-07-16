@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   currentAppRoute,
@@ -8,6 +8,16 @@ import {
   readLastAppRoute,
   writeLastAppRoute,
 } from '@/lib/lastAppRoute'
+
+// Session-scoped flag so remounts within the same tab never re-trigger the restore.
+const SESSION_RESTORE_KEY = 'lm_route_restore_done'
+
+function markRestoreDone() {
+  try { sessionStorage.setItem(SESSION_RESTORE_KEY, '1') } catch { /* private mode */ }
+}
+function wasRestoreDone(): boolean {
+  try { return !!sessionStorage.getItem(SESSION_RESTORE_KEY) } catch { return false }
+}
 
 function isColdDocumentLoad(): boolean {
   if (typeof window === 'undefined') return false
@@ -24,13 +34,12 @@ export default function RouteRestorer() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const search = searchParams.toString()
-  const restoreAttemptedRef = useRef(false)
 
   useEffect(() => {
     const current = currentAppRoute()
 
-    if (!restoreAttemptedRef.current) {
-      restoreAttemptedRef.current = true
+    if (!wasRestoreDone()) {
+      markRestoreDone()
       const saved = readLastAppRoute()
       if (
         isColdDocumentLoad()
