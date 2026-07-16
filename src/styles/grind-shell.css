@@ -923,3 +923,25 @@
     display: none;
   }
 }
+
+/* ── Mobile portal: prevent iOS panning and rubber-band scroll ───────────── */
+@media (max-width: 767px) {
+  /* Portal always anchors to top:0; height is driven by JS vvHeight or dvh.
+     dvh (dynamic viewport height) accounts for the keyboard natively on
+     iOS 15.4+ / Chrome 108+ — JS inline style overrides on older devices. */
+  .practice-fs-portal {
+    top: 0 !important;
+    bottom: auto !important;
+    height: 100dvh;
+    /* Prevent the portal's own scroll from bubbling to the page (iOS pan). */
+    overscroll-behavior: none;
+    /* Clip anything that escapes the calculated height. */
+    overflow: hidden;
+  }
+
+  /* Shrink the description cap inside the portal so there's always room
+     for the editor even before the keyboard opens. */
+  .practice-fs-portal .fs-desc-pane {
+    max-height: 28dvh;
+  }
+}

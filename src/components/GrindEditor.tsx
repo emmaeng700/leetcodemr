@@ -433,11 +433,13 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
     </>
   )
 
+  // Always anchor to top:0 — using vvOffsetTop causes iOS to "pan" the portal
+  // when the keyboard scrolls the layout viewport to reveal the editor.
   const mobilePortalStyle =
     vvHeight != null
       ? {
           zIndex: 9999,
-          top: vvOffsetTop,
+          top: 0,
           left: 0,
           right: 0,
           height: vvHeight,
@@ -448,7 +450,10 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
 
   useEffect(() => {
     if (!keyboardOpen || !editorExpanded || typeof window === 'undefined') return
-    window.scrollTo(0, 0)
+    // Prevent iOS from scrolling the page when it focuses the CM editor inside a fixed portal.
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
   }, [keyboardOpen, editorExpanded])
 
   useEffect(() => {
@@ -481,11 +486,20 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
   }, [question.id])
 
   useEffect(() => {
-    if (!editorExpanded) setPortalDescCollapsed(false)
+    if (!editorExpanded) {
+      setPortalDescCollapsed(false)
+      return
+    }
+    // On mobile, pre-collapse the description when the portal opens so there's
+    // no layout shift when the keyboard appears (the editor takes full height immediately).
+    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+    setPortalDescCollapsed(isMobile)
   }, [editorExpanded])
 
   useEffect(() => {
-    setPortalDescCollapsed(false)
+    // When switching questions, reset collapse state (mobile stays pre-collapsed once portal is open)
+    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+    if (!isMobile) setPortalDescCollapsed(false)
   }, [question.id])
 
   const descriptionContent = descriptionHtml ? (

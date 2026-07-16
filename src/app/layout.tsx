@@ -20,6 +20,9 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
+  // resizes-visual: only the visual viewport shrinks when the keyboard opens;
+  // the layout viewport stays full-height so fixed/dvh elements behave correctly.
+  interactiveWidget: 'resizes-visual',
 }
 
 export default function RootLayout({
