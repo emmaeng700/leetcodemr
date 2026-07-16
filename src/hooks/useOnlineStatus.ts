@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
 
 export function useOnlineStatus() {
-  const [online, setOnline] = useState(
-    () => (typeof navigator !== 'undefined' ? navigator.onLine : true),
-  )
+  // Always start true so SSR and first client render agree; effect corrects it immediately
+  const [online, setOnline] = useState(true)
 
   useEffect(() => {
     setOnline(navigator.onLine)
