@@ -58,6 +58,12 @@ export function moveNamePart(order: LcNamePart[], index: number, dir: -1 | 1): L
   return next
 }
 
+const TIER_ABBREV: Record<string, string> = {
+  'High Easy': 'HE', 'High Medium': 'HM', 'High Hard': 'HH',
+  'Mid Easy': 'ME', 'Mid Medium': 'MM', 'Mid Hard': 'MH',
+  'Low Easy': 'LE', 'Low Medium': 'LM', 'Low Hard': 'LH',
+}
+
 type NameCtx = {
   set?: 1 | 2 | 3 | null
   tier?: string | null
@@ -67,7 +73,7 @@ type NameCtx = {
 export function buildOrderedLcListName(order: LcNamePart[], ctx: NameCtx): string {
   const map: Record<LcNamePart, string | null | undefined> = {
     pattern: ctx.pattern && ctx.pattern !== 'all' ? ctx.pattern : null,
-    tier: ctx.tier && ctx.tier !== 'all' ? ctx.tier : null,
+    tier: ctx.tier && ctx.tier !== 'all' ? (TIER_ABBREV[ctx.tier] ?? ctx.tier) : null,
     set: ctx.set ? SET_SHORT_LABEL[ctx.set] : null,
   }
   const parts = order.map(p => map[p]).filter((x): x is string => !!x)
@@ -362,15 +368,23 @@ export function planPresetLcLists(
       priorities,
     }),
   )
+  const tierInOrder = nameOrder.includes('tier')
   return planBatchLcLists(pool, preset.split, nameOrder, {
     setFilter: preset.setFilter,
     tierFilter: preset.tierFilter,
     patternFilter: preset.patternFilter,
   })
-    .map(plan => ({
-      ...plan,
-      listName: withBatchSuffixes(plan.listName, difficulties, priorities),
-    }))
+    .map(plan => {
+      // If the tier is already embedded in the name (e.g. "HE"), the abbreviated
+      // tier encodes both priority and difficulty — skip the redundant suffix.
+      const tierCovered = tierInOrder && commonTier(plan.questions) !== null
+      return {
+        ...plan,
+        listName: tierCovered
+          ? plan.listName
+          : withBatchSuffixes(plan.listName, difficulties, priorities),
+      }
+    })
     .filter(plan => plan.questions.length > 0)
 }
 
