@@ -248,7 +248,6 @@ function ExtraNavDropdown({
 
 export default function Navbar() {
   const pathname = usePathname()
-  if (pathname === '/grind' || pathname.startsWith('/grind/')) return null
   const [open, setOpen] = useState(false)
   const grindNavHref = useSyncExternalStore(
     () => () => {},
@@ -291,6 +290,8 @@ export default function Navbar() {
       window.location.reload()
     }
   }, [])
+
+  if (pathname === '/grind' || pathname.startsWith('/grind/')) return null
 
   const renderMobileLink = (link: NavLink, indent = false) => {
     const { href, label, icon: Icon, also } = link
