@@ -1,6 +1,6 @@
 'use client'
 
-import { DISPLAY_PATTERN_ORDER, PATTERN_PRIORITY, type PatternPriority } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, resolveQuestionPriority, type PatternPriority } from '@/lib/constants'
 import type { GrindSummaryCounts } from '@/lib/grindList'
 
 const DIFFS = ['Easy', 'Medium', 'Hard'] as const
@@ -230,19 +230,13 @@ export default function GrindCountStrip({
 
 /** Empty sets match nothing; otherwise require membership. Pattern `all` = any. */
 export function grindQuestionMatchesFilters(
-  q: { set: 1 | 2 | 3; difficulty: string; pattern: string | null; section?: string | null },
+  q: { id?: number | null; set: 1 | 2 | 3; difficulty: string; pattern: string | null; section?: string | null },
   filters: GrindFilterState,
 ): boolean {
   if (!filters.sets.has(q.set)) return false
   if (!filters.difficulties.has(q.difficulty as Diff)) return false
-  let pri: PatternPriority | null = q.pattern ? (PATTERN_PRIORITY[q.pattern] ?? null) : null
-  // Fallback: derive priority from section when pattern is missing
-  if (!pri && q.section) {
-    const m = q.section.match(/^(High|Mid|Low) /)
-    if (m) pri = m[1] as PatternPriority
-  }
+  const pri = resolveQuestionPriority(q)
   if (!pri) {
-    // Unknown priority: show when all 3 are selected (no priority filter applied), hide otherwise
     if (filters.priorities.size < 3) return false
   } else if (!filters.priorities.has(pri)) {
     return false

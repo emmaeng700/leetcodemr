@@ -167,3 +167,33 @@ export const PATTERN_PRIORITY: Record<string, PatternPriority> = {
   'Binary Indexed Tree / Segment Tree':       'Low',
   'Line Sweep':                               'Low',
 }
+
+// Priority fallback for questions whose `pattern` and `section` fields are null
+// in old cached versions of grind_questions.json (before commit 29813a6).
+// This ensures filters always work regardless of which cached version the SW serves.
+export const QUESTION_ID_PRIORITY_FALLBACKS: Partial<Record<number, PatternPriority>> = {
+  52: 'Mid', 473: 'Mid', 649: 'Mid', 705: 'High', 715: 'High', 860: 'Mid',
+  877: 'Low', 881: 'Mid', 913: 'Low', 933: 'High', 953: 'High', 997: 'High',
+  1137: 'Low', 1140: 'Low', 1325: 'High', 1863: 'Low', 1929: 'High',
+  2392: 'High', 2707: 'Low', 2709: 'High', 2807: 'Mid', 3133: 'Low',
+}
+
+export function resolveQuestionPriority(q: {
+  id?: number | null
+  pattern?: string | null
+  section?: string | null
+}): PatternPriority | null {
+  if (q.pattern) {
+    const pri = PATTERN_PRIORITY[q.pattern]
+    if (pri) return pri
+  }
+  if (q.section) {
+    const m = q.section.match(/^(High|Mid|Low) /)
+    if (m) return m[1] as PatternPriority
+  }
+  if (q.id != null) {
+    const pri = QUESTION_ID_PRIORITY_FALLBACKS[q.id]
+    if (pri) return pri
+  }
+  return null
+}

@@ -1,4 +1,4 @@
-import { DISPLAY_PATTERN_ORDER, PATTERN_PRIORITY } from '@/lib/constants'
+import { DISPLAY_PATTERN_ORDER, resolveQuestionPriority } from '@/lib/constants'
 import {
   matchesStudyTier,
   questionStudyTier,
@@ -222,8 +222,7 @@ export function storageKeyForPlan(
 }
 
 export function priorityForPattern(pattern: string | null): string | null {
-  if (!pattern) return null
-  return PATTERN_PRIORITY[pattern as keyof typeof PATTERN_PRIORITY] ?? null
+  return resolveQuestionPriority({ pattern })
 }
 
 export function questionMatchesFilters(
@@ -248,12 +247,7 @@ export function questionMatchesFilters(
     const set = opts.priorities instanceof Set ? opts.priorities : new Set(opts.priorities)
     if (set.size === 0) return false
     if (set.size < 3) {
-      let pri = priorityForPattern(q.pattern) as LcPriority | null
-      // Fallback: derive priority from section when pattern is missing
-      if (!pri && q.section) {
-        const m = q.section.match(/^(High|Mid|Low) /)
-        if (m) pri = m[1] as LcPriority
-      }
+      const pri = resolveQuestionPriority(q) as LcPriority | null
       if (!pri || !set.has(pri)) return false
     }
   }
@@ -392,7 +386,7 @@ export function applyBatchTicks(
         if (difficulties.size === 0 || priorities.size === 0) return false
         if (difficulties.size < 3 && !difficulties.has(q.difficulty as LcDifficulty)) return false
         if (priorities.size < 3) {
-          const pri = priorityForPattern(q.pattern) as LcPriority | null
+          const pri = resolveQuestionPriority(q) as LcPriority | null
           if (!pri || !priorities.has(pri)) return false
         }
         return true
