@@ -360,7 +360,17 @@ function GrindInner() {
               counts={summary}
               patternCounts={patternCounts}
               filters={grindFilters}
-              onChange={setGrindFilters}
+              onChange={nextFilters => {
+                setGrindFilters(nextFilters)
+                const newFiltered = questions.filter(q => {
+                  if (!grindQuestionMatchesFilters(q, nextFilters)) return false
+                  if (search.trim() && !matchesQuestionSearch(q, search)) return false
+                  return true
+                })
+                if (newFiltered.length > 0 && !newFiltered.some(q => q.id === selectedId)) {
+                  navigateToQuestion(newFiltered[0])
+                }
+              }}
             />
           </div>
           {online && (

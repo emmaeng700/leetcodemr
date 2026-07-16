@@ -829,8 +829,8 @@
   .grind-shell .grind-desc-card {
     flex: 1 1 0%;
     height: auto;
-    min-height: 10rem;
-    max-height: none;
+    min-height: 6rem;
+    max-height: 42vh;
     margin: 0 0.35rem 0.25rem;
   }
 
@@ -840,6 +840,7 @@
 
   .grind-shell .grind-mobile-cta {
     display: flex;
+    flex-shrink: 0;
     flex-direction: column;
     align-items: center;
     justify-content: center;
