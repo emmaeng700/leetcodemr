@@ -174,25 +174,41 @@ function mutationSucceeded(
 async function listAllFavorites(
   session: string,
   csrf: string,
-): Promise<Array<{ idHash?: string; name?: string; questions?: unknown[] }>> {
-  // Do not query `slug` here — it breaks the whole favoritesLists selection on some LC schemas.
+): Promise<Array<{ idHash: string; name: string; questionCount: number }>> {
+  // Avoid querying `slug` (breaks some LC schemas). Keep fields minimal.
   const result = await lcGql(session, csrf, {
     query: `query favoritesList {
       favoritesLists {
         allFavorites {
           idHash
           name
-          questions {
-            titleSlug
-          }
+          questionCount
         }
       }
     }`,
   })
-  if (gqlErrors(result.data).length) return []
-  return (result.data?.data as {
-    favoritesLists?: { allFavorites?: Array<{ idHash?: string; name?: string; questions?: unknown[] }> }
+  if (gqlErrors(result.data).length) {
+    // Fallback without questionCount in case LC schema is older
+    const r2 = await lcGql(session, csrf, {
+      query: `query favoritesList {
+        favoritesLists {
+          allFavorites {
+            idHash
+            name
+          }
+        }
+      }`,
+    })
+    if (gqlErrors(r2.data).length) return []
+    const rows = (r2.data?.data as {
+      favoritesLists?: { allFavorites?: Array<{ idHash?: string; name?: string }> }
+    })?.favoritesLists?.allFavorites ?? []
+    return rows.filter(f => f.idHash && f.name).map(f => ({ idHash: f.idHash!, name: f.name!, questionCount: 0 }))
+  }
+  const rows = (result.data?.data as {
+    favoritesLists?: { allFavorites?: Array<{ idHash?: string; name?: string; questionCount?: number }> }
   })?.favoritesLists?.allFavorites ?? []
+  return rows.filter(f => f.idHash && f.name).map(f => ({ idHash: f.idHash!, name: f.name!, questionCount: f.questionCount ?? 0 }))
 }
 
 async function findFavoriteByName(
@@ -202,8 +218,8 @@ async function findFavoriteByName(
 ): Promise<{ idHash: string; questionCount: number } | null> {
   const lists = await listAllFavorites(session, csrf)
   const match = lists.find(f => f.name === listName)
-  if (!match?.idHash) return null
-  return { idHash: match.idHash, questionCount: match.questions?.length ?? 0 }
+  if (!match) return null
+  return { idHash: match.idHash, questionCount: match.questionCount }
 }
 
 async function addOneToFavorite(
@@ -263,7 +279,7 @@ async function countFavoriteQuestions(
 ): Promise<number> {
   const lists = await listAllFavorites(session, csrf)
   const match = lists.find(f => f.name === listName)
-  return match?.questions?.length ?? 0
+  return match?.questionCount ?? 0
 }
 
 async function addQuestionsToFavorite(
@@ -310,40 +326,50 @@ async function addQuestionsToFavorite(
   return { added, errors: errors.slice(0, 12) }
 }
 
+async function runDeleteMutation(
+  session: string,
+  csrf: string,
+  idHash: string,
+): Promise<boolean> {
+  // Try favoriteIdHash (most common in current LC schema)
+  const r1 = await lcGql(session, csrf, {
+    operationName: 'deleteFavorite',
+    variables: { favoriteIdHash: idHash },
+    query: `mutation deleteFavorite($favoriteIdHash: String!) { deleteFavorite(favoriteIdHash: $favoriteIdHash) { ok error } }`,
+  })
+  const p1 = (r1.data?.data as { deleteFavorite?: { ok?: boolean } })?.deleteFavorite
+  if (p1?.ok === true) return true
+
+  // Try favoriteSlug variant
+  const r2 = await lcGql(session, csrf, {
+    operationName: 'deleteFavorite',
+    variables: { favoriteSlug: idHash },
+    query: `mutation deleteFavorite($favoriteSlug: String!) { deleteFavorite(favoriteSlug: $favoriteSlug) { ok error } }`,
+  })
+  const p2 = (r2.data?.data as { deleteFavorite?: { ok?: boolean } })?.deleteFavorite
+  return p2?.ok === true
+}
+
 async function deleteLcFavorite(
   session: string,
   csrf: string,
-  favoriteSlug: string,
+  storedSlug: string,
   listName?: string,
 ): Promise<boolean> {
-  const tryDelete = async (variables: Record<string, string>, query: string) => {
-    const result = await lcGql(session, csrf, { operationName: 'deleteFavorite', variables, query })
-    const payload = (result.data?.data as { deleteFavorite?: { ok?: boolean } })?.deleteFavorite
-    return payload?.ok === true
+  // Always do a fresh lookup — storedSlug (from createEmptyFavorite) may differ from idHash.
+  const allLists = await listAllFavorites(session, csrf)
+
+  // Find by exact idHash match, then by name
+  const byHash = allLists.find(f => f.idHash === storedSlug)
+  const byName = listName ? allLists.find(f => f.name === listName) : null
+  const target = byHash ?? byName
+
+  if (!target) {
+    // Not found on LC — already deleted there, treat as success.
+    return true
   }
 
-  if (await tryDelete(
-    { favoriteSlug },
-    `mutation deleteFavorite($favoriteSlug: String!) { deleteFavorite(favoriteSlug: $favoriteSlug) { ok error } }`,
-  )) return true
-
-  if (await tryDelete(
-    { favoriteIdHash: favoriteSlug },
-    `mutation deleteFavorite($favoriteIdHash: String!) { deleteFavorite(favoriteIdHash: $favoriteIdHash) { ok error } }`,
-  )) return true
-
-  // Last resort: look up fresh idHash by list name, then delete by that.
-  if (listName) {
-    const found = await findFavoriteByName(session, csrf, listName)
-    if (found && found.idHash !== favoriteSlug) {
-      if (await tryDelete(
-        { favoriteIdHash: found.idHash },
-        `mutation deleteFavorite($favoriteIdHash: String!) { deleteFavorite(favoriteIdHash: $favoriteIdHash) { ok error } }`,
-      )) return true
-    }
-  }
-
-  return false
+  return runDeleteMutation(session, csrf, target.idHash)
 }
 
 export async function POST(req: NextRequest) {
@@ -357,6 +383,11 @@ export async function POST(req: NextRequest) {
     }
     if (!csrf || sessionError) {
       return NextResponse.json({ error: sessionError ?? LC_SESSION_EXPIRED, code: 'lc_not_logged_in' }, { status: 401 })
+    }
+
+    if (action === 'list') {
+      const lists = await listAllFavorites(session, csrf)
+      return NextResponse.json({ ok: true, lists })
     }
 
     if (action === 'delete') {
