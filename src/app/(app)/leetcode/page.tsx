@@ -440,7 +440,11 @@ export default function LeetCodeListPage() {
       } else {
         if (diffFilter !== 'all' && q.difficulty !== diffFilter) return false
         if (priorityFilter !== 'all') {
-          const pri = q.pattern ? PATTERN_PRIORITY[q.pattern] : null
+          let pri: string | null = q.pattern ? (PATTERN_PRIORITY[q.pattern] ?? null) : null
+          if (!pri && q.section) {
+            const m = q.section.match(/^(High|Mid|Low) /)
+            if (m) pri = m[1]
+          }
           if (pri !== priorityFilter) return false
         }
       }
