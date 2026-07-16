@@ -3,7 +3,11 @@ import { useEffect, useState } from 'react'
 export type MobileViewport = {
   /** Visible viewport height (shrinks when keyboard opens). null on desktop. */
   height: number | null
-  /** Top offset when the layout viewport is shifted (iOS). */
+  /**
+   * Top offset when the layout viewport is shifted (iOS).
+   * Note: only refreshed when height/keyboardOpen change, to avoid re-rendering
+   * consumers on every scroll frame. No current consumer reads it live.
+   */
   offsetTop: number
   /** True when the software keyboard likely covers part of the screen. */
   keyboardOpen: boolean
@@ -24,15 +28,20 @@ export function useMobileViewport(): MobileViewport {
 
     const update = () => {
       if (!window.matchMedia(MOBILE_MQ).matches) {
-        setVp({ height: null, offsetTop: 0, keyboardOpen: false })
+        setVp(prev =>
+          prev.height === null && !prev.keyboardOpen ? prev : { height: null, offsetTop: 0, keyboardOpen: false },
+        )
         return
       }
+      const height = Math.round(vv.height)
       const keyboardOpen = vv.height < window.innerHeight * 0.72
-      setVp({
-        height: vv.height,
-        offsetTop: vv.offsetTop,
-        keyboardOpen,
-      })
+      // Bail out (keep the same object) when nothing consumers care about changed,
+      // so visualViewport scroll events don't re-render the whole page.
+      setVp(prev =>
+        prev.height === height && prev.keyboardOpen === keyboardOpen
+          ? prev
+          : { height, offsetTop: Math.round(vv.offsetTop), keyboardOpen },
+      )
     }
 
     update()

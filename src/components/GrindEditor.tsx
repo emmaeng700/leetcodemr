@@ -42,9 +42,11 @@ interface GrindEditorProps {
 }
 
 export default function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
-  const { height: vvHeight, offsetTop: vvOffsetTop, keyboardOpen } = useMobileViewport()
+  const { height: vvHeight, keyboardOpen } = useMobileViewport()
   const { lang, setLang } = useGrindLang()
-  const [code, setCode] = useState('')
+  // Re-render trigger for programmatic doc replacements; the text itself lives
+  // in codeRef so keystrokes don't round-trip through React state.
+  const [, setEditorEpoch] = useState(0)
   const [starter, setStarter] = useState('')
   const [loading, setLoading] = useState(true)
   const [savedFlash, setSavedFlash] = useState(false)
@@ -58,16 +60,46 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
   const [editorTheme, setEditorTheme] = useState<any>(null)
   const [description, setDescription] = useState<string>('')
   const [descriptionHtml, setDescriptionHtml] = useState<string>('')
+  // The inline editor is display:none on mobile; don't mount a second CodeMirror there.
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches,
+  )
   const descCacheRef = useRef<Record<number, { plain: string; html: string }>>({})
   const editorViewRef = useRef<unknown>(null)
   const portalViewRef = useRef<unknown>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadGenRef = useRef(0)
   const codeRef = useRef('')
 
   useEffect(() => {
-    codeRef.current = code
-  }, [code])
+    const mq = window.matchMedia('(max-width: 767px)')
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
+  /**
+   * Programmatically replace the editor contents. Keystrokes bypass the `code`
+   * state (see handleChange), so the `value` prop can be stale — write into the
+   * live CodeMirror views directly to guarantee the doc updates.
+   */
+  const setEditorDoc = useCallback((next: string) => {
+    codeRef.current = next
+    // Trigger a re-render so a CodeMirror that hasn't mounted yet (dynamic
+    // import still resolving) picks up the fresh codeRef as its initial value.
+    setEditorEpoch(e => e + 1)
+    for (const ref of [editorViewRef, portalViewRef]) {
+      const view = ref.current as { state?: { doc: { toString(): string; length: number } }; dispatch?: (spec: unknown) => void; dom?: HTMLElement } | null
+      if (!view?.state || !view.dispatch) continue
+      if (view.dom && !view.dom.isConnected) continue
+      const cur = view.state.doc.toString()
+      if (cur !== next) {
+        view.dispatch({ changes: { from: 0, to: cur.length, insert: next } })
+      }
+    }
+  }, [])
 
   useEffect(() => {
     async function loadExtensions() {
@@ -142,7 +174,7 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
         }
       } catch { /* keep loaded code */ }
 
-      setCode(nextCode)
+      setEditorDoc(nextCode)
       setSessionLabel(loaded.sessionLabel)
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         setSyncState('offline')
@@ -156,7 +188,7 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
     return () => {
       cancelled = true
     }
-  }, [question.id, question.slug, question.title, question.set, lang, question.starterPython, question.starterCpp, question.interviewApproach])
+  }, [question.id, question.slug, question.title, question.set, lang, question.starterPython, question.starterCpp, question.interviewApproach, setEditorDoc])
   
   useEffect(() => {
     let cancelled = false
@@ -212,8 +244,7 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
   const applyRecheckResult = useCallback(
     (piped: { code: string; sessionLabel: string | null; synced: boolean }) => {
       if (piped.code !== codeRef.current) {
-        codeRef.current = piped.code
-        setCode(piped.code)
+        setEditorDoc(piped.code)
       }
       setSessionLabel(piped.sessionLabel)
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -222,7 +253,7 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
         setSyncState(piped.synced ? 'synced' : 'local')
       }
     },
-    [],
+    [setEditorDoc],
   )
 
   const runRecheck = useCallback(async () => {
@@ -285,11 +316,17 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
   const handleChange = useCallback(
     (val: string) => {
       const next = applyGrindStampOnEdit(question.id, lang, val)
-      setCode(next)
-      setSessionLabel(getGrindSessionChipLabel(question.id, lang, next))
+      codeRef.current = next
+      // Keep keystrokes out of React state: only write back to the editor when
+      // the stamp actually rewrote the text. Otherwise the whole tree
+      // re-renders (and re-syncs two CodeMirror docs) on every key press.
+      if (next !== val) setEditorDoc(next)
+      const label = getGrindSessionChipLabel(question.id, lang, next)
+      setSessionLabel(prev => (prev === label ? prev : label))
       writeGrindDraft(question.id, lang, next)
       setSavedFlash(true)
-      setTimeout(() => setSavedFlash(false), 1200)
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
+      flashTimerRef.current = setTimeout(() => setSavedFlash(false), 1200)
 
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       saveTimerRef.current = setTimeout(() => {
@@ -298,11 +335,11 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
           return
         }
         saveGrindSession(question.id, lang, next)
-          .then(() => setSyncState('synced'))
-          .catch(() => setSyncState('local'))
+          .then(() => setSyncState(prev => (prev === 'synced' ? prev : 'synced')))
+          .catch(() => setSyncState(prev => (prev === 'local' ? prev : 'local')))
       }, 2000)
     },
-    [question.id, lang],
+    [question.id, lang, setEditorDoc],
   )
 
   const reset = useCallback(() => {
@@ -312,7 +349,7 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
       : cached?.empty
         ? upsertAcceptedSection(starter, lang, null, 'empty')
         : upsertAcceptedSection(starter, lang, null, 'uncached')
-    setCode(next)
+    setEditorDoc(next)
     setSessionLabel(getGrindSessionChipLabel(question.id, lang, next))
     writeGrindDraft(question.id, lang, next)
     if (typeof navigator !== 'undefined' && navigator.onLine) {
@@ -322,7 +359,7 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
     const count = incrementGrindResetCount(question.id)
     setResetCount(count)
     onReset?.(question.id)
-  }, [starter, question.id, lang, onReset])
+  }, [starter, question.id, lang, onReset, setEditorDoc])
 
   const copyCode = useCallback(async () => {
     const text = codeRef.current
@@ -409,7 +446,10 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
       {typeof window !== 'undefined' && CodeMirror && (
         <CodeMirror
           key={`${isPortal ? 'p' : 'n'}-${question.id}-${lang}`}
-          value={code}
+          // codeRef holds the live text (keystrokes bypass the `code` state),
+          // so a freshly (re)mounted editor — e.g. reopening the mobile portal —
+          // always starts from what the user last typed.
+          value={codeRef.current}
           height={height}
           theme={editorTheme ?? 'dark'}
           extensions={extensions}
@@ -578,9 +618,11 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
             </div>
           )}
 
-          <div className={`grind-editor-inline practice-cm-wrap relative flex-1 min-h-0 ${editorExpanded ? 'invisible' : ''}`}>
-            {editorBody('100%', false)}
-          </div>
+          {!isMobile && (
+            <div className={`grind-editor-inline practice-cm-wrap relative flex-1 min-h-0 ${editorExpanded ? 'invisible' : ''}`}>
+              {editorBody('100%', false)}
+            </div>
+          )}
         </div>
 
         {!editorExpanded && footerBar}
