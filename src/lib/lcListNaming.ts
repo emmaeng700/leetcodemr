@@ -64,6 +64,32 @@ const TIER_ABBREV: Record<string, string> = {
   'Low Easy': 'LE', 'Low Medium': 'LM', 'Low Hard': 'LH',
 }
 
+const LIST_SET_LABEL: Record<1 | 2 | 3, string> = { 1: 'S1', 2: 'S2', 3: 'S3' }
+
+const PATTERN_ABBREV: Record<string, string> = {
+  'Arrays & Hashing':    'A&H',
+  'String':              'Str',
+  'Two Pointers':        '2P',
+  'Sliding Window':      'SW',
+  'Sorting':             'Sort',
+  'Binary Search':       'BS',
+  'Matrix':              'Mtx',
+  'Trees & BST':         'Trees',
+  'DFS':                 'DFS',
+  'Graphs':              'Gph',
+  'BFS':                 'BFS',
+  'Linked List':         'LL',
+  'Stack':               'Stk',
+  'Heap':                'Heap',
+  'Trie':                'Trie',
+  'Backtracking':        'BT',
+  'Greedy':              'Grdy',
+  'Dynamic Programming': 'DP',
+  'Bit Manipulation':    'BitM',
+  'Math':                'Math',
+  'JavaScript':          'JS',
+}
+
 type NameCtx = {
   set?: 1 | 2 | 3 | null
   tier?: string | null
@@ -72,9 +98,9 @@ type NameCtx = {
 
 export function buildOrderedLcListName(order: LcNamePart[], ctx: NameCtx): string {
   const map: Record<LcNamePart, string | null | undefined> = {
-    pattern: ctx.pattern && ctx.pattern !== 'all' ? ctx.pattern : null,
+    pattern: ctx.pattern && ctx.pattern !== 'all' ? (PATTERN_ABBREV[ctx.pattern] ?? ctx.pattern) : null,
     tier: ctx.tier && ctx.tier !== 'all' ? (TIER_ABBREV[ctx.tier] ?? ctx.tier) : null,
-    set: ctx.set ? SET_SHORT_LABEL[ctx.set] : null,
+    set: ctx.set ? LIST_SET_LABEL[ctx.set] : null,
   }
   const parts = order.map(p => map[p]).filter((x): x is string => !!x)
   return parts.length ? parts.join(' · ') : 'LeetMastery All 727'
