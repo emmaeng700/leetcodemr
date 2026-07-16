@@ -3511,4 +3511,99 @@ QUICK_REVIEW = {
         "complexity":   "Time Complexity: O(n^2) – We construct each row by iterating through all previous rows.\nSpace Complexity: O(n^2) – We store all the numbers in the triangle.",
         "solution":     "This problem is solved by iterative construction of each row. We start with a triangle containing only the first row. For each new row, we set the first and last element to 1. For the inner elements, sum the two adjacent numbers from the previous row. The primary data structure is a list (or array) of lists (or arrays) that holds the triangle. This algorithm uses nested loops: the outer loop to iterate through each row, and the inner loop to compute the inner cells of each row.",
     },
+    "n-queens-ii": {
+        "key_insights": "- Use backtracking: place queens row by row, tracking which columns and diagonals are under attack.\n\n- Track three sets: occupied columns, positive diagonals (row+col), negative diagonals (row−col).\n\n- Only increment the count when all n rows are filled without conflict.\n\n- Backtrack by removing the queen from all three sets after exploring each placement.",
+        "complexity":   "Time Complexity: O(n!) – each row has decreasing choices.\nSpace Complexity: O(n) for the three sets and the recursion stack.",
+        "solution":     "Recursive backtracking places one queen per row. At each row, try every column that is not blocked by an existing queen's column or diagonal. If all n rows are placed successfully, increment the count. After each recursive call, remove the queen from the occupied sets to restore state for the next candidate column.",
+    },
+    "matchsticks-to-square": {
+        "key_insights": "- The four sides must each equal totalSum / 4; return False immediately if not divisible.\n\n- Sort matchsticks in descending order to prune dead branches early.\n\n- Use backtracking with four buckets; try placing each stick into any bucket that still has room.\n\n- Skip duplicate bucket values to avoid redundant branches.",
+        "complexity":   "Time Complexity: O(4^n) worst case, but pruning makes it fast in practice.\nSpace Complexity: O(n) for the recursion stack.",
+        "solution":     "Sort the sticks largest-first (big sticks fail fast). Maintain four side-length accumulators. For each stick, try adding it to each side that still has capacity. If a side is already at the target or is a duplicate of another side at the same value, skip it. Recurse; if all sticks are placed and every side equals target, return True.",
+    },
+    "dota2-senate": {
+        "key_insights": "- Simulate the voting rounds using two queues, one per faction.\n\n- Each senator bans the next opposing senator by comparing queue front indices.\n\n- The senator with the smaller index acts first; the loser is discarded, the winner re-queues at index + n to simulate the next round.\n\n- Continue until one queue is empty.",
+        "complexity":   "Time Complexity: O(n) – each senator is processed at most twice.\nSpace Complexity: O(n) for the two queues.",
+        "solution":     "Initialise two queues with the indices of Radiant and Dire senators respectively. On each step, pop the front of both queues and compare indices. The senator with the smaller index bans the other; re-queue the winner with index + n to place them at the correct position in the next round. Repeat until one queue is drained.",
+    },
+    "design-hashset": {
+        "key_insights": "- Use an array of buckets (linked lists) to handle collisions via chaining.\n\n- The hash function maps key → key % num_buckets.\n\n- For add/remove/contains, traverse only the bucket at the computed index.\n\n- Choose num_buckets large enough (e.g. 1000) to keep chains short.",
+        "complexity":   "Time Complexity: O(1) average, O(n/k) worst case per operation where k = bucket count.\nSpace Complexity: O(n + k).",
+        "solution":     "Allocate a fixed number of buckets (e.g. 1000), each holding a linked list. To add a key, hash it to a bucket and append if not already present. To remove, traverse the bucket and unlink the node. To check contains, traverse and return True if found. This avoids Python's built-in set while still providing near-O(1) operations.",
+    },
+    "lemonade-change": {
+        "key_insights": "- Greedily track the count of $5 and $10 bills in hand.\n\n- For a $10 payment, give one $5 as change.\n\n- For a $20 payment, prefer giving one $10 + one $5 over three $5s (conserves $5 bills).\n\n- If change cannot be made at any step, return False.",
+        "complexity":   "Time Complexity: O(n) – one pass through the bill sequence.\nSpace Complexity: O(1).",
+        "solution":     "Iterate through each customer's bill. If they pay $5, add to the $5 counter. If they pay $10, decrement $5 by 1 and increment $10 by 1; return False if no $5 available. If they pay $20, first try to give $10 + $5; if no $10, give three $5s; return False if neither is possible.",
+    },
+    "stone-game": {
+        "key_insights": "- Alex always picks first and there are an even number of piles with even total.\n\n- The first player can always guarantee a win by choosing either all even-indexed or all odd-indexed piles—whichever totals more.\n\n- This makes the answer mathematically always True for a greedy optimal player.\n\n- Alternatively, prove it with DP: dp[i][j] = max stones the current player can gain from piles[i..j].",
+        "complexity":   "Time Complexity: O(1) (math insight) or O(n^2) (DP).\nSpace Complexity: O(1) or O(n^2).",
+        "solution":     "The math insight: with an even number of piles and equal total constraint, Alex can label piles A-B-A-B… and always pick the label with the higher sum; since she goes first she has this choice. So simply return True. If expected to show DP: let dp[i][j] = lead the current player achieves over the opponent on piles[i..j]. Recurrence: dp[i][j] = max(piles[i] - dp[i+1][j], piles[j] - dp[i][j-1]).",
+    },
+    "stone-game-iii": {
+        "key_insights": "- Dynamic programming from right to left.\n\n- dp[i] = maximum score the current player can achieve from index i onward.\n\n- At each index, the current player can take 1, 2, or 3 stones; subtract the opponent's optimal dp from the remaining suffix.\n\n- Compare Alice's total vs Bob's total at the end.",
+        "complexity":   "Time Complexity: O(n).\nSpace Complexity: O(1) with rolling variables (or O(n) with a DP array).",
+        "solution":     "Process from right to left. At position i, dp[i] = max(sum(values[i:i+k]) - dp[i+k]) for k in {1,2,3}. After building the table, Alice's score is dp[0] and the total is sum(values); Bob's score is total - dp[0]. Compare the two to decide the winner.",
+    },
+    "verifying-an-alien-dictionary": {
+        "key_insights": "- Build a hash map from the alien order string: character → rank.\n\n- Compare adjacent words character by character using the rank map.\n\n- If an earlier word is a prefix of a later word, they are in order.\n\n- Return False as soon as any adjacent pair is out of order.",
+        "complexity":   "Time Complexity: O(M) where M is the total number of characters across all words.\nSpace Complexity: O(1) – the rank map has at most 26 entries.",
+        "solution":     "Create a dictionary mapping each character to its position in the alien order. Iterate through consecutive word pairs. For each pair, compare characters positionally until a difference is found. If the differing character in the first word has a higher rank, return False. If the first word is longer and is a prefix of the second, return False. Otherwise continue.",
+    },
+    "find-the-town-judge": {
+        "key_insights": "- The judge trusts nobody but is trusted by everyone else (n-1 people).\n\n- Track two counts per person: how many they trust (out-degree) and how many trust them (in-degree).\n\n- The judge has out-degree 0 and in-degree n-1.\n\n- A single array of net trust (in - out) makes this a one-liner check.",
+        "complexity":   "Time Complexity: O(E) where E = number of trust pairs.\nSpace Complexity: O(n).",
+        "solution":     "Initialise a trust_score array of size n+1. For each (a, b) pair, decrement trust_score[a] (a trusts someone) and increment trust_score[b] (b is trusted). The town judge is the unique person with trust_score equal to n-1.",
+    },
+    "n-th-tribonacci-number": {
+        "key_insights": "- Tribonacci: T(n) = T(n-1) + T(n-2) + T(n-3) with T(0)=0, T(1)=1, T(2)=1.\n\n- Only the last three values are needed at any time; use three rolling variables.\n\n- Iterative solution avoids recursion overhead and stack depth issues.\n\n- Handle base cases n=0, n=1, n=2 explicitly.",
+        "complexity":   "Time Complexity: O(n).\nSpace Complexity: O(1).",
+        "solution":     "Initialise a, b, c = 0, 1, 1. For each step from 3 to n, compute a, b, c = b, c, a+b+c. Return c after n-2 iterations (adjusting for the base cases). Handle n==0 → 0, n==1 → 1 separately.",
+    },
+    "stone-game-ii": {
+        "key_insights": "- Define dp[i][m] as the max stones the current player can collect from index i with current M.\n\n- At each state, the player takes X piles (1 ≤ X ≤ 2M) and M becomes max(M, X).\n\n- Use a suffix sum array to quickly compute pile totals for any range.\n\n- Memoize with (index, M) as the key.",
+        "complexity":   "Time Complexity: O(n^2).\nSpace Complexity: O(n^2) for memoization.",
+        "solution":     "Precompute suffix sums. Use top-down DP with memoization: dp(i, m) returns the max stones the current player can take from piles[i:]. Try all X from 1 to 2m; the current player gains suffix[i:i+X] + (suffix[i] - dp(i+X, max(m,X))) – i.e. the total remaining minus what the opponent will optimally take. Return dp(0, 1).",
+    },
+    "delete-leaves-with-a-given-value": {
+        "key_insights": "- Post-order traversal: process children before parents.\n\n- After deleting a child leaf with the target value, the parent may itself become a leaf with the target value.\n\n- Return None from a node if it is a leaf equal to target, effectively removing it.\n\n- Recurse bottom-up so cascading deletions propagate upward.",
+        "complexity":   "Time Complexity: O(n) – every node is visited once.\nSpace Complexity: O(h) where h is the tree height (recursion stack).",
+        "solution":     "Write a recursive function that returns the (possibly None) processed node. Recurse into left and right children first. After recursion, if the current node has no children (both subtrees returned None) and its value equals target, return None. Otherwise return the node with updated children.",
+    },
+    "sum-of-all-subset-xor-totals": {
+        "key_insights": "- The XOR total of all subsets equals (bitwise OR of all elements) × 2^(n-1).\n\n- Each bit that appears in any element contributes that bit to exactly 2^(n-1) subsets.\n\n- OR of all elements captures which bits appear; multiplying by 2^(n-1) gives the sum.\n\n- Alternatively verify with explicit backtracking over all 2^n subsets.",
+        "complexity":   "Time Complexity: O(n).\nSpace Complexity: O(1).",
+        "solution":     "Compute OR = nums[0] | nums[1] | ... | nums[n-1]. Return OR * (1 << (n-1)). The key insight: for every bit position b set in any element, exactly half of all subsets (2^(n-1)) contain at least one element with bit b set, contributing that bit to their XOR total.",
+    },
+    "concatenation-of-array": {
+        "key_insights": "- The result is simply nums appended to itself.\n\n- For index i in the result: result[i] = nums[i % n].\n\n- No special logic needed; direct list concatenation or doubling works.\n\n- Good warm-up for understanding modular indexing.",
+        "complexity":   "Time Complexity: O(n).\nSpace Complexity: O(n) for the output array.",
+        "solution":     "Return nums + nums (Python list concatenation). Alternatively allocate an array of size 2n and fill position i with nums[i % n] for i in 0..2n-1.",
+    },
+    "build-a-matrix-with-conditions": {
+        "key_insights": "- Perform topological sort (Kahn's algorithm) separately on row conditions and column conditions.\n\n- If either sort detects a cycle, return an empty matrix.\n\n- From the sorted orders, derive each value's row index and column index.\n\n- Fill a k×k matrix: for each value v, place 1 at (row[v], col[v]).",
+        "complexity":   "Time Complexity: O(k + E) where E is the total number of conditions.\nSpace Complexity: O(k^2) for the output matrix.",
+        "solution":     "Build adjacency lists and in-degree arrays for rows and columns separately. Run BFS topological sort on each. If the resulting order doesn't contain all k values, a cycle exists—return [[]]. Otherwise map each value 1..k to its row and column position from the sorted orders, and set matrix[row_pos[v]][col_pos[v]] = v.",
+    },
+    "extra-characters-in-a-string": {
+        "key_insights": "- Define dp[i] as the minimum extra characters when considering s[0:i].\n\n- For each position i, either skip s[i] (1 extra char: dp[i+1] = dp[i] + 1) or match a dictionary word ending at i.\n\n- Store dictionary words in a set for O(L) lookup.\n\n- Iterate from left to right, trying all substrings starting at each position.",
+        "complexity":   "Time Complexity: O(n^2 + m*L) where n = len(s), m = dict size, L = avg word length.\nSpace Complexity: O(n + m*L).",
+        "solution":     "Build a set from dictionary. Initialise dp[0] = 0. For each i from 0 to n, skip character: dp[i+1] = min(dp[i+1], dp[i]+1). Then for each j > i, if s[i:j] is in the dictionary, dp[j] = min(dp[j], dp[i]). Return dp[n].",
+    },
+    "greatest-common-divisor-traversal": {
+        "key_insights": "- Two numbers can be traversed between if they share a prime factor.\n\n- For each number, factorize it and union it with the set of all previously seen numbers sharing each prime factor.\n\n- Use Union-Find: for each prime factor of a number, union the number with the 'prime representative' node.\n\n- If all numbers end in the same component, return True.",
+        "complexity":   "Time Complexity: O(n * sqrt(max_val) * alpha(n)) – factorization dominates.\nSpace Complexity: O(n + P) where P is the number of distinct primes seen.",
+        "solution":     "Create Union-Find with n + max_val slots (or use a dict). For each number at index i, find its prime factors. For each prime factor p, union index i with a representative node for p. After processing all numbers, check that all indices share the same root.",
+    },
+    "insert-greatest-common-divisors-in-linked-list": {
+        "key_insights": "- Traverse the list pair by pair (cur, nxt).\n\n- Compute gcd(cur.val, nxt.val) and insert a new node with that value between them.\n\n- Advance cur to the node after the newly inserted one (i.e. the original nxt).\n\n- Python's math.gcd handles this in O(log(min(a,b))).",
+        "complexity":   "Time Complexity: O(n log V) where V is the maximum node value.\nSpace Complexity: O(n) for the new nodes.",
+        "solution":     "Iterate with cur = head. While cur.next exists: let nxt = cur.next, compute g = gcd(cur.val, nxt.val), create a node with value g, insert it between cur and nxt (cur.next = new_node; new_node.next = nxt), then advance cur = nxt. Return head.",
+    },
+    "minimum-array-end": {
+        "key_insights": "- The final array must satisfy: each element AND-ed together equals x.\n\n- Start from x and construct subsequent elements by filling the zero bits of x with the binary representation of (n-1).\n\n- Zero bits of x are the 'free' bit positions; the k-th element uses the bits of k spread into those free positions.\n\n- Extract bits of (n-1) and place them into the zero positions of x one by one.",
+        "complexity":   "Time Complexity: O(log(x) + log(n)).\nSpace Complexity: O(1).",
+        "solution":     "The last element is x with the bits of (n-1) inserted into the zero-bit positions of x. Iterate through each bit position of the result: if that bit is already set in x, keep it; otherwise take the next bit from (n-1) and place it here. Return the resulting number.",
+    },
 }
