@@ -49,13 +49,26 @@ export const STUDY_TIER_ORDER = [
 
 export type StudyTier = (typeof STUDY_TIER_ORDER)[number]
 
-export function questionStudyTier(q: Pick<GrindQuestion, 'section'>): StudyTier | null {
-  if (!q.section) return null
-  const { tier } = parseGrindSection(q.section)
-  return (STUDY_TIER_ORDER as readonly string[]).includes(tier) ? (tier as StudyTier) : null
+export function questionStudyTier(
+  q: Pick<GrindQuestion, 'section' | 'pattern' | 'difficulty'>,
+): StudyTier | null {
+  if (q.section) {
+    const { tier } = parseGrindSection(q.section)
+    return (STUDY_TIER_ORDER as readonly string[]).includes(tier) ? (tier as StudyTier) : null
+  }
+  // Fallback: derive from pattern priority + difficulty when section is missing
+  const pri = PATTERN_PRIORITY[q.pattern ?? '']
+  if (pri && q.difficulty) {
+    const tier = `${pri} ${q.difficulty}` as StudyTier
+    return (STUDY_TIER_ORDER as readonly string[]).includes(tier) ? tier : null
+  }
+  return null
 }
 
-export function matchesStudyTier(q: Pick<GrindQuestion, 'section'>, tier: StudyTier): boolean {
+export function matchesStudyTier(
+  q: Pick<GrindQuestion, 'section' | 'pattern' | 'difficulty'>,
+  tier: StudyTier,
+): boolean {
   return questionStudyTier(q) === tier
 }
 

@@ -248,7 +248,12 @@ export function questionMatchesFilters(
     const set = opts.priorities instanceof Set ? opts.priorities : new Set(opts.priorities)
     if (set.size === 0) return false
     if (set.size < 3) {
-      const pri = priorityForPattern(q.pattern) as LcPriority | null
+      let pri = priorityForPattern(q.pattern) as LcPriority | null
+      // Fallback: derive priority from section when pattern is missing
+      if (!pri && q.section) {
+        const m = q.section.match(/^(High|Mid|Low) /)
+        if (m) pri = m[1] as LcPriority
+      }
       if (!pri || !set.has(pri)) return false
     }
   }

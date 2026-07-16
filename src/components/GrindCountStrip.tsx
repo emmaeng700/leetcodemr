@@ -230,12 +230,17 @@ export default function GrindCountStrip({
 
 /** Empty sets match nothing; otherwise require membership. Pattern `all` = any. */
 export function grindQuestionMatchesFilters(
-  q: { set: 1 | 2 | 3; difficulty: string; pattern: string | null },
+  q: { set: 1 | 2 | 3; difficulty: string; pattern: string | null; section?: string | null },
   filters: GrindFilterState,
 ): boolean {
   if (!filters.sets.has(q.set)) return false
   if (!filters.difficulties.has(q.difficulty as Diff)) return false
-  const pri = q.pattern ? PATTERN_PRIORITY[q.pattern] : null
+  let pri: PatternPriority | null = q.pattern ? (PATTERN_PRIORITY[q.pattern] ?? null) : null
+  // Fallback: derive priority from section when pattern is missing
+  if (!pri && q.section) {
+    const m = q.section.match(/^(High|Mid|Low) /)
+    if (m) pri = m[1] as PatternPriority
+  }
   if (!pri || !filters.priorities.has(pri)) return false
   if (filters.pattern !== 'all' && q.pattern !== filters.pattern) return false
   return true
