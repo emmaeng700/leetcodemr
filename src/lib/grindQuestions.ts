@@ -1,6 +1,6 @@
 import type { SetQuestion } from '@/lib/questionSets'
 import { buildSetTagMap } from '@/lib/questionSets'
-import { PATTERN_PRIORITY } from '@/lib/constants'
+import { PATTERN_PRIORITY, resolveQuestionPriority, type PatternPriority } from '@/lib/constants'
 import { buildExclusivePatternMap } from '@/lib/patternUtils'
 import { studyOrder } from '@/lib/studyOrder'
 import ncExtraQuestions from '../../neetcode_extra_questions.json'
@@ -26,6 +26,8 @@ export type GrindQuestion = {
   description?: string
   /** HTML description with local /description-images paths (offline). */
   descriptionHtml?: string
+  /** Computed at load time from pattern → section → ID fallback. Never null after loadGrindQuestionsBundle. */
+  priority?: PatternPriority | null
 }
 
 type Set1Row = {
@@ -175,11 +177,15 @@ export async function loadQuestionsFullJson(): Promise<Set1Row[]> {
   throw new Error('Could not load questions (offline and not cached yet)')
 }
 
+function attachPriorities(qs: GrindQuestion[]): GrindQuestion[] {
+  return qs.map(q => ({ ...q, priority: resolveQuestionPriority(q) }))
+}
+
 /** Pre-built 727-question bundle (interview approach baked in) for offline Grind. */
 export async function loadGrindQuestionsBundle(): Promise<GrindQuestion[]> {
   try {
     const res = await fetch('/grind_questions.json', { cache: 'no-store' })
-    if (res.ok) return res.json() as Promise<GrindQuestion[]>
+    if (res.ok) return attachPriorities(await res.json() as GrindQuestion[])
   } catch {
     /* offline or network error */
   }
@@ -189,7 +195,7 @@ export async function loadGrindQuestionsBundle(): Promise<GrindQuestion[]> {
       try {
         const cache = await caches.open(cacheName)
         const cached = await cache.match('/grind_questions.json')
-        if (cached) return cached.json() as Promise<GrindQuestion[]>
+        if (cached) return attachPriorities(await cached.json() as GrindQuestion[])
       } catch {
         /* ignore */
       }

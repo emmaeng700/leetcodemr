@@ -182,7 +182,10 @@ export function resolveQuestionPriority(q: {
   id?: number | null
   pattern?: string | null
   section?: string | null
+  priority?: PatternPriority | null
 }): PatternPriority | null {
+  // Fast path: already computed at load time
+  if (q.priority !== undefined) return q.priority
   if (q.pattern) {
     const pri = PATTERN_PRIORITY[q.pattern]
     if (pri) return pri
