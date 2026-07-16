@@ -310,27 +310,40 @@ async function addQuestionsToFavorite(
   return { added, errors: errors.slice(0, 12) }
 }
 
-async function deleteLcFavorite(session: string, csrf: string, favoriteSlug: string): Promise<boolean> {
-  const result = await lcGql(session, csrf, {
-    operationName: 'deleteFavorite',
-    variables: { favoriteSlug },
-    query: `mutation deleteFavorite($favoriteSlug: String!) {
-      deleteFavorite(favoriteSlug: $favoriteSlug) { ok error }
-    }`,
-  })
+async function deleteLcFavorite(
+  session: string,
+  csrf: string,
+  favoriteSlug: string,
+  listName?: string,
+): Promise<boolean> {
+  const tryDelete = async (variables: Record<string, string>, query: string) => {
+    const result = await lcGql(session, csrf, { operationName: 'deleteFavorite', variables, query })
+    const payload = (result.data?.data as { deleteFavorite?: { ok?: boolean } })?.deleteFavorite
+    return payload?.ok === true
+  }
 
-  const payload = (result.data?.data as { deleteFavorite?: { ok?: boolean } })?.deleteFavorite
-  if (payload?.ok === true) return true
+  if (await tryDelete(
+    { favoriteSlug },
+    `mutation deleteFavorite($favoriteSlug: String!) { deleteFavorite(favoriteSlug: $favoriteSlug) { ok error } }`,
+  )) return true
 
-  const fallback = await lcGql(session, csrf, {
-    operationName: 'deleteFavorite',
-    variables: { favoriteIdHash: favoriteSlug },
-    query: `mutation deleteFavorite($favoriteIdHash: String!) {
-      deleteFavorite(favoriteIdHash: $favoriteIdHash) { ok error }
-    }`,
-  })
-  const fb = (fallback.data?.data as { deleteFavorite?: { ok?: boolean } })?.deleteFavorite
-  return fb?.ok === true
+  if (await tryDelete(
+    { favoriteIdHash: favoriteSlug },
+    `mutation deleteFavorite($favoriteIdHash: String!) { deleteFavorite(favoriteIdHash: $favoriteIdHash) { ok error } }`,
+  )) return true
+
+  // Last resort: look up fresh idHash by list name, then delete by that.
+  if (listName) {
+    const found = await findFavoriteByName(session, csrf, listName)
+    if (found && found.idHash !== favoriteSlug) {
+      if (await tryDelete(
+        { favoriteIdHash: found.idHash },
+        `mutation deleteFavorite($favoriteIdHash: String!) { deleteFavorite(favoriteIdHash: $favoriteIdHash) { ok error } }`,
+      )) return true
+    }
+  }
+
+  return false
 }
 
 export async function POST(req: NextRequest) {
@@ -348,9 +361,10 @@ export async function POST(req: NextRequest) {
 
     if (action === 'delete') {
       const slug = (body.favoriteIdHash ?? body.favoriteSlug) as string
-      if (!slug) return NextResponse.json({ ok: true })
-      await deleteLcFavorite(session, csrf, slug)
-      return NextResponse.json({ ok: true })
+      const listName = body.listName as string | undefined
+      if (!slug) return NextResponse.json({ ok: true, lcDeleted: false })
+      const lcDeleted = await deleteLcFavorite(session, csrf, slug, listName)
+      return NextResponse.json({ ok: true, lcDeleted })
     }
 
     if (action === 'create') {

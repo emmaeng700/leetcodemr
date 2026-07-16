@@ -229,10 +229,11 @@ export default function LeetCodeListPage() {
   const [patternFilter, setPatternFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [showFilters, setShowFilters] = useState(false)
-  const [lcListHashes, setLcListHashes] = useState<Record<string, string>>({})
+  const [lcLists, setLcLists] = useState<Record<string, { slug: string; name: string }>>({})
   const [lcListLoading, setLcListLoading] = useState(false)
   const [nameOrder, setNameOrder] = useState<LcNamePart[]>(DEFAULT_LC_NAME_ORDER)
   const [showBatch, setShowBatch] = useState(false)
+  const [showManagedLists, setShowManagedLists] = useState(false)
   const [batchSplit, setBatchSplit] = useState<LcBatchSplit>('pattern')
   /** null = use current page filters; otherwise a Set 1/2/3 all-patterns (etc.) preset */
   const [batchPresetId, setBatchPresetId] = useState<string | null>(null)
@@ -308,13 +309,24 @@ export default function LeetCodeListPage() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem('lm_lc_lists')
-      if (raw) setLcListHashes(JSON.parse(raw))
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, unknown>
+        const migrated: Record<string, { slug: string; name: string }> = {}
+        for (const [k, v] of Object.entries(parsed)) {
+          if (typeof v === 'string') {
+            migrated[k] = { slug: v, name: k }
+          } else if (v && typeof v === 'object' && 'slug' in v) {
+            migrated[k] = v as { slug: string; name: string }
+          }
+        }
+        setLcLists(migrated)
+      }
     } catch {}
     setNameOrder(readLcNameOrder())
   }, [])
 
-  const saveLcListHashes = (next: Record<string, string>) => {
-    setLcListHashes(next)
+  const saveLcLists = (next: Record<string, { slug: string; name: string }>) => {
+    setLcLists(next)
     try { localStorage.setItem('lm_lc_lists', JSON.stringify(next)) } catch {}
   }
 
@@ -338,7 +350,7 @@ export default function LeetCodeListPage() {
     setLcListLoading(true)
     try {
       const listName = singleListName
-      const existingHash = lcListHashes[lcListKey] ?? null
+      const existingEntry = lcLists[lcListKey] ?? null
       const { session, csrf } = await ensureLcSessionForSync()
       if (!session || !csrf) {
         toast.error('No LC session — open Clipboard → Use with your leetcode.com Cookie')
@@ -353,7 +365,7 @@ export default function LeetCodeListPage() {
           session,
           csrf,
           listName,
-          existingHash,
+          existingHash: existingEntry?.slug ?? null,
           questions: filtered.map(q => ({ id: q.id, slug: q.slug })),
         }),
       })
@@ -361,7 +373,7 @@ export default function LeetCodeListPage() {
       const slug = data.favoriteSlug ?? data.favoriteIdHash
 
       if (slug && data.code !== 'lc_not_logged_in') {
-        saveLcListHashes({ ...lcListHashes, [lcListKey]: slug })
+        saveLcLists({ ...lcLists, [lcListKey]: { slug, name: listName } })
         const openUrl = data.listUrl ?? leetCodeListUrl(slug)
         openExternalUrl(openUrl)
         toast.success(`"${listName}" ready on LeetCode.`, { duration: 5000 })
@@ -379,26 +391,35 @@ export default function LeetCodeListPage() {
     setLcListLoading(false)
   }
 
-  const handleDeleteLcList = async () => {
+  const deleteListEntry = async (key: string, entry: { slug: string; name: string }) => {
     if (lcListLoading) return
-    const hash = lcListHashes[lcListKey]
-    if (!hash) return
     setLcListLoading(true)
     try {
       const { session, csrf } = await ensureLcSessionForSync()
-      await fetch('/api/lc-list', {
+      const res = await fetch('/api/lc-list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete', session, csrf, favoriteIdHash: hash }),
+        body: JSON.stringify({ action: 'delete', session, csrf, favoriteIdHash: entry.slug, listName: entry.name }),
       })
-      const next = { ...lcListHashes }
-      delete next[lcListKey]
-      saveLcListHashes(next)
-      toast.success('LC list deleted')
+      const data = await res.json() as { ok?: boolean; lcDeleted?: boolean }
+      const next = { ...lcLists }
+      delete next[key]
+      saveLcLists(next)
+      if (data.lcDeleted) {
+        toast.success(`"${entry.name}" deleted from LeetCode`)
+      } else {
+        toast.success(`Removed locally — may already be gone on LeetCode`)
+      }
     } catch {
       toast.error('Failed to delete LC list')
     }
     setLcListLoading(false)
+  }
+
+  const handleDeleteLcList = () => {
+    const entry = lcLists[lcListKey]
+    if (!entry) return
+    void deleteListEntry(lcListKey, entry)
   }
 
   const tierPool = useMemo(() => {
@@ -523,7 +544,7 @@ export default function LeetCodeListPage() {
     setLcListLoading(true)
     setBatchProgress(`0 / ${batchPlans.length}`)
     let ok = 0
-    let hashes = { ...lcListHashes }
+    let lists = { ...lcLists }
     let lastSlug: string | null = null
 
     try {
@@ -545,7 +566,7 @@ export default function LeetCodeListPage() {
           batchDiffs,
           batchPriorities,
         )
-        const existingHash = hashes[storageKey] ?? null
+        const existingSlug = lists[storageKey]?.slug ?? null
         const res = await fetch('/api/lc-list', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -554,7 +575,7 @@ export default function LeetCodeListPage() {
             session,
             csrf,
             listName: plan.listName,
-            existingHash,
+            existingHash: existingSlug,
             questions: plan.questions.map(q => ({ id: q.id, slug: q.slug })),
           }),
         })
@@ -565,14 +586,14 @@ export default function LeetCodeListPage() {
         }
         const slug = data.favoriteSlug ?? data.favoriteIdHash
         if (slug) {
-          hashes = { ...hashes, [storageKey]: slug }
+          lists = { ...lists, [storageKey]: { slug, name: plan.listName } }
           lastSlug = slug
           ok++
         }
         if (i + 1 < batchPlans.length) await new Promise(r => setTimeout(r, 350))
       }
 
-      saveLcListHashes(hashes)
+      saveLcLists(lists)
       if (ok > 0 && lastSlug) {
         openExternalUrl(leetCodeListUrl(lastSlug))
         toast.success(`Created ${ok}/${batchPlans.length} LC lists.`, { duration: 6000 })
@@ -752,10 +773,10 @@ export default function LeetCodeListPage() {
                   </span>
                 ) : (
                   <div className="flex items-center gap-0.5 shrink-0">
-                    {lcListHashes[lcListKey] && (
+                    {lcLists[lcListKey] && (
                       <a
-                        href={leetCodeListUrl(lcListHashes[lcListKey])}
-                        onClick={e => openExternalLink(e, leetCodeListUrl(lcListHashes[lcListKey]))}
+                        href={leetCodeListUrl(lcLists[lcListKey].slug)}
+                        onClick={e => openExternalLink(e, leetCodeListUrl(lcLists[lcListKey].slug))}
                         target="_blank"
                         rel="noopener noreferrer"
                         title="Open this list on LeetCode"
@@ -769,7 +790,7 @@ export default function LeetCodeListPage() {
                       onClick={() => void handleCreateLcList()}
                       title={`Create one LC list: ${singleListName} (${filtered.length})`}
                       className={`flex items-center gap-1 px-2.5 py-2 border border-orange-300 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition ${
-                        lcListHashes[lcListKey] ? 'border-l-0' : 'rounded-l-xl'
+                        lcLists[lcListKey] ? 'border-l-0' : 'rounded-l-xl'
                       }`}
                     >
                       New List
@@ -786,7 +807,19 @@ export default function LeetCodeListPage() {
                     >
                       Batch
                     </button>
-                    {lcListHashes[lcListKey] ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowManagedLists(v => !v)}
+                      title="See and manage all created lists"
+                      className={`flex items-center gap-1 px-2.5 py-2 border border-l-0 border-orange-300 text-xs font-semibold transition ${
+                        showManagedLists
+                          ? 'bg-orange-100 text-orange-700'
+                          : 'bg-orange-50 text-orange-600 hover:bg-orange-100'
+                      }`}
+                    >
+                      Lists {Object.keys(lcLists).length > 0 && <span className="ml-0.5 tabular-nums">({Object.keys(lcLists).length})</span>}
+                    </button>
+                    {lcLists[lcListKey] ? (
                       <button
                         type="button"
                         onClick={() => void handleDeleteLcList()}
@@ -992,6 +1025,53 @@ export default function LeetCodeListPage() {
                 </div>
               )}
 
+              {showManagedLists && (
+                <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-3 space-y-1.5">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold text-orange-800">
+                      Saved Lists ({Object.keys(lcLists).length})
+                    </span>
+                    {Object.keys(lcLists).length > 0 && (
+                      <span className="text-[10px] text-orange-600">click 🗑 to delete from LeetCode + here</span>
+                    )}
+                  </div>
+                  {Object.keys(lcLists).length === 0 ? (
+                    <p className="text-[11px] text-[var(--text-subtle)]">No lists saved yet. Create one with New List or Batch.</p>
+                  ) : (
+                    <div className="max-h-52 overflow-y-auto space-y-1">
+                      {Object.entries(lcLists)
+                        .sort(([, a], [, b]) => a.name.localeCompare(b.name))
+                        .map(([key, entry]) => (
+                          <div
+                            key={key}
+                            className="flex items-center gap-2 text-[11px] px-2 py-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-soft)]"
+                          >
+                            <a
+                              href={leetCodeListUrl(entry.slug)}
+                              onClick={e => openExternalLink(e, leetCodeListUrl(entry.slug))}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 font-semibold text-orange-600 hover:underline truncate"
+                              title={entry.name}
+                            >
+                              {entry.name}
+                            </a>
+                            <button
+                              type="button"
+                              disabled={lcListLoading}
+                              onClick={() => void deleteListEntry(key, entry)}
+                              title={`Delete "${entry.name}" from LeetCode and here`}
+                              className="shrink-0 text-orange-300 hover:text-red-500 disabled:opacity-40 transition px-1"
+                            >
+                              🗑
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <CountStrip counts={summary} setFilter={setFilter} onSetFilter={setSetFilter} />
 
               {(setFilter !== 'all' || tierFilter !== 'all' || patternFilter !== 'all') && (
@@ -1175,7 +1255,7 @@ export default function LeetCodeListPage() {
                   const q = entry.q
                   const solved = solvedFn(q)
                   const lcSlug = resolveLeetCodeSlug(q.id, q.slug)
-                  const listSlug = lcListHashes[lcListKey]
+                  const listSlug = lcLists[lcListKey]?.slug
                   const lcHref = listSlug
                     ? leetCodeListPracticeUrl(lcSlug, listSlug)
                     : leetCodeUrl(lcSlug)
