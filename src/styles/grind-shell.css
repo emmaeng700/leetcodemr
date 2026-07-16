@@ -873,6 +873,27 @@
     min-width: 44px;
     padding: 0.5rem 0.65rem;
   }
+
+  /* Expand tap area for tiny filter tick + All/Reset buttons without altering layout */
+  .grind-shell .grind-tick,
+  .grind-shell .grind-filter-all {
+    position: relative;
+  }
+  .grind-shell .grind-tick::after,
+  .grind-shell .grind-filter-all::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Prevent iOS from auto-zooming when the pattern <select> gets focus */
+  .grind-shell .grind-pattern-select {
+    font-size: 16px;
+  }
 }
 
 @media (min-width: 768px) {

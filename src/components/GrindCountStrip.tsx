@@ -241,7 +241,12 @@ export function grindQuestionMatchesFilters(
     const m = q.section.match(/^(High|Mid|Low) /)
     if (m) pri = m[1] as PatternPriority
   }
-  if (!pri || !filters.priorities.has(pri)) return false
+  if (!pri) {
+    // Unknown priority: show when all 3 are selected (no priority filter applied), hide otherwise
+    if (filters.priorities.size < 3) return false
+  } else if (!filters.priorities.has(pri)) {
+    return false
+  }
   if (filters.pattern !== 'all' && q.pattern !== filters.pattern) return false
   return true
 }
