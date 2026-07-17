@@ -1,2 +1,2 @@
-// Loader stub — bump this file to force browsers to install the latest sw-v*.js.
-importScripts('/sw-v30.js')
+// Loader stub — bump the query to force browsers to install refreshed offline assets.
+importScripts('/sw-v30.js?v=31')

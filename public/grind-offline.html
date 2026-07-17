@@ -98,6 +98,41 @@
       border-bottom: 1px solid #313244; flex-shrink: 0;
     }
     .list { overflow-y: auto; flex: 1; min-height: 0; }
+    .fast-lists-panel { display: none; flex-direction: column; height: 100%; min-height: 0; }
+    .fast-lists-panel.open { display: flex; }
+    .fast-lists-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.35rem 0.5rem; font-size: 0.6rem; font-weight: 600;
+      color: #89b4fa; border-bottom: 1px solid #313244; flex-shrink: 0;
+      letter-spacing: 0.03em;
+    }
+    .fast-lists-close {
+      background: none; border: none; color: #6c7086; cursor: pointer;
+      font-size: 0.7rem; line-height: 1; padding: 0.1rem 0.25rem; border-radius: 0.25rem;
+    }
+    .fast-lists-close:hover { color: #cdd6f4; }
+    .fast-lists-scroll { overflow-y: auto; flex: 1; min-height: 0; padding: 0.4rem 0; }
+    .fast-lists-section { margin-bottom: 0.15rem; }
+    .fast-lists-section-label {
+      font-size: 0.58rem; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; padding: 0.25rem 0.5rem; position: sticky; top: 0; z-index: 1;
+    }
+    .fast-lists-chips {
+      display: flex; flex-direction: column; gap: 1px; padding: 0.1rem 0.3rem 0.4rem;
+    }
+    .fast-chip {
+      display: flex; align-items: center; gap: 0.15rem; padding: 0.28rem 0.45rem;
+      border-radius: 0.35rem; border: 1px solid transparent; background: none;
+      color: #a6adc8; font-size: 0.65rem; font-weight: 500; cursor: pointer;
+      text-align: left; white-space: nowrap;
+    }
+    .fast-chip:hover { background: #313244; color: #cdd6f4; }
+    .fast-chip.on { font-weight: 700; background: rgba(137,180,250,0.1); }
+    .fast-chip-set { font-weight: 800; font-size: 0.6rem; flex-shrink: 0; }
+    .fast-chip-count { color: #6c7086; font-size: 0.58rem; margin-left: 0.1rem; }
+    .tier-diff-e { color: #a6e3a1; font-weight: 800; }
+    .tier-diff-m { color: #fab387; font-weight: 800; }
+    .tier-diff-h { color: #f38ba8; font-weight: 800; }
     .q-wrap {
       display: flex; align-items: stretch; border-bottom: 1px solid #313244;
     }
@@ -487,7 +522,7 @@
   <div class="app">
     <div id="offline-banner" class="offline-banner">Offline ? saved on this device only.</div>
     <div id="online-banner" class="online-banner">
-      <p><strong>You&apos;re back online.</strong> Drafts can sync. Tap below to visit other pages in the app.</p>
+      <p><strong>You&apos;re back online.</strong> Your drafts are saved locally. Tap below to visit other pages in the app.</p>
       <div class="online-banner-actions">
         <a id="link-full-grind" class="chip-btn primary" href="/grind">Open full Grind</a>
         <a class="chip-btn" href="/daily">Daily</a>
@@ -511,6 +546,7 @@
         <input class="search" id="search" type="search" placeholder="Search #id or title..." autocomplete="off" />
         <button type="button" class="chip-btn nav-btn" id="btn-next" aria-label="Next question">&#8250;</button>
         <span class="nav-count" id="nav-count"></span>
+        <button type="button" class="chip-btn" id="btn-fast" aria-label="Open fast lists">Fast</button>
         <button type="button" class="chip-btn mob-only" id="btn-list" aria-label="Open question list">List</button>
       </div>
     </header>
@@ -519,7 +555,7 @@
       <div class="err" id="loading">Loading questions...</div>
     </div>
     <footer id="status">Offline mode</footer>
-    <span id="offline-version" hidden>v35</span>
+    <span id="offline-version" hidden>v41</span>
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
@@ -552,12 +588,39 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v40'
-    var SW_CACHE = 'lm-v30'
+    var OFFLINE_VERSION = 'v41'
+    var SW_CACHE = 'lm-v31'
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v2'
     var ALL_DIFFS = ['Easy', 'Medium', 'Hard']
     var ALL_PRIOS = ['High', 'Mid', 'Low']
     var ALL_SETS = [1, 2, 3]
+    var FAST_PATTERN_ORDER = [
+      'Arrays & Hashing', 'String', 'Two Pointers', 'Sliding Window', 'Sorting',
+      'Binary Search', 'Matrix', 'Trees & BST', 'DFS', 'Graphs', 'BFS',
+      'Linked List', 'Stack', 'Heap', 'Trie', 'Backtracking', 'Greedy',
+      'Dynamic Programming', 'Bit Manipulation', 'Math', 'JavaScript'
+    ]
+    var FAST_TIER_ABBREV = {
+      'High Easy': 'HE', 'High Medium': 'HM', 'High Hard': 'HH',
+      'Mid Easy': 'ME', 'Mid Medium': 'MM', 'Mid Hard': 'MH',
+      'Low Easy': 'LE', 'Low Medium': 'LM', 'Low Hard': 'LH'
+    }
+    var FAST_PATTERN_ABBREV = {
+      'Arrays & Hashing': 'A&H', 'String': 'Str', 'Two Pointers': '2P',
+      'Sliding Window': 'SW', 'Sorting': 'Sort', 'Binary Search': 'BS',
+      'Matrix': 'Mtx', 'Trees & BST': 'Trees', 'DFS': 'DFS', 'Graphs': 'Gph',
+      'BFS': 'BFS', 'Linked List': 'LL', 'Stack': 'Stk', 'Heap': 'Heap',
+      'Trie': 'Trie', 'Backtracking': 'BT', 'Greedy': 'Grdy',
+      'Dynamic Programming': 'DP', 'Bit Manipulation': 'BitM',
+      'Math': 'Math', 'JavaScript': 'JS'
+    }
+    var FAST_SET_COLOR = { 1: '#89b4fa', 2: '#a6e3a1', 3: '#cba6f7' }
+    var FAST_PRIO_COLOR = { High: '#f38ba8', Mid: '#fab387', Low: '#a6adc8' }
+    var FAST_PRIO_BG = {
+      High: 'rgba(243,139,168,0.08)',
+      Mid: 'rgba(250,179,135,0.08)',
+      Low: 'rgba(166,173,200,0.08)'
+    }
     function defaultGrindFilters() {
       return {
         difficulties: { Easy: true, Medium: true, Hard: true },
@@ -570,10 +633,10 @@
     var filtered = []
     var selectedId = 0
     var lang = 'python3'
-    var saveTimer = null
     var editorHandle = null
     var editorHostId = 'editor-host'
     var listOpen = false
+    var fastListOpen = false
     var editorExpanded = false
     var fsDescCollapsed = false
     var wasOffline = (function() {
@@ -585,6 +648,21 @@
     })()
     var copyFlashTimer = null
     var RESET_COUNTS_KEY = 'lm_grind_reset_counts'
+    var LAST_QUESTION_KEY = 'lm_grind_last_question_id'
+
+    function readLastQuestionId() {
+      try {
+        var id = parseInt(localStorage.getItem(LAST_QUESTION_KEY) || '0', 10)
+        return isFinite(id) && id > 0 ? id : 0
+      } catch (e) {
+        return 0
+      }
+    }
+
+    function writeLastQuestionId(id) {
+      if (!id || id < 1) return
+      try { localStorage.setItem(LAST_QUESTION_KEY, String(id)) } catch (e) {}
+    }
 
     function readResetCounts() {
       try { return JSON.parse(localStorage.getItem(RESET_COUNTS_KEY) || '{}') } catch (e) { return {} }
@@ -1967,9 +2045,8 @@
         lang: lang,
         value: loadCode(q),
         onChange: function(val) {
-          clearTimeout(saveTimer)
-          var id = selectedId
-          saveTimer = setTimeout(function() { saveCode(id, val) }, 300)
+          // Write locally immediately so a mid-edit close can't lose keystrokes.
+          saveCode(selectedId, val)
         }
       })
       requestAnimationFrame(syncEditorHeight)
@@ -2136,14 +2213,140 @@
       }
     }
 
+    function fastTierHtml(abbr) {
+      var m = String(abbr || '').match(/^([HML])([EMH])$/)
+      if (!m) return abbr
+      return m[1] + '<span class="tier-diff-' + m[2].toLowerCase() + '">' + m[2] + '</span>'
+    }
+
+    function buildFastGroups() {
+      var bucket = {}
+      questions.forEach(function(q) {
+        var parsed = parseGrindSection(q.section)
+        if (!parsed || !parsed.tier || !parsed.pattern) return
+        var key = q.set + '|' + parsed.tier + '|' + parsed.pattern
+        bucket[key] = (bucket[key] || 0) + 1
+      })
+      var result = []
+      ALL_PRIOS.forEach(function(priority) {
+        ALL_SETS.forEach(function(setNum) {
+          ALL_DIFFS.forEach(function(diff) {
+            var tier = priority + ' ' + diff
+            FAST_PATTERN_ORDER.forEach(function(pattern) {
+              var count = bucket[setNum + '|' + tier + '|' + pattern] || 0
+              if (!count) return
+              result.push({
+                priority: priority,
+                set: setNum,
+                tier: tier,
+                difficulty: diff,
+                pattern: pattern,
+                count: count,
+                tierAbbr: FAST_TIER_ABBREV[tier] || tier,
+                patAbbr: FAST_PATTERN_ABBREV[pattern] || pattern
+              })
+            })
+          })
+        })
+      })
+      return result
+    }
+
+    function fastGroupActive(group) {
+      return (
+        grindFilters.pattern === group.pattern &&
+        filterKeyCount(grindFilters.sets) === 1 &&
+        !!grindFilters.sets[group.set] &&
+        filterKeyCount(grindFilters.priorities) === 1 &&
+        !!grindFilters.priorities[group.priority] &&
+        filterKeyCount(grindFilters.difficulties) === 1 &&
+        !!grindFilters.difficulties[group.difficulty]
+      )
+    }
+
+    function selectFastGroup(group) {
+      grindFilters = {
+        difficulties: mapFromKeys([group.difficulty]),
+        priorities: mapFromKeys([group.priority]),
+        sets: mapFromKeys([group.set]),
+        pattern: group.pattern
+      }
+      var search = document.getElementById('search')
+      if (search) search.value = ''
+      applyFilters()
+      setFastListOpen(false)
+    }
+
+    function renderFastLists() {
+      var panel = document.getElementById('fast-lists-panel')
+      var scroll = document.getElementById('fast-lists-scroll')
+      var total = document.getElementById('fast-lists-total')
+      if (!panel || !scroll) return
+      var groups = buildFastGroups()
+      if (total) total.textContent = String(groups.length)
+      scroll.innerHTML = ''
+      ALL_PRIOS.forEach(function(priority) {
+        var items = groups.filter(function(g) { return g.priority === priority })
+        var section = document.createElement('div')
+        section.className = 'fast-lists-section'
+        var label = document.createElement('div')
+        label.className = 'fast-lists-section-label'
+        label.style.color = FAST_PRIO_COLOR[priority]
+        label.style.background = FAST_PRIO_BG[priority]
+        label.textContent = priority + ' · ' + items.length + ' lists'
+        section.appendChild(label)
+        var chips = document.createElement('div')
+        chips.className = 'fast-lists-chips'
+        items.forEach(function(group) {
+          var btn = document.createElement('button')
+          var active = fastGroupActive(group)
+          btn.type = 'button'
+          btn.className = 'fast-chip' + (active ? ' on' : '')
+          btn.title = 'Set ' + group.set + ' · ' + group.pattern + ' · ' + group.tier
+          btn.innerHTML =
+            '<span class="fast-chip-set" style="color:' + FAST_SET_COLOR[group.set] + '">S' + group.set + '</span> ' +
+            group.patAbbr + ' · ' + fastTierHtml(group.tierAbbr) +
+            '<span class="fast-chip-count">· ' + group.count + 'q</span>'
+          if (active) {
+            btn.style.borderColor = FAST_SET_COLOR[group.set]
+            btn.style.color = FAST_SET_COLOR[group.set]
+          }
+          btn.onclick = function() { selectFastGroup(group) }
+          chips.appendChild(btn)
+        })
+        section.appendChild(chips)
+        scroll.appendChild(section)
+      })
+    }
+
     function setListOpen(open) {
       listOpen = open
       var wrap = document.getElementById('list-wrap')
       var backdrop = document.getElementById('list-backdrop')
       var btn = document.getElementById('btn-list')
-      if (wrap) wrap.classList.toggle('open', open)
-      if (backdrop) backdrop.classList.toggle('open', open)
+      if (wrap) wrap.classList.toggle('open', open || fastListOpen)
+      if (backdrop) backdrop.classList.toggle('open', open || fastListOpen)
       if (btn) btn.textContent = open ? 'Hide' : 'List'
+    }
+
+    function setFastListOpen(open) {
+      fastListOpen = open
+      if (open) listOpen = false
+      var listHead = document.getElementById('list-head')
+      var list = document.getElementById('list')
+      var panel = document.getElementById('fast-lists-panel')
+      var wrap = document.getElementById('list-wrap')
+      var backdrop = document.getElementById('list-backdrop')
+      var fastBtn = document.getElementById('btn-fast')
+      var listBtn = document.getElementById('btn-list')
+      if (listHead) listHead.style.display = open ? 'none' : ''
+      if (list) list.style.display = open ? 'none' : ''
+      if (panel) panel.classList.toggle('open', open)
+      if (wrap) wrap.classList.toggle('open', open || listOpen)
+      if (backdrop) backdrop.classList.toggle('open', open || listOpen)
+      if (fastBtn) fastBtn.classList.toggle('on', open)
+      if (listBtn) listBtn.textContent = listOpen ? 'Hide' : 'List'
+      if (open) renderFastLists()
     }
 
     function setEditorExpanded(open) {
@@ -2210,6 +2413,7 @@
     function selectQuestion(id, closeList) {
       if (closeList === undefined) closeList = true
       selectedId = id
+      writeLastQuestionId(id)
       renderList()
       renderEditor()
       if (closeList) setListOpen(false)
@@ -2269,6 +2473,13 @@
         '<aside class="list-wrap" id="list-wrap">' +
           '<div class="list-head" id="list-head"></div>' +
           '<div class="list" id="list"></div>' +
+          '<div class="fast-lists-panel" id="fast-lists-panel">' +
+            '<div class="fast-lists-head">' +
+              '<span>Fast Lists · <span id="fast-lists-total">0</span></span>' +
+              '<button type="button" class="fast-lists-close" id="btn-fast-close" aria-label="Close fast lists">✕</button>' +
+            '</div>' +
+            '<div class="fast-lists-scroll" id="fast-lists-scroll"></div>' +
+          '</div>' +
         '</aside>' +
         '<div class="list-backdrop" id="list-backdrop"></div>' +
         '<section class="editor" aria-label="Code editor workspace">' +
@@ -2302,8 +2513,20 @@
             '</div>' +
           '</div>' +
         '</section>'
-      document.getElementById('list-backdrop').onclick = function() { setListOpen(false) }
-      document.getElementById('btn-list').onclick = function() { setListOpen(!listOpen) }
+      document.getElementById('list-backdrop').onclick = function() {
+        setListOpen(false)
+        setFastListOpen(false)
+      }
+      document.getElementById('btn-list').onclick = function() {
+        setFastListOpen(false)
+        setListOpen(!listOpen)
+      }
+      document.getElementById('btn-fast').onclick = function() {
+        setFastListOpen(!fastListOpen)
+      }
+      document.getElementById('btn-fast-close').onclick = function() {
+        setFastListOpen(false)
+      }
       document.getElementById('btn-prev').onclick = function() { goNav(-1) }
       document.getElementById('btn-next').onclick = function() { goNav(1) }
       document.getElementById('btn-full').onclick = function() { setEditorExpanded(true) }
@@ -2326,8 +2549,14 @@
 
       var sp = new URLSearchParams(location.search)
       var fromUrl = parseInt(sp.get('id') || '0', 10)
+      var savedId = readLastQuestionId()
       filtered = questions.slice()
-      selectedId = fromUrl && questions.some(function(q) { return q.id === fromUrl }) ? fromUrl : questions[0].id
+      selectedId = fromUrl && questions.some(function(q) { return q.id === fromUrl })
+        ? fromUrl
+        : savedId && questions.some(function(q) { return q.id === savedId })
+          ? savedId
+          : questions[0].id
+      writeLastQuestionId(selectedId)
       editorHostId = 'editor-host'
       applyFilters({ skipEditor: true })
       initEditor()
@@ -2365,7 +2594,7 @@
 
     function fetchCached(url) {
       if (!('caches' in window)) return Promise.reject(new Error('no cache'))
-      var names = [SW_CACHE, 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
+      var names = [SW_CACHE, 'lm-v30', 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
       var i = 0
       function tryNext() {
         if (i >= names.length) return Promise.reject(new Error('missing'))
