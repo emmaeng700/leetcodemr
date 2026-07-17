@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { memo, useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import { RotateCcw, Wifi, WifiOff, Cloud, CloudOff } from 'lucide-react'
@@ -41,7 +41,7 @@ interface GrindEditorProps {
   onReset?: (id: number) => void
 }
 
-export default function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
+function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
   const { height: vvHeight, keyboardOpen } = useMobileViewport()
   const { lang, setLang } = useGrindLang()
   // Re-render trigger for programmatic doc replacements; the text itself lives
@@ -666,3 +666,7 @@ export default function GrindEditor({ question, className = '', onReset }: Grind
     </>
   )
 }
+
+// Memoized so parent page re-renders (cache-progress banner, viewport ticks)
+// don't cascade into the CodeMirror tree.
+export default memo(GrindEditor)

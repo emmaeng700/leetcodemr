@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import GrindEditor from '@/components/GrindEditor'
 import GrindConnectivityBanner from '@/components/GrindConnectivityBanner'
@@ -14,7 +14,7 @@ import GrindListDivider from '@/components/GrindListDivider'
 import { GrindLangProvider, useGrindLang } from '@/components/grind/GrindLangContext'
 import { buildGrindQuestions, loadQuestionsFullJson, loadPlaybookMap, loadGrindQuestionsBundle, type GrindQuestion } from '@/lib/grindQuestions'
 import { migrateAllGrindDrafts } from '@/lib/grindMigration'
-import { grindListWithDividers, grindSummaryCounts } from '@/lib/grindList'
+import { grindListWithDividers, grindSummaryCounts, type GrindListEntry } from '@/lib/grindList'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
@@ -38,6 +38,10 @@ import {
 } from '@/lib/leetcodeListSync'
 import { useMobileViewport } from '@/hooks/useMobileViewport'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+
+function grindHref(id: number) {
+  return `/grind?id=${id}`
+}
 
 function priorityFromSection(section: string | null): string | null {
   if (!section) return null
@@ -74,6 +78,72 @@ function GrindAppShell({
   )
 }
 
+/**
+ * Memoized so the 700+ rows don't re-render (and re-diff) on unrelated page
+ * state changes — keyboard/viewport ticks, cache-progress banner updates, etc.
+ */
+const GrindQuestionList = memo(function GrindQuestionList({
+  listEntries,
+  activeId,
+  resetCounts,
+  onSelect,
+  activeRowRef,
+}: {
+  listEntries: GrindListEntry[]
+  activeId: number
+  resetCounts: Record<number, number>
+  onSelect: (q: GrindQuestion) => void
+  activeRowRef: React.MutableRefObject<HTMLDivElement | null>
+}) {
+  return (
+    <div className="grind-list">
+      {listEntries.map(entry => {
+        if (entry.type === 'divider') {
+          return <GrindListDivider key={entry.key} entry={entry} />
+        }
+        const q = entry.q
+        const active = activeId === q.id
+        const pri = priorityFromSection(q.section)
+        const lcHref = leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))
+        return (
+          <div
+            key={entry.key}
+            ref={active ? activeRowRef : undefined}
+            className={`grind-q-wrap ${active ? 'on' : ''}`}
+          >
+            <button type="button" className="grind-q" onClick={() => onSelect(q)}>
+              <div className="flex items-center gap-1 min-w-0">
+                <span className={`grind-set-badge grind-set-${q.set}`}>S{q.set}</span>
+                <span className="grind-q-id">#{q.id}</span>
+                <span className="grind-q-title">{q.title}</span>
+              </div>
+              <div className="flex flex-wrap gap-1 mt-0.5 items-center">
+                <span className={`grind-pill ${diffClass(q.difficulty)}`}>{q.difficulty}</span>
+                {pri && <span className={`grind-pill ${prioClass(pri)}`}>{pri}</span>}
+                {(resetCounts[q.id] ?? 0) > 0 && (
+                  <span className="grind-q-reset" title={`Reset ${resetCounts[q.id]} times`}>
+                    ↺{resetCounts[q.id]}
+                  </span>
+                )}
+              </div>
+            </button>
+            <a
+              href={lcHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open on LeetCode"
+              aria-label={`Open ${q.title} on LeetCode`}
+              className="grind-q-lc"
+            >
+              LC
+            </a>
+          </div>
+        )
+      })}
+    </div>
+  )
+})
+
 function GrindInner() {
   const { height: vvHeight, keyboardOpen } = useMobileViewport()
   const online = useOnlineStatus()
@@ -99,12 +169,9 @@ function GrindInner() {
   const prefetchRef = useRef(false)
   const activeRowRef = useRef<HTMLDivElement | null>(null)
   const [acCacheProgress, setAcCacheProgress] = useState<GrindLcAcceptedPrefetchProgress | null>(null)
+  const acProgressLastTsRef = useRef(0)
 
   const spKey = sp.toString()
-
-  function grindHref(id: number) {
-    return `/grind?id=${id}`
-  }
 
   useEffect(() => {
     if (!sp.get('search')) return
@@ -282,7 +349,13 @@ function GrindInner() {
         questions.map(q => ({ id: q.id, slug: q.slug })),
         lang,
         p => {
-          if (!cancelled) setAcCacheProgress(p)
+          if (cancelled) return
+          // The prefetch reports progress on every item; throttle running
+          // updates to ~1/s so the banner doesn't re-render the page constantly.
+          const now = Date.now()
+          if (p.running && now - acProgressLastTsRef.current < 1000) return
+          acProgressLastTsRef.current = now
+          setAcCacheProgress(p)
         },
       )
     })()
@@ -293,18 +366,18 @@ function GrindInner() {
     }
   }, [loading, questions, online, lang])
 
-  function navigateToQuestion(q: GrindQuestion) {
+  const navigateToQuestion = useCallback((q: GrindQuestion) => {
     writeGrindLastQuestionId(q.id)
     setSelectedId(q.id)
     const href = grindHref(q.id)
     window.history.replaceState(window.history.state, '', href)
     router.replace(href, { scroll: false })
-  }
+  }, [router])
 
-  function selectQuestion(q: GrindQuestion) {
+  const selectQuestion = useCallback((q: GrindQuestion) => {
     navigateToQuestion(q)
     setListOpen(false)
-  }
+  }, [navigateToQuestion])
 
   function go(delta: number) {
     if (navIndex < 0) return
@@ -312,9 +385,9 @@ function GrindInner() {
     if (next) navigateToQuestion(next)
   }
 
-  function handleReset(id: number) {
+  const handleReset = useCallback((id: number) => {
     setResetCounts(prev => ({ ...prev, [id]: readGrindResetCount(id) }))
-  }
+  }, [])
 
   useEffect(() => {
     if (!selectedId) return
@@ -482,51 +555,13 @@ function GrindInner() {
               ? ' matching filters'
               : ''}
           </div>
-          <div className="grind-list">
-            {listEntries.map(entry => {
-              if (entry.type === 'divider') {
-                return <GrindListDivider key={entry.key} entry={entry} />
-              }
-              const q = entry.q
-              const active = selected?.id === q.id
-              const pri = priorityFromSection(q.section)
-              const lcHref = leetCodeUrl(resolveLeetCodeSlug(q.id, q.slug))
-              return (
-                <div
-                  key={entry.key}
-                  ref={active ? activeRowRef : undefined}
-                  className={`grind-q-wrap ${active ? 'on' : ''}`}
-                >
-                  <button type="button" className="grind-q" onClick={() => selectQuestion(q)}>
-                    <div className="flex items-center gap-1 min-w-0">
-                      <span className={`grind-set-badge grind-set-${q.set}`}>S{q.set}</span>
-                      <span className="grind-q-id">#{q.id}</span>
-                      <span className="grind-q-title">{q.title}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1 mt-0.5 items-center">
-                      <span className={`grind-pill ${diffClass(q.difficulty)}`}>{q.difficulty}</span>
-                      {pri && <span className={`grind-pill ${prioClass(pri)}`}>{pri}</span>}
-                      {(resetCounts[q.id] ?? 0) > 0 && (
-                        <span className="grind-q-reset" title={`Reset ${resetCounts[q.id]} times`}>
-                          ↺{resetCounts[q.id]}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                  <a
-                    href={lcHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Open on LeetCode"
-                    aria-label={`Open ${q.title} on LeetCode`}
-                    className="grind-q-lc"
-                  >
-                    LC
-                  </a>
-                </div>
-              )
-            })}
-          </div>
+          <GrindQuestionList
+            listEntries={listEntries}
+            activeId={selected?.id ?? 0}
+            resetCounts={resetCounts}
+            onSelect={selectQuestion}
+            activeRowRef={activeRowRef}
+          />
         </aside>
 
         <div className="grind-editor min-h-0">
