@@ -36,6 +36,23 @@ const PRIO_BG: Record<string, string> = {
   Mid:  'rgba(250,179,135,0.08)',
   Low:  'rgba(166,173,200,0.08)',
 }
+const DIFF_COLOR: Record<string, string> = {
+  E: 'var(--grind-green)',
+  M: 'var(--grind-orange)',
+  H: 'var(--grind-red)',
+}
+
+/** "HE" → H + colored E so the difficulty jump is visible while scanning. */
+function TierAbbr({ abbr }: { abbr: string }) {
+  const m = /^([HML])([EMH])$/.exec(abbr)
+  if (!m) return <>{abbr}</>
+  return (
+    <>
+      {m[1]}
+      <span style={{ color: DIFF_COLOR[m[2]], fontWeight: 700 }}>{m[2]}</span>
+    </>
+  )
+}
 
 type FastGroup = {
   priority: string   // High | Mid | Low
@@ -153,7 +170,7 @@ export default function FastListsPanel({ questions, activeFilters, onSelect, onC
                     <span className="fast-chip-set" style={{ color: SET_COLOR[g.set] }}>
                       S{g.set}
                     </span>
-                    {' '}{g.patAbbr} · {g.tierAbbr}
+                    {' '}{g.patAbbr} · <TierAbbr abbr={g.tierAbbr} />
                     <span className="fast-chip-count">· {g.count}q</span>
                   </button>
                 )

@@ -62,6 +62,61 @@ const SET_BADGE: Record<1 | 2 | 3, string> = {
   3: 'bg-purple-50 text-purple-700 border-purple-200',
 }
 
+const DIFF_LETTER_COLOR: Record<string, string> = {
+  E: 'text-green-600',
+  M: 'text-orange-500',
+  H: 'text-red-500',
+}
+
+const DIFF_WORD_COLOR: Record<string, string> = {
+  Easy: 'text-green-600',
+  Medium: 'text-orange-500',
+  Hard: 'text-red-500',
+}
+
+/**
+ * Render a list name with the difficulty colored (E/Easy green, M/Medium
+ * orange, H/Hard red) so tier tokens like HE / HM / HH are scannable.
+ */
+function ColoredListName({ name }: { name: string }) {
+  const parts = name.split(' · ')
+  return (
+    <>
+      {parts.map((part, i) => {
+        const tier = /^([HML])([EMH])$/.exec(part)
+        const fullTier = /^(High|Mid|Low) (Easy|Medium|Hard)$/.exec(part)
+        const diffWords = part.split('+')
+        const isDiffTag = diffWords.every(w => DIFF_WORD_COLOR[w])
+        return (
+          <span key={i}>
+            {i > 0 && ' · '}
+            {tier ? (
+              <>
+                {tier[1]}
+                <span className={DIFF_LETTER_COLOR[tier[2]]}>{tier[2]}</span>
+              </>
+            ) : fullTier ? (
+              <>
+                {fullTier[1]}{' '}
+                <span className={DIFF_WORD_COLOR[fullTier[2]]}>{fullTier[2]}</span>
+              </>
+            ) : isDiffTag ? (
+              diffWords.map((w, j) => (
+                <span key={j}>
+                  {j > 0 && '+'}
+                  <span className={DIFF_WORD_COLOR[w]}>{w}</span>
+                </span>
+              ))
+            ) : (
+              part
+            )}
+          </span>
+        )
+      })}
+    </>
+  )
+}
+
 function buildFilterLabel(
   setFilter: SetFilter,
   tierFilter: TierFilter,
@@ -950,7 +1005,7 @@ export default function LeetCodeListPage() {
                   </span>
                 ))}
                 <span className="text-[var(--text-subtle)] truncate ml-1" title={singleListName}>
-                  → {singleListName}
+                  → <ColoredListName name={singleListName} />
                 </span>
               </div>
 
@@ -1102,7 +1157,9 @@ export default function LeetCodeListPage() {
                           key={plan.key}
                           className="flex items-center justify-between gap-2 text-[11px] px-2 py-1 rounded-lg bg-[var(--bg-card)] border border-[var(--border-soft)]"
                         >
-                          <span className="font-semibold text-[var(--text)] truncate">{plan.listName}</span>
+                          <span className="font-semibold text-[var(--text)] truncate">
+                            <ColoredListName name={plan.listName} />
+                          </span>
                           <span className="tabular-nums text-[var(--text-subtle)] shrink-0">{plan.questions.length}</span>
                         </div>
                       ))
@@ -1183,7 +1240,7 @@ export default function LeetCodeListPage() {
                                 className="flex-1 font-semibold text-orange-600 hover:underline truncate"
                                 title={list.name}
                               >
-                                {list.name}
+                                <ColoredListName name={list.name} />
                               </a>
                               {list.questionCount > 0 && (
                                 <span className="tabular-nums text-[var(--text-subtle)] shrink-0">{list.questionCount}q</span>
@@ -1213,7 +1270,7 @@ export default function LeetCodeListPage() {
 
               {(setFilter !== 'all' || tierFilter !== 'all' || patternFilter !== 'all') && (
                 <p className="text-[11px] font-semibold text-indigo-700 truncate" title={filterLabel}>
-                  {filterLabel}
+                  <ColoredListName name={filterLabel} />
                   <span className="font-normal text-[var(--text-subtle)] ml-1">({filtered.length})</span>
                 </p>
               )}
