@@ -1018,3 +1018,107 @@
     max-height: 28dvh;
   }
 }
+
+/* ── Fast Lists panel ────────────────────────────────────────────────────── */
+.grind-shell .fast-lists-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.grind-shell .fast-lists-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--grind-blue);
+  border-bottom: 1px solid var(--grind-overlay);
+  flex-shrink: 0;
+  letter-spacing: 0.03em;
+}
+
+.grind-shell .fast-lists-close {
+  background: none;
+  border: none;
+  color: var(--grind-subtle);
+  cursor: pointer;
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 0.1rem 0.25rem;
+  border-radius: 0.25rem;
+}
+.grind-shell .fast-lists-close:hover { color: var(--grind-text); }
+
+.grind-shell .fast-lists-scroll {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 0.4rem 0;
+}
+
+.grind-shell .fast-lists-section {
+  margin-bottom: 0.15rem;
+}
+
+.grind-shell .fast-lists-section-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.grind-shell .fast-lists-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0.1rem 0.3rem 0.4rem;
+}
+
+.grind-shell .fast-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.28rem 0.45rem;
+  border-radius: 0.35rem;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--grind-soft);
+  font-size: 0.65rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.1s, color 0.1s;
+}
+.grind-shell .fast-chip:hover {
+  background: var(--grind-overlay);
+  color: var(--grind-text);
+}
+.grind-shell .fast-chip-on {
+  font-weight: 700;
+}
+
+.grind-shell .fast-chip-set {
+  font-weight: 800;
+  font-size: 0.6rem;
+  flex-shrink: 0;
+}
+
+.grind-shell .fast-chip-count {
+  color: var(--grind-subtle);
+  font-size: 0.58rem;
+  margin-left: 0.1rem;
+}
+
+.grind-shell .grind-chip-primary {
+  background: var(--grind-blue);
+  color: var(--grind-base);
+  border-color: var(--grind-blue);
+}

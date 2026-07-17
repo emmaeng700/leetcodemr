@@ -38,6 +38,7 @@ import {
 } from '@/lib/leetcodeListSync'
 import { useMobileViewport } from '@/hooks/useMobileViewport'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import FastListsPanel from '@/components/FastListsPanel'
 
 function grindHref(id: number) {
   return `/grind?id=${id}`
@@ -165,6 +166,7 @@ function GrindInner() {
     return readGrindLastQuestionId() ?? 0
   })
   const [listOpen, setListOpen] = useState(false)
+  const [fastListOpen, setFastListOpen] = useState(false)
   const [resetCounts, setResetCounts] = useState<Record<number, number>>(() => readAllGrindResetCounts())
   const prefetchRef = useRef(false)
   const activeRowRef = useRef<HTMLDivElement | null>(null)
@@ -509,8 +511,15 @@ function GrindInner() {
           )}
           <button
             type="button"
+            className={`grind-chip ${fastListOpen ? 'grind-chip-primary' : ''}`}
+            onClick={() => { setFastListOpen(v => !v); setListOpen(false) }}
+          >
+            Fast
+          </button>
+          <button
+            type="button"
             className="grind-chip grind-mob-only"
-            onClick={() => setListOpen(v => !v)}
+            onClick={() => { setListOpen(v => !v); setFastListOpen(false) }}
           >
             {listOpen ? 'Hide' : 'List'}
           </button>
@@ -544,24 +553,42 @@ function GrindInner() {
           className={`grind-list-backdrop ${listOpen ? 'open' : ''} lg:hidden`}
           onClick={() => setListOpen(false)}
         />
-        <aside className={`grind-list-wrap ${listOpen ? 'open' : ''}`}>
-          <div className="grind-list-head">
-            {filtered.length} question{filtered.length !== 1 ? 's' : ''}
-            {search.trim() ||
-            grindFilters.pattern !== 'all' ||
-            grindFilters.difficulties.size < 3 ||
-            grindFilters.priorities.size < 3 ||
-            grindFilters.sets.size < 3
-              ? ' matching filters'
-              : ''}
-          </div>
-          <GrindQuestionList
-            listEntries={listEntries}
-            activeId={selected?.id ?? 0}
-            resetCounts={resetCounts}
-            onSelect={selectQuestion}
-            activeRowRef={activeRowRef}
-          />
+        <aside className={`grind-list-wrap ${listOpen || fastListOpen ? 'open' : ''}`}>
+          {fastListOpen ? (
+            <FastListsPanel
+              questions={questions}
+              activeFilters={grindFilters}
+              onSelect={nextFilters => {
+                setGrindFilters(nextFilters)
+                setFastListOpen(false)
+                const newFiltered = questions.filter(q =>
+                  grindQuestionMatchesFilters(q, nextFilters),
+                )
+                if (newFiltered.length > 0) navigateToQuestion(newFiltered[0])
+              }}
+              onClose={() => setFastListOpen(false)}
+            />
+          ) : (
+            <>
+              <div className="grind-list-head">
+                {filtered.length} question{filtered.length !== 1 ? 's' : ''}
+                {search.trim() ||
+                grindFilters.pattern !== 'all' ||
+                grindFilters.difficulties.size < 3 ||
+                grindFilters.priorities.size < 3 ||
+                grindFilters.sets.size < 3
+                  ? ' matching filters'
+                  : ''}
+              </div>
+              <GrindQuestionList
+                listEntries={listEntries}
+                activeId={selected?.id ?? 0}
+                resetCounts={resetCounts}
+                onSelect={selectQuestion}
+                activeRowRef={activeRowRef}
+              />
+            </>
+          )}
         </aside>
 
         <div className="grind-editor min-h-0">
