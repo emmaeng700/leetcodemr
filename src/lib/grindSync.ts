@@ -14,7 +14,6 @@ export type GrindLoadResult = {
   code: string
   source: GrindLoadSource
   synced: boolean
-  sessionLabel: string | null
 }
 
 function parseTime(iso: string | null | undefined): number {
@@ -54,7 +53,6 @@ function finalizeLoadedCode(
     code: piped.code,
     source,
     synced,
-    sessionLabel: piped.sessionLabel,
   }
 }
 

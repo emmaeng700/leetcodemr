@@ -78,8 +78,6 @@ export function clearGrindDraft(questionId: number, lang: GrindLang): void {
   }
 }
 
-export { clearGrindStartedAt } from '@/lib/grindStamp'
-
 export function readCachedStarter(questionId: number, lang: GrindLang): string | null {
   if (typeof window === 'undefined') return null
   try {

@@ -241,12 +241,6 @@
     }
     .editor-hint { font-size: 0.58rem; color: #6c7086; }
     .editor-footer-left { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; min-width: 0; flex: 1; }
-    .grind-session-chip {
-      font-size: 0.58rem; color: #bac2de; background: rgba(49, 50, 68, 0.9);
-      border: 1px solid #585b70; border-radius: 999px; padding: 0.12rem 0.45rem;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 11rem;
-    }
-    .grind-session-chip.hidden { display: none; }
     .editor-footer .chip-btn { font-size: 0.65rem; white-space: nowrap; }
     .editor-footer-actions { display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0; }
     .editor-footer-actions .chip-btn.copied { color: #a6e3a1; border-color: #6c7086; }
@@ -548,7 +542,6 @@
     <div class="editor-footer">
       <div class="editor-footer-left">
         <span class="editor-hint">no submit - write from memory</span>
-        <span class="grind-session-chip hidden" id="grind-session-chip-fs"></span>
       </div>
       <div class="editor-footer-actions">
         <button type="button" class="chip-btn" id="btn-copy-fs" aria-label="Copy all code">Copy</button>
@@ -559,9 +552,8 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v38'
+    var OFFLINE_VERSION = 'v40'
     var SW_CACHE = 'lm-v30'
-    var midnightTimer = null
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v2'
     var ALL_DIFFS = ['Easy', 'Medium', 'Hard']
     var ALL_PRIOS = ['High', 'Mid', 'Low']
@@ -722,13 +714,6 @@
         if (!online) onlineBanner.classList.remove('show')
       }
       if (grindLink && selectedId) grindLink.href = '/grind?id=' + selectedId
-      if (online && wasOffline && editorHandle && selectedId) {
-        var stamped = applyGrindStamp(selectedId, editorHandle.getDoc())
-        if (stamped !== editorHandle.getDoc()) {
-          editorHandle.setDoc(stamped)
-          try { localStorage.setItem(draftKey(selectedId), stamped) } catch (e) {}
-        }
-      }
       if (status) {
         status.textContent = online
           ? (wasOffline ? 'Back online - tap links above to visit other pages' : questions.length + ' questions')
@@ -743,63 +728,16 @@
         void prefetchAcceptedForOffline()
       }
     }
-    function refreshEditorStampIfNewDay() {
-      if (!editorHandle || !selectedId) return
-      var q = currentQuestion()
-      if (!q) return
-      var starter = starterFor(q)
-      var piped = runGrindCodePipeline(q.id, editorHandle.getDoc(), starter, q.interviewApproach, false)
-      if (piped.code !== editorHandle.getDoc()) {
-        editorHandle.setDoc(piped.code)
-        try { localStorage.setItem(draftKey(q.id), piped.code) } catch (e) {}
-      }
-      updateSessionChip(piped.code, q.id)
-    }
-
-    function scheduleMidnightRefresh() {
-      if (midnightTimer) clearTimeout(midnightTimer)
-      var now = new Date()
-      var next = new Date(now)
-      next.setHours(24, 0, 0, 0)
-      var delay = Math.max(1000, next.getTime() - now.getTime())
-      midnightTimer = setTimeout(function() {
-        refreshEditorStampIfNewDay()
-        scheduleMidnightRefresh()
-      }, delay)
-    }
-
     window.addEventListener('online', updateConnectivityUI)
     window.addEventListener('offline', updateConnectivityUI)
     document.addEventListener('visibilitychange', function() {
       if (document.visibilityState === 'visible') {
-        refreshEditorStampIfNewDay()
         if (navigator.onLine) void syncResetCountsOnline()
       }
     })
-    window.addEventListener('focus', refreshEditorStampIfNewDay)
-    scheduleMidnightRefresh()
 
     function draftKey(id) { return 'lm_grind_' + id + '_' + lang }
     function starterKey(id) { return 'lm_grind_starter_' + id + '_' + lang }
-    function startedKey(id) { return 'lm_grind_started_' + id + '_' + lang }
-    function dayKey(id) { return 'lm_grind_day_' + id + '_' + lang }
-
-    function localCalendarDayKey(d) {
-      d = d || new Date()
-      var y = d.getFullYear()
-      var m = String(d.getMonth() + 1)
-      if (m.length < 2) m = '0' + m
-      var day = String(d.getDate())
-      if (day.length < 2) day = '0' + day
-      return y + '-' + m + '-' + day
-    }
-
-    function formatGrindSessionChip(d) {
-      return d.toLocaleString(undefined, {
-        year: 'numeric', month: 'short', day: 'numeric',
-        hour: 'numeric', minute: '2-digit'
-      })
-    }
 
     function normalizeGrindCode(code) {
       var out = code.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
@@ -809,149 +747,21 @@
       return out
     }
 
-    function formatGrindStamp(d) {
-      var label = d.toLocaleString(undefined, {
-        year: 'numeric', month: 'short', day: 'numeric',
-        hour: 'numeric', minute: '2-digit'
-      })
-      return lang === 'python3' ? '# Grind: ' + label : '// Grind: ' + label
-    }
-
+    /* Legacy "# Grind:" / "// Grind:" header cleanup (feature removed). */
     function hasGrindStamp(code) {
       var first = (code.split('\n')[0] || '').trim()
       return lang === 'python3' ? first.indexOf('# Grind:') === 0 : first.indexOf('// Grind:') === 0
     }
 
-    function readStampDateFromCode(code) {
-      var first = (code.split('\n')[0] || '').trim()
-      var prefix = lang === 'python3' ? '# Grind:' : '// Grind:'
-      if (first.indexOf(prefix) !== 0) return null
-      var label = first.slice(prefix.length).trim()
-      var parsed = new Date(label)
-      return isFinite(parsed.getTime()) ? parsed : null
-    }
-
-    function prependGrindStamp(code, d) {
-      var lines = code.split('\n')
-      if (lines.length && hasGrindStamp(code)) lines = lines.slice(1)
-      var body = lines.join('\n')
-      var stamp = formatGrindStamp(d)
-      return body.trim() ? stamp + '\n' + body : stamp
-    }
-
-    function readGrindDay(id) {
-      try { return localStorage.getItem(dayKey(id)) } catch (e) { return null }
-    }
-
-    function writeGrindDay(id, day) {
-      try { localStorage.setItem(dayKey(id), day) } catch (e) {}
-    }
-
-    function hasGrindAttempt(id, code) {
-      return hasGrindStamp(code) || readGrindDay(id) !== null || (function() {
-        try { return localStorage.getItem(startedKey(id)) !== null } catch (e) { return false }
-      })()
-    }
-
-    function inferSessionDay(id, code) {
-      var explicit = readGrindDay(id)
-      if (explicit) return explicit
-      var fromCode = readStampDateFromCode(code)
-      if (fromCode) return localCalendarDayKey(fromCode)
-      var started = null
-      try { started = localStorage.getItem(startedKey(id)) } catch (e) {}
-      if (started) return localCalendarDayKey(new Date(started))
-      return null
-    }
-
-    function getGrindSessionChipLabel(id, code) {
-      if (!hasGrindAttempt(id, code)) return null
-      var started = null
-      try { started = localStorage.getItem(startedKey(id)) } catch (e) {}
-      if (started) {
-        var parsed = new Date(started)
-        if (isFinite(parsed.getTime())) return formatGrindSessionChip(parsed)
-      }
-      var fromCode = readStampDateFromCode(code)
-      if (fromCode) return formatGrindSessionChip(fromCode)
-      var day = inferSessionDay(id, code)
-      if (!day) return null
-      var parts = day.split('-').map(Number)
-      return formatGrindSessionChip(new Date(parts[0], parts[1] - 1, parts[2], 12, 0))
-    }
-
-    function updateSessionChip(code, id) {
-      var label = getGrindSessionChipLabel(id || selectedId, code || (editorHandle ? editorHandle.getDoc() : ''))
-      var chips = [
-        document.getElementById('grind-session-chip'),
-        document.getElementById('grind-session-chip-fs')
-      ]
-      for (var i = 0; i < chips.length; i++) {
-        var chip = chips[i]
-        if (!chip) continue
-        if (label) {
-          chip.textContent = 'Last grind: ' + label
-          chip.classList.remove('hidden')
-        } else {
-          chip.textContent = ''
-          chip.classList.add('hidden')
-        }
-      }
-    }
-
-    function refreshGrindStampOnRecheck(id, code) {
-      var normalized = normalizeGrindCode(code)
-      var today = localCalendarDayKey()
-      if (!hasGrindAttempt(id, normalized)) return normalized
-      var sessionDay = inferSessionDay(id, normalized)
-      var storedDay = readGrindDay(id)
-      if (sessionDay === today && hasGrindStamp(normalized)) {
-        if (!storedDay) writeGrindDay(id, today)
-        return normalized
-      }
-      var now = new Date()
-      try { localStorage.setItem(startedKey(id), now.toISOString()) } catch (e) {}
-      writeGrindDay(id, today)
-      return prependGrindStamp(normalized, now)
+    function stripGrindStamp(code) {
+      if (!hasGrindStamp(code)) return code
+      return code.split('\n').slice(1).join('\n')
     }
 
     function runGrindCodePipeline(id, code, starter, script, isStarter) {
-      var raw = isStarter ? code : refreshGrindStampOnRecheck(id, code)
+      var raw = isStarter ? code : stripGrindStamp(normalizeGrindCode(code))
       var result = upgradeCodeWithInterview(raw, starter, script)
-      return {
-        code: result,
-        sessionLabel: getGrindSessionChipLabel(id, result)
-      }
-    }
-
-    function applyGrindStamp(id, code) {
-      var normalized = normalizeGrindCode(code)
-      if (hasGrindStamp(normalized)) {
-        return refreshGrindStampOnRecheck(id, normalized)
-      }
-      if (hasGrindAttempt(id, normalized)) {
-        var startedIso = null
-        try { startedIso = localStorage.getItem(startedKey(id)) } catch (e) {}
-        var d = startedIso ? new Date(startedIso) : null
-        if (!d || !isFinite(d.getTime())) {
-          var day = inferSessionDay(id, normalized)
-          if (day) {
-            var parts = day.split('-').map(Number)
-            d = new Date(parts[0], parts[1] - 1, parts[2], 12, 0)
-          } else {
-            d = new Date()
-          }
-        }
-        return prependGrindStamp(normalized, d)
-      }
-      var now = new Date()
-      try { localStorage.setItem(startedKey(id), now.toISOString()) } catch (e) {}
-      writeGrindDay(id, localCalendarDayKey(now))
-      return prependGrindStamp(normalized, now)
-    }
-
-    function ensureGrindStampOnLoad(id, code) {
-      return refreshGrindStampOnRecheck(id, code)
+      return { code: result }
     }
 
     function titleComment(q) {
@@ -1259,7 +1069,6 @@
         if (next !== code) {
           try { localStorage.setItem(draftKey(q.id), next) } catch (e) {}
           if (editorHandle && selectedId === q.id) editorHandle.setDoc(next)
-          updateSessionChip(next, q.id)
         }
         return next
       })
@@ -1616,19 +1425,9 @@
     }
 
     function saveCode(id, code) {
-      var next = applyGrindStamp(id, code)
-      try { localStorage.setItem(draftKey(id), next) } catch (e) {}
+      try { localStorage.setItem(draftKey(id), code) } catch (e) {}
       document.getElementById('status').textContent = 'Saved locally'
-      if (editorHandle && next !== code) editorHandle.setDoc(next)
-      updateSessionChip(next, id)
-      return next
-    }
-
-    function clearGrindStartedAt(id) {
-      try {
-        localStorage.removeItem(startedKey(id))
-        localStorage.removeItem(dayKey(id))
-      } catch (e) {}
+      return code
     }
 
     function resetToStarter() {
@@ -1643,7 +1442,6 @@
           : upsertAcceptedSection(starter, null, 'uncached')
       try { localStorage.setItem(draftKey(q.id), next) } catch (e) {}
       if (editorHandle) editorHandle.setDoc(next)
-      updateSessionChip(next, q.id)
       incrementResetCount(q.id)
       updateResetButtonLabels()
       var status = document.getElementById('status')
@@ -2174,7 +1972,6 @@
           saveTimer = setTimeout(function() { saveCode(id, val) }, 300)
         }
       })
-      updateSessionChip(loadCode(q), q.id)
       requestAnimationFrame(syncEditorHeight)
     }
 
@@ -2332,13 +2129,9 @@
       if (editorHandle) {
         var doc = loadCode(q)
         editorHandle.setDoc(doc)
-        if (q) {
-          updateSessionChip(doc, q.id)
-          void applyAcceptedToEditor(q, doc)
-        }
+        if (q) void applyAcceptedToEditor(q, doc)
       } else if (!isMobile() || editorExpanded) initEditor()
       else if (q) {
-        updateSessionChip(loadCode(q), q.id)
         void applyAcceptedToEditor(q, loadCode(q))
       }
     }
@@ -2502,7 +2295,6 @@
           '<div class="editor-footer">' +
             '<div class="editor-footer-left">' +
               '<span class="editor-hint">no submit - write from memory</span>' +
-              '<span class="grind-session-chip hidden" id="grind-session-chip"></span>' +
             '</div>' +
             '<div class="editor-footer-actions">' +
               '<button type="button" class="chip-btn" id="btn-copy" aria-label="Copy all code">Copy</button>' +

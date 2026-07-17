@@ -11,14 +11,9 @@ import {
 } from '@/lib/grindStorage'
 import { readGrindResetCount, incrementGrindResetCount, GRIND_RESET_CHANGED } from '@/lib/grindResets'
 import {
-  applyGrindStampOnEdit,
-  getGrindSessionChipLabel,
-} from '@/lib/grindStamp'
-import {
   ensureGrindStarterCached,
   resolveGrindStarterSync,
 } from '@/lib/grindStarter'
-import { scheduleMidnightGrindRefresh } from '@/lib/grindPipeline'
 import { runGrindRecheckPipeline } from '@/lib/grindRecheck'
 import { resolveGrindCodeForLoad } from '@/lib/grindSync'
 import {
@@ -51,7 +46,6 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
   const [loading, setLoading] = useState(true)
   const [savedFlash, setSavedFlash] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [sessionLabel, setSessionLabel] = useState<string | null>(null)
   const [syncState, setSyncState] = useState<'local' | 'synced' | 'offline'>('local')
   const [resetCount, setResetCount] = useState(() => readGrindResetCount(question.id))
   const [editorExpanded, setEditorExpanded] = useState(false)
@@ -175,7 +169,6 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
       } catch { /* keep loaded code */ }
 
       setEditorDoc(nextCode)
-      setSessionLabel(loaded.sessionLabel)
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         setSyncState('offline')
       } else {
@@ -242,11 +235,10 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
   }, [descriptionHtml])
 
   const applyRecheckResult = useCallback(
-    (piped: { code: string; sessionLabel: string | null; synced: boolean }) => {
+    (piped: { code: string; synced: boolean }) => {
       if (piped.code !== codeRef.current) {
         setEditorDoc(piped.code)
       }
-      setSessionLabel(piped.sessionLabel)
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         setSyncState('offline')
       } else {
@@ -306,23 +298,12 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
     }
   }, [runRecheck, loading])
 
-  useEffect(() => {
-    const cancelMidnight = scheduleMidnightGrindRefresh(() => {
-      void runRecheck()
-    })
-    return cancelMidnight
-  }, [runRecheck])
-
   const handleChange = useCallback(
     (val: string) => {
-      const next = applyGrindStampOnEdit(question.id, lang, val)
+      // Keep keystrokes out of React state: codeRef is the live source of
+      // truth, so the whole tree doesn't re-render on every key press.
+      const next = val
       codeRef.current = next
-      // Keep keystrokes out of React state: only write back to the editor when
-      // the stamp actually rewrote the text. Otherwise the whole tree
-      // re-renders (and re-syncs two CodeMirror docs) on every key press.
-      if (next !== val) setEditorDoc(next)
-      const label = getGrindSessionChipLabel(question.id, lang, next)
-      setSessionLabel(prev => (prev === label ? prev : label))
       writeGrindDraft(question.id, lang, next)
       setSavedFlash(true)
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
@@ -339,7 +320,7 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
           .catch(() => setSyncState(prev => (prev === 'local' ? prev : 'local')))
       }, 2000)
     },
-    [question.id, lang, setEditorDoc],
+    [question.id, lang],
   )
 
   const reset = useCallback(() => {
@@ -350,7 +331,6 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
         ? upsertAcceptedSection(starter, lang, null, 'empty')
         : upsertAcceptedSection(starter, lang, null, 'uncached')
     setEditorDoc(next)
-    setSessionLabel(getGrindSessionChipLabel(question.id, lang, next))
     writeGrindDraft(question.id, lang, next)
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       saveGrindSession(question.id, lang, next).catch(() => {})
@@ -412,14 +392,6 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
     <div className="grind-editor-footer">
       <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
         {syncLabel}
-        {sessionLabel && (
-          <span
-            className="text-[0.58rem] text-[#bac2de] bg-[#313244] border border-[#585b70] rounded-full px-2 py-0.5 truncate max-w-[11rem]"
-            title={`Last grind: ${sessionLabel}`}
-          >
-            Last grind: {sessionLabel}
-          </span>
-        )}
         <span className="grind-editor-hint hidden md:inline">no submit - write from memory</span>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
