@@ -1031,13 +1031,40 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.35rem 0.5rem;
-  font-size: 0.6rem;
-  font-weight: 600;
-  color: var(--grind-blue);
+  padding: 0.25rem 0.5rem;
   border-bottom: 1px solid var(--grind-overlay);
   flex-shrink: 0;
+}
+
+.grind-shell .fast-lists-tab-row {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.grind-shell .fast-lists-tab-sep {
+  color: var(--grind-overlay);
+  font-size: 0.6rem;
+  line-height: 1;
+  user-select: none;
+}
+
+.grind-shell .fast-lists-tab {
+  background: none;
+  border: none;
+  color: var(--grind-subtle);
+  font-size: 0.6rem;
+  font-weight: 600;
   letter-spacing: 0.03em;
+  cursor: pointer;
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.25rem;
+  transition: color 0.1s, background 0.1s;
+}
+.grind-shell .fast-lists-tab:hover { color: var(--grind-text); }
+.grind-shell .fast-lists-tab.active {
+  color: var(--grind-blue);
+  background: rgba(137,180,250,0.1);
 }
 
 .grind-shell .fast-lists-close {
