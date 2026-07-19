@@ -352,7 +352,7 @@
     "solution": "The solution starts by sorting the intervals in ascending order by their start times. After sorting, iterate through the intervals and for each consecutive pair, check if the previous meeting's end time exceeds the next meeting's start time. An overlap indicates that the person cannot attend all meetings. The primary data structure used is an array (or list) for holding the intervals. Sorting makes it easier to compare adjacent intervals for potential overlaps."
   },
   {
-    "id": 1086,
+    "id": 1133,
     "title": "Largest Unique Number",
     "slug": "largest-unique-number",
     "solution_url": "https://www.simplyleet.com/largest-unique-number",

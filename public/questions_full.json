@@ -6558,7 +6558,7 @@
     "starter_cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nclass Solution  {\npublic:\n    int numSubmatrixSumTarget(vector<vector<int>>& matrix, int target) {\n    // Write your solution here\n}\n\n};\n\nint main() {\n    Solution sol;\n    int pass_count = 0;\n\n    // Example 1\n    auto result1 = sol.numSubmatrixSumTarget({[0,1,0],[1,1,1],[0,1,0]}, 0);\n    // expected: 4\n    cout << \"Example 1: \" << result1 << \" (expected 4)\" << endl;\n\n    // Example 2\n    auto result2 = sol.numSubmatrixSumTarget({[1,-1],[-1,1]}, 0);\n    // expected: 5\n    cout << \"Example 2: \" << result2 << \" (expected 5)\" << endl;\n\n    // Example 3\n    auto result3 = sol.numSubmatrixSumTarget({[904]}, 0);\n    // expected: 0\n    cout << \"Example 3: \" << result3 << \" (expected 0)\" << endl;\n\n    return 0;\n}\n"
   },
   {
-    "id": 1086,
+    "id": 1133,
     "title": "Largest Unique Number",
     "slug": "largest-unique-number",
     "difficulty": "Easy",
@@ -6568,8 +6568,8 @@
       "Hash Table",
       "Sorting"
     ],
-    "url": "https://leetcode.doocs.org/en/lc/1086/",
-    "doocs_url": "https://leetcode.doocs.org/en/lc/1086/",
+    "url": "https://leetcode.doocs.org/en/lc/1133/",
+    "doocs_url": "https://leetcode.doocs.org/en/lc/1133/",
     "source": [
       "Premium 98"
     ],
