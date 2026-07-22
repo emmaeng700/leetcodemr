@@ -2169,10 +2169,14 @@ export default function DailyPage() {
                         return (
                         <div key={q.id} className="flex flex-wrap items-center gap-2 text-sm py-1">
                           <span className="flex items-center gap-2 shrink-0">
-                            <span className="flex items-center gap-1" title={dailyDone ? 'Daily done' : 'Daily not done'}>
+                            <span className="flex items-center gap-1" title={dailyDone ? 'Daily done' : 'Daily not done — click to practice'}>
                               {dailyDone
                                 ? <CheckCircle2 size={14} className="text-green-400 shrink-0" aria-label="Daily done" />
-                                : <Circle size={14} className="text-[var(--text-subtle)] shrink-0" aria-label="Daily not done" />
+                                : (
+                                  <Link href={`/practice/${q.id}?from=daily`} className="shrink-0" aria-label="Daily not done — open in practice">
+                                    <Circle size={14} className="text-[var(--text-subtle)] hover:text-green-500 transition-colors" />
+                                  </Link>
+                                )
                               }
                               <span className="text-[9px] font-bold text-green-600">Daily</span>
                             </span>
@@ -2193,8 +2197,8 @@ export default function DailyPage() {
                             </span>
                           </span>
                           <Link
-                            href={learnHrefForQuestionId(q.id, learnOrderIds, { from: 'daily' })}
-                            className="text-[var(--text)] hover:text-indigo-500 break-words flex-1 min-w-[8rem]"
+                            href={`/practice/${q.id}?from=daily`}
+                            className="text-[var(--text)] hover:text-green-600 break-words flex-1 min-w-[8rem]"
                           >
                             {q.title}
                           </Link>
