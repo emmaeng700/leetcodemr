@@ -72,7 +72,7 @@
     "starter_python": "from typing import List, Optional\n\nclass Solution:\n    def canAttendMeetings(self, intervals):\n        # Write your solution here\n        pass\n\n# ── Examples ──\ndef _check(label, got, expected):\n    g, e = str(got).replace(\" \", \"\"), str(expected).replace(\" \", \"\")\n    if g == e: print(f\"✅ {label}: PASS (output: {got})\")\n    else: print(f\"❌ {label}: FAIL\\n   expected: {expected}\\n   got:      {got}\")\n\nsol = Solution()\n_check(\"Example 1\", sol.canAttendMeetings([[0,30],[5,10],[15,20]]), False)\n_check(\"Example 2\", sol.canAttendMeetings([[7,10],[2,4]]), True)\n"
   },
   {
-    "id": 1086,
+    "id": 1133,
     "starter_python": "from typing import List, Optional\n\nclass Solution:\n    def largestUniqueNumber(self, nums):\n        # Write your solution here\n        pass\n\n# ── Examples ──\ndef _check(label, got, expected):\n    g, e = str(got).replace(\" \", \"\"), str(expected).replace(\" \", \"\")\n    if g == e: print(f\"✅ {label}: PASS (output: {got})\")\n    else: print(f\"❌ {label}: FAIL\\n   expected: {expected}\\n   got:      {got}\")\n\nsol = Solution()\n_check(\"Example 1\", sol.largestUniqueNumber([[1,91],[1,92],[2,93],[2,97],[1,60],[2,77],[1,65],[1,87],[1,100],[2,100],[2,76]]), [[1,87],[2,88]])\n_check(\"Example 2\", sol.largestUniqueNumber([[1,100],[7,100],[1,100],[7,100],[1,100],[7,100],[1,100],[7,100],[1,100],[7,100]]), [[1,100],[7,100]])\n"
   },
   {
