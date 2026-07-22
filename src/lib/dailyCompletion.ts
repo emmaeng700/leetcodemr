@@ -14,7 +14,7 @@ export const DAILY_REPS_PREFIX = 'lm_daily_reps_'
 export const DAILY_REPS_CHANGED = 'lm-daily-reps-changed'
 
 /** Past plan days older than this only need Learn solved for *plan advancement* of deep history. */
-export const RECENT_PLAN_DAY_WINDOW = 14
+export const RECENT_PLAN_DAY_WINDOW = 30
 
 export function notifyDailyRepsChanged() {
   if (typeof window === 'undefined') return
