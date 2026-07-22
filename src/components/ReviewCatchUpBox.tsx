@@ -4,6 +4,7 @@ import { ArrowRight } from 'lucide-react'
 
 export type ReviewCatchUpItem = {
   id: number
+  displayId?: number  // shown in UI; falls back to id when absent
   title: string
   review_count: number
   next_review: string
@@ -92,7 +93,7 @@ export default function ReviewCatchUpBox({
             href={hrefFor(q.id)}
             className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-xs transition-all text-left ${c.chip} ${c.chipHover}`}
           >
-            <span className="text-[var(--text-subtle)] font-mono">#{q.id}</span>
+            <span className="text-[var(--text-subtle)] font-mono">#{q.displayId ?? q.id}</span>
             <span className="font-semibold truncate max-w-[140px]">{q.title}</span>
             <span className={`text-xs ${c.text}`}>
               Review #{q.review_count + 1} | {daysOverdue(q.next_review)}

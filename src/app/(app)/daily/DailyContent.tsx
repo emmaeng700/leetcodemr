@@ -1783,12 +1783,17 @@ export default function DailyPage() {
                 <ReviewCatchUpBox
                   setLabel="Set 1 · Main"
                   accent="indigo"
-                  items={set1CarriedReviews.map(q => ({
-                    id: q.id,
-                    title: allQuestions.find(x => x.id === q.id)?.title ?? `#${q.id}`,
-                    review_count: q.review_count,
-                    next_review: q.next_review,
-                  }))}
+                  items={set1CarriedReviews.map(q => {
+                    const LEGACY_ID_REMAP: Record<number, number> = { 1086: 1133 }
+                    const displayId = LEGACY_ID_REMAP[q.id] ?? q.id
+                    return {
+                      id: q.id,
+                      displayId,
+                      title: allQuestions.find(x => x.id === displayId)?.title ?? `#${displayId}`,
+                      review_count: q.review_count,
+                      next_review: q.next_review,
+                    }
+                  })}
                   hrefFor={id => `/practice/${id}?from=review`}
                   daysOverdue={daysOverdue}
                   hubHref="/review"
