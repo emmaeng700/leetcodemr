@@ -173,7 +173,13 @@ export default function PracticePage() {
         setSetQuestions(loadedSetQs)
       }
 
-      const q = resolveQuestionForPractice(id, mainQs, flowSet, loadedSetQs)
+      // Legacy ID remap: Supabase records may reference old IDs before a correction.
+      // Look up the correct question data but preserve the original URL id so all
+      // DB writes (completeReview, failReview, updateProgress…) stay consistent.
+      const LEGACY_ID_REMAP: Record<number, number> = { 1086: 1133 }
+      const lookupId = LEGACY_ID_REMAP[id] ?? id
+      const resolved = resolveQuestionForPractice(lookupId, mainQs, flowSet, loadedSetQs)
+      const q = resolved && lookupId !== id ? { ...resolved, id } : resolved
       if (!q) {
         if (flowSet) router.replace(isDailyMode ? '/daily' : reviewHubPath(flowSet))
         return
