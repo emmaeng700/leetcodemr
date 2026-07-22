@@ -624,6 +624,53 @@ export default function PracticePage() {
     }
   }
 
+  async function handlePassDaily() {
+    if (!question || !isDailyMode || dailyDoneToday) return
+    const navSuffix = flowNavQuery(flowSet, 'daily')
+
+    setModeRuns(prev => ({ ...prev, [String(question.id)]: targetReps }))
+    if (activeReviewFlow) writeReviewSessionRep(question.id, targetReps, flowSet ?? undefined)
+
+    if (flowSet) {
+      completeSetDailyQuestion(flowSet, question.id)
+      setSolved(true)
+      setSetProgRow(getSetQProgressRow(flowSet, question.id))
+      setDailyDoneToday(true)
+    } else {
+      await markDailyCompleteToday(question.id)
+      setDailyDoneToday(true)
+      await setDailyRep(question.id, targetReps)
+      progressRef.current = {
+        ...progressRef.current,
+        [String(question.id)]: {
+          ...progressRef.current[String(question.id)],
+          last_daily_done: todayISOChicago(),
+          daily_rep_count: targetReps,
+          daily_rep_date: todayISOChicago(),
+        },
+      }
+    }
+
+    const incomplete = incompleteQueueItems({ id: question.id, reps: targetReps })
+    persistFlowQueue(dailyQueueKey(flowSet), incomplete)
+    const autoAdvanceId = incomplete[0] ?? null
+    setQueuedNextId(autoAdvanceId)
+
+    const toastNext = autoAdvanceId ? questionTitle(autoAdvanceId) : null
+    toast.success(
+      toastNext
+        ? `Passed! ${targetReps}/${targetReps}. Next: ${toastNext}`
+        : `Passed! ${targetReps}/${targetReps}. All done!`,
+      { duration: 4500 },
+    )
+
+    if (autoAdvanceId) {
+      router.push(`/practice/${autoAdvanceId}${navSuffix}`)
+    } else {
+      exitFlowToHub('daily')
+    }
+  }
+
   async function handleMarkSolved() {
     if (!question) return
     if (isDailyMode) {
@@ -872,6 +919,23 @@ export default function PracticePage() {
                 Pass
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Daily pass button — fill reps and move on */}
+      {isDailyMode && usesThreeSolveGate && !dailyDoneToday && (
+        <div className="px-3 sm:px-4 py-2 border-b border-[var(--border)] bg-green-50/60 shrink-0">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-xs font-semibold text-green-700">
+              📅 Daily question · {Math.min(modeRuns[String(question?.id ?? 0)] ?? 0, targetReps)}/{targetReps} reps
+            </div>
+            <button
+              onClick={handlePassDaily}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white hover:bg-green-700 transition-colors"
+            >
+              Pass
+            </button>
           </div>
         </div>
       )}
