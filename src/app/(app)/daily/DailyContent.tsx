@@ -2180,21 +2180,17 @@ export default function DailyPage() {
                               }
                               <span className="text-[9px] font-bold text-green-600">Daily</span>
                             </span>
-                            <span className="flex items-center gap-1" title={learned ? 'Learn done' : 'Learn — tap circle to revise'}>
+                            <Link
+                              href={learnHrefForQuestionId(q.id, learnOrderIds, { from: 'daily' })}
+                              className="flex items-center gap-1 hover:opacity-70 transition-opacity"
+                              title={learned ? 'Learn done — click to revisit' : 'Open in Learn'}
+                            >
                               {learned
-                                ? <CheckCircle2 size={11} className="text-indigo-400 shrink-0" aria-label="Learn done" />
-                                : (
-                                  <Link
-                                    href={learnHrefForQuestionId(q.id, learnOrderIds, { from: 'daily' })}
-                                    className="shrink-0"
-                                    aria-label="Learn not done — open in Learn"
-                                  >
-                                    <Circle size={11} className="text-[var(--text-subtle)] hover:text-indigo-400 transition-colors" />
-                                  </Link>
-                                )
+                                ? <CheckCircle2 size={11} className="text-indigo-400 shrink-0" />
+                                : <Circle size={11} className="text-[var(--text-subtle)]" />
                               }
                               <span className="text-[9px] font-bold text-indigo-500">Learn</span>
-                            </span>
+                            </Link>
                           </span>
                           <Link
                             href={`/practice/${q.id}?from=daily`}
