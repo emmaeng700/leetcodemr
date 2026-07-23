@@ -25,6 +25,8 @@ import {
   isQuestionDoneForDailyToday,
   normalizeStudyPlanRow,
 } from '@/lib/streakGoals'
+import { isCatchUpDailyCleared } from '@/lib/dailyCompletion'
+import { planDayScheduledISO } from '@/lib/studyPlanDay'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import PriorityBadge from '@/components/PriorityBadge'
 import { QuestionCountHighlight, SetExclusiveCountLabel } from '@/components/QuestionCountHighlight'
@@ -631,10 +633,15 @@ function InterviewCountdownWidget({ questions, progress }: { questions: Question
     const totalDays = Math.ceil(planNorm.question_order.length / planNorm.per_day)
     if (diffDays < 0 || diffDays >= totalDays) return null
     // Find active day: first incomplete day up to today
+    // Uses daily-rep completion (same as daily page), not just Learn solved.
     let activeDayIndex = diffDays
     for (let i = 0; i <= diffDays; i++) {
       const ids = planNorm.question_order.slice(i * planNorm.per_day, (i + 1) * planNorm.per_day)
-      if (!ids.every((id: number) => progress[String(id)]?.solved)) { activeDayIndex = i; break }
+      const scheduled = planDayScheduledISO(planNorm.start_date, i)
+      const dayComplete = ids.every((id: number) =>
+        isCatchUpDailyCleared(id, scheduled, progress, today, dailyGoalsOpts.dailyReps)
+      )
+      if (!dayComplete) { activeDayIndex = i; break }
     }
     const dayIds: number[] = planNorm.question_order.slice(activeDayIndex * planNorm.per_day, (activeDayIndex + 1) * planNorm.per_day)
     const qMap = Object.fromEntries(questions.map(q => [q.id, q]))
