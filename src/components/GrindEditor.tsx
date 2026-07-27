@@ -30,46 +30,7 @@ import { useGrindLang } from '@/components/grind/GrindLangContext'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
 
-const NAV_ROW = [
-  { k: '⏎', action: 'newline' },
-  { k: '⇤', action: 'dedent' },
-  { k: '⇥', action: 'indent' },
-  { k: '←', action: 'arrow-left' },
-  { k: '→', action: 'arrow-right' },
-  { k: '↑', action: 'arrow-up' },
-  { k: '↓', action: 'arrow-down' },
-]
-
-const TOOLBAR: Record<string, { row1: { k: string; v: string; c: number }[]; row2: { k: string; v: string; c: number }[] }> = {
-  python3: {
-    row1: [
-      { k: '()', v: '()', c: 1 }, { k: '[]', v: '[]', c: 1 }, { k: '{}', v: '{}', c: 1 },
-      { k: '""', v: '""', c: 1 }, { k: "''", v: "''", c: 1 }, { k: ':', v: ':', c: 1 },
-      { k: ',', v: ', ', c: 2 }, { k: '.', v: '.', c: 1 }, { k: '_', v: '_', c: 1 }, { k: '#', v: '# ', c: 2 },
-    ],
-    row2: [
-      { k: '=', v: ' = ', c: 3 }, { k: '==', v: ' == ', c: 4 }, { k: '!=', v: ' != ', c: 4 },
-      { k: '+=', v: ' += ', c: 4 }, { k: '->', v: ' -> ', c: 4 }, { k: '**', v: '**', c: 2 },
-      { k: '//', v: '//', c: 2 }, { k: 'self.', v: 'self.', c: 5 }, { k: 'None', v: 'None', c: 4 },
-      { k: 'True', v: 'True', c: 4 }, { k: 'False', v: 'False', c: 5 }, { k: 'and', v: ' and ', c: 5 },
-      { k: 'or', v: ' or ', c: 4 }, { k: 'not', v: 'not ', c: 4 }, { k: 'in', v: ' in ', c: 4 },
-    ],
-  },
-  cpp: {
-    row1: [
-      { k: '()', v: '()', c: 1 }, { k: '[]', v: '[]', c: 1 }, { k: '{}', v: '{}', c: 1 },
-      { k: '<>', v: '<>', c: 1 }, { k: '""', v: '""', c: 1 }, { k: ';', v: ';', c: 1 },
-      { k: ',', v: ', ', c: 2 }, { k: '.', v: '.', c: 1 }, { k: '_', v: '_', c: 1 }, { k: '//', v: '// ', c: 3 },
-    ],
-    row2: [
-      { k: '=', v: ' = ', c: 3 }, { k: '==', v: ' == ', c: 4 }, { k: '!=', v: ' != ', c: 4 },
-      { k: '->', v: '->', c: 2 }, { k: '::', v: '::', c: 2 }, { k: '<<', v: ' << ', c: 4 },
-      { k: '>>', v: ' >> ', c: 4 }, { k: '++', v: '++', c: 2 }, { k: '--', v: '--', c: 2 },
-      { k: 'nullptr', v: 'nullptr', c: 7 }, { k: 'true', v: 'true', c: 4 }, { k: 'false', v: 'false', c: 5 },
-      { k: 'auto', v: 'auto ', c: 5 }, { k: 'int', v: 'int ', c: 4 },
-    ],
-  },
-}
+const SYMBOL_ROW = ['(', ')', '[', ']', '{', '}', '=', '+', '-', '*', '<', '>', '#', '%', '^', '~', ':', '.', '_', ',', ';', '!', '"', "'"]
 
 interface GrindEditorProps {
   question: GrindQuestion
@@ -102,6 +63,7 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
   const descCacheRef = useRef<Record<number, { plain: string; html: string }>>({})
   const editorViewRef = useRef<unknown>(null)
   const portalViewRef = useRef<unknown>(null)
+  const cursorPosRef = useRef<{ from: number; to: number }>({ from: 0, to: 0 })
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadGenRef = useRef(0)
@@ -163,12 +125,24 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
         })
         return true
       }
+      let lastDocChangeAt = 0
+      const cursorTracker = viewMod.EditorView.updateListener.of((update: any) => {
+        if (update.docChanged) {
+          lastDocChangeAt = Date.now()
+          const sel = update.state.selection.main
+          cursorPosRef.current = { from: sel.from, to: sel.to }
+        } else if (update.selectionSet && Date.now() - lastDocChangeAt > 80) {
+          const sel = update.state.selection.main
+          cursorPosRef.current = { from: sel.from, to: sel.to }
+        }
+      })
       setEditorTheme(oneDark)
       setExtensions([
         lang === 'python3' ? python() : cpp(),
         Prec.highest(keymap.of([{ key: 'Enter', run: smartEnter }, indentWithTab])),
         indentationMarkers(),
         viewMod.EditorView.lineWrapping,
+        cursorTracker,
       ])
     }
     void loadExtensions()
@@ -394,98 +368,97 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
     }
   }, [])
 
-  const getLineIndent = useCallback((view: any) => {
-    const { from } = view.state.selection.main
-    const line = view.state.doc.lineAt(from)
-    const match = line.text.match(/^(\s*)/)
-    return match ? match[1] : ''
-  }, [])
+  const keybarRows = (isPortal: boolean) => {
+    const press = (action: string | (() => void)) => {
+      const view = (portalViewRef.current ?? editorViewRef.current) as any
+      if (!view) return
+      if (typeof action === 'function') { action(); return }
 
-  const insert = useCallback((key: { k: string; v?: string; c?: number; action?: string }) => {
-    const view = (portalViewRef.current ?? editorViewRef.current) as any
-    if (!view) return
+      const { from, to } = cursorPosRef.current ?? view.state.selection.main
 
-    if (key.action === 'newline') {
-      const { from } = view.state.selection.main
-      const indent = getLineIndent(view)
-      const insertText = '\n' + indent
-      view.dispatch({ changes: { from, to: from, insert: insertText }, selection: { anchor: from + insertText.length } })
-    } else if (key.action === 'indent') {
-      const { from, to } = view.state.selection.main
-      view.dispatch({ changes: { from, to, insert: '    ' }, selection: { anchor: from + 4 } })
-    } else if (key.action === 'dedent') {
-      const { from } = view.state.selection.main
-      const line = view.state.doc.lineAt(from)
-      let spaces = 0
-      for (let i = 0; i < Math.min(4, line.text.length); i++) {
-        if (line.text[i] === ' ') spaces++
-        else break
+      if (action === 'ArrowLeft') {
+        const pos = Math.max(0, from - 1)
+        view.dispatch({ selection: { anchor: pos } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
       }
-      if (spaces > 0) view.dispatch({ changes: { from: line.from, to: line.from + spaces, insert: '' }, selection: { anchor: Math.max(line.from, from - spaces) } })
-    } else if (key.action === 'arrow-left') {
-      import('@codemirror/commands').then(({ cursorCharLeft }) => cursorCharLeft(view))
-    } else if (key.action === 'arrow-right') {
-      import('@codemirror/commands').then(({ cursorCharRight }) => cursorCharRight(view))
-    } else if (key.action === 'arrow-up') {
-      import('@codemirror/commands').then(({ cursorLineUp }) => cursorLineUp(view))
-    } else if (key.action === 'arrow-down') {
-      import('@codemirror/commands').then(({ cursorLineDown }) => cursorLineDown(view))
-    } else if (key.v !== undefined && key.c !== undefined) {
-      const { from, to } = view.state.selection.main
-      view.dispatch({ changes: { from, to, insert: key.v }, selection: { anchor: from + key.c } })
+      if (action === 'ArrowRight') {
+        const pos = Math.min(view.state.doc.length, from + 1)
+        view.dispatch({ selection: { anchor: pos } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
+      }
+      if (action === 'ArrowUp') {
+        const line = view.state.doc.lineAt(from)
+        if (line.number === 1) { view.dispatch({ selection: { anchor: 0 } }); cursorPosRef.current = { from: 0, to: 0 }; view.focus(); return }
+        const prevLine = view.state.doc.line(line.number - 1)
+        const pos = prevLine.from + Math.min(from - line.from, prevLine.length)
+        view.dispatch({ selection: { anchor: pos } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
+      }
+      if (action === 'ArrowDown') {
+        const line = view.state.doc.lineAt(from)
+        if (line.number === view.state.doc.lines) { const pos = view.state.doc.length; view.dispatch({ selection: { anchor: pos } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return }
+        const nextLine = view.state.doc.line(line.number + 1)
+        const pos = nextLine.from + Math.min(from - line.from, nextLine.length)
+        view.dispatch({ selection: { anchor: pos } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
+      }
+
+      const pos = from + action.length
+      view.dispatch({ changes: { from, to, insert: action }, selection: { anchor: pos } })
+      cursorPosRef.current = { from: pos, to: pos }; view.focus()
     }
-    view.focus()
-  }, [getLineIndent])
 
-  const toolbar = TOOLBAR[lang] ?? TOOLBAR['python3']
+    const undoAction = () => {
+      const view = (portalViewRef.current ?? editorViewRef.current) as any
+      if (!view) return
+      import('@codemirror/commands').then(({ undo }) => { undo(view); view.focus() })
+    }
+    const redoAction = () => {
+      const view = (portalViewRef.current ?? editorViewRef.current) as any
+      if (!view) return
+      import('@codemirror/commands').then(({ redo }) => { redo(view); view.focus() })
+    }
 
-  const keybarRows = (isPortal: boolean) => (
-    <div className="px-2 pt-1.5 pb-1.5 bg-[#1e1e2e] border-t border-[#313244] space-y-1.5 shrink-0">
-      <div className="grid grid-cols-8 gap-1">
-        {NAV_ROW.map(key => (
-          <button key={key.k} type="button" onPointerDown={e => e.preventDefault()} onClick={() => insert(key)}
-            className="py-2 rounded-md text-sm font-mono font-bold bg-[#45475a] text-gray-100 hover:bg-indigo-600 active:bg-indigo-700 transition-colors border border-[#585b70] select-none text-center">
-            {key.k}
+    const row2: { label: string; action: string | (() => void) }[] = [
+      { label: '←', action: 'ArrowLeft' },
+      { label: '→', action: 'ArrowRight' },
+      { label: '↑', action: 'ArrowUp' },
+      { label: '↓', action: 'ArrowDown' },
+      { label: '↩', action: undoAction },
+      { label: '↪', action: redoAction },
+      { label: 'RST', action: () => reset() },
+    ]
+
+    const btnCls = 'flex items-center justify-center rounded-md bg-[#2c313a] active:bg-[#3e4451] text-gray-200 font-mono font-semibold select-none'
+
+    return (
+      <div className="shrink-0 bg-[#21252b] border-t border-gray-700/50 px-1 py-1 space-y-1">
+        <div className="flex gap-1 overflow-x-auto pb-0.5" style={{ touchAction: 'pan-x' }}>
+          {SYMBOL_ROW.map(k => (
+            <button key={k} type="button"
+              onPointerDown={e => { e.preventDefault(); press(k) }}
+              style={{ touchAction: 'manipulation', minWidth: 32 }}
+              className={`${btnCls} h-8 px-2 text-xs shrink-0`}>
+              {k}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          {row2.map(({ label, action }) => (
+            <button key={label} type="button"
+              onPointerDown={e => { e.preventDefault(); press(action) }}
+              style={{ touchAction: 'manipulation' }}
+              className={`${btnCls} flex-1 h-9 text-sm`}>
+              {label}
+            </button>
+          ))}
+          <button
+            type="button"
+            onPointerDown={e => { e.preventDefault(); isPortal ? setEditorExpanded(false) : setEditorExpanded(true) }}
+            style={{ touchAction: 'manipulation' }}
+            className={`${btnCls} flex-1 h-9 text-sm ${isPortal ? 'bg-indigo-700 active:bg-indigo-600 text-white' : 'text-indigo-300'}`}>
+            {isPortal ? '✕' : '⛶'}
           </button>
-        ))}
-        <button
-          type="button"
-          onPointerDown={e => {
-            e.preventDefault()
-            if (isPortal) {
-              setEditorExpanded(false)
-            } else {
-              setEditorExpanded(true)
-            }
-          }}
-          style={{ touchAction: 'manipulation' }}
-          title={isPortal ? 'Exit fullscreen' : 'Fullscreen editor'}
-          className={`py-2 rounded-md text-sm font-mono font-bold transition-colors border select-none text-center ${
-            isPortal
-              ? 'bg-indigo-700 text-white border-indigo-500 active:bg-indigo-600'
-              : 'bg-[#45475a] text-indigo-300 border-[#585b70] hover:bg-indigo-600 hover:text-white'
-          }`}>
-          {isPortal ? '✕' : '⛶'}
-        </button>
+        </div>
       </div>
-      <div className="flex flex-wrap gap-1">
-        {toolbar.row1.map(key => (
-          <button key={key.k} type="button" onPointerDown={e => e.preventDefault()} onClick={() => insert(key)}
-            className="px-2.5 py-1.5 rounded-md text-xs font-mono font-semibold bg-[#313244] text-gray-200 hover:bg-[#45475a] active:bg-indigo-600 transition-colors border border-[#45475a] hover:border-indigo-500 select-none">
-            {key.k}
-          </button>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {toolbar.row2.map(key => (
-          <button key={key.k} type="button" onPointerDown={e => e.preventDefault()} onClick={() => insert(key)}
-            className="px-2.5 py-1.5 rounded-md text-xs font-mono font-semibold bg-[#313244] text-gray-200 hover:bg-[#45475a] active:bg-indigo-600 transition-colors border border-[#45475a] hover:border-indigo-500 select-none">
-            {key.k}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
+    )
+  }
 
   const langToggle = (
     <div className="grind-langs">
