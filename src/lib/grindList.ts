@@ -148,7 +148,7 @@ export function grindListWithDividers(questions: GrindQuestion[]): GrindListEntr
         out.push({
           type: 'divider',
           label: `${SET_SHORT_LABEL[q.set as 1 | 2 | 3]} · ${tier}`,
-          key: `tier-${q.set}-${tier}`,
+          key: `tier-${q.set}-${tier}-${out.length}`,
           variant: 'tier',
           count: tierCounts.get(setTierKey(q.set, tier)) ?? 0,
         })
@@ -157,7 +157,7 @@ export function grindListWithDividers(questions: GrindQuestion[]): GrindListEntr
       out.push({
         type: 'divider',
         label: pattern,
-        key: `sec-${q.set}-${q.section}`,
+        key: `sec-${q.set}-${q.section}-${out.length}`,
         variant: 'section',
         count: sectionCounts.get(setSectionKey(q.set, q.section)) ?? 0,
       })
