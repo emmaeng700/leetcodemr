@@ -30,6 +30,47 @@ import { useGrindLang } from '@/components/grind/GrindLangContext'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
 
+const NAV_ROW = [
+  { k: '⏎', action: 'newline' },
+  { k: '⇤', action: 'dedent' },
+  { k: '⇥', action: 'indent' },
+  { k: '←', action: 'arrow-left' },
+  { k: '→', action: 'arrow-right' },
+  { k: '↑', action: 'arrow-up' },
+  { k: '↓', action: 'arrow-down' },
+]
+
+const TOOLBAR: Record<string, { row1: { k: string; v: string; c: number }[]; row2: { k: string; v: string; c: number }[] }> = {
+  python3: {
+    row1: [
+      { k: '()', v: '()', c: 1 }, { k: '[]', v: '[]', c: 1 }, { k: '{}', v: '{}', c: 1 },
+      { k: '""', v: '""', c: 1 }, { k: "''", v: "''", c: 1 }, { k: ':', v: ':', c: 1 },
+      { k: ',', v: ', ', c: 2 }, { k: '.', v: '.', c: 1 }, { k: '_', v: '_', c: 1 }, { k: '#', v: '# ', c: 2 },
+    ],
+    row2: [
+      { k: '=', v: ' = ', c: 3 }, { k: '==', v: ' == ', c: 4 }, { k: '!=', v: ' != ', c: 4 },
+      { k: '+=', v: ' += ', c: 4 }, { k: '->', v: ' -> ', c: 4 }, { k: '**', v: '**', c: 2 },
+      { k: '//', v: '//', c: 2 }, { k: 'self.', v: 'self.', c: 5 }, { k: 'None', v: 'None', c: 4 },
+      { k: 'True', v: 'True', c: 4 }, { k: 'False', v: 'False', c: 5 }, { k: 'and', v: ' and ', c: 5 },
+      { k: 'or', v: ' or ', c: 4 }, { k: 'not', v: 'not ', c: 4 }, { k: 'in', v: ' in ', c: 4 },
+    ],
+  },
+  cpp: {
+    row1: [
+      { k: '()', v: '()', c: 1 }, { k: '[]', v: '[]', c: 1 }, { k: '{}', v: '{}', c: 1 },
+      { k: '<>', v: '<>', c: 1 }, { k: '""', v: '""', c: 1 }, { k: ';', v: ';', c: 1 },
+      { k: ',', v: ', ', c: 2 }, { k: '.', v: '.', c: 1 }, { k: '_', v: '_', c: 1 }, { k: '//', v: '// ', c: 3 },
+    ],
+    row2: [
+      { k: '=', v: ' = ', c: 3 }, { k: '==', v: ' == ', c: 4 }, { k: '!=', v: ' != ', c: 4 },
+      { k: '->', v: '->', c: 2 }, { k: '::', v: '::', c: 2 }, { k: '<<', v: ' << ', c: 4 },
+      { k: '>>', v: ' >> ', c: 4 }, { k: '++', v: '++', c: 2 }, { k: '--', v: '--', c: 2 },
+      { k: 'nullptr', v: 'nullptr', c: 7 }, { k: 'true', v: 'true', c: 4 }, { k: 'false', v: 'false', c: 5 },
+      { k: 'auto', v: 'auto ', c: 5 }, { k: 'int', v: 'int ', c: 4 },
+    ],
+  },
+}
+
 interface GrindEditorProps {
   question: GrindQuestion
   className?: string
@@ -353,6 +394,99 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
     }
   }, [])
 
+  const getLineIndent = useCallback((view: any) => {
+    const { from } = view.state.selection.main
+    const line = view.state.doc.lineAt(from)
+    const match = line.text.match(/^(\s*)/)
+    return match ? match[1] : ''
+  }, [])
+
+  const insert = useCallback((key: { k: string; v?: string; c?: number; action?: string }) => {
+    const view = (portalViewRef.current ?? editorViewRef.current) as any
+    if (!view) return
+
+    if (key.action === 'newline') {
+      const { from } = view.state.selection.main
+      const indent = getLineIndent(view)
+      const insertText = '\n' + indent
+      view.dispatch({ changes: { from, to: from, insert: insertText }, selection: { anchor: from + insertText.length } })
+    } else if (key.action === 'indent') {
+      const { from, to } = view.state.selection.main
+      view.dispatch({ changes: { from, to, insert: '    ' }, selection: { anchor: from + 4 } })
+    } else if (key.action === 'dedent') {
+      const { from } = view.state.selection.main
+      const line = view.state.doc.lineAt(from)
+      let spaces = 0
+      for (let i = 0; i < Math.min(4, line.text.length); i++) {
+        if (line.text[i] === ' ') spaces++
+        else break
+      }
+      if (spaces > 0) view.dispatch({ changes: { from: line.from, to: line.from + spaces, insert: '' }, selection: { anchor: Math.max(line.from, from - spaces) } })
+    } else if (key.action === 'arrow-left') {
+      import('@codemirror/commands').then(({ cursorCharLeft }) => cursorCharLeft(view))
+    } else if (key.action === 'arrow-right') {
+      import('@codemirror/commands').then(({ cursorCharRight }) => cursorCharRight(view))
+    } else if (key.action === 'arrow-up') {
+      import('@codemirror/commands').then(({ cursorLineUp }) => cursorLineUp(view))
+    } else if (key.action === 'arrow-down') {
+      import('@codemirror/commands').then(({ cursorLineDown }) => cursorLineDown(view))
+    } else if (key.v !== undefined && key.c !== undefined) {
+      const { from, to } = view.state.selection.main
+      view.dispatch({ changes: { from, to, insert: key.v }, selection: { anchor: from + key.c } })
+    }
+    view.focus()
+  }, [getLineIndent])
+
+  const toolbar = TOOLBAR[lang] ?? TOOLBAR['python3']
+
+  const keybarRows = (isPortal: boolean) => (
+    <div className="px-2 pt-1.5 pb-1.5 bg-[#1e1e2e] border-t border-[#313244] space-y-1.5 shrink-0">
+      <div className="grid grid-cols-8 gap-1">
+        {NAV_ROW.map(key => (
+          <button key={key.k} type="button" onPointerDown={e => e.preventDefault()} onClick={() => insert(key)}
+            className="py-2 rounded-md text-sm font-mono font-bold bg-[#45475a] text-gray-100 hover:bg-indigo-600 active:bg-indigo-700 transition-colors border border-[#585b70] select-none text-center">
+            {key.k}
+          </button>
+        ))}
+        <button
+          type="button"
+          onPointerDown={e => {
+            e.preventDefault()
+            if (isPortal) {
+              setEditorExpanded(false)
+            } else {
+              setEditorExpanded(true)
+            }
+          }}
+          style={{ touchAction: 'manipulation' }}
+          title={isPortal ? 'Exit fullscreen' : 'Fullscreen editor'}
+          className={`py-2 rounded-md text-sm font-mono font-bold transition-colors border select-none text-center ${
+            isPortal
+              ? 'bg-indigo-700 text-white border-indigo-500 active:bg-indigo-600'
+              : 'bg-[#45475a] text-indigo-300 border-[#585b70] hover:bg-indigo-600 hover:text-white'
+          }`}>
+          {isPortal ? '✕' : '⛶'}
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {toolbar.row1.map(key => (
+          <button key={key.k} type="button" onPointerDown={e => e.preventDefault()} onClick={() => insert(key)}
+            className="px-2.5 py-1.5 rounded-md text-xs font-mono font-semibold bg-[#313244] text-gray-200 hover:bg-[#45475a] active:bg-indigo-600 transition-colors border border-[#45475a] hover:border-indigo-500 select-none">
+            {key.k}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {toolbar.row2.map(key => (
+          <button key={key.k} type="button" onPointerDown={e => e.preventDefault()} onClick={() => insert(key)}
+            className="px-2.5 py-1.5 rounded-md text-xs font-mono font-semibold bg-[#313244] text-gray-200 hover:bg-[#45475a] active:bg-indigo-600 transition-colors border border-[#45475a] hover:border-indigo-500 select-none">
+            {key.k}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
   const langToggle = (
     <div className="grind-langs">
       {(['python3', 'cpp'] as const).map(l => (
@@ -597,6 +731,7 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
           )}
         </div>
 
+        {!editorExpanded && !isMobile && keybarRows(false)}
         {!editorExpanded && footerBar}
       </div>
 
@@ -631,6 +766,7 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
             </div>
             {descriptionPanel({ portal: true })}
             <div className="relative flex-1 min-h-0 fs-editor practice-cm-wrap">{editorBody('100%', true)}</div>
+            {keybarRows(true)}
             {!keyboardOpen && footerBar}
           </div>,
           document.body,

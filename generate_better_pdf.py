@@ -75,12 +75,40 @@ from generate_patterns_pdf import (
 )
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
-SCRIPT_DIR       = Path(__file__).parent
-QUESTIONS        = SCRIPT_DIR / "public" / "questions_full.json"
-SITES_CACHE      = SCRIPT_DIR / ".full_langs_cache.json"
-DOOCS_CACHE      = SCRIPT_DIR / ".doocs_cache.json"
-PLAYBOOK_PATH    = SCRIPT_DIR / "public" / "playbook_data.json"
-_SOLUTIONS_CACHE = SCRIPT_DIR / ".my_solutions_cache.json"   # persists fetched solutions
+SCRIPT_DIR        = Path(__file__).parent
+QUESTIONS         = SCRIPT_DIR / "public" / "questions_full.json"
+SITES_CACHE       = SCRIPT_DIR / ".full_langs_cache.json"
+DOOCS_CACHE       = SCRIPT_DIR / ".doocs_cache.json"
+PLAYBOOK_PATH     = SCRIPT_DIR / "public" / "playbook_data.json"
+_SOLUTIONS_CACHE  = SCRIPT_DIR / ".my_solutions_cache.json"
+EDITORIAL_CACHE   = SCRIPT_DIR / ".editorial_cache.json"
+EDITORIAL_MANUAL  = SCRIPT_DIR / ".editorial_manual.json"
+
+_EDITORIAL: dict = (
+    json.loads(EDITORIAL_CACHE.read_text()) if EDITORIAL_CACHE.exists() else {}
+)
+def _load_editorial_manual(path) -> dict:
+    """Load .editorial_manual.json robustly — bad JSON or bad code never crashes the build."""
+    if not path.exists():
+        return {}
+    try:
+        raw = path.read_text(encoding='utf-8')
+        data = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    out = {}
+    for qid, entry in data.items():
+        if not isinstance(entry, dict):
+            continue
+        code = entry.get('editorial_code', '')
+        if not isinstance(code, str):
+            code = ''
+        code = code.replace('\r\n', '\n').replace('\r', '\n').strip().rstrip('"\'').strip()
+        out[qid] = {**entry, 'editorial_code': code}
+    return out
+
+_EDITORIAL_MANUAL: dict = _load_editorial_manual(EDITORIAL_MANUAL)
+
 
 # Load interview approach scripts keyed by question ID (string)
 _PLAYBOOK: dict = (
@@ -1143,6 +1171,34 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
             items += plain_desc_to_paragraphs(desc_html, S['body'])
         items.append(Spacer(1, 2))
 
+    # ── Code Skeleton — own page; attempt before scrolling to solutions ─────────
+    raw_starter = (q.get('starterPython') or '').strip()
+    for _marker in ('# -- Interview Approach - STAR-LC --', '# PHASE 1', '# -- Problem Description --'):
+        _cut = raw_starter.find(_marker)
+        if _cut > 0:
+            raw_starter = raw_starter[:_cut].rstrip()
+    if raw_starter:
+        items.append(PageBreak())
+        items.append(Paragraph('<b>★ Code Skeleton (Python)</b>', S['head2']))
+        items.append(site_label_p('Attempt the problem before looking at solutions'))
+        items += code_panel(raw_starter, lang='python')
+
+    # ── Solutions divider — own page between skeleton and answers ─────────────
+    items.append(PageBreak())
+    items.append(Spacer(1, USE_H * 0.35))
+    items.append(Paragraph(
+        '<b>Solutions</b>',
+        ParagraphStyle('sol_div_h', fontName='LG-Bold', fontSize=26,
+                       textColor=HexColor('#6B7280'), alignment=1, leading=32),
+    ))
+    items.append(Spacer(1, 8))
+    items.append(Paragraph(
+        'Interview Approach  ·  Editorial  ·  My Solution  ·  Community',
+        ParagraphStyle('sol_div_s', fontName='LG-Bold', fontSize=9,
+                       textColor=HexColor('#9CA3AF'), alignment=1, leading=13),
+    ))
+    items.append(PageBreak())
+
     is_js_pattern = (pattern_name == 'JavaScript')
 
     entry = sites_cache.get(slug, {})
@@ -1150,7 +1206,18 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
     merged = dict(entry)
     merged['doocs'] = [{'code': b['code'], 'lang': b.get('lang','')} for b in doocs_blocks]
 
-    # My LeetCode Solution — shown first so it's immediately visible
+    # ── 1. Interview Approach · STAR-LC ──────────────────────────────────────────
+    items += build_interview_approach(qid)
+
+    # ── 2. LeetCode Editorial ─────────────────────────────────────────────────
+    editorial_code = (_EDITORIAL_MANUAL.get(str(qid)) or {}).get('editorial_code', '').strip()
+    if editorial_code:
+        items.append(Spacer(1, 3))
+        items.append(Paragraph('<b>★ LeetCode Editorial (Python)</b>', S['head2']))
+        items.append(site_label_p('Editorial'))
+        items += code_panel(editorial_code, lang='python')
+
+    # ── 3. My LeetCode Solution ───────────────────────────────────────────────
     if my_solutions:
         my_sol = my_solutions.get(qid)
         if my_sol:
@@ -1169,9 +1236,7 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
                                textColor=HexColor('#6B7280'), leading=S['body_sm'].leading,
                                spaceAfter=2)))
 
-    # Interview Approach · STAR-LC — immediately after the LeetCode solution
-    items += build_interview_approach(qid)
-
+    # ── 4. Community Solutions ────────────────────────────────────────────────
     if is_js_pattern:
         js_langs = ('javascript', 'js', 'typescript', 'ts')
         has_any = False
@@ -2440,7 +2505,8 @@ def _add_links_2x1(output_path: Path, page_types: dict,
     tmp = output_path.with_suffix('.tmp.pdf')
     doc.save(str(tmp), garbage=4, deflate=True, incremental=False)
     doc.close()
-    tmp.replace(output_path)
+    import shutil as _shutil
+    _shutil.move(str(tmp), str(output_path))
     print(f'  Links: {n_links} question (↗)  |  {n_sec} round/pattern  |  '
           f'TOC checkboxes: {n_boxes}  |  Diff dots: {n_boxes}  |  '
           f'Sol checkboxes: {n_sol_boxes}  |  Done checkboxes: {n_done}  |  '
@@ -2616,6 +2682,7 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
     qid_first_page     = {}
     toc_link_rects     = {}
     toc_section_rects  = {}
+    prev_was_toc       = False
 
     for pg in range(len(doc)):
         page   = doc[pg]
@@ -2623,23 +2690,20 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
         found  = [int(m.group(1)) for m in qid_re.finditer(text) if int(m.group(1)) in all_ids]
         unique = list(dict.fromkeys(found))   # dedupe, preserve order
 
-        if len(unique) >= 5:
-            # Could be TOC, chapter splash, or a question page with many cross-references.
-            # Check y-spread first to catch chapter splash pages (IDs on one horizontal line).
-            sample_ys = []
-            for qid in unique[:6]:
-                h = page.search_for(f'#{qid} ') or page.search_for(f'#{qid}')
-                if h:
-                    sample_ys.append(h[0].y0)
-            y_spread = (max(sample_ys) - min(sample_ys)) if len(sample_ys) >= 2 else 0
+        # Round overview banner pages carry an invisible ##RNDBNR## marker so they
+        # are always classified as 'chapter' regardless of prev_was_toc state.
+        if '##RNDBNR##' in text:
+            page_types[pg] = 'chapter'
+            prev_was_toc = False
+            continue
 
-            if y_spread < 12:
-                page_types[pg] = 'chapter'
-                continue
-
-            # Confirm it's a real TOC page by looking for round section markers.
-            # A question page that happens to reference many QIDs will have no round markers.
+        # Check for round/pattern markers on any non-question page with QIDs.
+        # Per-pattern section mini-TOC pages may carry fewer than 5 QIDs when
+        # a pattern has only 1–4 problems, so this check must precede the ≥5 gate.
+        if unique and not marker_re.search(text):
+            # Pass 1: find which round headers are present on this page.
             sections = []
+            rounds_on_page: set = set()
             for round_num, priority, difficulty, pattern_groups in rounds:
                 n_q = sum(len(qs) for _, qs in pattern_groups)
                 if n_q == 0:
@@ -2648,6 +2712,14 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
                 rrect = _find_text_line_rect(page, rnd_needle)
                 if rrect is not None:
                     sections.append(('round', round_num, rrect))
+                    rounds_on_page.add(round_num)
+            # Pass 2: only add pattern entries for rounds whose header is on this page.
+            # Prevents false matches when two rounds share the same pattern name+count
+            # (e.g. both have "Two Pointers (5)"), which would let a later round's link
+            # overwrite the correct link already drawn for an earlier round.
+            for round_num, priority, difficulty, pattern_groups in rounds:
+                if round_num not in rounds_on_page:
+                    continue
                 for pat_obj, qs in pattern_groups:
                     prect = _find_text_line_rect(page, f'{pat_obj["name"]} ({len(qs)})')
                     if prect is not None:
@@ -2664,13 +2736,72 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
                     rects[qid] = entry
                 toc_link_rects[pg] = rects
                 toc_section_rects[pg] = sections
+                prev_was_toc = True
+                continue
+
+        if len(unique) >= 5:
+            # No round/pattern markers found. Use y-spread to distinguish chapter
+            # splash from question pages with many cross-references on one line.
+            sample_ys = []
+            for qid in unique[:6]:
+                h = page.search_for(f'#{qid} ') or page.search_for(f'#{qid}')
+                if h:
+                    sample_ys.append(h[0].y0)
+            y_spread = (max(sample_ys) - min(sample_ys)) if len(sample_ys) >= 2 else 0
+
+            # ##QID=N## means this is definitely a question start, not a banner.
+            if y_spread < 12 and not marker_re.search(text):
+                # Distinguish: pattern banner (follows its own per-pattern mini-TOC)
+                # vs round/group banner (follows master Contents or question pages).
+                page_types[pg] = 'pat_banner' if prev_was_toc else 'chapter'
+                prev_was_toc = False
+                continue
+
+            # Mini-TOC continuation: Round header only on the first page; later
+            # pages keep the vertical #qid Title list without a Round marker.
+            # Guard: if the page carries a ##QID=N## question-start marker it is
+            # a question page, not a TOC tail — even when prev_was_toc is True.
+            if prev_was_toc and not marker_re.search(text):
+                page_types[pg] = 'toc'
+                rects = {}
+                for qid in unique:
+                    entry = _find_toc_entry_rects(page, qid)
+                    if entry is None:
+                        continue
+                    rects[qid] = entry
+                toc_link_rects[pg] = rects
                 continue
 
             # No round markers found — it's a question page with many cross-references.
             # Fall through to the question-page handler below.
 
+        # Short mini-TOC tail (<5 QIDs left) — still a TOC page, not a question.
+        if prev_was_toc and unique and not marker_re.search(text):
+            sample_ys = []
+            for qid in unique[:6]:
+                h = page.search_for(f'#{qid} ') or page.search_for(f'#{qid}')
+                if h:
+                    sample_ys.append(h[0].y0)
+            y_spread = (max(sample_ys) - min(sample_ys)) if len(sample_ys) >= 2 else 99
+            if len(unique) == 1 or y_spread >= 12:
+                page_types[pg] = 'toc'
+                rects = {}
+                for qid in unique:
+                    entry = _find_toc_entry_rects(page, qid)
+                    if entry is None:
+                        continue
+                    rects[qid] = entry
+                toc_link_rects[pg] = rects
+                continue
+            # QIDs on one horizontal line after a toc page → pattern banner
+            # (small pattern with < 5 questions whose banner follows its mini-TOC).
+            page_types[pg] = 'pat_banner'
+            prev_was_toc = False
+            continue
+
         if unique:
             page_types[pg] = 'question'
+            prev_was_toc = False
             # ONLY the ##QID=N## marker can register qid_first_page.
             # Continuation pages cross-reference other question IDs (e.g. Q54's
             # Phase 6 says "(#59)", Q112's says "(#113)"). Without this guard,
@@ -2683,6 +2814,7 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
                     qid_first_page[primary] = pg
         else:
             page_types[pg] = 'other'
+            prev_was_toc = False
 
     doc.close()
     return page_types, qid_first_page, toc_link_rects, toc_section_rects
@@ -2811,7 +2943,8 @@ def _add_links_2x2(output_path: Path, page_types: dict,
     tmp = output_path.with_suffix('.tmp.pdf')
     doc.save(str(tmp), garbage=4, deflate=True, incremental=False)
     doc.close()
-    tmp.replace(output_path)
+    import shutil as _shutil
+    _shutil.move(str(tmp), str(output_path))
     print(f'  Links: {n_links} TOC→question  |  Checkboxes: {n_boxes}  |  ← Contents: {n_sheets - len(toc_sheets)} sheets')
 
 
@@ -2906,7 +3039,15 @@ def _add_links_1x1(output_path: Path, page_types: dict,
     When qid_to_slug is provided, also re-adds clickable URI links for the
     LeetDoocs / SimplyLeet / WalkCC / LeetCode links line on each question page.
     """
-    _SOL_LABELS = [f'● {site_label}' for _, site_label in SITE_META] + ['● My LeetCode Solution']
+    _SOL_LABELS = (
+        [f'● {site_label}' for _, site_label in SITE_META]
+        + ['● My LeetCode Solution']
+        + ['● Editorial Note']
+        + [f'● Editorial · {ap["title"]}'
+           for entry in _EDITORIAL.values()
+           for ap in entry.get('approaches', [])]
+    )
+    _SOL_LABELS = list(dict.fromkeys(_SOL_LABELS))  # dedupe, preserve order
     _qid_diff   = qid_difficulty or {}
     _DIFF_COLOR = {
         'Easy':   (0.13, 0.77, 0.37),
@@ -2955,7 +3096,9 @@ def _add_links_1x1(output_path: Path, page_types: dict,
             _cur = first_page_to_qid[_ip]
         inner_page_current_qid[_ip] = _cur
 
-    # Build qid → (toc_output_sheet, fitz.Point) for smart ← Contents
+    # Build qid → (toc_output_sheet, fitz.Point) for ← Contents.
+    # Scroll to the QID's exact y-position so the pattern header ("— Stack (4) —")
+    # is visible just above it, placing the user in the right pattern section.
     qid_toc_dest: dict = {}
     for inner_pg, rects in toc_link_rects.items():
         for qid, rect_info in rects.items():
@@ -2963,6 +3106,17 @@ def _add_links_1x1(output_path: Path, page_types: dict,
                 continue
             line_dest = tx_rect(rect_info['line'])
             qid_toc_dest[qid] = (inner_pg, fitz.Point(0, line_dest.y0))
+
+    # For each 'pat_banner' page, find the nearest preceding section mini-TOC page
+    # so ← Contents can jump there instead of to master Contents.
+    _toc_sorted = sorted(toc_link_rects.keys())
+    _pat_banner_toc: dict = {}
+    for _pg, _t in sorted(page_types.items()):
+        if _t == 'pat_banner':
+            for _tpg in reversed(_toc_sorted):
+                if _tpg < _pg:
+                    _pat_banner_toc[_pg] = _tpg
+                    break
 
     # Study order for → Next / ← Prev links (inner_pg == output sheet in 1×1)
     _sorted_qids = sorted(qid_first_page.keys(), key=lambda q: qid_first_page[q])
@@ -3071,10 +3225,61 @@ def _add_links_1x1(output_path: Path, page_types: dict,
             shape.finish(color=dot_color, fill=dot_color, width=0.3)
             shape.commit()
 
-    # ── ← Contents + → Next (top band) + Done checkbox (next to title) ──────────
+    # ── ← Contents + → Next / Next Sec (top band) + Done checkbox ─────────────
     BW, BH   = 110, 18
     CB_SZ    = max(11.0, TOC_CB_PT - 1)
     BW_N, BH_N = 75, 18
+    BW_S, BH_S = 90, 18
+    BW_SJ    = 30  # small "→ §" section-jump button
+    n_sec_btn = 0
+
+    # Ordered section landings for "← Prev Sec" / "Next Sec →".
+    # Prefer pattern grain when it is finer than rounds (Study Splits mega = 138
+    # pattern banners). Priority Packs have 1 pattern per round, so either works.
+    _section_starts: list = []  # [(key, dest_page), ...] sorted by page
+    if len(pat_page_registry) > len(round_page_registry):
+        _section_starts = sorted(
+            pat_page_registry.items(), key=lambda kv: kv[1],
+        )
+    else:
+        # Round grain (Priority Packs) — land on the section banner/header,
+        # matching Splits pattern-banner behavior (skip mini-TOC question list).
+        for _rn in sorted(round_page_registry.keys(),
+                          key=lambda r: round_page_registry[r]):
+            _section_starts.append((_rn, round_page_registry[_rn]))
+
+    def _section_index(sh: int):
+        """Index into _section_starts for sheet sh, or None if before first."""
+        if not _section_starts:
+            return None
+        if sh < _section_starts[0][1]:
+            return None
+        for _i, (_key, _start) in enumerate(_section_starts):
+            _end = (_section_starts[_i + 1][1]
+                    if _i + 1 < len(_section_starts) else n_sheets)
+            if _start <= sh < _end:
+                return _i
+        return len(_section_starts) - 1
+
+    def _next_section_dest(sh: int):
+        """Page index of the next main section after sheet sh, or None."""
+        if len(_section_starts) < 2:
+            return None
+        _idx = _section_index(sh)
+        if _idx is None:
+            return _section_starts[0][1]
+        if _idx + 1 < len(_section_starts):
+            return _section_starts[_idx + 1][1]
+        return None
+
+    def _prev_section_dest(sh: int):
+        """Page index of the previous main section before sheet sh, or None."""
+        if len(_section_starts) < 2:
+            return None
+        _idx = _section_index(sh)
+        if _idx is None or _idx <= 0:
+            return None
+        return _section_starts[_idx - 1][1]
 
     for sh in range(n_sheets):
         if sh in toc_sheets:
@@ -3082,8 +3287,19 @@ def _add_links_1x1(output_path: Path, page_types: dict,
         out_pg = doc[sh]
         qid = inner_page_current_qid.get(sh)
 
-        # ← Contents (smart scroll to TOC entry)
-        if qid and qid in qid_toc_dest:
+        # ← Contents destination:
+        #   'chapter'    → master Contents (round/group banner, stale QID)
+        #   'pat_banner' → per-pattern mini-TOC immediately before this banner
+        #   question     → per-pattern mini-TOC via qid_toc_dest
+        #   anything else→ master Contents
+        _pg_type = page_types.get(sh)
+        if _pg_type == 'chapter':
+            dest_sh, dest_pt = toc_sheet0, fitz.Point(0, 0)
+        elif _pg_type == 'pat_banner':
+            _prec = _pat_banner_toc.get(sh)
+            dest_sh, dest_pt = (_prec, fitz.Point(0, 0)) if _prec is not None \
+                               else (toc_sheet0, fitz.Point(0, 0))
+        elif qid and qid in qid_toc_dest:
             dest_sh, dest_pt = qid_toc_dest[qid]
         else:
             dest_sh, dest_pt = toc_sheet0, fitz.Point(0, 0)
@@ -3095,6 +3311,51 @@ def _add_links_1x1(output_path: Path, page_types: dict,
         out_pg.insert_link({'kind': fitz.LINK_GOTO, 'from': btn_c,
                             'page': dest_sh, 'to': dest_pt, 'zoom': 0})
         n_cont += 1
+
+        # « small button left of ← Contents — jumps to master Contents page
+        # 14px gap prevents accidental taps bleeding into ← Contents
+        btn_top = fitz.Rect(btn_c.x0 - 14 - BW_SJ, 5, btn_c.x0 - 14, 5 + BH)
+        out_pg.draw_rect(btn_top, color=(0.22, 0.28, 0.90), fill=(0.08, 0.08, 0.45), width=1.0)
+        out_pg.insert_text(fitz.Point(btn_top.x0 + 5, btn_top.y0 + 12),
+                           '\xab', fontsize=max(9, TOC_CB_PT + 3),
+                           color=(1.0, 1.0, 1.0), fontname='helv')
+        out_pg.insert_link({'kind': fitz.LINK_GOTO, 'from': btn_top,
+                            'page': toc_sheet0, 'to': fitz.Point(0, 0), 'zoom': 0})
+
+        # ← Prev Sec / Next Sec → (left of « button)
+        # zoom must be non-zero: zoom=0 keeps the phone's scroll offset, so Next Sec
+        # often lands mid-page with the banner hidden above the fold.
+        # Slightly negative y pads above the page so the banner clears mobile chrome.
+        _SEC_TO = fitz.Point(0, -72)
+        _SEC_ZOOM = 1.0
+        next_sec_pg = _next_section_dest(sh)
+        prev_sec_pg = _prev_section_dest(sh)
+        sec_right = btn_top.x0 - 4
+        if next_sec_pg is not None:
+            btn_s = fitz.Rect(sec_right - BW_S, 5, sec_right, 5 + BH_S)
+            out_pg.draw_rect(btn_s, color=(0.22, 0.28, 0.90),
+                             fill=(0.08, 0.08, 0.45), width=1.0)
+            out_pg.insert_text(fitz.Point(btn_s.x0 + 6, btn_s.y0 + 12),
+                               'Next Sec →', fontsize=max(7, TOC_CB_PT + 1),
+                               color=(1.0, 1.0, 1.0), fontname='helv')
+            out_pg.insert_link({
+                'kind': fitz.LINK_GOTO, 'from': btn_s,
+                'page': next_sec_pg, 'to': _SEC_TO, 'zoom': _SEC_ZOOM,
+            })
+            sec_right = btn_s.x0 - 4
+            n_sec_btn += 1
+        if prev_sec_pg is not None:
+            btn_ps = fitz.Rect(sec_right - BW_S, 5, sec_right, 5 + BH_S)
+            out_pg.draw_rect(btn_ps, color=(0.22, 0.28, 0.90),
+                             fill=(0.08, 0.08, 0.45), width=1.0)
+            out_pg.insert_text(fitz.Point(btn_ps.x0 + 6, btn_ps.y0 + 12),
+                               '← Prev Sec', fontsize=max(7, TOC_CB_PT + 1),
+                               color=(1.0, 1.0, 1.0), fontname='helv')
+            out_pg.insert_link({
+                'kind': fitz.LINK_GOTO, 'from': btn_ps,
+                'page': prev_sec_pg, 'to': _SEC_TO, 'zoom': _SEC_ZOOM,
+            })
+            n_sec_btn += 1
 
         if not qid:
             continue
@@ -3208,10 +3469,12 @@ def _add_links_1x1(output_path: Path, page_types: dict,
     tmp = output_path.with_suffix('.tmp.pdf')
     doc.save(str(tmp), garbage=4, deflate=True, incremental=False)
     doc.close()
-    tmp.replace(output_path)
+    import shutil as _shutil
+    _shutil.move(str(tmp), str(output_path))
     uri_info = f'  |  URI links: {n_uri}' if n_uri else ''
     print(f'  Links: {n_links} (↗)  |  {n_sec} round/pat  |  TOC cb: {n_boxes}  |  '
-          f'Sol cb: {n_sol}  |  Done: {n_done}  |  Next: {n_next}  |  ← Cont: {n_cont}{uri_info}')
+          f'Sol cb: {n_sol}  |  Done: {n_done}  |  Next: {n_next}  |  '
+          f'Sec nav: {n_sec_btn}  |  ← Cont: {n_cont}{uri_info}')
 
 
 # ─── NeetCode-150 / AlgoMaster-600 category mode support ─────────────────────
