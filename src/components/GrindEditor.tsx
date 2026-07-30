@@ -582,18 +582,6 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
   }, [keyboardOpen])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const onFocusIn = (e: FocusEvent) => {
-      if (!window.matchMedia('(max-width: 767px)').matches) return
-      if (editorExpanded) return
-      const t = e.target as HTMLElement | null
-      if (t?.closest?.('.cm-editor')) setEditorExpanded(true)
-    }
-    document.addEventListener('focusin', onFocusIn)
-    return () => document.removeEventListener('focusin', onFocusIn)
-  }, [editorExpanded])
-
-  useEffect(() => {
     const refresh = () => setResetCount(readGrindResetCount(question.id))
     refresh()
     window.addEventListener(GRIND_RESET_CHANGED, refresh)
@@ -686,22 +674,9 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
         <div className="grind-editor-stack">
           {!editorExpanded && descriptionPanel()}
 
-          {!editorExpanded && (
-            <div className="grind-mobile-cta">
-              <p className="grind-mobile-cta-text">
-                Read the problem above, then write your solution from memory.
-              </p>
-              <button type="button" className="grind-chip" onClick={() => setEditorExpanded(true)}>
-                Write code
-              </button>
-            </div>
-          )}
-
-          {!isMobile && (
-            <div className={`grind-editor-inline practice-cm-wrap relative flex-1 min-h-0 ${editorExpanded ? 'invisible' : ''}`}>
-              {editorBody('100%', false)}
-            </div>
-          )}
+          <div className={`grind-editor-inline practice-cm-wrap relative flex-1 min-h-0 ${editorExpanded ? 'invisible' : ''}`}>
+            {editorBody('100%', false)}
+          </div>
         </div>
 
         {!editorExpanded && !isMobile && keybarRows(false)}

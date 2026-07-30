@@ -24,8 +24,6 @@
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  max-width: 900px;
-  margin: 0 auto;
 }
 
 .grind-shell .grind-header {
@@ -748,13 +746,13 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .grind-shell .grind-desc-card {
   flex: 0 0 auto;
-  height: clamp(6.5rem, 26vh, 11rem);
-  margin: 0.25rem 0.35rem 0.3rem;
+  height: auto;
+  margin: 0.35rem;
   background: var(--grind-surface);
   border: 1px solid var(--grind-overlay);
   border-radius: 0.5rem;
@@ -878,44 +876,11 @@
   }
 
   .grind-shell .grind-desc-card {
-    flex: 1 1 0%;
-    height: auto;
-    min-height: 8rem;
-    max-height: 52vh;
     margin: 0 0.35rem 0.25rem;
   }
 
   .grind-shell .grind-editor-inline {
-    display: none !important;
-  }
-
-  .grind-shell .grind-mobile-cta {
-    display: flex;
-    flex-shrink: 0;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.55rem;
-    padding: 0.85rem 0.75rem;
-    margin: 0.25rem 0.35rem 0;
-    background: var(--grind-surface);
-    border: 1px solid var(--grind-overlay);
-    border-radius: 0.5rem;
-    text-align: center;
-  }
-
-  .grind-shell .grind-mobile-cta-text {
-    font-size: 0.68rem;
-    color: var(--grind-soft);
-    line-height: 1.45;
-  }
-
-  .grind-shell .grind-mobile-cta .grind-chip {
-    background: #2563eb;
-    color: #fff;
-    border-color: #2563eb;
-    font-size: 0.75rem;
-    padding: 0.55rem 1rem;
+    min-height: 50dvh;
   }
 
   .grind-shell .grind-chip,
@@ -949,12 +914,47 @@
 }
 
 @media (min-width: 768px) {
-  .grind-shell .grind-mob-only {
-    display: none;
-  }
-
   .grind-shell .grind-count-patterns {
     display: flex;
+  }
+}
+
+@media (min-width: 1024px) {
+  .grind-shell .grind-app {
+    padding: 0 0.5rem;
+  }
+
+  /* LeetCode-style side-by-side: description left, editor right */
+  .grind-shell .grind-editor-stack {
+    flex-direction: row;
+    overflow: hidden;
+  }
+
+  .grind-shell .grind-desc-card {
+    width: 42%;
+    flex-shrink: 0;
+    height: 100%;
+    margin: 0;
+    border-radius: 0;
+    border: none;
+    border-right: 1px solid var(--grind-overlay);
+    overflow-y: auto;
+  }
+
+  .grind-shell .grind-desc-body {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .grind-shell .grind-editor-inline {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .grind-shell .grind-mob-only {
+    display: none;
   }
 }
 
