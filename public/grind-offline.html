@@ -403,6 +403,7 @@
     .mobile-code-cta { display: none; }
     .mob-editor-inline { display: flex; }
     .mob-only { display: none; }
+    .meta-list-btn { font-size: 0.72rem; padding: 0.2rem 0.5rem; flex-shrink: 0; }
     /* Description/Code tabs — mobile/tablet only */
     .editor-tabs { display: none; flex-shrink: 0; border-bottom: 1px solid #313244; background: #181825; }
     .editor-tab { flex: 1; padding: 0.5rem 0; font-size: 0.75rem; font-weight: 600; background: none; border: none; color: #6c7086; cursor: pointer; }
@@ -440,6 +441,7 @@
         min-width: 44px;
         padding: 0.5rem 0.65rem;
       }
+      .meta-list-btn { min-height: 32px; min-width: 32px; padding: 0.2rem 0.5rem; }
       .search { font-size: 16px; min-height: 44px; }
       button:focus-visible, .search:focus-visible, .q:focus-visible {
         outline: 2px solid #89b4fa;
@@ -555,6 +557,8 @@
         <button type="button" id="fs-btn-py" class="on-py">Py</button>
         <button type="button" id="fs-btn-cpp">C++</button>
       </div>
+      <button type="button" class="chip-btn nav-btn" id="btn-fs-prev" aria-label="Previous question">&#8249;</button>
+      <button type="button" class="chip-btn nav-btn" id="btn-fs-next" aria-label="Next question">&#8250;</button>
       <button type="button" class="chip-btn" id="btn-fs-close" aria-label="Close full screen editor">Close</button>
     </div>
     <div class="fs-desc-pane" id="fs-desc-pane" role="region" aria-label="Problem description">
@@ -1648,6 +1652,10 @@
       if (prev) prev.disabled = idx <= 0
       if (next) next.disabled = idx < 0 || idx >= list.length - 1
       if (count) count.textContent = idx >= 0 ? (idx + 1) + '/' + list.length : ''
+      var fsPrev = document.getElementById('btn-fs-prev')
+      var fsNext = document.getElementById('btn-fs-next')
+      if (fsPrev) fsPrev.disabled = idx <= 0
+      if (fsNext) fsNext.disabled = idx < 0 || idx >= list.length - 1
     }
 
     function goNav(delta) {
@@ -2551,6 +2559,7 @@
         '<section class="editor" aria-label="Code editor workspace">' +
           '<div class="meta">' +
             '<span id="meta-text"></span>' +
+            '<button type="button" class="chip-btn mob-only meta-list-btn" id="btn-meta-list" aria-label="Open question list">&#9776;</button>' +
           '</div>' +
           '<div class="editor-tabs" id="editor-tabs">' +
             '<button type="button" class="editor-tab on" id="tab-desc">Description</button>' +
@@ -2585,6 +2594,10 @@
         setFastListOpen(false)
         setListOpen(!listOpen)
       }
+      document.getElementById('btn-meta-list').onclick = function() {
+        setFastListOpen(false)
+        setListOpen(!listOpen)
+      }
       document.getElementById('btn-fast').onclick = function() {
         setFastListOpen(!fastListOpen)
       }
@@ -2604,6 +2617,8 @@
       if (btnUndo) btnUndo.onclick = function() { if (editorHandle) editorHandle.undo() }
       var btnRedo = document.getElementById('btn-redo')
       if (btnRedo) btnRedo.onclick = function() { if (editorHandle) editorHandle.redo() }
+      document.getElementById('btn-fs-prev').onclick = function() { goNav(-1) }
+      document.getElementById('btn-fs-next').onclick = function() { goNav(1) }
       document.getElementById('btn-fs-close').onclick = function() { setEditorExpanded(false) }
       var fsDescToggle = document.getElementById('btn-fs-desc-toggle')
       if (fsDescToggle) {

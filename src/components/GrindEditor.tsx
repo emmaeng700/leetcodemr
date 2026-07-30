@@ -35,9 +35,16 @@ interface GrindEditorProps {
   question: GrindQuestion
   className?: string
   onReset?: (id: number) => void
+  onShowList?: () => void
+  onPrev?: () => void
+  onNext?: () => void
+  hasPrev?: boolean
+  hasNext?: boolean
+  startExpanded?: boolean
+  onExpandedChange?: (v: boolean) => void
 }
 
-function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
+function GrindEditor({ question, className = '', onReset, onShowList, onPrev, onNext, hasPrev, hasNext, startExpanded, onExpandedChange }: GrindEditorProps) {
   const { height: vvHeight, keyboardOpen } = useMobileViewport()
   const { lang, setLang } = useGrindLang()
   // Re-render trigger for programmatic doc replacements; the text itself lives
@@ -49,7 +56,11 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
   const [copied, setCopied] = useState(false)
   const [syncState, setSyncState] = useState<'local' | 'synced' | 'offline'>('local')
   const [resetCount, setResetCount] = useState(() => readGrindResetCount(question.id))
-  const [editorExpanded, setEditorExpanded] = useState(false)
+  const [editorExpanded, setEditorExpandedLocal] = useState(startExpanded ?? false)
+  const setEditorExpanded = useCallback((v: boolean) => {
+    setEditorExpandedLocal(v)
+    onExpandedChange?.(v)
+  }, [onExpandedChange])
   const [portalDescCollapsed, setPortalDescCollapsed] = useState(false)
   const [mobileTab, setMobileTab] = useState<'desc' | 'code'>('desc')
   const [extensions, setExtensions] = useState<any[]>([])
@@ -583,6 +594,17 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
           {typeof navigator !== 'undefined' && !navigator.onLine && (
             <WifiOff size={12} className="text-[#fab387] shrink-0" />
           )}
+          {onShowList && (
+            <button
+              type="button"
+              className="grind-chip grind-mob-only"
+              onPointerDown={e => e.preventDefault()}
+              onClick={onShowList}
+              aria-label="Open question list"
+            >
+              ≡
+            </button>
+          )}
           <button
             type="button"
             className="grind-chip grind-mob-only"
@@ -656,6 +678,22 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
                 <span className="grind-reset-count shrink-0">↺{resetCount}</span>
               )}
               {langToggle}
+              {!keyboardOpen && (onPrev !== undefined || onNext !== undefined) && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { if (hasPrev) onPrev?.() }}
+                    className={`grind-chip grind-nav-btn${!hasPrev ? ' opacity-35' : ''}`}
+                    aria-label="Previous question"
+                  >&#8249;</button>
+                  <button
+                    type="button"
+                    onClick={() => { if (hasNext) onNext?.() }}
+                    className={`grind-chip grind-nav-btn${!hasNext ? ' opacity-35' : ''}`}
+                    aria-label="Next question"
+                  >&#8250;</button>
+                </>
+              )}
               <button type="button" onClick={() => setEditorExpanded(false)} className="grind-chip">
                 Close
               </button>

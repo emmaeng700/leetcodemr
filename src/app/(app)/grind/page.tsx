@@ -167,6 +167,7 @@ function GrindInner() {
   })
   const [listOpen, setListOpen] = useState(false)
   const [fastListOpen, setFastListOpen] = useState(false)
+  const [portalOpen, setPortalOpen] = useState(false)
   const [ltsSort, setLtsSort] = useState(true)
   const [resetCounts, setResetCounts] = useState<Record<number, number>>(() => readAllGrindResetCounts())
   const prefetchRef = useRef(false)
@@ -706,7 +707,19 @@ function GrindInner() {
 
         <div className="grind-editor min-h-0">
           {selected ? (
-            <GrindEditor key={selected.id} question={selected} className="flex-1 min-h-0 h-full" onReset={handleReset} />
+            <GrindEditor
+              key={selected.id}
+              question={selected}
+              className="flex-1 min-h-0 h-full"
+              onReset={handleReset}
+              startExpanded={portalOpen}
+              onExpandedChange={setPortalOpen}
+              onShowList={() => { setListOpen(v => !v); setFastListOpen(false) }}
+              onPrev={navIndex > 0 ? () => go(-1) : undefined}
+              onNext={navIndex >= 0 && navIndex < navList.length - 1 ? () => go(1) : undefined}
+              hasPrev={navIndex > 0}
+              hasNext={navIndex >= 0 && navIndex < navList.length - 1}
+            />
           ) : (
             <div className="flex-1 flex items-center justify-center text-sm text-[#6c7086] p-4">
               Search or pick a question to start grinding.
