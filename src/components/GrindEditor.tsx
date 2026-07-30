@@ -502,6 +502,7 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
     return () => { document.body.classList.remove('grind-kbd-open') }
   }, [keyboardOpen])
 
+
   useEffect(() => {
     const refresh = () => setResetCount(readGrindResetCount(question.id))
     refresh()
@@ -600,14 +601,14 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
                 key={tab}
                 type="button"
                 onPointerDown={e => e.preventDefault()}
-                onClick={() => setMobileTab(tab)}
+                onClick={() => tab === 'code' ? setEditorExpanded(true) : setMobileTab('desc')}
                 className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-                  mobileTab === tab
+                  tab === 'desc' && mobileTab === 'desc'
                     ? 'text-[#89b4fa] border-b-2 border-[#89b4fa]'
                     : 'text-[#6c7086]'
                 }`}
               >
-                {tab === 'desc' ? 'Description' : 'Code'}
+                {tab === 'desc' ? 'Description' : 'Code ⤢'}
               </button>
             ))}
           </div>
