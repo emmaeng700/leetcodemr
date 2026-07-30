@@ -18,6 +18,13 @@ const nextConfig: NextConfig = {
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
       : (process.env.NEXT_PUBLIC_APP_ORIGIN || "https://leetcodemr.vercel.app"),
   },
+  async rewrites() {
+    return [
+      // Grind is now served from the standalone offline-first HTML page,
+      // which handles both online and offline via its own fetch/localStorage logic.
+      { source: '/grind', destination: '/grind-offline.html' },
+    ]
+  },
   async redirects() {
     return [
       { source: "/mock", destination: "/mcp?tab=mock", permanent: false },
