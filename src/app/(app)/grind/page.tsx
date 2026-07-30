@@ -168,7 +168,7 @@ function GrindInner() {
   })
   const [listOpen, setListOpen] = useState(false)
   const [fastListOpen, setFastListOpen] = useState(false)
-  const [ltsSort, setLtsSort] = useState(false)
+  const [ltsSort, setLtsSort] = useState(true)
   const [resetCounts, setResetCounts] = useState<Record<number, number>>(() => readAllGrindResetCounts())
   const prefetchRef = useRef(false)
   const activeRowRef = useRef<HTMLDivElement | null>(null)
@@ -468,7 +468,7 @@ function GrindInner() {
           <div className="grind-header-title">
             <h1>The Grind</h1>
             <p className="grind-header-sub">
-              PDF study order | {questions.length} questions | Set 1 then 2 then 3
+              LtS order | {questions.length} questions | High → Mid → Low priority
             </p>
           </div>
           {online && (
