@@ -1,4 +1,5 @@
 import { normalizeGrindCode } from '@/lib/grindStamp'
+import { supabase, USER_ID } from '@/lib/supabase'
 
 export type GrindLang = 'python3' | 'cpp'
 
@@ -21,6 +22,28 @@ export function writeGrindLastQuestionId(questionId: number): void {
     localStorage.setItem(GRIND_LAST_QUESTION_KEY, String(questionId))
   } catch {
     /* quota */
+  }
+  // Fire-and-forget cloud sync so any device can resume here
+  supabase
+    .from('user_settings')
+    .upsert({ user_id: USER_ID, grind_last_question_id: questionId }, { onConflict: 'user_id' })
+    .then(() => {/* intentional no-op */})
+    .catch(() => {/* offline — localStorage is enough */})
+}
+
+export async function fetchGrindLastQuestionFromCloud(): Promise<number | null> {
+  try {
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('grind_last_question_id')
+      .eq('user_id', USER_ID)
+      .maybeSingle()
+    if (error) return null
+    const raw = (data as Record<string, unknown> | null)?.grind_last_question_id
+    const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? ''), 10)
+    return Number.isFinite(n) && n > 0 ? n : null
+  } catch {
+    return null
   }
 }
 
