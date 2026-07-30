@@ -679,7 +679,7 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
           </div>
         </div>
 
-        {!editorExpanded && !isMobile && <div className="lg:hidden">{keybarRows(false)}</div>}
+        {!editorExpanded && <div className="lg:hidden">{keybarRows(false)}</div>}
         {!editorExpanded && footerBar}
       </div>
 
