@@ -329,6 +329,38 @@ export type LcBatchPreset = {
 /** One-click scopes (ignore page filters except for "current filters"). */
 export const LC_BATCH_PRESETS: LcBatchPreset[] = [
   {
+    id: 'lts-all',
+    label: 'LtS · All 727',
+    setFilter: 'all',
+    tierFilter: 'all',
+    patternFilter: 'all',
+    split: 'pattern',
+  },
+  {
+    id: 'lts-high',
+    label: 'LtS · High only',
+    setFilter: 'all',
+    tierFilter: 'all',
+    patternFilter: 'all',
+    split: 'pattern',
+  },
+  {
+    id: 'lts-mid',
+    label: 'LtS · Mid only',
+    setFilter: 'all',
+    tierFilter: 'all',
+    patternFilter: 'all',
+    split: 'pattern',
+  },
+  {
+    id: 'lts-low',
+    label: 'LtS · Low only',
+    setFilter: 'all',
+    tierFilter: 'all',
+    patternFilter: 'all',
+    split: 'pattern',
+  },
+  {
     id: 's1-patterns',
     label: 'Set 1 · all patterns',
     setFilter: 1,
@@ -377,6 +409,66 @@ export const LC_BATCH_PRESETS: LcBatchPreset[] = [
     split: 'tier',
   },
 ]
+
+const LTS_PRIO_ORD: Record<string, number> = { High: 0, Mid: 1, Low: 2 }
+const LTS_BAND_ORD: Record<string, number> = { long: 0, medium: 1, short: 2, tiny: 3 }
+const LTS_DIFF_ORD: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
+function ltsBand(n: number) {
+  return n >= 16 ? 'long' : n >= 10 ? 'medium' : n >= 5 ? 'short' : 'tiny'
+}
+
+/**
+ * Returns a single-item array: one LC list containing all questions (or only one
+ * priority) sorted in LtS order — High→Mid→Low, 16+q→10-15q→5-9q→1-4q within
+ * each priority, then Easy→Med→Hard, larger section first, S1→S2→S3, then pattern.
+ */
+export function planLtsLcLists(
+  allQuestions: GrindQuestion[],
+  priorityFilter?: 'High' | 'Mid' | 'Low',
+): BatchListPlan[] {
+  // First pass: compute section sizes so we can determine bands
+  const secSize = new Map<string, number>()
+  for (const q of allQuestions) {
+    const tier = questionStudyTier(q)
+    if (!tier || !q.pattern) continue
+    const secKey = `${tier}|${q.set}|${q.pattern}`
+    secSize.set(secKey, (secSize.get(secKey) ?? 0) + 1)
+  }
+
+  // Filter by priority if requested
+  const pool = allQuestions.filter(q => {
+    const tier = questionStudyTier(q)
+    if (!tier || !q.pattern) return false
+    if (priorityFilter && !tier.startsWith(priorityFilter)) return false
+    return true
+  })
+
+  // Sort each question by its section's LtS position, then by id within section
+  const sorted = [...pool].sort((a, b) => {
+    const ta = questionStudyTier(a)!, tb = questionStudyTier(b)!
+    const [pa, da] = ta.split(' '), [pb, db] = tb.split(' ')
+    const po = (LTS_PRIO_ORD[pa] ?? 9) - (LTS_PRIO_ORD[pb] ?? 9)
+    if (po !== 0) return po
+    const na = secSize.get(`${ta}|${a.set}|${a.pattern}`) ?? 0
+    const nb = secSize.get(`${tb}|${b.set}|${b.pattern}`) ?? 0
+    const bo = (LTS_BAND_ORD[ltsBand(na)] ?? 9) - (LTS_BAND_ORD[ltsBand(nb)] ?? 9)
+    if (bo !== 0) return bo
+    const dif = (LTS_DIFF_ORD[da] ?? 9) - (LTS_DIFF_ORD[db] ?? 9)
+    if (dif !== 0) return dif
+    if (na !== nb) return nb - na  // larger section first
+    if (a.set !== b.set) return a.set - b.set
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pi = DISPLAY_PATTERN_ORDER.indexOf(a.pattern as any ?? '')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pj = DISPLAY_PATTERN_ORDER.indexOf(b.pattern as any ?? '')
+    if (pi !== pj) return pi - pj
+    return a.id - b.id  // stable within section
+  })
+
+  const listName = priorityFilter ? `LtS · ${priorityFilter}` : `LtS · All ${sorted.length}`
+  const key = priorityFilter ? `lts-${priorityFilter.toLowerCase()}` : 'lts-all'
+  return [{ key, listName, questions: sorted }]
+}
 
 export function planPresetLcLists(
   allQuestions: GrindQuestion[],

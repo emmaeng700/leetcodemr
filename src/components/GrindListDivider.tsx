@@ -6,6 +6,8 @@ const VARIANT_CLASS: Record<DividerEntry['variant'], string> = {
   set: 'grind-divider-set',
   tier: 'grind-divider-tier',
   section: 'grind-divider-sec',
+  'lts-band': 'grind-divider-tier',
+  'lts-section': 'grind-divider-sec',
 }
 
 export default function GrindListDivider({ entry }: { entry: DividerEntry }) {

@@ -14,7 +14,7 @@ import GrindListDivider from '@/components/GrindListDivider'
 import { GrindLangProvider, useGrindLang } from '@/components/grind/GrindLangContext'
 import { buildGrindQuestions, loadQuestionsFullJson, loadPlaybookMap, loadGrindQuestionsBundle, type GrindQuestion } from '@/lib/grindQuestions'
 import { migrateAllGrindDrafts } from '@/lib/grindMigration'
-import { grindListWithDividers, grindSummaryCounts, type GrindListEntry } from '@/lib/grindList'
+import { grindListWithDividers, ltsListWithDividers, grindSummaryCounts, type GrindListEntry } from '@/lib/grindList'
 import { matchesQuestionSearch } from '@/lib/questionSearchMatch'
 import { leetCodeUrl, resolveLeetCodeSlug } from '@/lib/utils'
 import { ensureGrindStarterCached } from '@/lib/grindStarter'
@@ -39,6 +39,7 @@ import {
 import { useMobileViewport } from '@/hooks/useMobileViewport'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import FastListsPanel from '@/components/FastListsPanel'
+import { DISPLAY_PATTERN_ORDER } from '@/lib/constants'
 
 function grindHref(id: number) {
   return `/grind?id=${id}`
@@ -167,6 +168,7 @@ function GrindInner() {
   })
   const [listOpen, setListOpen] = useState(false)
   const [fastListOpen, setFastListOpen] = useState(false)
+  const [ltsSort, setLtsSort] = useState(false)
   const [resetCounts, setResetCounts] = useState<Record<number, number>>(() => readAllGrindResetCounts())
   const prefetchRef = useRef(false)
   const activeRowRef = useRef<HTMLDivElement | null>(null)
@@ -279,29 +281,66 @@ function GrindInner() {
     })
   }, [questions, search, grindFilters])
 
+  const ltsOrdered = useMemo(() => {
+    if (!ltsSort) return filtered
+    const secSize = new Map<string, number>()
+    for (const q of questions) {
+      if (!q.section) continue
+      const key = `${q.section}|${q.set}`
+      secSize.set(key, (secSize.get(key) ?? 0) + 1)
+    }
+    const priOrd: Record<string, number> = { High: 0, Mid: 1, Low: 2 }
+    const diffOrd: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
+    const band = (n: number) => n >= 16 ? 0 : n >= 10 ? 1 : n >= 5 ? 2 : 3
+    const SEC_RE = /^(High|Mid|Low) (Easy|Medium|Hard) - /
+    return [...filtered].sort((a, b) => {
+      const ma = SEC_RE.exec(a.section ?? '')
+      const mb = SEC_RE.exec(b.section ?? '')
+      const po = (priOrd[ma?.[1] ?? ''] ?? 9) - (priOrd[mb?.[1] ?? ''] ?? 9)
+      if (po !== 0) return po
+      const na = secSize.get(`${a.section}|${a.set}`) ?? 0
+      const nb = secSize.get(`${b.section}|${b.set}`) ?? 0
+      const bo = band(na) - band(nb)
+      if (bo !== 0) return bo
+      const dif = (diffOrd[ma?.[2] ?? ''] ?? 9) - (diffOrd[mb?.[2] ?? ''] ?? 9)
+      if (dif !== 0) return dif
+      if (na !== nb) return nb - na
+      if (a.set !== b.set) return a.set - b.set
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pi = DISPLAY_PATTERN_ORDER.indexOf(a.pattern as any ?? '')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pj = DISPLAY_PATTERN_ORDER.indexOf(b.pattern as any ?? '')
+      if (pi !== pj) return pi - pj
+      return a.id - b.id
+    })
+  }, [filtered, ltsSort, questions])
+
   const filterBase = useMemo(() => {
     return questions.filter(q =>
       grindQuestionMatchesFilters(q, { ...grindFilters, pattern: 'all' }),
     )
   }, [questions, grindFilters])
 
-  const listEntries = useMemo(() => grindListWithDividers(filtered), [filtered])
+  const listEntries = useMemo(
+    () => ltsSort ? ltsListWithDividers(ltsOrdered) : grindListWithDividers(ltsOrdered),
+    [ltsOrdered, ltsSort],
+  )
   const summary = useMemo(() => grindSummaryCounts(filterBase), [filterBase])
   const patternCounts = useMemo(() => summary.byPattern, [summary])
 
   const selected = useMemo(() => {
     if (selectedId > 0) {
-      const fromFiltered = filtered.find(q => q.id === selectedId)
+      const fromFiltered = ltsOrdered.find(q => q.id === selectedId)
       if (fromFiltered) return fromFiltered
       return questions.find(q => q.id === selectedId) ?? null
     }
-    return filtered[0] ?? questions[0] ?? null
-  }, [questions, filtered, selectedId])
+    return ltsOrdered[0] ?? questions[0] ?? null
+  }, [questions, ltsOrdered, selectedId])
 
   const navList = useMemo(() => {
-    if (selected && !filtered.some(q => q.id === selected.id)) return questions
-    return filtered.length ? filtered : questions
-  }, [filtered, questions, selected])
+    if (selected && !ltsOrdered.some(q => q.id === selected.id)) return questions
+    return ltsOrdered.length ? ltsOrdered : questions
+  }, [ltsOrdered, questions, selected])
   const navIndex = selected ? navList.findIndex(q => q.id === selected.id) : -1
 
   useEffect(() => {
@@ -403,7 +442,7 @@ function GrindInner() {
 
   function onSearchSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const first = filtered[0]
+    const first = ltsOrdered[0]
     if (first) navigateToQuestion(first)
   }
 
@@ -466,6 +505,7 @@ function GrindInner() {
           patternCounts={patternCounts}
           filters={grindFilters}
           onChange={nextFilters => {
+            setLtsSort(false)
             setGrindFilters(nextFilters)
             const newFiltered = questions.filter(q => {
               if (!grindQuestionMatchesFilters(q, nextFilters)) return false
@@ -559,6 +599,7 @@ function GrindInner() {
               questions={questions}
               activeFilters={grindFilters}
               onSelect={nextFilters => {
+                setLtsSort(false)
                 setGrindFilters(nextFilters)
                 setFastListOpen(false)
                 const newFiltered = questions.filter(q =>
@@ -567,11 +608,57 @@ function GrindInner() {
                 if (newFiltered.length > 0) navigateToQuestion(newFiltered[0])
               }}
               onClose={() => setFastListOpen(false)}
+              onLtsCollect={filter => {
+                const priorities: Set<'High' | 'Mid' | 'Low'> = filter
+                  ? new Set([filter])
+                  : new Set(['High', 'Mid', 'Low'])
+                const nextFilters: GrindFilterState = {
+                  pattern: 'all',
+                  difficulties: new Set(['Easy', 'Medium', 'Hard']),
+                  priorities,
+                  sets: new Set([1, 2, 3]),
+                }
+                // Compute LtS order immediately to navigate to first question
+                const pool = questions.filter(q => grindQuestionMatchesFilters(q, nextFilters))
+                const secSize = new Map<string, number>()
+                for (const q of questions) {
+                  if (!q.section) continue
+                  secSize.set(`${q.section}|${q.set}`, (secSize.get(`${q.section}|${q.set}`) ?? 0) + 1)
+                }
+                const priOrd: Record<string, number> = { High: 0, Mid: 1, Low: 2 }
+                const diffOrd: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
+                const band = (n: number) => n >= 16 ? 0 : n >= 10 ? 1 : n >= 5 ? 2 : 3
+                const SEC_RE = /^(High|Mid|Low) (Easy|Medium|Hard) - /
+                const sorted = [...pool].sort((a, b) => {
+                  const ma = SEC_RE.exec(a.section ?? '')
+                  const mb = SEC_RE.exec(b.section ?? '')
+                  const po = (priOrd[ma?.[1] ?? ''] ?? 9) - (priOrd[mb?.[1] ?? ''] ?? 9)
+                  if (po !== 0) return po
+                  const na = secSize.get(`${a.section}|${a.set}`) ?? 0
+                  const nb = secSize.get(`${b.section}|${b.set}`) ?? 0
+                  const bo = band(na) - band(nb)
+                  if (bo !== 0) return bo
+                  const dif = (diffOrd[ma?.[2] ?? ''] ?? 9) - (diffOrd[mb?.[2] ?? ''] ?? 9)
+                  if (dif !== 0) return dif
+                  if (na !== nb) return nb - na
+                  if (a.set !== b.set) return a.set - b.set
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const pi = DISPLAY_PATTERN_ORDER.indexOf(a.pattern as any ?? '')
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const pj = DISPLAY_PATTERN_ORDER.indexOf(b.pattern as any ?? '')
+                  if (pi !== pj) return pi - pj
+                  return a.id - b.id
+                })
+                setLtsSort(true)
+                setGrindFilters(nextFilters)
+                setFastListOpen(false)
+                if (sorted[0]) navigateToQuestion(sorted[0])
+              }}
             />
           ) : (
             <>
               <div className="grind-list-head">
-                {filtered.length} question{filtered.length !== 1 ? 's' : ''}
+                {ltsOrdered.length} question{ltsOrdered.length !== 1 ? 's' : ''}
                 {search.trim() ||
                 grindFilters.pattern !== 'all' ||
                 grindFilters.difficulties.size < 3 ||

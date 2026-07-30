@@ -33,6 +33,7 @@ import {
   LC_NAME_PART_LABEL,
   moveNamePart,
   planBatchLcLists,
+  planLtsLcLists,
   planPresetLcLists,
   readLcNameOrder,
   saveLcNameOrder,
@@ -269,6 +270,8 @@ function ProgressRing({ solved, total }: { solved: number; total: number }) {
     </div>
   )
 }
+
+const LTS_PRESET_IDS = ['lts-all', 'lts-high', 'lts-mid', 'lts-low']
 
 export default function LeetCodeListPage() {
   const [questions, setQuestions] = useState<GrindQuestion[]>([])
@@ -637,6 +640,13 @@ export default function LeetCodeListPage() {
   const batchSplitEffective = activeBatchPreset?.split ?? batchSplit
 
   const batchPlans = useMemo(() => {
+    if (batchPresetId && LTS_PRESET_IDS.includes(batchPresetId)) {
+      const pf = batchPresetId === 'lts-high' ? 'High'
+               : batchPresetId === 'lts-mid'  ? 'Mid'
+               : batchPresetId === 'lts-low'  ? 'Low'
+               : undefined
+      return planLtsLcLists(questions, pf)
+    }
     if (activeBatchPreset) {
       return planPresetLcLists(questions, activeBatchPreset, nameOrder, batchDiffs, batchPriorities)
     }
@@ -700,13 +710,15 @@ export default function LeetCodeListPage() {
       for (let i = 0; i < batchPlans.length; i++) {
         const plan = batchPlans[i]
         setBatchProgress(`${i + 1} / ${batchPlans.length}: ${plan.listName}`)
-        const storageKey = storageKeyForPlan(
-          plan,
-          batchScopeFilters,
-          batchSplitEffective,
-          batchDiffs,
-          batchPriorities,
-        )
+        const storageKey = (batchPresetId && LTS_PRESET_IDS.includes(batchPresetId))
+          ? plan.key
+          : storageKeyForPlan(
+              plan,
+              batchScopeFilters,
+              batchSplitEffective,
+              batchDiffs,
+              batchPriorities,
+            )
         const existingSlug = lists[storageKey]?.slug ?? null
         const res = await fetch('/api/lc-list', {
           method: 'POST',

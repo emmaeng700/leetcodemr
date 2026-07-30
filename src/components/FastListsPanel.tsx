@@ -105,10 +105,30 @@ type Props = {
   activeFilters: GrindFilterState
   onSelect: (filters: GrindFilterState) => void
   onClose: () => void
+  onLtsCollect?: (filter?: 'High' | 'Mid' | 'Low') => void
 }
 
-export default function FastListsPanel({ questions, activeFilters, onSelect, onClose }: Props) {
-  const [tab, setTab] = useState<'splits' | 'packs'>('splits')
+const LTS_BAND_ORDER: Record<string, number> = { long: 0, medium: 1, short: 2, tiny: 3 }
+const LTS_BAND_LABEL: Record<string, string> = {
+  long:   '16+q · deep work',
+  medium: '10–15q · solid',
+  short:  '5–9q · short',
+  tiny:   '1–4q · tiny',
+}
+const LTS_PRIO_ORDER: Record<string, number> = { High: 0, Mid: 1, Low: 2 }
+const LTS_DIFF_ORDER: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
+
+function ltsBandFor(count: number): string {
+  if (count >= 16) return 'long'
+  if (count >= 10) return 'medium'
+  if (count >= 5) return 'short'
+  return 'tiny'
+}
+
+type LtsBandSection = { priority: string; band: string; items: SplitGroup[] }
+
+export default function FastListsPanel({ questions, activeFilters, onSelect, onClose, onLtsCollect }: Props) {
+  const [tab, setTab] = useState<'splits' | 'packs' | 'lts'>('splits')
 
   // ── 138 split groups ───────────────────────────────────────────────────────
   const splitGroups = useMemo<SplitGroup[]>(() => {
@@ -174,6 +194,34 @@ export default function FastListsPanel({ questions, activeFilters, onSelect, onC
       items: packGroups.filter(g => g.priority === priority),
     })), [packGroups])
 
+  const ltsSections = useMemo<LtsBandSection[]>(() => {
+    const sorted = [...splitGroups].sort((a, b) => {
+      const po = (LTS_PRIO_ORDER[a.priority] ?? 9) - (LTS_PRIO_ORDER[b.priority] ?? 9)
+      if (po !== 0) return po
+      const bo = (LTS_BAND_ORDER[ltsBandFor(a.count)] ?? 9) - (LTS_BAND_ORDER[ltsBandFor(b.count)] ?? 9)
+      if (bo !== 0) return bo
+      const da = LTS_DIFF_ORDER[a.tier.split(' ')[1]] ?? 9
+      const db = LTS_DIFF_ORDER[b.tier.split(' ')[1]] ?? 9
+      if (da !== db) return da - db
+      if (b.count !== a.count) return b.count - a.count
+      if (a.set !== b.set) return a.set - b.set
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return DISPLAY_PATTERN_ORDER.indexOf(a.pattern as any) - DISPLAY_PATTERN_ORDER.indexOf(b.pattern as any)
+    })
+    const sections: LtsBandSection[] = []
+    let curPri = '', curBand = ''
+    for (const g of sorted) {
+      const band = ltsBandFor(g.count)
+      if (g.priority !== curPri || band !== curBand) {
+        curPri = g.priority
+        curBand = band
+        sections.push({ priority: g.priority, band, items: [] })
+      }
+      sections[sections.length - 1].items.push(g)
+    }
+    return sections
+  }, [splitGroups])
+
   return (
     <div className="fast-lists-panel">
       <div className="fast-lists-head">
@@ -188,6 +236,14 @@ export default function FastListsPanel({ questions, activeFilters, onSelect, onC
           <span className="fast-lists-tab-sep">|</span>
           <button
             type="button"
+            className={`fast-lists-tab ${tab === 'lts' ? 'active' : ''}`}
+            onClick={() => setTab('lts')}
+          >
+            LtS · {splitGroups.length}
+          </button>
+          <span className="fast-lists-tab-sep">|</span>
+          <button
+            type="button"
             className={`fast-lists-tab ${tab === 'packs' ? 'active' : ''}`}
             onClick={() => setTab('packs')}
           >
@@ -198,7 +254,79 @@ export default function FastListsPanel({ questions, activeFilters, onSelect, onC
       </div>
 
       <div className="fast-lists-scroll">
-        {tab === 'splits' ? (
+        {tab === 'lts' && (
+          <div className="fast-lists-section" style={{ paddingBottom: 0 }}>
+            <div className="fast-lists-chips" style={{ paddingBottom: 8 }}>
+              {([
+                { label: 'All 727', priority: undefined },
+                { label: 'High only', priority: 'High' as const },
+                { label: 'Mid only', priority: 'Mid' as const },
+                { label: 'Low only', priority: 'Low' as const },
+              ]).map(({ label, priority }) => (
+                <button
+                  key={label}
+                  type="button"
+                  className="fast-chip"
+                  style={priority ? { color: PRIO_COLOR[priority], borderColor: PRIO_COLOR[priority] } : {}}
+                  onClick={() => onLtsCollect ? onLtsCollect(priority) : onSelect({
+                    pattern: 'all',
+                    difficulties: new Set(['Easy', 'Medium', 'Hard']),
+                    priorities: priority ? new Set([priority]) : new Set(['High', 'Mid', 'Low']),
+                    sets: new Set([1, 2, 3]),
+                  })}
+                >
+                  {`LtS · ${label}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {tab === 'lts' ? (
+          ltsSections.map(({ priority, band, items }) => (
+            <div key={`${priority}-${band}`} className="fast-lists-section">
+              <div
+                className="fast-lists-section-label"
+                style={{ color: PRIO_COLOR[priority], background: PRIO_BG[priority] }}
+              >
+                <b>{priority}</b>
+                {' · '}{LTS_BAND_LABEL[band]}
+                {' · '}{items.length} lists
+              </div>
+              <div className="fast-lists-chips">
+                {items.map(g => {
+                  const active = isSplitActive(activeFilters, g)
+                  return (
+                    <button
+                      key={g.label}
+                      type="button"
+                      className={`fast-chip ${active ? 'fast-chip-on' : ''}`}
+                      style={active ? {
+                        borderColor: PRIO_COLOR[g.priority],
+                        color: PRIO_COLOR[g.priority],
+                        background: PRIO_BG[g.priority],
+                      } : {}}
+                      onClick={() => {
+                        const diff = g.tier.split(' ')[1] as 'Easy' | 'Medium' | 'Hard'
+                        onSelect({
+                          difficulties: new Set([diff]),
+                          priorities: new Set([g.priority as 'High' | 'Mid' | 'Low']),
+                          sets: new Set([g.set]),
+                          pattern: g.pattern,
+                        })
+                      }}
+                    >
+                      <span className="fast-chip-set" style={{ color: SET_COLOR[g.set] }}>
+                        S{g.set}
+                      </span>
+                      {' '}{g.patAbbr} · <TierAbbr abbr={g.tierAbbr} />
+                      <span className="fast-chip-count">· {g.count}q</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))
+        ) : tab === 'splits' ? (
           splitSections.map(({ priority, items }) => (
             <div key={priority} className="fast-lists-section">
               <div

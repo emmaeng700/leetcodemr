@@ -2,7 +2,7 @@ import { PATTERN_PRIORITY } from '@/lib/constants'
 import type { GrindQuestion } from './grindQuestions'
 
 export type GrindListEntry =
-  | { type: 'divider'; label: string; key: string; variant: 'set' | 'tier' | 'section'; count: number }
+  | { type: 'divider'; label: string; key: string; variant: 'set' | 'tier' | 'section' | 'lts-band' | 'lts-section'; count: number }
   | { type: 'question'; q: GrindQuestion; key: string }
 
 export type GrindSummaryCounts = {
@@ -133,7 +133,7 @@ export function grindListWithDividers(questions: GrindQuestion[]): GrindListEntr
       out.push({
         type: 'divider',
         label: SET_LABEL[q.set],
-        key: `set-${q.set}`,
+        key: `set-${q.set}-${out.length}`,
         variant: 'set',
         count: setCounts.get(q.set) ?? 0,
       })
@@ -162,6 +162,77 @@ export function grindListWithDividers(questions: GrindQuestion[]): GrindListEntr
         count: sectionCounts.get(setSectionKey(q.set, q.section)) ?? 0,
       })
       lastSection = q.section
+    }
+
+    out.push({ type: 'question', q, key: `q-${q.set}-${q.id}` })
+  }
+
+  return out
+}
+
+const LTS_BAND_LABEL: Record<string, string> = {
+  long:   '16+q · deep work',
+  medium: '10–15q · solid',
+  short:  '5–9q · short',
+  tiny:   '1–4q · tiny',
+}
+
+function ltsBand(n: number): string {
+  if (n >= 16) return 'long'
+  if (n >= 10) return 'medium'
+  if (n >= 5)  return 'short'
+  return 'tiny'
+}
+
+export function ltsListWithDividers(questions: GrindQuestion[]): GrindListEntry[] {
+  // Pre-compute section sizes from this list
+  const secSize = new Map<string, number>()
+  for (const q of questions) {
+    if (!q.section) continue
+    const k = `${q.section}|${q.set}`
+    secSize.set(k, (secSize.get(k) ?? 0) + 1)
+  }
+
+  const out: GrindListEntry[] = []
+  let lastPri = ''
+  let lastBand = ''
+  let lastSecKey = ''
+  let bandIdx = 0
+  let secIdx = 0
+
+  for (const q of questions) {
+    const secKey = `${q.section}|${q.set}`
+    const n = secSize.get(secKey) ?? 1
+    const band = ltsBand(n)
+    const priM = q.section?.match(/^(High|Mid|Low)/)
+    const pri = priM?.[1] ?? ''
+    const patM = q.section?.match(/- (.+)$/)
+    const pattern = patM?.[1] ?? q.section ?? ''
+    const diffM = q.section?.match(/^(?:High|Mid|Low) (Easy|Medium|Hard)/)
+    const diff = diffM?.[1]?.slice(0, 3) ?? ''
+
+    if (pri !== lastPri || band !== lastBand) {
+      lastPri = pri
+      lastBand = band
+      lastSecKey = ''
+      out.push({
+        type: 'divider',
+        label: `${pri} · ${LTS_BAND_LABEL[band] ?? band}`,
+        key: `lts-band-${bandIdx++}`,
+        variant: 'lts-band',
+        count: 0,
+      })
+    }
+
+    if (secKey !== lastSecKey) {
+      lastSecKey = secKey
+      out.push({
+        type: 'divider',
+        label: `S${q.set} ${pattern} · ${diff} · ${n}q`,
+        key: `lts-sec-${secIdx++}`,
+        variant: 'lts-section',
+        count: n,
+      })
     }
 
     out.push({ type: 'question', q, key: `q-${q.set}-${q.id}` })
