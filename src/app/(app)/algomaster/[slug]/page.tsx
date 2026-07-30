@@ -125,7 +125,7 @@ export default function AlgoMasterQuestionPage() {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col lg:h-[calc(100dvh-3.5rem)] lg:overflow-hidden">
 
       {/* Top bar */}
       <div className="flex flex-wrap items-center px-3 sm:px-4 py-2 sm:py-2.5 border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0 gap-x-2 gap-y-1">
@@ -185,10 +185,10 @@ export default function AlgoMasterQuestionPage() {
       <div className="hidden"><MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} /></div>
 
       {/* Content area */}
-      <div className="flex flex-col">
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden">
 
         {/* Non-editor tabs */}
-        <div className="flex relative z-10 flex-col w-full bg-[var(--bg-card)] overflow-visible text-[var(--text)] border-b border-[var(--border)]">
+        <div className="flex relative z-10 flex-col w-full bg-[var(--bg-card)] overflow-visible lg:overflow-y-auto text-[var(--text)] border-b border-[var(--border)] lg:border-b-0 lg:border-r lg:w-[42%] lg:shrink-0">
           <div className="overflow-visible p-4">
 
             {leftPanelTab === 'description' && (
@@ -249,7 +249,7 @@ export default function AlgoMasterQuestionPage() {
         </div>
 
         {/* Editor panel */}
-        <div className="flex flex-col w-full min-h-[50dvh] md:h-[65vh] overflow-hidden border-t border-[var(--border)]">
+        <div className="flex flex-col w-full min-h-[50dvh] lg:flex-1 lg:min-h-0 overflow-hidden border-t lg:border-t-0 border-[var(--border)]">
           <LeetCodeEditor
             appQuestionId={q?.id ?? 0}
             slug={slug}

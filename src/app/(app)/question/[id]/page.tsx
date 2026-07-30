@@ -181,7 +181,7 @@ export default function QuestionPage() {
   )
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col lg:h-[calc(100dvh-3.5rem)] lg:overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-gray-100 bg-white shrink-0">
         <button
           type="button"
@@ -245,12 +245,12 @@ export default function QuestionPage() {
 
       <div className="hidden"><MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} /></div>
 
-      <div className="flex flex-col">
-        <div className="flex flex-col w-full bg-[var(--bg)] overflow-visible border-b border-gray-100">
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden">
+        <div className="flex flex-col w-full bg-[var(--bg)] overflow-visible lg:overflow-y-auto border-b border-gray-100 lg:border-b-0 lg:border-r lg:w-[42%] lg:shrink-0">
           {contentPanel}
         </div>
 
-        <div className="flex flex-col w-full min-h-[50dvh] md:h-[65vh] overflow-hidden border-t border-gray-100">
+        <div className="flex flex-col w-full min-h-[50dvh] lg:flex-1 lg:min-h-0 overflow-hidden border-t lg:border-t-0 border-gray-100">
           <LeetCodeEditor
             appQuestionId={question.id}
             slug={question.slug}

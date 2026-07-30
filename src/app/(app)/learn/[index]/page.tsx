@@ -1107,7 +1107,7 @@ function LearnInner() {
   return (
     <>
     <LearnSetTabs activeSet={1} />
-    <div className="flex flex-col">
+    <div className="flex flex-col lg:h-[calc(100dvh-3.5rem)] lg:overflow-hidden">
 
       {/* ── Study mode modal ── */}
       {studyMode === null && (
@@ -1520,10 +1520,10 @@ function LearnInner() {
           </button>
         </div>
         <div className="hidden"><MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} /></div>
-        <div className="relative z-0 flex flex-col">
+        <div className="relative z-0 flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden">
 
           {/* ── Content panel (all non-editor tabs) ── */}
-          <div className="flex relative z-10 flex-col w-full bg-[var(--bg-card)] overflow-visible text-[var(--text)] border-b border-[var(--border)]">
+          <div className="flex relative z-10 flex-col w-full bg-[var(--bg-card)] overflow-visible lg:overflow-y-auto text-[var(--text)] border-b border-[var(--border)] lg:border-b-0 lg:border-r lg:w-[42%] lg:shrink-0">
 
             {/* Panel content */}
             <div className="overflow-visible">
@@ -1660,7 +1660,7 @@ function LearnInner() {
           </div>
 
           {/* ── Editor panel ── */}
-          <div className="flex flex-col w-full min-h-[50dvh] md:h-[65vh] overflow-hidden border-t border-[var(--border)]">
+          <div className="flex flex-col w-full min-h-[50dvh] lg:flex-1 lg:min-h-0 overflow-hidden border-t lg:border-t-0 border-[var(--border)]">
             <LeetCodeEditor
               appQuestionId={q.id}
               slug={q.slug}

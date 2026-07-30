@@ -385,7 +385,7 @@ function MockInterviewPage() {
 
   /* ── ACTIVE ── */
   if (phase === 'active' && question) return (
-    <div className="flex flex-col">
+    <div className="flex flex-col lg:h-[calc(100dvh-3.5rem)] lg:overflow-hidden">
       {/* Timer top bar */}
       <div className={`relative z-[80] flex flex-wrap items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 md:pr-44 lg:pr-48 border-b shrink-0 ${urgent ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-200'}`}>
         {/* Countdown */}
@@ -453,10 +453,10 @@ function MockInterviewPage() {
       <div className="hidden"><MobileSplitPanelTabs panel={mobilePanel} onPanelChange={setMobilePanel} /></div>
 
       {/* Split layout */}
-      <div className="flex flex-col">
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden">
 
         {/* LEFT — question */}
-        <div className="flex flex-col w-full overflow-visible bg-[var(--bg-card)] border-b border-[var(--border)]">
+        <div className="flex flex-col w-full overflow-visible lg:overflow-y-auto bg-[var(--bg-card)] border-b border-[var(--border)] lg:border-b-0 lg:border-r lg:w-[42%] lg:shrink-0">
           <div className="flex border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
             <button onClick={() => setLeftTab('description')}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${leftTab === 'description' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-[var(--text-subtle)] hover:text-[var(--text-muted)]'}`}>
@@ -531,7 +531,7 @@ function MockInterviewPage() {
         </div>
 
         {/* RIGHT — editor */}
-        <div className="flex flex-col w-full min-h-[50dvh] md:h-[65vh] overflow-hidden border-t border-[var(--border)]">
+        <div className="flex flex-col w-full min-h-[50dvh] lg:flex-1 lg:min-h-0 overflow-hidden border-t lg:border-t-0 border-[var(--border)]">
           <LeetCodeEditor appQuestionId={question.id} slug={question.slug} />
         </div>
       </div>
