@@ -7,7 +7,7 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; background: #11111b; color: #cdd6f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    .app { display: flex; flex-direction: column; height: 100dvh; max-width: 900px; margin: 0 auto; }
+    .app { display: flex; flex-direction: column; height: 100dvh; }
     header {
       padding: 0.5rem 0.65rem; background: #181825; border-bottom: 1px solid #313244;
       display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; flex-shrink: 0;
@@ -403,6 +403,19 @@
     .mobile-code-cta { display: none; }
     .mob-editor-inline { display: flex; }
     .mob-only { display: none; }
+    /* Description/Code tabs — mobile/tablet only */
+    .editor-tabs { display: none; flex-shrink: 0; border-bottom: 1px solid #313244; background: #181825; }
+    .editor-tab { flex: 1; padding: 0.5rem 0; font-size: 0.75rem; font-weight: 600; background: none; border: none; color: #6c7086; cursor: pointer; }
+    .editor-tab.on { color: #89b4fa; border-bottom: 2px solid #89b4fa; }
+    @media (min-width: 1024px) {
+      .app { padding: 0 0.5rem; }
+      .editor-stack { flex-direction: row; overflow: hidden; }
+      .desc-card { width: 42%; flex-shrink: 0; height: 100%; margin: 0; border-radius: 0; border: none; border-right: 1px solid #313244; overflow-y: auto; flex: none; }
+      .desc-card-body { flex: 1; min-height: 0; }
+      .editor-code-pane { flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
+      .mob-only { display: none !important; }
+      .editor-tabs { display: none !important; }
+    }
     @media (min-width: 640px) {
       .count-strip-patterns { display: flex; }
     }
@@ -420,7 +433,8 @@
       .grind-filter-panel { display: none; }
       .grind-filter-panel.open { display: block; }
       .count-strip { display: block; }
-      .app { max-width: none; height: 100dvh; height: 100svh; }
+      .app { height: 100dvh; height: 100svh; }
+      .editor-tabs { display: flex; }
       .chip-btn, .nav-btn, .langs button {
         min-height: 44px;
         min-width: 44px;
@@ -456,31 +470,7 @@
         overflow: hidden;
       }
       .mob-editor-inline { display: none !important; }
-      .mobile-code-cta {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 0.55rem;
-        padding: 0.85rem 0.75rem;
-        margin: 0.25rem 0.35rem 0;
-        background: #181825;
-        border: 1px solid #313244;
-        border-radius: 0.5rem;
-        text-align: center;
-      }
-      .mobile-code-cta-text {
-        font-size: 0.68rem;
-        color: #a6adc8;
-        line-height: 1.45;
-      }
-      .mobile-code-cta .chip-btn {
-        background: #2563eb;
-        color: #fff;
-        border-color: #2563eb;
-        font-size: 0.75rem;
-        padding: 0.55rem 1rem;
-      }
+      .mobile-code-cta { display: none !important; }
       .desc-card {
         flex: 1 1 0%;
         height: auto;
@@ -580,6 +570,8 @@
         <span class="editor-hint">no submit - write from memory</span>
       </div>
       <div class="editor-footer-actions">
+        <button type="button" class="chip-btn" id="btn-undo-fs" aria-label="Undo">&#x21A9;</button>
+        <button type="button" class="chip-btn" id="btn-redo-fs" aria-label="Redo">&#x21AA;</button>
         <button type="button" class="chip-btn" id="btn-copy-fs" aria-label="Copy all code">Copy</button>
         <button type="button" class="chip-btn" id="btn-reset-fs">Reset to starter</button>
       </div>
@@ -649,6 +641,47 @@
     var copyFlashTimer = null
     var RESET_COUNTS_KEY = 'lm_grind_reset_counts'
     var LAST_QUESTION_KEY = 'lm_grind_last_question_id'
+    var ltsSort = true
+    var DISPLAY_PATTERN_ORDER = [
+      'Arrays & Hashing','String','Two Pointers','Sliding Window','Sorting',
+      'Binary Search','Matrix','Trees & BST','DFS','Graphs','BFS',
+      'Linked List','Stack','Heap','Trie','Backtracking','Greedy',
+      'Dynamic Programming','Bit Manipulation','Math','JavaScript'
+    ]
+    var LTS_BAND_LABEL = { large:'Large (16+q)', medium:'Medium (10-15q)', small:'Small (5-9q)', mini:'Mini (1-4q)' }
+
+    function ltsBand(n) { return n >= 16 ? 'large' : n >= 10 ? 'medium' : n >= 5 ? 'small' : 'mini' }
+
+    function ltsApply(arr) {
+      var sizes = {}
+      questions.forEach(function(q) {
+        if (!q.section) return
+        var k = q.section + '|' + q.set
+        sizes[k] = (sizes[k] || 0) + 1
+      })
+      var priOrd = { High: 0, Mid: 1, Low: 2 }
+      var diffOrd = { Easy: 0, Medium: 1, Hard: 2 }
+      var SEC_RE = /^(High|Mid|Low) (Easy|Medium|Hard) - /
+      return arr.slice().sort(function(a, b) {
+        var ma = SEC_RE.exec(a.section || ''), mb = SEC_RE.exec(b.section || '')
+        var po = (ma ? (priOrd[ma[1]] != null ? priOrd[ma[1]] : 9) : 9) -
+                 (mb ? (priOrd[mb[1]] != null ? priOrd[mb[1]] : 9) : 9)
+        if (po !== 0) return po
+        var na = sizes[a.section + '|' + a.set] || 0, nb = sizes[b.section + '|' + b.set] || 0
+        var band = function(n) { return n >= 16 ? 0 : n >= 10 ? 1 : n >= 5 ? 2 : 3 }
+        var bo = band(na) - band(nb)
+        if (bo !== 0) return bo
+        var dif = (ma ? (diffOrd[ma[2]] != null ? diffOrd[ma[2]] : 9) : 9) -
+                  (mb ? (diffOrd[mb[2]] != null ? diffOrd[mb[2]] : 9) : 9)
+        if (dif !== 0) return dif
+        if (na !== nb) return nb - na
+        if (a.set !== b.set) return a.set - b.set
+        var pi = DISPLAY_PATTERN_ORDER.indexOf(a.pattern || '')
+        var pj = DISPLAY_PATTERN_ORDER.indexOf(b.pattern || '')
+        if (pi !== -1 && pj !== -1 && pi !== pj) return pi - pj
+        return a.id - b.id
+      })
+    }
 
     function readLastQuestionId() {
       try {
@@ -1577,6 +1610,7 @@
         if (!matchesGrindFilters(q, grindFilters)) return false
         return matches(q, s)
       })
+      if (ltsSort) filtered = ltsApply(filtered)
       if (filtered.length && !filtered.some(function(q) { return q.id === selectedId })) {
         selectedId = filtered[0].id
       }
@@ -1940,21 +1974,53 @@
       var lastSet = 0
       var lastTier = null
       var lastSection = null
+      var ltsSizes = {}
+      if (ltsSort) {
+        filtered.forEach(function(q) {
+          if (!q.section) return
+          var k = q.section + '|' + q.set
+          ltsSizes[k] = (ltsSizes[k] || 0) + 1
+        })
+      }
+      var lastLtsBand = ''
+      var lastLtsSecKey = ''
       filtered.forEach(function(q) {
-        if (q.set !== lastSet) {
-          appendDivider(list, setDividerLabel(q.set), counts.setCounts[q.set] || 0, 'list-divider-set')
-          lastSet = q.set
-          lastTier = null
-          lastSection = null
-        }
-        if (q.section && q.section !== lastSection) {
-          var parsed = parseGrindSection(q.section)
-          if (parsed.tier !== lastTier) {
-            appendDivider(list, parsed.tier, counts.tierCounts[q.set + '|' + parsed.tier] || 0, 'list-divider-tier')
-            lastTier = parsed.tier
+        if (ltsSort) {
+          var secKey = q.section + '|' + q.set
+          var n = ltsSizes[secKey] || 1
+          var band = ltsBand(n)
+          var priM = q.section && q.section.match(/^(High|Mid|Low)/)
+          var pri = priM ? priM[1] : ''
+          var bandKey = pri + '|' + band
+          if (bandKey !== lastLtsBand) {
+            lastLtsBand = bandKey
+            lastLtsSecKey = ''
+            appendDivider(list, pri + ' · ' + (LTS_BAND_LABEL[band] || band), 0, 'list-divider-tier')
           }
-          appendDivider(list, parsed.pattern, counts.sectionCounts[q.set + '|' + q.section] || 0, 'list-divider-sec')
-          lastSection = q.section
+          if (secKey !== lastLtsSecKey) {
+            lastLtsSecKey = secKey
+            var patM = q.section && q.section.match(/- (.+)$/)
+            var pat = patM ? patM[1] : (q.section || '')
+            var diffM = q.section && q.section.match(/^(?:High|Mid|Low) (Easy|Medium|Hard)/)
+            var diff = diffM ? diffM[1].slice(0, 3) : ''
+            appendDivider(list, 'S' + q.set + ' ' + pat + ' · ' + diff + ' · ' + n + 'q', n, 'list-divider-sec')
+          }
+        } else {
+          if (q.set !== lastSet) {
+            appendDivider(list, setDividerLabel(q.set), counts.setCounts[q.set] || 0, 'list-divider-set')
+            lastSet = q.set
+            lastTier = null
+            lastSection = null
+          }
+          if (q.section && q.section !== lastSection) {
+            var parsed = parseGrindSection(q.section)
+            if (parsed.tier !== lastTier) {
+              appendDivider(list, parsed.tier, counts.tierCounts[q.set + '|' + parsed.tier] || 0, 'list-divider-tier')
+              lastTier = parsed.tier
+            }
+            appendDivider(list, parsed.pattern, counts.sectionCounts[q.set + '|' + q.section] || 0, 'list-divider-sec')
+            lastSection = q.section
+          }
         }
         var btn = document.createElement('button')
         btn.type = 'button'
@@ -2485,21 +2551,17 @@
         '<section class="editor" aria-label="Code editor workspace">' +
           '<div class="meta">' +
             '<span id="meta-text"></span>' +
-            '<button type="button" class="chip-btn mob-only" id="btn-full" aria-label="Open full screen editor">Full</button>' +
+          '</div>' +
+          '<div class="editor-tabs" id="editor-tabs">' +
+            '<button type="button" class="editor-tab on" id="tab-desc">Description</button>' +
+            '<button type="button" class="editor-tab" id="tab-code">Code &#x2922;</button>' +
           '</div>' +
           '<div class="editor-stack">' +
             '<div class="desc-card" id="desc-card" role="region" aria-label="Problem description">' +
-              '<div class="desc-card-head">' +
-                '<span>Problem Description</span>' +
-                '<button type="button" class="desc-toggle mob-only" id="btn-desc-toggle" aria-expanded="true" aria-label="Toggle problem description">Hide</button>' +
-              '</div>' +
+              '<div class="desc-card-head"><span>Problem Description</span></div>' +
               '<div class="desc-card-body" id="desc-body"></div>' +
             '</div>' +
             '<div class="editor-code-pane">' +
-              '<div class="mobile-code-cta mob-only" id="mobile-code-cta">' +
-                '<p class="mobile-code-cta-text">Read the problem above, then write your solution from memory.</p>' +
-                '<button type="button" class="chip-btn" id="btn-write-code" aria-label="Open code editor">Write code</button>' +
-              '</div>' +
               '<div class="practice-cm-wrap mob-editor-inline"><div id="editor-host" role="textbox" aria-label="Solution code editor" aria-multiline="true"></div></div>' +
             '</div>' +
           '</div>' +
@@ -2508,6 +2570,8 @@
               '<span class="editor-hint">no submit - write from memory</span>' +
             '</div>' +
             '<div class="editor-footer-actions">' +
+              '<button type="button" class="chip-btn" id="btn-undo" aria-label="Undo">&#x21A9;</button>' +
+              '<button type="button" class="chip-btn" id="btn-redo" aria-label="Redo">&#x21AA;</button>' +
               '<button type="button" class="chip-btn" id="btn-copy" aria-label="Copy all code">Copy</button>' +
               '<button type="button" class="chip-btn" id="btn-reset" aria-label="Reset to starter code">Reset to starter</button>' +
             '</div>' +
@@ -2529,16 +2593,17 @@
       }
       document.getElementById('btn-prev').onclick = function() { goNav(-1) }
       document.getElementById('btn-next').onclick = function() { goNav(1) }
-      document.getElementById('btn-full').onclick = function() { setEditorExpanded(true) }
-      var writeBtn = document.getElementById('btn-write-code')
-      if (writeBtn) writeBtn.onclick = function() { setEditorExpanded(true) }
+      var tabDesc = document.getElementById('tab-desc')
+      var tabCode = document.getElementById('tab-code')
+      if (tabCode) tabCode.onclick = function() { setEditorExpanded(true) }
+      if (tabDesc) tabDesc.onclick = function() { /* already on desc */ }
       document.getElementById('btn-reset').onclick = function() { resetToStarter() }
       var copyBtn = document.getElementById('btn-copy')
       if (copyBtn) copyBtn.onclick = function() { copyEditorCode(copyBtn) }
-      var descToggle = document.getElementById('btn-desc-toggle')
-      if (descToggle) {
-        descToggle.onclick = function() { setDescCollapsed(!descCollapsed) }
-      }
+      var btnUndo = document.getElementById('btn-undo')
+      if (btnUndo) btnUndo.onclick = function() { if (editorHandle) editorHandle.undo() }
+      var btnRedo = document.getElementById('btn-redo')
+      if (btnRedo) btnRedo.onclick = function() { if (editorHandle) editorHandle.redo() }
       document.getElementById('btn-fs-close').onclick = function() { setEditorExpanded(false) }
       var fsDescToggle = document.getElementById('btn-fs-desc-toggle')
       if (fsDescToggle) {
@@ -2587,6 +2652,10 @@
     document.getElementById('btn-copy-fs').onclick = function() {
       copyEditorCode(document.getElementById('btn-copy-fs'))
     }
+    var btnUndoFs = document.getElementById('btn-undo-fs')
+    if (btnUndoFs) btnUndoFs.onclick = function() { if (editorHandle) editorHandle.undo() }
+    var btnRedoFs = document.getElementById('btn-redo-fs')
+    if (btnRedoFs) btnRedoFs.onclick = function() { if (editorHandle) editorHandle.redo() }
     document.getElementById('search').addEventListener('input', function(e) {
       applyFilters()
       if (e.target.value.trim() && window.matchMedia('(max-width: 767px)').matches) setListOpen(true)

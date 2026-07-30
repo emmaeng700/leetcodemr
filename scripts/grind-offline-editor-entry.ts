@@ -4,7 +4,7 @@ import { basicSetup } from 'codemirror'
 import { python } from '@codemirror/lang-python'
 import { cpp } from '@codemirror/lang-cpp'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { indentWithTab } from '@codemirror/commands'
+import { indentWithTab, undo, redo } from '@codemirror/commands'
 import { indentationMarkers } from '@replit/codemirror-indentation-markers'
 
 export type GrindLang = 'python3' | 'cpp'
@@ -13,6 +13,8 @@ export type GrindEditorHandle = {
   setDoc: (code: string) => void
   getDoc: () => string
   setLang: (lang: GrindLang) => void
+  undo: () => void
+  redo: () => void
   destroy: () => void
 }
 
@@ -96,6 +98,12 @@ export function createGrindEditor(
     },
     getDoc() {
       return view?.state.doc.toString() ?? ''
+    },
+    undo() {
+      if (view) { undo(view); view.focus() }
+    },
+    redo() {
+      if (view) { redo(view); view.focus() }
     },
     setLang(next: GrindLang) {
       if (next === lang) return
