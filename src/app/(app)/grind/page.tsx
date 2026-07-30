@@ -194,49 +194,6 @@ function GrindInner() {
     }
   }, [spKey, sp])
 
-  useEffect(() => {
-    if (loading || questions.length === 0) return
-
-    const urlId = Number(sp.get('id') || '0')
-
-    // URL id always wins — no cloud fetch needed
-    if (urlId > 0) {
-      const id = questions.some(q => q.id === urlId) ? urlId : (questions[0]?.id ?? 0)
-      if (id <= 0) return
-      writeGrindLastQuestionId(id)
-      setSelectedId(id)
-      return
-    }
-
-    // Filter / sort changed after init — keep current selection if still valid
-    if (cloudInitRef.current) {
-      setSelectedId(prev => {
-        if (ltsOrdered.some(q => q.id === prev)) return prev
-        const fallback = ltsOrdered[0]?.id ?? questions[0]?.id ?? 0
-        if (fallback > 0) writeGrindLastQuestionId(fallback)
-        return fallback
-      })
-      return
-    }
-
-    // First load, no URL id — set LtS first immediately then swap to cloud value
-    cloudInitRef.current = true
-    const defaultId = ltsOrdered[0]?.id ?? questions[0]?.id ?? 0
-    if (defaultId <= 0) return
-    setSelectedId(defaultId)
-    router.replace(grindHref(defaultId), { scroll: false })
-
-    fetchGrindLastQuestionFromCloud().then(cloudId => {
-      if (!cloudId) {
-        writeGrindLastQuestionId(defaultId)
-        return
-      }
-      const resumeId = questions.some(q => q.id === cloudId) ? cloudId : defaultId
-      writeGrindLastQuestionId(resumeId)
-      setSelectedId(resumeId)
-      router.replace(grindHref(resumeId), { scroll: false })
-    })
-  }, [loading, questions, ltsOrdered, spKey, router])
 
   useEffect(() => {
     async function load() {
@@ -348,6 +305,52 @@ function GrindInner() {
     () => ltsSort ? ltsListWithDividers(ltsOrdered) : grindListWithDividers(ltsOrdered),
     [ltsOrdered, ltsSort],
   )
+
+  // Must live after ltsOrdered is declared to avoid temporal dead zone
+  useEffect(() => {
+    if (loading || questions.length === 0) return
+
+    const urlId = Number(sp.get('id') || '0')
+
+    // URL id always wins — no cloud fetch needed
+    if (urlId > 0) {
+      const id = questions.some(q => q.id === urlId) ? urlId : (questions[0]?.id ?? 0)
+      if (id <= 0) return
+      writeGrindLastQuestionId(id)
+      setSelectedId(id)
+      return
+    }
+
+    // Filter / sort changed after init — keep current selection if still valid
+    if (cloudInitRef.current) {
+      setSelectedId(prev => {
+        if (ltsOrdered.some(q => q.id === prev)) return prev
+        const fallback = ltsOrdered[0]?.id ?? questions[0]?.id ?? 0
+        if (fallback > 0) writeGrindLastQuestionId(fallback)
+        return fallback
+      })
+      return
+    }
+
+    // First load, no URL id — set LtS first immediately then swap to cloud value
+    cloudInitRef.current = true
+    const defaultId = ltsOrdered[0]?.id ?? questions[0]?.id ?? 0
+    if (defaultId <= 0) return
+    setSelectedId(defaultId)
+    router.replace(grindHref(defaultId), { scroll: false })
+
+    fetchGrindLastQuestionFromCloud().then(cloudId => {
+      if (!cloudId) {
+        writeGrindLastQuestionId(defaultId)
+        return
+      }
+      const resumeId = questions.some(q => q.id === cloudId) ? cloudId : defaultId
+      writeGrindLastQuestionId(resumeId)
+      setSelectedId(resumeId)
+      router.replace(grindHref(resumeId), { scroll: false })
+    })
+  }, [loading, questions, ltsOrdered, spKey, router])
+
   const summary = useMemo(() => grindSummaryCounts(filterBase), [filterBase])
   const patternCounts = useMemo(() => summary.byPattern, [summary])
 
