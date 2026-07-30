@@ -24,11 +24,11 @@ export function writeGrindLastQuestionId(questionId: number): void {
     /* quota */
   }
   // Fire-and-forget cloud sync so any device can resume here
-  supabase
-    .from('user_settings')
-    .upsert({ user_id: USER_ID, grind_last_question_id: questionId }, { onConflict: 'user_id' })
-    .then(() => {/* intentional no-op */})
-    .catch(() => {/* offline — localStorage is enough */})
+  void Promise.resolve(
+    supabase
+      .from('user_settings')
+      .upsert({ user_id: USER_ID, grind_last_question_id: questionId }, { onConflict: 'user_id' })
+  ).catch(() => {/* offline — localStorage is enough */})
 }
 
 export async function fetchGrindLastQuestionFromCloud(): Promise<number | null> {
