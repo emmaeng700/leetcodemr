@@ -52,6 +52,7 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
   const [resetCount, setResetCount] = useState(() => readGrindResetCount(question.id))
   const [editorExpanded, setEditorExpanded] = useState(false)
   const [portalDescCollapsed, setPortalDescCollapsed] = useState(false)
+  const [mobileTab, setMobileTab] = useState<'desc' | 'code'>('desc')
   const [extensions, setExtensions] = useState<any[]>([])
   const [editorTheme, setEditorTheme] = useState<any>(null)
   const [description, setDescription] = useState<string>('')
@@ -671,10 +672,37 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
           </button>
         </div>
 
-        <div className="grind-editor-stack">
-          {!editorExpanded && descriptionPanel()}
+        {/* Tab strip — mobile/tablet only, not inside portal */}
+        {!editorExpanded && (
+          <div className="flex shrink-0 border-b border-[#313244] bg-[#181825] lg:hidden">
+            {(['desc', 'code'] as const).map(tab => (
+              <button
+                key={tab}
+                type="button"
+                onPointerDown={e => e.preventDefault()}
+                onClick={() => setMobileTab(tab)}
+                className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                  mobileTab === tab
+                    ? 'text-[#89b4fa] border-b-2 border-[#89b4fa]'
+                    : 'text-[#6c7086]'
+                }`}
+              >
+                {tab === 'desc' ? 'Description' : 'Code'}
+              </button>
+            ))}
+          </div>
+        )}
 
-          <div className={`grind-editor-inline practice-cm-wrap relative flex-1 min-h-0 ${editorExpanded ? 'invisible' : ''}`}>
+        <div className="grind-editor-stack">
+          {/* Description: on mobile hidden when code tab; on lg+ always visible via lg:contents */}
+          <div className={`lg:contents ${mobileTab === 'code' ? 'hidden' : 'flex flex-col flex-1 overflow-y-auto min-h-0'}`}>
+            {!editorExpanded && descriptionPanel()}
+          </div>
+
+          {/* Code editor: on mobile hidden when desc tab; on lg+ always visible */}
+          <div className={`grind-editor-inline practice-cm-wrap relative flex-1 min-h-0${
+            editorExpanded ? ' invisible' : ''
+          }${!editorExpanded && mobileTab === 'desc' ? ' hidden lg:flex' : ''}`}>
             {editorBody('100%', false)}
           </div>
         </div>

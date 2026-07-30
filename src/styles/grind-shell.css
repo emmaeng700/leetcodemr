@@ -746,7 +746,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .grind-shell .grind-desc-card {
@@ -880,7 +880,8 @@
   }
 
   .grind-shell .grind-editor-inline {
-    min-height: 50dvh;
+    flex: 1;
+    min-height: 0;
   }
 
   .grind-shell .grind-chip,
