@@ -30,7 +30,6 @@ import { useGrindLang } from '@/components/grind/GrindLangContext'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
 
-const SYMBOL_ROW = ['(', ')', '[', ']', '{', '}', '=', '+', '-', '*', '<', '>', '#', '%', '^', '~', ':', '.', '_', ',', ';', '!', '"', "'"]
 
 interface GrindEditorProps {
   question: GrindQuestion
@@ -369,96 +368,15 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
     }
   }, [])
 
-  const keybarRows = (isPortal: boolean) => {
-    const press = (action: string | (() => void)) => {
-      const view = (portalViewRef.current ?? editorViewRef.current) as any
-      if (!view) return
-      if (typeof action === 'function') { action(); return }
-
-      const { from, to } = cursorPosRef.current ?? view.state.selection.main
-
-      if (action === 'ArrowLeft') {
-        const pos = Math.max(0, from - 1)
-        view.dispatch({ selection: { anchor: pos } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
-      }
-      if (action === 'ArrowRight') {
-        const pos = Math.min(view.state.doc.length, from + 1)
-        view.dispatch({ selection: { anchor: pos } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
-      }
-      if (action === 'ArrowUp') {
-        const line = view.state.doc.lineAt(from)
-        if (line.number === 1) { view.dispatch({ selection: { anchor: 0 } }); cursorPosRef.current = { from: 0, to: 0 }; view.focus(); return }
-        const prevLine = view.state.doc.line(line.number - 1)
-        const pos = prevLine.from + Math.min(from - line.from, prevLine.length)
-        view.dispatch({ selection: { anchor: pos } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
-      }
-      if (action === 'ArrowDown') {
-        const line = view.state.doc.lineAt(from)
-        if (line.number === view.state.doc.lines) { const pos = view.state.doc.length; view.dispatch({ selection: { anchor: pos } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return }
-        const nextLine = view.state.doc.line(line.number + 1)
-        const pos = nextLine.from + Math.min(from - line.from, nextLine.length)
-        view.dispatch({ selection: { anchor: pos } }); cursorPosRef.current = { from: pos, to: pos }; view.focus(); return
-      }
-
-      const pos = from + action.length
-      view.dispatch({ changes: { from, to, insert: action }, selection: { anchor: pos } })
-      cursorPosRef.current = { from: pos, to: pos }; view.focus()
-    }
-
-    const undoAction = () => {
-      const view = (portalViewRef.current ?? editorViewRef.current) as any
-      if (!view) return
-      import('@codemirror/commands').then(({ undo }) => { undo(view); view.focus() })
-    }
-    const redoAction = () => {
-      const view = (portalViewRef.current ?? editorViewRef.current) as any
-      if (!view) return
-      import('@codemirror/commands').then(({ redo }) => { redo(view); view.focus() })
-    }
-
-    const row2: { label: string; action: string | (() => void) }[] = [
-      { label: '←', action: 'ArrowLeft' },
-      { label: '→', action: 'ArrowRight' },
-      { label: '↑', action: 'ArrowUp' },
-      { label: '↓', action: 'ArrowDown' },
-      { label: '↩', action: undoAction },
-      { label: '↪', action: redoAction },
-      { label: 'RST', action: () => reset() },
-    ]
-
-    const btnCls = 'flex items-center justify-center rounded-md bg-[#2c313a] active:bg-[#3e4451] text-gray-200 font-mono font-semibold select-none'
-
-    return (
-      <div className="shrink-0 bg-[#21252b] border-t border-gray-700/50 px-1 py-1 space-y-1">
-        <div className="flex gap-1 overflow-x-auto pb-0.5" style={{ touchAction: 'pan-x' }}>
-          {SYMBOL_ROW.map(k => (
-            <button key={k} type="button"
-              onPointerDown={e => { e.preventDefault(); press(k) }}
-              style={{ touchAction: 'manipulation', minWidth: 32 }}
-              className={`${btnCls} h-8 px-2 text-xs shrink-0`}>
-              {k}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1">
-          {row2.map(({ label, action }) => (
-            <button key={label} type="button"
-              onPointerDown={e => { e.preventDefault(); press(action) }}
-              style={{ touchAction: 'manipulation' }}
-              className={`${btnCls} flex-1 h-9 text-sm`}>
-              {label}
-            </button>
-          ))}
-          <button
-            type="button"
-            onPointerDown={e => { e.preventDefault(); isPortal ? setEditorExpanded(false) : setEditorExpanded(true) }}
-            style={{ touchAction: 'manipulation' }}
-            className={`${btnCls} flex-1 h-9 text-sm ${isPortal ? 'bg-indigo-700 active:bg-indigo-600 text-white' : 'text-indigo-300'}`}>
-            {isPortal ? '✕' : '⛶'}
-          </button>
-        </div>
-      </div>
-    )
+  const undoCode = () => {
+    const view = (portalViewRef.current ?? editorViewRef.current) as any
+    if (!view) return
+    import('@codemirror/commands').then(({ undo }) => { undo(view); view.focus() })
+  }
+  const redoCode = () => {
+    const view = (portalViewRef.current ?? editorViewRef.current) as any
+    if (!view) return
+    import('@codemirror/commands').then(({ redo }) => { redo(view); view.focus() })
   }
 
   const langToggle = (
@@ -503,6 +421,8 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
         <span className="grind-editor-hint hidden md:inline">no submit - write from memory</span>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
+        <button type="button" onPointerDown={e => e.preventDefault()} onClick={undoCode} className="grind-chip" title="Undo">↩</button>
+        <button type="button" onPointerDown={e => e.preventDefault()} onClick={redoCode} className="grind-chip" title="Redo">↪</button>
         <button type="button" onClick={() => void copyCode()} className="grind-chip">
           {copied ? 'Copied!' : 'Copy'}
         </button>
@@ -674,7 +594,7 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
 
         {/* Tab strip — mobile/tablet only, not inside portal */}
         {!editorExpanded && (
-          <div className="flex shrink-0 border-b border-[#313244] bg-[#181825] lg:hidden">
+          <div className="grind-editor-tabs flex shrink-0 border-b border-[#313244] bg-[#181825] lg:hidden">
             {(['desc', 'code'] as const).map(tab => (
               <button
                 key={tab}
@@ -707,7 +627,6 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
           </div>
         </div>
 
-        {!editorExpanded && <div className="lg:hidden">{keybarRows(false)}</div>}
         {!editorExpanded && footerBar}
       </div>
 
@@ -742,7 +661,6 @@ function GrindEditor({ question, className = '', onReset }: GrindEditorProps) {
             </div>
             {descriptionPanel({ portal: true })}
             <div className="relative flex-1 min-h-0 fs-editor practice-cm-wrap">{editorBody('100%', true)}</div>
-            {keybarRows(true)}
             {!keyboardOpen && footerBar}
           </div>,
           document.body,
