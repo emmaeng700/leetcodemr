@@ -208,7 +208,7 @@
     .list-divider-priority {
       padding: 0.45rem 0.5rem; font-size: 0.62rem; font-weight: 800; color: #f38ba8;
       background: #1e1a2e; border-top: 2px solid #45475a; border-bottom: 1px solid #313244;
-      position: sticky; top: 0; z-index: 3; letter-spacing: 0.06em; text-transform: uppercase;
+      letter-spacing: 0.06em; text-transform: uppercase;
     }
     .list-divider-count {
       font-family: monospace; font-size: 0.55rem; padding: 0.1rem 0.35rem; border-radius: 0.25rem;
@@ -2000,11 +2000,13 @@
       div.className = className
       var text = document.createElement('span')
       text.textContent = label
-      var badge = document.createElement('span')
-      badge.className = 'list-divider-count'
-      badge.textContent = String(count)
       div.appendChild(text)
-      div.appendChild(badge)
+      if (count > 0) {
+        var badge = document.createElement('span')
+        badge.className = 'list-divider-count'
+        badge.textContent = String(count)
+        div.appendChild(badge)
+      }
       parent.appendChild(div)
     }
 
