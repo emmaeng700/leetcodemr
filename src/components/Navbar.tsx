@@ -28,6 +28,7 @@ const MAIN_LINKS: NavLink[] = [
   { href: '/leetcode', label: 'LeetCode', icon: Zap },
   { href: '/daily', label: 'Daily', icon: Calendar },
   { href: '/review', label: 'Reviews', icon: Brain, also: ['/quick-review', '/sr-queue', '/pattern-review', '/best-solutions'] },
+  { href: '/clipboard', label: 'Clipboard', icon: ClipboardList },
 ]
 
 const LEARN_CHILDREN: LearnSet[] = [1, 2, 3]
@@ -35,7 +36,6 @@ const LEARN_CHILDREN: LearnSet[] = [1, 2, 3]
 const MCP_CHILDREN: { tab: McpTab; label: string; icon: React.ElementType }[] = [
   { tab: 'mock', label: 'Mock', icon: Clock },
   { tab: 'patterns', label: 'Patterns', icon: GitBranch },
-  { tab: 'clipboard', label: 'Clipboard', icon: ClipboardList },
 ]
 
 const EXTRA_STUDY_LINKS: NavLink[] = [
@@ -57,7 +57,7 @@ const EXTRA_MORE_LINKS: NavLink[] = [
 const EXTRA_PATH_PREFIXES = [
   '/learn', '/learn2', '/learn3',
   '/questions', '/practice', '/question',
-  '/flashcards', '/cycles', '/mcp', '/mock', '/patterns', '/clipboard',
+  '/flashcards', '/cycles', '/mcp', '/mock', '/patterns',
   '/sites', '/neetcode', '/leetcode-api', '/answers',
   '/resources', '/behavioral', '/system-design', '/gems', '/dsa', '/downloads',
   '/stats', '/settings',
