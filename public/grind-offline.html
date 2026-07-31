@@ -618,8 +618,8 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v53'
-    var SW_CACHE = 'lm-v44'
+    var OFFLINE_VERSION = 'v54'
+    var SW_CACHE = 'lm-v45'
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v2'
     var ALL_DIFFS = ['Easy', 'Medium', 'Hard']
     var ALL_PRIOS = ['High', 'Mid', 'Low']
@@ -2798,7 +2798,7 @@
 
     function fetchCached(url) {
       if (!('caches' in window)) return Promise.reject(new Error('no cache'))
-      var names = [SW_CACHE, 'lm-v43', 'lm-v32', 'lm-v31', 'lm-v30', 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
+      var names = [SW_CACHE, 'lm-v44', 'lm-v43', 'lm-v32', 'lm-v31', 'lm-v30', 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
       var i = 0
       function tryNext() {
         if (i >= names.length) return Promise.reject(new Error('missing'))
@@ -3239,6 +3239,12 @@
       var stmts = []
       var cur = ''
       var depth = 0
+      function pushStmt(s) {
+        // Wrapped example lines often end with "," before the next param —
+        // `start = [0,4],` must not become a 1-tuple in Python.
+        s = String(s || '').trim().replace(/,+\s*$/, '')
+        if (s) stmts.push(s)
+      }
       for (var i = 0; i < line.length; i++) {
         var c = line[i]
         if (c === '[' || c === '(' || c === '{') depth++
@@ -3246,14 +3252,14 @@
         if (depth === 0 && c === ',') {
           var rest = line.slice(i + 1).replace(/^\s+/, '')
           if (/^\w+\s*=/.test(rest)) {
-            stmts.push(cur.trim())
+            pushStmt(cur)
             cur = ''
             continue
           }
         }
         cur += c
       }
-      if (cur.trim()) stmts.push(cur.trim())
+      pushStmt(cur)
       return stmts
     }
 
