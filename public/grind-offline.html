@@ -219,9 +219,12 @@
     .meta {
       padding: 0.35rem 0.5rem; font-size: 0.65rem; color: #a6adc8; background: #181825;
       border-bottom: 1px solid #313244; flex-shrink: 0;
-      display: flex; align-items: center; gap: 0.5rem;
+      display: flex; flex-direction: column; align-items: stretch;
     }
+    .meta-row { display: flex; align-items: center; gap: 0.5rem; }
     .meta span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .meta-filter-label { font-size: 0.58rem; color: #7c7f93; margin-top: 0.1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: none; }
+    .meta-filter-label.show { display: block; }
     .practice-cm-wrap {
       position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden;
       --indent-marker-bg-color: rgba(120, 140, 190, 0.35);
@@ -652,7 +655,8 @@
       'Linked List','Stack','Heap','Trie','Backtracking','Greedy',
       'Dynamic Programming','Bit Manipulation','Math','JavaScript'
     ]
-    var LTS_BAND_LABEL = { large:'Large (16+q)', medium:'Medium (10-15q)', small:'Small (5-9q)', mini:'Mini (1-4q)' }
+    var LTS_BAND_LABEL = { large:'16+q · deep work', medium:'10–15q · solid blocks', small:'5–9q · short runs', mini:'1–4q · micro' }
+    var ltsRoundMap = {}
 
     function ltsBand(n) { return n >= 16 ? 'large' : n >= 10 ? 'medium' : n >= 5 ? 'small' : 'mini' }
 
@@ -1670,6 +1674,35 @@
       return '#' + q.id + ' - ' + q.title + ' (Set ' + q.set + ')'
     }
 
+    function updateFilterContext() {
+      var el = document.getElementById('meta-filter-label')
+      if (!el) return
+      var q = currentQuestion()
+      var text = ''
+      if (q && q.section) {
+        if (ltsSort) {
+          var patM = q.section.match(/- (.+)$/)
+          var pat = patM ? patM[1] : q.section
+          var secKey = q.section + '|' + q.set
+          var roundNum = ltsRoundMap[secKey]
+          text = (roundNum ? 'Round ' + roundNum + ' · ' : '') + pat
+        } else {
+          var parsed = parseGrindSection(q.section)
+          text = parsed.tier + ' · ' + parsed.pattern
+        }
+      } else {
+        var summary = filterSummaryText()
+        if (summary && summary !== 'All') text = summary
+      }
+      if (text) {
+        el.textContent = text
+        el.classList.add('show')
+      } else {
+        el.textContent = ''
+        el.classList.remove('show')
+      }
+    }
+
     function updateMeta() {
       var q = currentQuestion()
       if (!q) return
@@ -1678,6 +1711,7 @@
       if (meta) meta.textContent = text
       var fsMeta = document.getElementById('fs-meta')
       if (fsMeta) fsMeta.textContent = text
+      updateFilterContext()
       updateResetButtonLabels()
     }
 
@@ -1992,6 +2026,8 @@
       }
       var lastLtsBand = ''
       var lastLtsSecKey = ''
+      var ltsRound = 0
+      ltsRoundMap = {}
       filtered.forEach(function(q) {
         if (ltsSort) {
           var secKey = q.section + '|' + q.set
@@ -1999,19 +2035,21 @@
           var band = ltsBand(n)
           var priM = q.section && q.section.match(/^(High|Mid|Low)/)
           var pri = priM ? priM[1] : ''
-          var bandKey = pri + '|' + band
-          if (bandKey !== lastLtsBand) {
-            lastLtsBand = bandKey
+          if (band !== lastLtsBand) {
+            lastLtsBand = band
             lastLtsSecKey = ''
-            appendDivider(list, pri + ' · ' + (LTS_BAND_LABEL[band] || band), 0, 'list-divider-tier')
+            appendDivider(list, LTS_BAND_LABEL[band] || band, 0, 'list-divider-tier')
           }
           if (secKey !== lastLtsSecKey) {
             lastLtsSecKey = secKey
+            ltsRound++
+            ltsRoundMap[secKey] = ltsRound
             var patM = q.section && q.section.match(/- (.+)$/)
             var pat = patM ? patM[1] : (q.section || '')
             var diffM = q.section && q.section.match(/^(?:High|Mid|Low) (Easy|Medium|Hard)/)
-            var diff = diffM ? diffM[1].slice(0, 3) : ''
-            appendDivider(list, 'S' + q.set + ' ' + pat + ' · ' + diff + ' · ' + n + 'q', n, 'list-divider-sec')
+            var diff = diffM ? diffM[1] : ''
+            var tier = (pri ? pri + ' ' : '') + diff
+            appendDivider(list, 'Round ' + ltsRound + ' | ' + tier + ' S' + q.set + ' (' + n + 'q) ' + pat, n, 'list-divider-sec')
           }
         } else {
           if (q.set !== lastSet) {
@@ -2051,6 +2089,7 @@
         list.appendChild(wrap)
       })
       updateNavUI()
+      updateFilterContext()
       var active = list.querySelector('.q-wrap.on')
       if (active && typeof active.scrollIntoView === 'function') {
         requestAnimationFrame(function() {
@@ -2558,8 +2597,11 @@
         '<div class="list-backdrop" id="list-backdrop"></div>' +
         '<section class="editor" aria-label="Code editor workspace">' +
           '<div class="meta">' +
-            '<span id="meta-text"></span>' +
-            '<button type="button" class="chip-btn mob-only meta-list-btn" id="btn-meta-list" aria-label="Open question list">&#9776;</button>' +
+            '<div class="meta-row">' +
+              '<span id="meta-text"></span>' +
+              '<button type="button" class="chip-btn mob-only meta-list-btn" id="btn-meta-list" aria-label="Open question list">&#9776;</button>' +
+            '</div>' +
+            '<div id="meta-filter-label" class="meta-filter-label"></div>' +
           '</div>' +
           '<div class="editor-tabs" id="editor-tabs">' +
             '<button type="button" class="editor-tab on" id="tab-desc">Description</button>' +
