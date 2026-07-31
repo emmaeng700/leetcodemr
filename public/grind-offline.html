@@ -678,7 +678,10 @@
       var diffOrd = { Easy: 0, Medium: 1, Hard: 2 }
       var SEC_RE = /^(High|Mid|Low) (Easy|Medium|Hard) - /
       return arr.slice().sort(function(a, b) {
-        var ma = SEC_RE.exec(a.section || ''), mb = SEC_RE.exec(b.section || '')
+        if (!a.section && !b.section) return a.id - b.id
+        if (!a.section) return 1
+        if (!b.section) return -1
+        var ma = SEC_RE.exec(a.section), mb = SEC_RE.exec(b.section)
         var na = sizes[a.section + '|' + a.set] || 0, nb = sizes[b.section + '|' + b.set] || 0
         var bandOrd = function(n) { return n >= 16 ? 0 : n >= 10 ? 1 : n >= 5 ? 2 : 3 }
         var bo = bandOrd(na) - bandOrd(nb)
@@ -1600,7 +1603,7 @@
       if (!filters.sets[q.set]) return false
       if (!filters.difficulties[q.difficulty]) return false
       var pri = priorityFromSection(q.section)
-      if (!pri || !filters.priorities[pri]) return false
+      if (pri && !filters.priorities[pri]) return false
       if (filters.pattern !== 'all' && q.pattern !== filters.pattern) return false
       return true
     }
@@ -2033,28 +2036,30 @@
       ltsLabelMap = {}
       filtered.forEach(function(q) {
         if (ltsSort) {
-          var secKey = q.section + '|' + q.set
-          var n = ltsSizes[secKey] || 1
-          var band = ltsBand(n)
-          var priM = q.section && q.section.match(/^(High|Mid|Low)/)
-          var pri = priM ? priM[1] : ''
-          if (band !== lastLtsBand) {
-            lastLtsBand = band
-            lastLtsSecKey = ''
-            appendDivider(list, LTS_BAND_LABEL[band] || band, 0, 'list-divider-tier')
-          }
-          if (secKey !== lastLtsSecKey) {
-            lastLtsSecKey = secKey
-            ltsRound++
-            ltsRoundMap[secKey] = ltsRound
-            var patM = q.section && q.section.match(/- (.+)$/)
-            var pat = patM ? patM[1] : (q.section || '')
-            var diffM = q.section && q.section.match(/^(?:High|Mid|Low) (Easy|Medium|Hard)/)
-            var diff = diffM ? diffM[1] : ''
-            var tier = (pri ? pri + ' ' : '') + diff
-            var secLabel = 'Round ' + ltsRound + ' | ' + tier + ' S' + q.set + ' (' + n + 'q) ' + pat
-            ltsLabelMap[secKey] = secLabel
-            appendDivider(list, secLabel, n, 'list-divider-sec')
+          if (q.section) {
+            var secKey = q.section + '|' + q.set
+            var n = ltsSizes[secKey] || 1
+            var band = ltsBand(n)
+            var priM = q.section.match(/^(High|Mid|Low)/)
+            var pri = priM ? priM[1] : ''
+            if (band !== lastLtsBand) {
+              lastLtsBand = band
+              lastLtsSecKey = ''
+              appendDivider(list, LTS_BAND_LABEL[band] || band, 0, 'list-divider-tier')
+            }
+            if (secKey !== lastLtsSecKey) {
+              lastLtsSecKey = secKey
+              ltsRound++
+              ltsRoundMap[secKey] = ltsRound
+              var patM = q.section.match(/- (.+)$/)
+              var pat = patM ? patM[1] : q.section
+              var diffM = q.section.match(/^(?:High|Mid|Low) (Easy|Medium|Hard)/)
+              var diff = diffM ? diffM[1] : ''
+              var tier = (pri ? pri + ' ' : '') + diff
+              var secLabel = 'Round ' + ltsRound + ' | ' + tier + ' S' + q.set + ' (' + n + 'q) ' + pat
+              ltsLabelMap[secKey] = secLabel
+              appendDivider(list, secLabel, n, 'list-divider-sec')
+            }
           }
         } else {
           if (q.set !== lastSet) {
