@@ -618,8 +618,8 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v55'
-    var SW_CACHE = 'lm-v46'
+    var OFFLINE_VERSION = 'v56'
+    var SW_CACHE = 'lm-v47'
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v2'
     var ALL_DIFFS = ['Easy', 'Medium', 'Hard']
     var ALL_PRIOS = ['High', 'Mid', 'Low']
@@ -2798,7 +2798,7 @@
 
     function fetchCached(url) {
       if (!('caches' in window)) return Promise.reject(new Error('no cache'))
-      var names = [SW_CACHE, 'lm-v45', 'lm-v44', 'lm-v43', 'lm-v32', 'lm-v31', 'lm-v30', 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
+      var names = [SW_CACHE, 'lm-v46', 'lm-v45', 'lm-v44', 'lm-v43', 'lm-v32', 'lm-v31', 'lm-v30', 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
       var i = 0
       function tryNext() {
         if (i >= names.length) return Promise.reject(new Error('missing'))
@@ -3277,9 +3277,17 @@
       var cur = ''
       var depth = 0
       function pushStmt(s) {
-        // Wrapped example lines often end with "," before the next param —
-        // `start = [0,4],` must not become a 1-tuple in Python.
-        s = String(s || '').trim().replace(/,+\s*$/, '')
+        s = String(s || '').trim()
+        // Strip trailing comma only when (a) brackets are balanced (not a continuation
+        // line of a multi-line value) AND (b) it is an assignment `param = val,`.
+        // This prevents stripping the comma from grid rows: `["1","0"],` must stay.
+        var d = 0
+        for (var k = 0; k < s.length; k++) {
+          var ch = s[k]
+          if (ch === '[' || ch === '(' || ch === '{') d++
+          else if (ch === ']' || ch === ')' || ch === '}') d--
+        }
+        if (d === 0 && /^[A-Za-z_]\w*\s*=(?!=)/.test(s)) s = s.replace(/,+\s*$/, '')
         if (s) stmts.push(s)
       }
       for (var i = 0; i < line.length; i++) {
