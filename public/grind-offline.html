@@ -3361,6 +3361,7 @@
     }
 
     function parseExamples(q) {
+      if (q && q.examples && q.examples.length) return q.examples
       var desc = getQuestionDescription(q)
       var examples = []
       function cleanOutput(output) {
