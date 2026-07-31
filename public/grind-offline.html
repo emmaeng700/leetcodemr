@@ -618,7 +618,7 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v51'
+    var OFFLINE_VERSION = 'v52'
     var SW_CACHE = 'lm-v32'
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v2'
     var ALL_DIFFS = ['Easy', 'Medium', 'Hard']
@@ -3163,6 +3163,12 @@
       '    try:\n' +
       '        if gs == es: return True\n' +
       '        if any_order and isinstance(gs, list) and isinstance(es, list) and len(gs)==len(es):\n' +
+      '            # Nested lists (group anagrams, etc.): order of groups + within group irrelevant.\n' +
+      '            if gs and isinstance(gs[0], list):\n' +
+      '                def _gk(x):\n' +
+      '                    try: return json.dumps(sorted(x), sort_keys=True, default=str)\n' +
+      '                    except Exception: return json.dumps(x, sort_keys=True, default=str)\n' +
+      '                return sorted(map(_gk, gs)) == sorted(map(_gk, es))\n' +
       '            try:\n' +
       '                return sorted(gs) == sorted(es)\n' +
       '            except TypeError:\n' +
@@ -3171,6 +3177,17 @@
       '        return json.dumps(gs, sort_keys=True, default=str) == json.dumps(es, sort_keys=True, default=str)\n' +
       '    except Exception:\n' +
       '        return str(gs) == str(es)\n' +
+      // Course Schedule II / similar: accept any valid topological order.
+      'def _course_order_ok(order, n, prereqs):\n' +
+      '    if order is None: return False\n' +
+      '    if order == []: return True\n' +
+      '    if not isinstance(order, list) or len(order) != n or len(set(order)) != n: return False\n' +
+      '    if any((not isinstance(c, int)) or c < 0 or c >= n for c in order): return False\n' +
+      '    pos = {c: i for i, c in enumerate(order)}\n' +
+      '    for a, b in (prereqs or []):\n' +
+      '        # LC: to take course a you must take b first\n' +
+      '        if pos[b] > pos[a]: return False\n' +
+      '    return True\n' +
       'def _find_node(r, v):\n' +
       '    if not r: return None\n' +
       '    if isinstance(r, list): return None\n' +
@@ -3374,7 +3391,12 @@
 
     function descriptionAllowsAnyOrder(q) {
       var d = getQuestionDescription(q).toLowerCase()
-      return /any order|in any order|return the answer in any order|unordered/.test(d)
+      return /any order|in any order|return the answer in any order|unordered|return any|any of them|many valid answers|one possible|any valid/.test(d)
+    }
+
+    function isCourseOrderQuestion(q, methodName) {
+      var blob = ((q && (q.title || '')) + ' ' + (q && (q.slug || '')) + ' ' + (methodName || '')).toLowerCase()
+      return methodName === 'findOrder' || /course-schedule-ii|course schedule ii/.test(blob)
     }
 
     function isNaryQuestion(q, solutionCode) {
@@ -3500,7 +3522,7 @@
       )
     }
 
-    function buildTestHarness(solutionCode, examples, nary, parentPtr, graph, anyOrder) {
+    function buildTestHarness(solutionCode, examples, nary, parentPtr, graph, anyOrder, courseOrder) {
       var meta = extractMethodParams(solutionCode)
       var methodName = meta.methodName
       var params = meta.params
@@ -3527,7 +3549,6 @@
             return
           }
           if (pn === 'intervals' || pn === 'firstlist' || pn === 'secondlist') {
-            // Keep as raw lists of pairs for most solutions; Interval objects if starter uses Interval.
             if (/Interval/.test(solutionCode)) {
               convLines.push('    ' + p + ' = _make_intervals(' + p + ') if isinstance(' + p + ', list) else ' + p)
             }
@@ -3542,8 +3563,6 @@
             return
           }
           if (TREE_NODE_PARAMS.indexOf(pn) !== -1) {
-            // Same Tree / etc: p,q are full trees when no shared root context.
-            // LCA / Distance K: ints resolve via ambient/method root.
             if (hasAmbientRoot) {
               if (nary) {
                 convLines.push('    ' + p + ' = _make_nary(' + p + ') if isinstance(' + p + ', list) else ((_find_node(root, ' + p + ') or _HNary(' + p + ')) if isinstance(' + p + ', int) else ' + p + ')')
@@ -3566,6 +3585,18 @@
         var convBlock = convLines.length ? convLines.join('\n') + '\n' : ''
         var primary = params.length ? params[0] : null
 
+        var okLine
+        if (courseOrder) {
+          // Accept any valid topological order; empty means impossible.
+          okLine =
+            '    if _exp == []:\n' +
+            '        _ok = (_got == [] or _got is None)\n' +
+            '    else:\n' +
+            '        _ok = _course_order_ok(_got, numCourses, prerequisites)\n'
+        } else {
+          okLine = '    _ok = _ser_cmp(_got, _exp, ' + (anyOrder ? 'True' : 'False') + ')\n'
+        }
+
         return (
           'try:\n' +
           inputLines + '\n' +
@@ -3579,7 +3610,7 @@
               '        _got = ' + primary + '\n'
             )
             : '') +
-          '    _ok = _ser_cmp(_got, _exp, ' + (anyOrder ? 'True' : 'False') + ')\n' +
+          okLine +
           '    _got_s = ([] if _got is None and _exp == [] else (_got.val if hasattr(_got, "val") and isinstance(_exp, int) and not isinstance(_got, (list, tuple, dict)) else _ser(_got)))\n' +
           '    _results.append({"pass": _ok, "got": str(_got_s), "exp": str(_exp)})\n' +
           'except Exception as _e:\n' +
@@ -3658,6 +3689,8 @@
       var graph = parentPtr ? false : isGraphQuestion(q, solutionCode)
       var nary = (parentPtr || graph) ? false : isNaryQuestion(q, solutionCode)
       var anyOrder = descriptionAllowsAnyOrder(q)
+      var meta = extractMethodParams(solutionCode)
+      var courseOrder = isCourseOrderQuestion(q, meta.methodName)
       var harness = null
 
       var designEx = examples.filter(function(ex) { return ex.kind === 'design' })
@@ -3669,7 +3702,7 @@
       if (!harness) {
         var normalEx = examples.filter(function(ex) { return ex.kind !== 'design' })
         if (!normalEx.length) { showRunError(panelId, btnId, 'No runnable examples found for this question type.'); return }
-        harness = buildTestHarness(solutionCode, normalEx, nary, parentPtr, graph, anyOrder)
+        harness = buildTestHarness(solutionCode, normalEx, nary, parentPtr, graph, anyOrder, courseOrder)
       }
 
       _pyLoadRuntime().then(function(py) {
