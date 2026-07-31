@@ -340,15 +340,13 @@
       border-top: 1px solid #313244; flex-shrink: 0;
     }
     .online-banner {
-      display: none; padding: 0.55rem 0.65rem; background: #16352a; border-bottom: 1px solid #2d6a4f;
+      display: none; padding: 0.35rem 0.65rem; background: #16352a; border-bottom: 1px solid #2d6a4f;
       flex-shrink: 0;
     }
     .online-banner.show { display: block; }
-    .online-banner p { font-size: 0.72rem; color: #a7f3d0; line-height: 1.4; margin-bottom: 0.45rem; }
-    .online-banner strong { color: #ecfdf5; }
-    .online-banner-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+    .online-banner-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
     .online-banner-actions a { text-decoration: none; }
-    .online-banner-actions .primary { background: #059669; border-color: #059669; color: #fff; }
+    .online-banner-label { font-size: 0.62rem; color: #a7f3d0; white-space: nowrap; }
     .offline-banner {
       padding: 0.4rem 0.65rem; background: #3d2c1a; border-bottom: 1px solid #92400e;
       font-size: 0.65rem; color: #fcd34d; flex-shrink: 0;
@@ -363,10 +361,13 @@
     }
     .practice-fs-portal.open { display: flex; }
     .fs-bar {
-      display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.6rem;
-      background: #181825; border-bottom: 1px solid #313244; flex-shrink: 0;
+      display: flex; flex-direction: column; padding: 0.4rem 0.6rem;
+      background: #181825; border-bottom: 1px solid #313244; flex-shrink: 0; gap: 0.3rem;
     }
-    .fs-bar span { flex: 1; font-size: 0.65rem; color: #a6adc8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fs-bar-top { display: flex; align-items: flex-start; gap: 0.5rem; }
+    .fs-bar-top #fs-meta { flex: 1; font-size: 0.65rem; color: #cdd6f4; white-space: normal; word-break: break-word; line-height: 1.35; }
+    .fs-bar-bottom { display: flex; align-items: center; gap: 0.5rem; }
+    .fs-bar-bottom #fs-context { flex: 1; font-size: 0.58rem; color: #7c7f93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .fs-editor { flex: 1 1 0%; min-height: 0; display: flex; flex-direction: column; position: relative; }
     .fs-desc-pane {
       flex: 0 0 auto; display: flex; flex-direction: column; min-height: 0;
@@ -517,11 +518,11 @@
   <div class="app">
     <div id="offline-banner" class="offline-banner">Offline ? saved on this device only.</div>
     <div id="online-banner" class="online-banner">
-      <p><strong>You&apos;re back online.</strong> Your drafts are saved locally. Tap below to visit other pages in the app.</p>
       <div class="online-banner-actions">
-        <a id="link-full-grind" class="chip-btn primary" href="/grind">Open full Grind</a>
+        <span class="online-banner-label">Online — visit:</span>
         <a class="chip-btn" href="/daily">Daily</a>
         <a class="chip-btn" href="/questions">Questions</a>
+        <a class="chip-btn" href="/mcp">Practice</a>
       </div>
     </div>
     <header>
@@ -554,15 +555,20 @@
   </div>
   <div class="practice-fs-portal" id="fs-portal">
     <div class="fs-bar">
-      <span id="fs-meta"></span>
-      <span id="fs-reset-count" class="reset-count-badge hidden" aria-hidden="true"></span>
-      <div class="langs">
-        <button type="button" id="fs-btn-py" class="on-py">Py</button>
-        <button type="button" id="fs-btn-cpp">C++</button>
+      <div class="fs-bar-top">
+        <span id="fs-meta"></span>
+        <span id="fs-reset-count" class="reset-count-badge hidden" aria-hidden="true"></span>
+        <div class="langs">
+          <button type="button" id="fs-btn-py" class="on-py">Py</button>
+          <button type="button" id="fs-btn-cpp">C++</button>
+        </div>
       </div>
-      <button type="button" class="chip-btn nav-btn" id="btn-fs-prev" aria-label="Previous question">&#8249;</button>
-      <button type="button" class="chip-btn nav-btn" id="btn-fs-next" aria-label="Next question">&#8250;</button>
-      <button type="button" class="chip-btn" id="btn-fs-close" aria-label="Close full screen editor">Close</button>
+      <div class="fs-bar-bottom">
+        <span id="fs-context"></span>
+        <button type="button" class="chip-btn nav-btn" id="btn-fs-prev" aria-label="Previous question">&#8249;</button>
+        <button type="button" class="chip-btn nav-btn" id="btn-fs-next" aria-label="Next question">&#8250;</button>
+        <button type="button" class="chip-btn" id="btn-fs-close" aria-label="Close full screen editor">Close</button>
+      </div>
     </div>
     <div class="fs-desc-pane" id="fs-desc-pane" role="region" aria-label="Problem description">
       <div class="fs-desc-head">
@@ -828,14 +834,10 @@
       var status = document.getElementById('status')
       var grindLink = document.getElementById('link-full-grind')
       if (offlineBanner) offlineBanner.classList.toggle('hidden', online)
-      if (onlineBanner) {
-        if (online && wasOffline) onlineBanner.classList.add('show')
-        if (!online) onlineBanner.classList.remove('show')
-      }
-      if (grindLink && selectedId) grindLink.href = '/grind?id=' + selectedId
+      if (onlineBanner) onlineBanner.classList.toggle('show', online)
       if (status) {
         status.textContent = online
-          ? (wasOffline ? 'Back online - tap links above to visit other pages' : questions.length + ' questions')
+          ? questions.length + ' questions'
           : 'Offline mode - saved locally'
       }
       if (!online) {
@@ -1701,6 +1703,8 @@
         el.textContent = ''
         el.classList.remove('show')
       }
+      var fsCtx = document.getElementById('fs-context')
+      if (fsCtx) fsCtx.textContent = text
     }
 
     function updateMeta() {
