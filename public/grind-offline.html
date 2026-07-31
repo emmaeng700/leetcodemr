@@ -618,8 +618,8 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v54'
-    var SW_CACHE = 'lm-v45'
+    var OFFLINE_VERSION = 'v55'
+    var SW_CACHE = 'lm-v46'
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v2'
     var ALL_DIFFS = ['Easy', 'Medium', 'Hard']
     var ALL_PRIOS = ['High', 'Mid', 'Low']
@@ -2798,7 +2798,7 @@
 
     function fetchCached(url) {
       if (!('caches' in window)) return Promise.reject(new Error('no cache'))
-      var names = [SW_CACHE, 'lm-v44', 'lm-v43', 'lm-v32', 'lm-v31', 'lm-v30', 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
+      var names = [SW_CACHE, 'lm-v45', 'lm-v44', 'lm-v43', 'lm-v32', 'lm-v31', 'lm-v30', 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
       var i = 0
       function tryNext() {
         if (i >= names.length) return Promise.reject(new Error('missing'))
@@ -3124,6 +3124,33 @@
       '    r=[]; s=set(); c=h\n' +
       '    while c and id(c) not in s: s.add(id(c)); r.append(c.val); c=c.next\n' +
       '    return r\n' +
+      'def _make_random_list(a):\n' +
+      '    if not a: return None\n' +
+      '    nodes=[Node(v[0] if isinstance(v,(list,tuple)) else v) for v in a]\n' +
+      '    for i in range(len(nodes)-1): nodes[i].next=nodes[i+1]\n' +
+      '    for i,v in enumerate(a):\n' +
+      '        if isinstance(v,(list,tuple)) and len(v)>1 and v[1] is not None:\n' +
+      '            idx=v[1]\n' +
+      '            if isinstance(idx,int) and 0<=idx<len(nodes): nodes[i].random=nodes[idx]\n' +
+      '    return nodes[0]\n' +
+      'def _random_list_to_arr(head):\n' +
+      '    if not head: return []\n' +
+      '    nodes=[]; node=head\n' +
+      '    while node: nodes.append(node); node=node.next\n' +
+      '    idx={id(n):i for i,n in enumerate(nodes)}\n' +
+      '    return [[n.val, idx[id(n.random)] if n.random is not None else None] for n in nodes]\n' +
+      'def _next_ptr_to_arr(root):\n' +
+      '    if not root: return []\n' +
+      '    res=[]; q=[root]\n' +
+      '    while q:\n' +
+      '        nq=[]\n' +
+      '        for n in q:\n' +
+      '            res.append(n.val)\n' +
+      '            if getattr(n,"left",None): nq.append(n.left)\n' +
+      '            if getattr(n,"right",None): nq.append(n.right)\n' +
+      '        res.append("#"); q=nq\n' +
+      '    while res and res[-1]=="#": res.pop()\n' +
+      '    return res\n' +
       'def _intervals_to_arr(a):\n' +
       '    if not a: return []\n' +
       '    out=[]\n' +
@@ -3158,6 +3185,16 @@
       '    if got is None and (exp is None or exp == []): return True\n' +
       '    if hasattr(got, "val") and isinstance(exp, int) and not isinstance(got, (list, tuple, dict)):\n' +
       '        return got.val == exp\n' +
+      '    # Next-pointer tree: exp has "#" level separators (#116, #117)\n' +
+      '    if isinstance(exp, list) and "#" in exp and hasattr(got, "val") and (hasattr(got, "left") or hasattr(got, "right")):\n' +
+      '        try: return _next_ptr_to_arr(got) == exp\n' +
+      '        except: pass\n' +
+      '    # Random-pointer list: exp is [[val,idx/None],...] and got is a Node chain (#138)\n' +
+      '    if (isinstance(exp, list) and exp and isinstance(exp[0], (list,tuple)) and len(exp[0])==2\n' +
+      '            and (exp[0][1] is None or isinstance(exp[0][1],int))\n' +
+      '            and hasattr(got, "val") and hasattr(got, "next") and not isinstance(got, (list,dict,ListNode))):\n' +
+      '        try: return _random_list_to_arr(got) == [[v[0], v[1]] for v in exp]\n' +
+      '        except: pass\n' +
       '    gs = _canon(got); es = _canon(exp)\n' +
       '    if gs is None and es == []: return True\n' +
       '    try:\n' +
@@ -3270,6 +3307,8 @@
         .replace(/\bnull\b/gi, 'None')
         .replace(/\btrue\b/gi, 'True')
         .replace(/\bfalse\b/gi, 'False')
+        // [1,#,2,3,#,...] → [1,"#",2,3,"#",...] (next-pointer level-order for #116/#117)
+        .replace(/([\[,])\s*#(?=\s*[,\]])/g, '$1"#"')
     }
 
     function inputToPython(inputStr) {
@@ -3613,7 +3652,8 @@
             return
           }
           if (LIST_PARAMS.indexOf(pn) !== -1) {
-            convLines.push('    ' + p + ' = _make_list(' + p + ') if isinstance(' + p + ', list) else ' + p)
+            // Auto-detect random-pointer format [[val,idx/None],...] vs plain list
+            convLines.push('    ' + p + ' = (_make_random_list(' + p + ') if ' + p + ' and isinstance(' + p + '[0],(list,tuple)) and len(' + p + '[0])==2 and (' + p + '[0][1] is None or isinstance(' + p + '[0][1],int)) else _make_list(' + p + ')) if isinstance(' + p + ', list) else ' + p)
           }
         })
 
