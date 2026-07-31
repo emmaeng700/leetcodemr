@@ -618,7 +618,7 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v50'
+    var OFFLINE_VERSION = 'v51'
     var SW_CACHE = 'lm-v32'
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v2'
     var ALL_DIFFS = ['Easy', 'Medium', 'Hard']
@@ -3008,8 +3008,12 @@
     var TREE_ROOT_PARAMS = ['root', 'node', 'left', 'right']
     var TREE_NODE_PARAMS = ['p', 'q', 'target']
     var TREE_PARAMS = TREE_ROOT_PARAMS.concat(TREE_NODE_PARAMS)
-    var LIST_PARAMS = ['head', 'list1', 'list2', 'next_']
+    var LIST_PARAMS = ['head', 'list1', 'list2', 'l1', 'l2', 'lists', 'lista', 'listb', 'next_']
     var GRAPH_PARAMS = ['node']
+    var INPUT_ALIASES = {
+      adjlist: 'node', items: 'nums', numbers: 'nums', value: 'val',
+      list1: 'l1', list2: 'l2', l1: 'list1', l2: 'list2'
+    }
 
     var PYTHON_PREAMBLE = (
       'class TreeNode:\n' +
@@ -3023,9 +3027,12 @@
       '        self.val=val; self.left=left; self.right=right; self.parent=parent\n' +
       '        self.next=next; self.children=children if children is not None else []\n' +
       '        self.neighbors=neighbors if neighbors is not None else []; self.random=random\n' +
-      'from collections import deque, defaultdict\n' +
+      'class Interval:\n' +
+      '    def __init__(self, start=0, end=0):\n' +
+      '        self.start=start; self.end=end\n' +
+      'from collections import deque, defaultdict, Counter, OrderedDict\n' +
       'from typing import List, Optional, Tuple, Dict, Set, Any\n' +
-      'import json\n' +
+      'import json, math, heapq, bisect, itertools, functools, copy, re, string\n' +
       'class _HTree:\n' +
       '    def __init__(self, val=0, left=None, right=None, parent=None):\n' +
       '        self.val=val; self.left=left; self.right=right; self.parent=parent\n' +
@@ -3036,7 +3043,10 @@
       '    def __init__(self, val=0, neighbors=None):\n' +
       '        self.val=val; self.neighbors=neighbors if neighbors is not None else []\n' +
       'def _make_tree(a):\n' +
-      '    if not a or a[0] is None: return None\n' +
+      '    if a is None: return None\n' +
+      '    if isinstance(a, list) and len(a)==0: return None\n' +
+      '    if not isinstance(a, list): return a\n' +
+      '    if a[0] is None: return None\n' +
       '    root=_HTree(a[0]); q=deque([root]); i=1\n' +
       '    while q and i<len(a):\n' +
       '        n=q.popleft()\n' +
@@ -3076,9 +3086,21 @@
       '    return [[nb.val for nb in (n.neighbors or [])] for n in order]\n' +
       'def _make_list(a):\n' +
       '    if not a: return None\n' +
+      '    if not isinstance(a, list): return a\n' +
       '    h=ListNode(a[0]); c=h\n' +
       '    for v in a[1:]: c.next=ListNode(v); c=c.next\n' +
       '    return h\n' +
+      'def _make_lists(a):\n' +
+      '    if not a: return []\n' +
+      '    return [_make_list(x) for x in a]\n' +
+      'def _make_intervals(a):\n' +
+      '    if not a: return []\n' +
+      '    out=[]\n' +
+      '    for x in a:\n' +
+      '        if isinstance(x, Interval): out.append(x)\n' +
+      '        elif isinstance(x, (list, tuple)) and len(x)>=2: out.append(Interval(x[0], x[1]))\n' +
+      '        else: out.append(x)\n' +
+      '    return out\n' +
       'def _tree_to_arr(r):\n' +
       '    if not r: return []\n' +
       '    res=[]; q=deque([r])\n' +
@@ -3102,29 +3124,53 @@
       '    r=[]; s=set(); c=h\n' +
       '    while c and id(c) not in s: s.add(id(c)); r.append(c.val); c=c.next\n' +
       '    return r\n' +
+      'def _intervals_to_arr(a):\n' +
+      '    if not a: return []\n' +
+      '    out=[]\n' +
+      '    for x in a:\n' +
+      '        if hasattr(x,"start") and hasattr(x,"end"): out.append([x.start, x.end])\n' +
+      '        else: out.append(x)\n' +
+      '    return out\n' +
       'def _ser(v):\n' +
       '    if isinstance(v, ListNode): return _list_to_arr(v)\n' +
+      '    if isinstance(v, list) and v and isinstance(v[0], ListNode): return [_list_to_arr(x) for x in v]\n' +
+      '    if isinstance(v, list) and v and isinstance(v[0], Interval): return _intervals_to_arr(v)\n' +
+      '    if isinstance(v, Interval): return [v.start, v.end]\n' +
       '    if isinstance(v, _HGraph) or (hasattr(v,"neighbors") and isinstance(getattr(v,"neighbors",None), list) and not hasattr(v,"left") and not hasattr(v,"children")):\n' +
       '        return _graph_to_adj(v)\n' +
       '    if isinstance(v, _HNary) or (hasattr(v,"children") and isinstance(getattr(v,"children",None), list) and not hasattr(v,"left")):\n' +
       '        return _nary_to_arr(v)\n' +
-      '    if isinstance(v, (_HTree, TreeNode)) or hasattr(v,"left") or hasattr(v,"right"):\n' +
+      '    if isinstance(v, (_HTree, TreeNode)) or ((hasattr(v,"left") or hasattr(v,"right")) and hasattr(v,"val")):\n' +
       '        return _tree_to_arr(v)\n' +
       '    if isinstance(v, Node) and hasattr(v,"children"): return _nary_to_arr(v)\n' +
       '    return v\n' +
-      'def _ser_cmp(got, exp):\n' +
-      '    if got is None and (exp is None or exp == []):\n' +
-      '        return True\n' +
+      'def _norm_num(x):\n' +
+      '    if isinstance(x, float):\n' +
+      '        if abs(x - round(x)) < 1e-9: return int(round(x))\n' +
+      '        return round(x, 5)\n' +
+      '    return x\n' +
+      'def _canon(v):\n' +
+      '    v=_ser(v)\n' +
+      '    if isinstance(v, list): return [_canon(x) for x in v]\n' +
+      '    if isinstance(v, dict): return {str(k): _canon(v[k]) for k in sorted(v, key=lambda z: str(z))}\n' +
+      '    return _norm_num(v)\n' +
+      'def _ser_cmp(got, exp, any_order=False):\n' +
+      '    if got is None and (exp is None or exp == []): return True\n' +
       '    if hasattr(got, "val") and isinstance(exp, int) and not isinstance(got, (list, tuple, dict)):\n' +
       '        return got.val == exp\n' +
-      '    gs = _ser(got)\n' +
-      '    if gs is None and exp == []: return True\n' +
+      '    gs = _canon(got); es = _canon(exp)\n' +
+      '    if gs is None and es == []: return True\n' +
       '    try:\n' +
-      '        ok = json.dumps(gs, sort_keys=True) == json.dumps(exp, sort_keys=True)\n' +
-      '        if not ok and isinstance(gs, list) and isinstance(exp, int) and gs and gs[0] == exp: ok = True\n' +
-      '        return ok\n' +
+      '        if gs == es: return True\n' +
+      '        if any_order and isinstance(gs, list) and isinstance(es, list) and len(gs)==len(es):\n' +
+      '            try:\n' +
+      '                return sorted(gs) == sorted(es)\n' +
+      '            except TypeError:\n' +
+      '                return sorted(map(lambda x: json.dumps(x, sort_keys=True, default=str), gs)) == sorted(map(lambda x: json.dumps(x, sort_keys=True, default=str), es))\n' +
+      '        if isinstance(gs, list) and isinstance(es, int) and gs and gs[0] == es: return True\n' +
+      '        return json.dumps(gs, sort_keys=True, default=str) == json.dumps(es, sort_keys=True, default=str)\n' +
       '    except Exception:\n' +
-      '        return str(gs) == str(exp)\n' +
+      '        return str(gs) == str(es)\n' +
       'def _find_node(r, v):\n' +
       '    if not r: return None\n' +
       '    if isinstance(r, list): return None\n' +
@@ -3194,41 +3240,145 @@
       return stmts
     }
 
+    function normalizeExampleText(s) {
+      return String(s || '')
+        .replace(/[−–—]/g, '-')
+        .replace(/\u00a0/g, ' ')
+        .replace(/\bnull\b/gi, 'None')
+        .replace(/\btrue\b/gi, 'True')
+        .replace(/\bfalse\b/gi, 'False')
+    }
+
     function inputToPython(inputStr) {
-      var s = inputStr
-        .replace(/\bnull\b/g, 'None')
-        .replace(/\btrue\b/g, 'True')
-        .replace(/\bfalse\b/g, 'False')
-        .replace(/=\s*\n\s*/g, '= ')
+      var s = normalizeExampleText(inputStr).replace(/=\s*\n\s*/g, '= ')
       var lines = s.split('\n').map(function(l) { return l.trim() }).filter(Boolean)
       var result = []
       lines.forEach(function(line) {
+        // Strip trailing explanation tails like "→ ..." already handled by parse.
+        line = line.replace(/\s*→.*$/, '').replace(/\s*->.*$/, '')
         splitInputAssignments(line).forEach(function(stmt) { result.push(stmt) })
       })
       return result.join('\n')
     }
 
-    function parseExamples(q) {
+    function applyInputAliases(inputPy, params) {
+      var lines = inputPy.split('\n')
+      var paramSet = {}
+      params.forEach(function(p) { paramSet[p] = true; paramSet[p.toLowerCase()] = true })
+      var out = []
+      lines.forEach(function(line) {
+        var m = line.match(/^([A-Za-z_]\w*)\s*=/)
+        if (!m) { out.push(line); return }
+        var name = m[1]
+        if (paramSet[name] || paramSet[name.toLowerCase()]) { out.push(line); return }
+        var alias = INPUT_ALIASES[name.toLowerCase()]
+        if (alias && (paramSet[alias] || paramSet[alias.toLowerCase()])) {
+          out.push(alias + line.slice(name.length))
+          return
+        }
+        out.push(line)
+      })
+      // adjList → node for graph
+      if (paramSet.node && !/\bnode\s*=/.test(out.join('\n')) && /\badjList\s*=/.test(out.join('\n'))) {
+        out.push('node = adjList')
+      }
+      return out.join('\n')
+    }
+
+    function getQuestionDescription(q) {
       var row = descriptions[String(q.id)] || {}
-      var desc = String(row.description || q.description || '')
+      return String(row.description || q.description || '')
+    }
+
+    function parseExamples(q) {
+      var desc = getQuestionDescription(q)
       var examples = []
-      var parts = desc.split(/Example\s+\d+/i)
+      function cleanOutput(output) {
+        var o = normalizeExampleText(String(output || '')).trim()
+        // Inline examples often append prose after the value: "[0,-1]. The 1st..."
+        var m = o.match(/^(\[[\s\S]*?\]|\{[\s\S]*?\}|True|False|None|null|true|false|-?\d+(?:\.\d+)?(?:e-?\d+)?)/)
+        return m ? m[1] : o.split('\n')[0].trim()
+      }
+      function pushEx(input, output) {
+        if (!input || output == null || output === '') return
+        examples.push({
+          input: normalizeExampleText(input).trim(),
+          output: cleanOutput(output),
+          kind: 'normal'
+        })
+      }
+
+      // Standard blocks: Example N / Example N:
+      var parts = desc.split(/Example\s+\d+\s*:?/i)
       for (var i = 1; i < parts.length; i++) {
         var block = parts[i]
-        var inputM = block.match(/Input\s*\n([\s\S]*?)\n\s*\n\s*Output/)
-        if (!inputM) inputM = block.match(/Input\s*\n([\s\S]*?)(?=\nOutput)/)
-        var outputM = block.match(/Output\s*\n([\s\S]*?)(?:\n\s*\n|$)/)
-        if (!outputM) outputM = block.match(/Output\s*\n([\s\S]*)/)
-        if (inputM && outputM) {
-          examples.push({ input: inputM[1].trim(), output: outputM[1].split('\n')[0].trim() })
-        }
+        var inputM = block.match(/Input\s*:?\s*\n([\s\S]*?)(?=\n\s*Output\s*:?)/i)
+        if (!inputM) inputM = block.match(/Input\s*:\s*([^\n]+)/i)
+        if (!inputM) inputM = block.match(/Input\s*\n([\s\S]*?)\n\s*\n\s*Output/i)
+        var outputM = block.match(/Output\s*:?\s*\n?\s*([^\n]+)/i)
+        if (inputM && outputM) pushEx(inputM[1], outputM[1])
+      }
+
+      // Inline: Example 1: Input: ... → Output: ...
+      if (!examples.length) {
+        var reInline = /Example\s+\d+\s*:?\s*Input\s*:\s*([\s\S]*?)\s*(?:→|->|Output\s*:)\s*([^\n.]+)/gi
+        var m
+        while ((m = reInline.exec(desc))) pushEx(m[1], m[2])
+      }
+
+      // Design / class API: ["Ctor","op",...] [[args],...] [outs]
+      if (!examples.length) {
+        var design = parseDesignExamples(desc)
+        if (design.length) return design
       }
       return examples
     }
 
+    function matchBracketGroup(str, from) {
+      var i = from
+      while (i < str.length && /\s/.test(str[i])) i++
+      if (str[i] !== '[') return null
+      var depth = 0
+      for (var j = i; j < str.length; j++) {
+        var ch = str[j]
+        if (ch === '[') depth++
+        else if (ch === ']') {
+          depth--
+          if (depth === 0) return { text: str.slice(i, j + 1), end: j + 1 }
+        }
+      }
+      return null
+    }
+
+    function parseDesignExamples(desc) {
+      var examples = []
+      var opsRe = /\[\s*"[A-Za-z_][\w]*"(?:\s*,\s*"[A-Za-z_][\w]*")+\s*\]/g
+      var m
+      while ((m = opsRe.exec(desc))) {
+        var opsLit = m[0]
+        var rest = desc.slice(m.index + opsLit.length)
+        var argsG = matchBracketGroup(rest, 0)
+        if (!argsG) continue
+        var expG = matchBracketGroup(rest, argsG.end)
+        if (!expG) continue
+        examples.push({
+          kind: 'design',
+          ops: normalizeExampleText(opsLit),
+          args: normalizeExampleText(argsG.text),
+          output: normalizeExampleText(expG.text)
+        })
+        if (examples.length >= 3) break
+      }
+      return examples
+    }
+
+    function descriptionAllowsAnyOrder(q) {
+      var d = getQuestionDescription(q).toLowerCase()
+      return /any order|in any order|return the answer in any order|unordered/.test(d)
+    }
+
     function isNaryQuestion(q, solutionCode) {
       var blob = ((q && (q.title || '')) + ' ' + (q && (q.slug || '')) + ' ' + (solutionCode || '')).toLowerCase()
-      // Word-boundary required: /n-?ary/ falsely matches the "nary" inside "binary".
       if (/\bn-?ary\b/.test(blob)) return true
       if (/\.children\b/.test(solutionCode || '') && !/\.neighbors\b/.test(solutionCode || '')) return true
       return false
@@ -3241,34 +3391,146 @@
       return false
     }
 
-    function buildTestHarness(solutionCode, examples, nary, parentPtr, graph) {
+    function findDesignClassName(solutionCode) {
+      var names = []
+      var re = /class\s+([A-Za-z_]\w*)\s*(?:[:(\n])/g
+      var m
+      while ((m = re.exec(solutionCode))) {
+        if (m[1] !== 'Solution' && m[1] !== 'TreeNode' && m[1] !== 'ListNode' && m[1] !== 'Node' && m[1] !== 'Interval') {
+          names.push(m[1])
+        }
+      }
+      return names[0] || null
+    }
+
+    function isCodecQuestion(solutionCode) {
+      return /def\s+serialize\s*\(/.test(solutionCode) && /def\s+deserialize\s*\(/.test(solutionCode)
+    }
+
+    function extractMethodParams(solutionCode) {
+      // Prefer Solution method; else first non-init method.
       var solutionClassIdx = solutionCode.indexOf('class Solution')
       var searchIn = solutionClassIdx >= 0 ? solutionCode.slice(solutionClassIdx) : solutionCode
       var methodMatch = searchIn.match(/def\s+(\w+)\s*\(self/)
       var methodName = methodMatch ? methodMatch[1] : 'solve'
-      var paramMatch = searchIn.match(/def\s+\w+\s*\(self(?:,\s*([^)]+))?\)/)
+      if (methodName === '__init__') {
+        var alt = searchIn.match(/def\s+(?!__init__)(\w+)\s*\(self/)
+        if (alt) methodName = alt[1]
+      }
+      var paramMatch = searchIn.match(new RegExp('def\\s+' + methodName + '\\s*\\(self(?:,\\s*([^)]+))?\\)'))
+      if (!paramMatch) paramMatch = searchIn.match(/def\s+\w+\s*\(self(?:,\s*([^)]+))?\)/)
       var params = []
       if (paramMatch && paramMatch[1]) {
         params = paramMatch[1].split(',').map(function(p) {
           return p.trim().split(/[=:\s]/)[0].trim()
         }).filter(function(p) { return p && !/^Optional|List|Dict|Tuple|Set/.test(p) })
       }
+      return { methodName: methodName, params: params }
+    }
+
+    function buildDesignHarness(solutionCode, examples) {
+      var className = findDesignClassName(solutionCode)
+      if (!className) return null
+      var caseParts = examples.map(function(ex) {
+        var exp = normalizeExampleText(ex.output)
+        var expEsc = exp.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+        return (
+          'try:\n' +
+          '    _ops = ' + ex.ops + '\n' +
+          '    _args = ' + ex.args + '\n' +
+          '    _exp = ' + exp + '\n' +
+          '    _got = []\n' +
+          '    _obj = None\n' +
+          '    for _i, _op in enumerate(_ops):\n' +
+          '        if _i == 0:\n' +
+          '            _obj = ' + className + '(*(_args[_i] if _i < len(_args) else []))\n' +
+          '            _got.append(None)\n' +
+          '        else:\n' +
+          '            _fn = getattr(_obj, _op)\n' +
+          '            _a = _args[_i] if _i < len(_args) else []\n' +
+          '            _got.append(_fn(*_a))\n' +
+          '    _ok = _ser_cmp(_got, _exp, True)\n' +
+          '    # getRandom / pickIndex are nondeterministic — accept if value is among legal outputs when mismatch\n' +
+          '    if (not _ok) and any(x in _ops for x in ("getRandom","pickIndex","randPoint")):\n' +
+          '        _ok = True\n' +
+          '        for _i,_op in enumerate(_ops):\n' +
+          '            if _op in ("getRandom","pickIndex","randPoint"): continue\n' +
+          '            if _canon(_got[_i]) != _canon(_exp[_i]):\n' +
+          '                _ok = False; break\n' +
+          '    _results.append({"pass": _ok, "got": str(_canon(_got)), "exp": str(_canon(_exp))})\n' +
+          'except Exception as _e:\n' +
+          '    _results.append({"pass": False, "error": str(_e), "got": "error", "exp": \'' + expEsc + '\'})'
+        )
+      })
+      return (
+        PYTHON_PREAMBLE + '\n' +
+        solutionCode + '\n\n' +
+        '_results = []\n\n' +
+        caseParts.join('\n\n') + '\n\n' +
+        'json.dumps(_results)'
+      )
+    }
+
+    function buildCodecHarness(solutionCode, examples, nary) {
+      var className = findDesignClassName(solutionCode) || 'Codec'
+      var caseParts = examples.filter(function(ex) { return ex.kind !== 'design' }).map(function(ex) {
+        var inputPy = applyInputAliases(inputToPython(ex.input), ['root'])
+        var expectedPy = normalizeExampleText(ex.output)
+        var expectedEsc = expectedPy.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+        return (
+          'try:\n' +
+          inputPy.split('\n').map(function(l) { return '    ' + l }).join('\n') + '\n' +
+          '    root = _make_tree(root) if isinstance(root, list) else root\n' +
+          '    _c = ' + className + '()\n' +
+          '    _got = _tree_to_arr(_c.deserialize(_c.serialize(root)))\n' +
+          '    _exp = ' + expectedPy + '\n' +
+          '    _ok = _ser_cmp(_got, _exp)\n' +
+          '    _results.append({"pass": _ok, "got": str(_got), "exp": str(_exp)})\n' +
+          'except Exception as _e:\n' +
+          '    _results.append({"pass": False, "error": str(_e), "got": "error", "exp": \'' + expectedEsc + '\'})'
+        )
+      })
+      if (!caseParts.length) return null
+      return (
+        PYTHON_PREAMBLE + '\n' +
+        solutionCode + '\n\n' +
+        '_results = []\n\n' +
+        caseParts.join('\n\n') + '\n\n' +
+        'json.dumps(_results)'
+      )
+    }
+
+    function buildTestHarness(solutionCode, examples, nary, parentPtr, graph, anyOrder) {
+      var meta = extractMethodParams(solutionCode)
+      var methodName = meta.methodName
+      var params = meta.params
+      var hasRootParam = params.some(function(p) { return p.toLowerCase() === 'root' })
 
       var caseParts = examples.map(function(ex) {
-        var inputPy = inputToPython(ex.input)
+        var inputPy = applyInputAliases(inputToPython(ex.input), params)
         var convLines = []
-        // Rename adjList → node for clone-graph style examples.
-        if (graph && /\badjList\s*=/.test(ex.input) && params.indexOf('node') !== -1) {
-          convLines.push('    node = adjList')
-        }
-        if (/\broot\s*=/.test(ex.input) && params.map(function(p) { return p.toLowerCase() }).indexOf('root') === -1) {
+        var hasAmbientRoot = /\broot\s*=/.test(inputPy) || hasRootParam
+
+        if (/\broot\s*=/.test(inputPy) && !hasRootParam) {
           if (nary) convLines.push('    root = _make_nary(root) if isinstance(root, list) else root')
           else convLines.push('    root = _make_tree(root) if isinstance(root, list) else root')
         }
+
         params.forEach(function(p) {
           var pn = p.toLowerCase()
           if (graph && (pn === 'node' || pn === 'graph')) {
             convLines.push('    ' + p + ' = _make_graph(' + p + ') if isinstance(' + p + ', list) else ' + p)
+            return
+          }
+          if (pn === 'lists') {
+            convLines.push('    ' + p + ' = _make_lists(' + p + ') if isinstance(' + p + ', list) else ' + p)
+            return
+          }
+          if (pn === 'intervals' || pn === 'firstlist' || pn === 'secondlist') {
+            // Keep as raw lists of pairs for most solutions; Interval objects if starter uses Interval.
+            if (/Interval/.test(solutionCode)) {
+              convLines.push('    ' + p + ' = _make_intervals(' + p + ') if isinstance(' + p + ', list) else ' + p)
+            }
             return
           }
           if (TREE_ROOT_PARAMS.indexOf(pn) !== -1) {
@@ -3280,10 +3542,16 @@
             return
           }
           if (TREE_NODE_PARAMS.indexOf(pn) !== -1) {
-            if (nary) {
-              convLines.push('    ' + p + ' = _make_nary(' + p + ') if isinstance(' + p + ', list) else ((_find_node(root, ' + p + ') or _HNary(' + p + ')) if isinstance(' + p + ', int) else ' + p + ')')
+            // Same Tree / etc: p,q are full trees when no shared root context.
+            // LCA / Distance K: ints resolve via ambient/method root.
+            if (hasAmbientRoot) {
+              if (nary) {
+                convLines.push('    ' + p + ' = _make_nary(' + p + ') if isinstance(' + p + ', list) else ((_find_node(root, ' + p + ') or _HNary(' + p + ')) if isinstance(' + p + ', int) else ' + p + ')')
+              } else {
+                convLines.push('    ' + p + ' = ((_find_node(root, ' + p + ') or _HTree(' + p + ')) if isinstance(' + p + ', int) else (_make_tree(' + p + ') if isinstance(' + p + ', list) else ' + p + '))')
+              }
             } else {
-              convLines.push('    ' + p + ' = ((_find_node(root, ' + p + ') or _HTree(' + p + ')) if isinstance(' + p + ', int) else (_make_tree(' + p + ') if isinstance(' + p + ', list) else ' + p + '))')
+              convLines.push('    ' + p + ' = _make_tree(' + p + ') if isinstance(' + p + ', list) else ' + p)
             }
             return
           }
@@ -3292,13 +3560,8 @@
           }
         })
 
-        var expectedPy = ex.output
-          .replace(/\bnull\b/g, 'None')
-          .replace(/\btrue\b/g, 'True')
-          .replace(/\bfalse\b/g, 'False')
-          .trim()
+        var expectedPy = normalizeExampleText(ex.output)
         var expectedEsc = expectedPy.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
-
         var inputLines = inputPy.split('\n').map(function(l) { return '    ' + l }).join('\n')
         var convBlock = convLines.length ? convLines.join('\n') + '\n' : ''
         var primary = params.length ? params[0] : null
@@ -3312,12 +3575,11 @@
           '    _got = _ret\n' +
           (primary
             ? (
-              // In-place APIs mutate a list arg (board/nums). Don't treat Node/None returns as in-place.
               '    if _got is None and isinstance(_exp, list) and isinstance(' + primary + ', list):\n' +
               '        _got = ' + primary + '\n'
             )
             : '') +
-          '    _ok = _ser_cmp(_got, _exp)\n' +
+          '    _ok = _ser_cmp(_got, _exp, ' + (anyOrder ? 'True' : 'False') + ')\n' +
           '    _got_s = ([] if _got is None and _exp == [] else (_got.val if hasattr(_got, "val") and isinstance(_exp, int) and not isinstance(_got, (list, tuple, dict)) else _ser(_got)))\n' +
           '    _results.append({"pass": _ok, "got": str(_got_s), "exp": str(_exp)})\n' +
           'except Exception as _e:\n' +
@@ -3395,7 +3657,20 @@
       var parentPtr = isParentPointerQuestion(q, solutionCode)
       var graph = parentPtr ? false : isGraphQuestion(q, solutionCode)
       var nary = (parentPtr || graph) ? false : isNaryQuestion(q, solutionCode)
-      var harness = buildTestHarness(solutionCode, examples, nary, parentPtr, graph)
+      var anyOrder = descriptionAllowsAnyOrder(q)
+      var harness = null
+
+      var designEx = examples.filter(function(ex) { return ex.kind === 'design' })
+      if (designEx.length) {
+        harness = buildDesignHarness(solutionCode, designEx)
+      } else if (isCodecQuestion(solutionCode)) {
+        harness = buildCodecHarness(solutionCode, examples, nary)
+      }
+      if (!harness) {
+        var normalEx = examples.filter(function(ex) { return ex.kind !== 'design' })
+        if (!normalEx.length) { showRunError(panelId, btnId, 'No runnable examples found for this question type.'); return }
+        harness = buildTestHarness(solutionCode, normalEx, nary, parentPtr, graph, anyOrder)
+      }
 
       _pyLoadRuntime().then(function(py) {
         if (panel) panel.innerHTML = '<div class="run-loading">Running ' + examples.length + ' test' + (examples.length === 1 ? '' : 's') + '…</div>'
