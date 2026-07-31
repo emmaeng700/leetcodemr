@@ -618,8 +618,8 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v52'
-    var SW_CACHE = 'lm-v32'
+    var OFFLINE_VERSION = 'v53'
+    var SW_CACHE = 'lm-v44'
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v2'
     var ALL_DIFFS = ['Easy', 'Medium', 'Hard']
     var ALL_PRIOS = ['High', 'Mid', 'Low']
@@ -2798,7 +2798,7 @@
 
     function fetchCached(url) {
       if (!('caches' in window)) return Promise.reject(new Error('no cache'))
-      var names = [SW_CACHE, 'lm-v31', 'lm-v30', 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
+      var names = [SW_CACHE, 'lm-v43', 'lm-v32', 'lm-v31', 'lm-v30', 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
       var i = 0
       function tryNext() {
         if (i >= names.length) return Promise.reject(new Error('missing'))
@@ -3312,9 +3312,35 @@
       var examples = []
       function cleanOutput(output) {
         var o = normalizeExampleText(String(output || '')).trim()
-        // Inline examples often append prose after the value: "[0,-1]. The 1st..."
-        var m = o.match(/^(\[[\s\S]*?\]|\{[\s\S]*?\}|True|False|None|null|true|false|-?\d+(?:\.\d+)?(?:e-?\d+)?)/)
-        return m ? m[1] : o.split('\n')[0].trim()
+        if (!o) return o
+        // Full bracket value (nested lists like [[0,4],[1,3],...]) — not first "]".
+        if (o[0] === '[') {
+          var g = matchBracketGroup(o, 0)
+          if (g) return g.text
+        }
+        if (o[0] === '{') {
+          var depth = 0
+          for (var j = 0; j < o.length; j++) {
+            if (o[j] === '{') depth++
+            else if (o[j] === '}') {
+              depth--
+              if (depth === 0) return o.slice(0, j + 1)
+            }
+          }
+        }
+        var m = o.match(/^(True|False|None|null|true|false|-?\d+(?:\.\d+)?(?:e-?\d+)?)/)
+        if (m) return m[1]
+        // Inline prose after a value: "3. Explanation..."
+        var cut = o.split(/\.\s+/)[0].trim()
+        return cut || o.split('\n')[0].trim()
+      }
+      function extractOutputBlock(block) {
+        var om = block.match(/Output\s*:?\s*\n?([\s\S]*)/i)
+        if (!om) return null
+        var raw = om[1]
+        // Stop before Explanation / Constraints / next Example when present.
+        raw = raw.split(/\n\s*(?:Explanation|Constraints|Example\s+\d+|Note\b)/i)[0]
+        return raw.trim()
       }
       function pushEx(input, output) {
         if (!input || output == null || output === '') return
@@ -3332,13 +3358,13 @@
         var inputM = block.match(/Input\s*:?\s*\n([\s\S]*?)(?=\n\s*Output\s*:?)/i)
         if (!inputM) inputM = block.match(/Input\s*:\s*([^\n]+)/i)
         if (!inputM) inputM = block.match(/Input\s*\n([\s\S]*?)\n\s*\n\s*Output/i)
-        var outputM = block.match(/Output\s*:?\s*\n?\s*([^\n]+)/i)
-        if (inputM && outputM) pushEx(inputM[1], outputM[1])
+        var outRaw = extractOutputBlock(block)
+        if (inputM && outRaw) pushEx(inputM[1], outRaw)
       }
 
       // Inline: Example 1: Input: ... → Output: ...
       if (!examples.length) {
-        var reInline = /Example\s+\d+\s*:?\s*Input\s*:\s*([\s\S]*?)\s*(?:→|->|Output\s*:)\s*([^\n.]+)/gi
+        var reInline = /Example\s+\d+\s*:?\s*Input\s*:\s*([\s\S]*?)\s*(?:→|->|Output\s*:)\s*([\s\S]*?)(?=\.\s+[A-Z]|Example\s+\d+|$)/gi
         var m
         while ((m = reInline.exec(desc))) pushEx(m[1], m[2])
       }
@@ -3390,7 +3416,13 @@
     }
 
     function descriptionAllowsAnyOrder(q) {
-      var d = getQuestionDescription(q).toLowerCase()
+      // STAR clarify notes often live in starterPython ("Return in any order? Yes.")
+      var d = (
+        getQuestionDescription(q) + '\n' +
+        ((q && q.starterPython) || '') + '\n' +
+        ((q && q.title) || '')
+      ).toLowerCase()
+      if (/any order\s*\?\s*no\b/.test(d) && !/any order\s*\?\s*yes\b/.test(d)) return false
       return /any order|in any order|return the answer in any order|unordered|return any|any of them|many valid answers|one possible|any valid/.test(d)
     }
 
