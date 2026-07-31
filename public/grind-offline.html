@@ -678,13 +678,13 @@
       var SEC_RE = /^(High|Mid|Low) (Easy|Medium|Hard) - /
       return arr.slice().sort(function(a, b) {
         var ma = SEC_RE.exec(a.section || ''), mb = SEC_RE.exec(b.section || '')
+        var na = sizes[a.section + '|' + a.set] || 0, nb = sizes[b.section + '|' + b.set] || 0
+        var bandOrd = function(n) { return n >= 16 ? 0 : n >= 10 ? 1 : n >= 5 ? 2 : 3 }
+        var bo = bandOrd(na) - bandOrd(nb)
+        if (bo !== 0) return bo
         var po = (ma ? (priOrd[ma[1]] != null ? priOrd[ma[1]] : 9) : 9) -
                  (mb ? (priOrd[mb[1]] != null ? priOrd[mb[1]] : 9) : 9)
         if (po !== 0) return po
-        var na = sizes[a.section + '|' + a.set] || 0, nb = sizes[b.section + '|' + b.set] || 0
-        var band = function(n) { return n >= 16 ? 0 : n >= 10 ? 1 : n >= 5 ? 2 : 3 }
-        var bo = band(na) - band(nb)
-        if (bo !== 0) return bo
         var dif = (ma ? (diffOrd[ma[2]] != null ? diffOrd[ma[2]] : 9) : 9) -
                   (mb ? (diffOrd[mb[2]] != null ? diffOrd[mb[2]] : 9) : 9)
         if (dif !== 0) return dif
