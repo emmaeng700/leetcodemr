@@ -3,11 +3,12 @@ import { EditorView, keymap } from '@codemirror/view'
 import { basicSetup } from 'codemirror'
 import { python } from '@codemirror/lang-python'
 import { cpp } from '@codemirror/lang-cpp'
+import { javascript } from '@codemirror/lang-javascript'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { indentWithTab, undo, redo } from '@codemirror/commands'
 import { indentationMarkers } from '@replit/codemirror-indentation-markers'
 
-export type GrindLang = 'python3' | 'cpp'
+export type GrindLang = 'python3' | 'cpp' | 'javascript'
 
 export type GrindEditorHandle = {
   setDoc: (code: string) => void
@@ -19,7 +20,9 @@ export type GrindEditorHandle = {
 }
 
 function langExt(lang: GrindLang) {
-  return lang === 'python3' ? python() : cpp()
+  if (lang === 'python3') return python()
+  if (lang === 'javascript') return javascript()
+  return cpp()
 }
 
 function smartEnter(view: EditorView): boolean {

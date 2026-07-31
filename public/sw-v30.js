@@ -1,4 +1,4 @@
-const CACHE     = 'lm-v31'
+const CACHE     = 'lm-v41'
 const IMG_CACHE = 'lm-images'
 
 const GRIND_OFFLINE = '/grind-offline.html'

@@ -85,7 +85,7 @@
       background: #313244; color: #a6adc8; cursor: pointer;
     }
     .langs button.on-py { background: #2563eb; color: #fff; }
-    .langs button.on-cpp { background: #7c3aed; color: #fff; }
+    .langs button.on-js { background: #d97706; color: #fff; }
     .chip-btn { background: #1e1e2e; border: 1px solid #45475a; color: #cdd6f4; }
     .chip-btn.on { background: #45475a; color: #fff; }
     .body { display: flex; flex: 1; min-height: 0; position: relative; }
@@ -287,6 +287,24 @@
     .editor-footer .chip-btn { font-size: 0.65rem; white-space: nowrap; }
     .editor-footer-actions { display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0; }
     .editor-footer-actions .chip-btn.copied { color: #a6e3a1; border-color: #6c7086; }
+    .chip-btn.run-btn { background: #1a3a25; border-color: #40a67a; color: #a6e3a1; font-weight: 700; }
+    .chip-btn.run-btn:active { background: #224d2e; }
+    .chip-btn.run-btn.loading { opacity: 0.55; pointer-events: none; }
+    .run-panel {
+      background: #11111b; border-top: 1px solid #313244; padding: 0.5rem 0.65rem;
+      font-size: 0.65rem; font-family: ui-monospace, Menlo, monospace;
+      max-height: 13rem; overflow-y: auto; flex-shrink: 0; display: none;
+    }
+    .run-panel.visible { display: block; }
+    .run-case { margin-bottom: 0.5rem; }
+    .run-case:last-child { margin-bottom: 0; }
+    .run-case-hdr { display: flex; align-items: center; gap: 0.4rem; font-weight: 700; margin-bottom: 0.15rem; }
+    .run-pass .run-case-hdr { color: #a6e3a1; }
+    .run-fail .run-case-hdr { color: #f38ba8; }
+    .run-case-detail { color: #a6adc8; padding-left: 0.8rem; font-size: 0.6rem; white-space: pre-wrap; word-break: break-all; }
+    .run-error { color: #f38ba8; white-space: pre-wrap; font-size: 0.6rem; word-break: break-all; }
+    .run-loading { color: #89b4fa; font-size: 0.65rem; }
+    .run-panel-close { float: right; cursor: pointer; color: #6c7086; font-size: 0.65rem; background: none; border: none; padding: 0; font-family: inherit; }
     .reset-count-chip {
       font-size: 0.62rem; font-family: ui-monospace, Menlo, monospace;
       color: #89b4fa; font-weight: 600; margin-left: 0.15rem;
@@ -538,7 +556,7 @@
         </div>
         <div class="langs">
           <button type="button" id="btn-py" class="on-py" aria-label="Python">Py</button>
-          <button type="button" id="btn-cpp" aria-label="C++">C++</button>
+          <button type="button" id="btn-js" aria-label="JavaScript">JS</button>
         </div>
       </div>
       <div id="count-strip" class="count-strip" aria-live="polite"></div>
@@ -565,7 +583,7 @@
         <span id="fs-reset-count" class="reset-count-badge hidden" aria-hidden="true"></span>
         <div class="langs">
           <button type="button" id="fs-btn-py" class="on-py">Py</button>
-          <button type="button" id="fs-btn-cpp">C++</button>
+          <button type="button" id="fs-btn-js">JS</button>
         </div>
       </div>
       <div class="fs-bar-bottom">
@@ -591,15 +609,17 @@
         <button type="button" class="chip-btn" id="btn-undo-fs" aria-label="Undo">&#x21A9;</button>
         <button type="button" class="chip-btn" id="btn-redo-fs" aria-label="Redo">&#x21AA;</button>
         <button type="button" class="chip-btn" id="btn-copy-fs" aria-label="Copy all code">Copy</button>
+        <button type="button" class="chip-btn run-btn" id="btn-run-fs">Run</button>
         <button type="button" class="chip-btn" id="btn-reset-fs">Reset to starter</button>
       </div>
     </div>
+    <div class="run-panel" id="run-panel-fs"></div>
   </div>
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v41'
-    var SW_CACHE = 'lm-v31'
+    var OFFLINE_VERSION = 'v50'
+    var SW_CACHE = 'lm-v32'
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v2'
     var ALL_DIFFS = ['Easy', 'Medium', 'Hard']
     var ALL_PRIOS = ['High', 'Mid', 'Low']
@@ -849,6 +869,7 @@
           ? questions.length + ' questions'
           : 'Offline mode - saved locally'
       }
+      syncRunButtonVisibility()
       if (!online) {
         wasOffline = true
         try { sessionStorage.setItem('lm_grind_was_offline', '1') } catch (e) {}
@@ -901,7 +922,9 @@
     function genericStarter(q) {
       var body = lang === 'python3'
         ? 'class Solution:\n    def solve(self):\n        pass\n'
-        : 'class Solution {\npublic:\n    void solve() {};\n};\n'
+        : lang === 'javascript'
+          ? 'function solve() {\n    // Write your solution here\n};\n'
+          : 'class Solution {\npublic:\n    void solve() {};\n};\n'
       return titleComment(q) + '\n' + body
     }
 
@@ -1071,7 +1094,7 @@
       } catch (e) {}
       if (!session || !csrf) return Promise.resolve(null)
 
-      var want = lang === 'python3' ? 'python' : 'cpp'
+      var want = lang === 'python3' ? 'python' : 'javascript'
       return fetch('/api/leetcode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1087,7 +1110,7 @@
         for (var i = 0; i < subs.length; i++) {
           var l = String(subs[i].lang || '').toLowerCase()
           if (want === 'python' && (l === 'python3' || l === 'python')) { match = subs[i]; break }
-          if (want === 'cpp' && l === 'cpp') { match = subs[i]; break }
+          if (want === 'javascript' && l === 'javascript') { match = subs[i]; break }
         }
         if (!match) return { kind: 'empty' }
         return {
@@ -1501,7 +1524,7 @@
       try {
         if (localStorage.getItem('lm_grind_strip_desc_v1')) return
       } catch (e) { return }
-      var langs = ['python3', 'cpp']
+      var langs = ['python3', 'javascript']
       for (var qi = 0; qi < questions.length; qi++) {
         var q = questions[qi]
         for (var li = 0; li < langs.length; li++) {
@@ -1527,16 +1550,20 @@
     }
 
     function starterFor(q) {
-      var bundled = lang === 'python3' ? q.starterPython : q.starterCpp
+      var bundled = lang === 'python3' ? q.starterPython : null
       if (bundled) {
         bundled = normalizeGrindCode(bundled)
+        bundled = commentBuiltinHelperClasses(bundled, q)
         var c = titleComment(q)
         if (bundled.indexOf(c) !== 0) bundled = c + '\n' + bundled
         return appendInterviewApproach(bundled, q.interviewApproach)
       }
       try {
         var cached = localStorage.getItem(starterKey(q.id))
-        if (cached) return appendInterviewApproach(cached, q.interviewApproach)
+        if (cached) {
+          cached = commentBuiltinHelperClasses(normalizeGrindCode(cached), q)
+          return appendInterviewApproach(cached, q.interviewApproach)
+        }
       } catch (e) {}
       return appendInterviewApproach(genericStarter(q), q.interviewApproach)
     }
@@ -1554,6 +1581,14 @@
           code = piped.code
         }
       } catch (e) {}
+      // LeetCode-style: keep helper classes commented in the editor (builtins at Run).
+      if (lang === 'python3') {
+        var commented = commentBuiltinHelperClasses(code, q)
+        if (commented !== code) {
+          code = commented
+          try { localStorage.setItem(draftKey(q.id), code) } catch (e) {}
+        }
+      }
       var cached = readLcAcceptedCache(q.id)
       if (cached && !cached.empty) code = upsertAcceptedSection(code, cached.code, 'ready')
       else if (cached && cached.empty) code = upsertAcceptedSection(code, null, 'empty')
@@ -2133,13 +2168,14 @@
 
     function syncLangButtons() {
       var pyOn = lang === 'python3' ? 'on-py' : ''
-      var cppOn = lang === 'cpp' ? 'on-cpp' : ''
+      var jsOn = lang === 'javascript' ? 'on-js' : ''
       document.getElementById('btn-py').className = pyOn
-      document.getElementById('btn-cpp').className = cppOn
+      var btnJs = document.getElementById('btn-js')
+      if (btnJs) btnJs.className = jsOn
       var fsPy = document.getElementById('fs-btn-py')
-      var fsCpp = document.getElementById('fs-btn-cpp')
+      var fsJs = document.getElementById('fs-btn-js')
       if (fsPy) fsPy.className = pyOn
-      if (fsCpp) fsCpp.className = cppOn
+      if (fsJs) fsJs.className = jsOn
     }
 
     function resetAppLayout() {
@@ -2657,9 +2693,11 @@
               '<button type="button" class="chip-btn" id="btn-undo" aria-label="Undo">&#x21A9;</button>' +
               '<button type="button" class="chip-btn" id="btn-redo" aria-label="Redo">&#x21AA;</button>' +
               '<button type="button" class="chip-btn" id="btn-copy" aria-label="Copy all code">Copy</button>' +
+              '<button type="button" class="chip-btn run-btn" id="btn-run">Run</button>' +
               '<button type="button" class="chip-btn" id="btn-reset" aria-label="Reset to starter code">Reset to starter</button>' +
             '</div>' +
           '</div>' +
+          '<div class="run-panel" id="run-panel"></div>' +
         '</section>'
       document.getElementById('list-backdrop').onclick = function() {
         setListOpen(false)
@@ -2688,6 +2726,8 @@
       document.getElementById('btn-reset').onclick = function() { resetToStarter() }
       var copyBtn = document.getElementById('btn-copy')
       if (copyBtn) copyBtn.onclick = function() { copyEditorCode(copyBtn) }
+      var btnRun = document.getElementById('btn-run')
+      if (btnRun) btnRun.onclick = function() { runSolution('btn-run', 'run-panel') }
       var btnUndo = document.getElementById('btn-undo')
       if (btnUndo) btnUndo.onclick = function() { if (editorHandle) editorHandle.undo() }
       var btnRedo = document.getElementById('btn-redo')
@@ -2700,7 +2740,8 @@
         fsDescToggle.onclick = function() { setFsDescCollapsed(!fsDescCollapsed) }
       }
       document.getElementById('fs-btn-py').onclick = function() { setLang('python3') }
-      document.getElementById('fs-btn-cpp').onclick = function() { setLang('cpp') }
+      var fsBtnJs = document.getElementById('fs-btn-js')
+      if (fsBtnJs) fsBtnJs.onclick = function() { setLang('javascript') }
 
       var sp = new URLSearchParams(location.search)
       var fromUrl = parseInt(sp.get('id') || '0', 10)
@@ -2737,7 +2778,8 @@
     }
 
     document.getElementById('btn-py').onclick = function() { setLang('python3') }
-    document.getElementById('btn-cpp').onclick = function() { setLang('cpp') }
+    var btnJs = document.getElementById('btn-js')
+    if (btnJs) btnJs.onclick = function() { setLang('javascript') }
     document.getElementById('btn-reset-fs').onclick = function() { resetToStarter() }
     document.getElementById('btn-copy-fs').onclick = function() {
       copyEditorCode(document.getElementById('btn-copy-fs'))
@@ -2746,6 +2788,9 @@
     if (btnUndoFs) btnUndoFs.onclick = function() { if (editorHandle) editorHandle.undo() }
     var btnRedoFs = document.getElementById('btn-redo-fs')
     if (btnRedoFs) btnRedoFs.onclick = function() { if (editorHandle) editorHandle.redo() }
+    var btnRunFs = document.getElementById('btn-run-fs')
+    if (btnRunFs) btnRunFs.onclick = function() { runSolution('btn-run-fs', 'run-panel-fs') }
+    syncRunButtonVisibility()
     document.getElementById('search').addEventListener('input', function(e) {
       applyFilters()
       if (e.target.value.trim() && window.matchMedia('(max-width: 767px)').matches) setListOpen(true)
@@ -2753,7 +2798,7 @@
 
     function fetchCached(url) {
       if (!('caches' in window)) return Promise.reject(new Error('no cache'))
-      var names = [SW_CACHE, 'lm-v30', 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
+      var names = [SW_CACHE, 'lm-v31', 'lm-v30', 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
       var i = 0
       function tryNext() {
         if (i >= names.length) return Promise.reject(new Error('missing'))
@@ -2769,6 +2814,601 @@
         return r || tryNext()
       })
     }
+
+    // LeetCode-style: TreeNode/ListNode/Node/etc are platform builtins.
+    // Keep them commented in the editor; strip live defs at Run so the harness wins.
+    var BUILTIN_HELPER_CLASSES = ['TreeNode', 'ListNode', 'Node', 'Interval', 'NestedInteger']
+    var BUILTIN_HELPER_HEADERS = {
+      TreeNode: '# Definition for a binary tree node.',
+      ListNode: '# Definition for singly-linked list.',
+      Node: '# Definition for a Node.',
+      Interval: '# Definition for an interval.',
+      NestedInteger: '# Definition for NestedInteger.',
+    }
+
+    function _helperClassBlockRe(name) {
+      return new RegExp(
+        '(?:^|\\n)(class\\s+' + name + '\\b[^\\n]*\\n(?:[ \\t].*\\n|\\n)*)',
+        'g'
+      )
+    }
+
+    function _commentPythonBlock(block, header) {
+      var lines = String(block).replace(/^\n/, '').replace(/\s+$/, '').split('\n')
+      var out = [header]
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i]
+        if (!line.trim()) out.push('#')
+        else out.push('# ' + line)
+      }
+      return out.join('\n') + '\n'
+    }
+
+    function _unwrapHelperDocstrings(code) {
+      return code.replace(/"""[\t ]*\n([\s\S]*?)"""/g, function(m, inner) {
+        if (!/\bclass\s+(TreeNode|ListNode|Node|Interval|NestedInteger)\b/.test(inner)) return m
+        var lines = inner.replace(/\s+$/, '').split('\n')
+        var out = []
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i]
+          if (!line.trim()) out.push('#')
+          else out.push('# ' + line)
+        }
+        return out.join('\n')
+      })
+    }
+
+    function _parentPointerNodeDef() {
+      return (
+        '# Definition for a Node.\n' +
+        '# class Node:\n' +
+        '#     def __init__(self, val=0, left=None, right=None, parent=None):\n' +
+        '#         self.val = val\n' +
+        '#         self.left = left\n' +
+        '#         self.right = right\n' +
+        '#         self.parent = parent\n'
+      )
+    }
+
+    function _solutionHeadTail(code) {
+      var cut = code.length
+      var markers = [DESCRIPTION_MARKER_PY, INTERVIEW_MARKER_PY, ACCEPTED_MARKER_PY, LEARNING_SEP]
+      for (var i = 0; i < markers.length; i++) {
+        var idx = code.indexOf(markers[i])
+        if (idx !== -1 && idx < cut) cut = idx
+      }
+      return { head: code.slice(0, cut), tail: code.slice(cut) }
+    }
+
+    function isParentPointerQuestion(q, solutionCode) {
+      var blob = ((q && (q.title || '')) + ' ' + (q && (q.slug || ''))).toLowerCase()
+      if (/binary-tree-iii|binary tree iii|inorder-successor-in-bst-ii/.test(blob)) return true
+      var head = _solutionHeadTail(solutionCode || '').head
+      return /\.parent\b/.test(head)
+    }
+
+    function commentBuiltinHelperClasses(code, q) {
+      if (!code || lang !== 'python3') return code
+      var parts = _solutionHeadTail(normalizeGrindCode(code))
+      var head = _unwrapHelperDocstrings(parts.head)
+      var parentPtr = q ? isParentPointerQuestion(q, head) : /binary-tree-iii|binary tree iii|inorder-successor-in-bst-ii/i.test(head)
+
+      if (!new RegExp('(?:^|\\n)class\\s+(?:' + BUILTIN_HELPER_CLASSES.join('|') + ')\\b').test(head) &&
+          !/"""[\t ]*\n[\s\S]*?\bclass\s+(?:TreeNode|ListNode|Node)\b/.test(parts.head) &&
+          !(parentPtr && !/#\s*parent\s*=/.test(head) && !/parent=None/.test(head))) {
+        // Nothing live to comment (already LeetCode-style).
+        if (!(parentPtr && !/parent=None/.test(head))) return code
+      }
+
+      for (var i = 0; i < BUILTIN_HELPER_CLASSES.length; i++) {
+        var name = BUILTIN_HELPER_CLASSES[i]
+        var header = BUILTIN_HELPER_HEADERS[name]
+        head = head.replace(_helperClassBlockRe(name), function(match, block) {
+          if (/^\s*#\s*class\s+/.test(block)) return match
+          if (parentPtr && (name === 'TreeNode' || name === 'Node')) return '\n' + _parentPointerNodeDef()
+          return '\n' + _commentPythonBlock(block, header)
+        })
+      }
+
+      if (parentPtr && !/parent=None/.test(head)) {
+        var solIdx = head.search(/^class\s+Solution\b/m)
+        if (solIdx < 0) solIdx = head.search(/^def\s+\w+/m)
+        if (solIdx >= 0) head = head.slice(0, solIdx) + _parentPointerNodeDef() + '\n' + head.slice(solIdx)
+        else head = _parentPointerNodeDef() + '\n' + head
+      }
+
+      if (parentPtr) {
+        var first = true
+        head = head.replace(/(?:# Definition for a Node\.\n)?(?:# class Node:\n(?:#(?: .*)?\n)+)/g, function(block) {
+          if (!/parent/.test(block)) return block
+          if (!first) return ''
+          first = false
+          return _parentPointerNodeDef() + '\n'
+        })
+      }
+
+      head = head.replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '\n')
+      return head + parts.tail
+    }
+
+    function stripBuiltinHelperClasses(code) {
+      if (!code) return code
+      var out = _unwrapHelperDocstrings(normalizeGrindCode(code))
+      // Drop commented helper stubs (documentation only).
+      out = out.replace(/(?:^|\n)(?:# Definition for[^\n]*\n)?(?:# class (?:TreeNode|ListNode|Node|Interval|NestedInteger)\b.*\n(?:#(?: .*)?\n)*)/g, '\n')
+      for (var i = 0; i < BUILTIN_HELPER_CLASSES.length; i++) {
+        var name = BUILTIN_HELPER_CLASSES[i]
+        out = out.replace(_helperClassBlockRe(name), '\n')
+      }
+      return out.replace(/\n{3,}/g, '\n\n').trim()
+    }
+
+    function extractSolutionCode(fullCode) {
+      var markers = [DESCRIPTION_MARKER_PY, INTERVIEW_MARKER_PY, ACCEPTED_MARKER_PY]
+      var cut = -1
+      for (var i = 0; i < markers.length; i++) {
+        var idx = fullCode.indexOf(markers[i])
+        if (idx !== -1 && (cut === -1 || idx < cut)) cut = idx
+      }
+      var sepIdx = fullCode.indexOf(LEARNING_SEP)
+      if (sepIdx !== -1 && (cut === -1 || sepIdx < cut)) cut = sepIdx
+      return stripBuiltinHelperClasses((cut === -1 ? fullCode : fullCode.slice(0, cut)).trim())
+    }
+
+    function _runEscapeHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    }
+
+    function syncRunButtonVisibility() {
+      var online = navigator.onLine
+      ;['btn-run', 'btn-run-fs'].forEach(function(id) {
+        var btn = document.getElementById(id)
+        if (!btn) return
+        btn.style.display = online ? '' : 'none'
+      })
+    }
+
+    function showRunResults(panelId, btnId, results) {
+      var panel = document.getElementById(panelId)
+      var btn = document.getElementById(btnId)
+      if (btn) { btn.textContent = 'Run'; btn.classList.remove('loading') }
+      if (!panel) return
+      panel.classList.add('visible')
+      var html = '<button class="run-panel-close" onclick="this.parentElement.classList.remove(\'visible\')">✕ close</button>'
+      results.forEach(function(r, i) {
+        var cls = r['pass'] ? 'run-pass' : 'run-fail'
+        var icon = r['pass'] ? '✓' : '✗'
+        html += '<div class="run-case ' + cls + '">'
+        html += '<div class="run-case-hdr">' + icon + ' Test ' + (i + 1) + (r['pass'] ? ' Passed' : ' Failed') + '</div>'
+        if (!r['pass'] && r['error']) {
+          html += '<div class="run-case-detail">Error: ' + _runEscapeHtml(r['error']) + '</div>'
+        } else if (!r['pass']) {
+          html += '<div class="run-case-detail">Expected: ' + _runEscapeHtml(String(r['exp'])) + '\nGot:      ' + _runEscapeHtml(String(r['got'])) + '</div>'
+        }
+        html += '</div>'
+      })
+      panel.innerHTML = html
+    }
+
+    function showRunError(panelId, btnId, msg) {
+      var panel = document.getElementById(panelId)
+      var btn = document.getElementById(btnId)
+      if (btn) { btn.textContent = 'Run'; btn.classList.remove('loading') }
+      if (!panel) return
+      panel.classList.add('visible')
+      panel.innerHTML = '<button class="run-panel-close" onclick="this.parentElement.classList.remove(\'visible\')">✕ close</button>' +
+        '<div class="run-error">' + _runEscapeHtml(msg) + '</div>'
+    }
+
+    // === Pyodide Offline Runner ===
+    var _pyodideInstance = null
+    var _pyodideLoading = false
+    var _pyodideQueue = []
+
+    var TREE_ROOT_PARAMS = ['root', 'node', 'left', 'right']
+    var TREE_NODE_PARAMS = ['p', 'q', 'target']
+    var TREE_PARAMS = TREE_ROOT_PARAMS.concat(TREE_NODE_PARAMS)
+    var LIST_PARAMS = ['head', 'list1', 'list2', 'next_']
+    var GRAPH_PARAMS = ['node']
+
+    var PYTHON_PREAMBLE = (
+      'class TreeNode:\n' +
+      '    def __init__(self, val=0, left=None, right=None, parent=None):\n' +
+      '        self.val = val; self.left = left; self.right = right; self.parent = parent\n' +
+      'class ListNode:\n' +
+      '    def __init__(self, val=0, next=None):\n' +
+      '        self.val = val; self.next = next\n' +
+      'class Node:\n' +
+      '    def __init__(self, val=0, left=None, right=None, next=None, children=None, neighbors=None, random=None, parent=None):\n' +
+      '        self.val=val; self.left=left; self.right=right; self.parent=parent\n' +
+      '        self.next=next; self.children=children if children is not None else []\n' +
+      '        self.neighbors=neighbors if neighbors is not None else []; self.random=random\n' +
+      'from collections import deque, defaultdict\n' +
+      'from typing import List, Optional, Tuple, Dict, Set, Any\n' +
+      'import json\n' +
+      'class _HTree:\n' +
+      '    def __init__(self, val=0, left=None, right=None, parent=None):\n' +
+      '        self.val=val; self.left=left; self.right=right; self.parent=parent\n' +
+      'class _HNary:\n' +
+      '    def __init__(self, val=0, children=None):\n' +
+      '        self.val=val; self.children=children if children is not None else []\n' +
+      'class _HGraph:\n' +
+      '    def __init__(self, val=0, neighbors=None):\n' +
+      '        self.val=val; self.neighbors=neighbors if neighbors is not None else []\n' +
+      'def _make_tree(a):\n' +
+      '    if not a or a[0] is None: return None\n' +
+      '    root=_HTree(a[0]); q=deque([root]); i=1\n' +
+      '    while q and i<len(a):\n' +
+      '        n=q.popleft()\n' +
+      '        if i<len(a) and a[i] is not None:\n' +
+      '            n.left=_HTree(a[i], parent=n); q.append(n.left)\n' +
+      '        i+=1\n' +
+      '        if i<len(a) and a[i] is not None:\n' +
+      '            n.right=_HTree(a[i], parent=n); q.append(n.right)\n' +
+      '        i+=1\n' +
+      '    return root\n' +
+      'def _make_nary(a):\n' +
+      '    if not a or a[0] is None: return None\n' +
+      '    root=_HNary(a[0]); q=deque([root]); i=2\n' +
+      '    while q and i<len(a):\n' +
+      '        parent=q.popleft()\n' +
+      '        while i<len(a) and a[i] is not None:\n' +
+      '            child=_HNary(a[i]); parent.children.append(child); q.append(child); i+=1\n' +
+      '        i+=1\n' +
+      '    return root\n' +
+      'def _make_graph(adj):\n' +
+      '    if not adj: return None\n' +
+      '    nodes=[_HGraph(i+1) for i in range(len(adj))]\n' +
+      '    for i, neigh in enumerate(adj):\n' +
+      '        nodes[i].neighbors=[nodes[j-1] for j in (neigh or [])]\n' +
+      '    return nodes[0]\n' +
+      'def _graph_to_adj(node):\n' +
+      '    if not node: return []\n' +
+      '    seen={}; order=[]\n' +
+      '    q=deque([node])\n' +
+      '    while q:\n' +
+      '        n=q.popleft()\n' +
+      '        if n.val in seen: continue\n' +
+      '        seen[n.val]=n; order.append(n)\n' +
+      '        for nb in (n.neighbors or []):\n' +
+      '            if nb.val not in seen: q.append(nb)\n' +
+      '    order.sort(key=lambda x: x.val)\n' +
+      '    return [[nb.val for nb in (n.neighbors or [])] for n in order]\n' +
+      'def _make_list(a):\n' +
+      '    if not a: return None\n' +
+      '    h=ListNode(a[0]); c=h\n' +
+      '    for v in a[1:]: c.next=ListNode(v); c=c.next\n' +
+      '    return h\n' +
+      'def _tree_to_arr(r):\n' +
+      '    if not r: return []\n' +
+      '    res=[]; q=deque([r])\n' +
+      '    while q:\n' +
+      '        n=q.popleft()\n' +
+      '        if n is None: res.append(None)\n' +
+      '        else: res.append(n.val); q.append(getattr(n,"left",None)); q.append(getattr(n,"right",None))\n' +
+      '    while res and res[-1] is None: res.pop()\n' +
+      '    return res\n' +
+      'def _nary_to_arr(r):\n' +
+      '    if not r: return []\n' +
+      '    res=[r.val, None]; q=deque([r])\n' +
+      '    while q:\n' +
+      '        n=q.popleft()\n' +
+      '        for c in (getattr(n,"children",None) or []):\n' +
+      '            res.append(c.val); q.append(c)\n' +
+      '        res.append(None)\n' +
+      '    while res and res[-1] is None: res.pop()\n' +
+      '    return res\n' +
+      'def _list_to_arr(h):\n' +
+      '    r=[]; s=set(); c=h\n' +
+      '    while c and id(c) not in s: s.add(id(c)); r.append(c.val); c=c.next\n' +
+      '    return r\n' +
+      'def _ser(v):\n' +
+      '    if isinstance(v, ListNode): return _list_to_arr(v)\n' +
+      '    if isinstance(v, _HGraph) or (hasattr(v,"neighbors") and isinstance(getattr(v,"neighbors",None), list) and not hasattr(v,"left") and not hasattr(v,"children")):\n' +
+      '        return _graph_to_adj(v)\n' +
+      '    if isinstance(v, _HNary) or (hasattr(v,"children") and isinstance(getattr(v,"children",None), list) and not hasattr(v,"left")):\n' +
+      '        return _nary_to_arr(v)\n' +
+      '    if isinstance(v, (_HTree, TreeNode)) or hasattr(v,"left") or hasattr(v,"right"):\n' +
+      '        return _tree_to_arr(v)\n' +
+      '    if isinstance(v, Node) and hasattr(v,"children"): return _nary_to_arr(v)\n' +
+      '    return v\n' +
+      'def _ser_cmp(got, exp):\n' +
+      '    if got is None and (exp is None or exp == []):\n' +
+      '        return True\n' +
+      '    if hasattr(got, "val") and isinstance(exp, int) and not isinstance(got, (list, tuple, dict)):\n' +
+      '        return got.val == exp\n' +
+      '    gs = _ser(got)\n' +
+      '    if gs is None and exp == []: return True\n' +
+      '    try:\n' +
+      '        ok = json.dumps(gs, sort_keys=True) == json.dumps(exp, sort_keys=True)\n' +
+      '        if not ok and isinstance(gs, list) and isinstance(exp, int) and gs and gs[0] == exp: ok = True\n' +
+      '        return ok\n' +
+      '    except Exception:\n' +
+      '        return str(gs) == str(exp)\n' +
+      'def _find_node(r, v):\n' +
+      '    if not r: return None\n' +
+      '    if isinstance(r, list): return None\n' +
+      '    if r.val == v: return r\n' +
+      '    if hasattr(r, "children") and r.children:\n' +
+      '        for c in r.children:\n' +
+      '            found=_find_node(c, v)\n' +
+      '            if found: return found\n' +
+      '        return None\n' +
+      '    return _find_node(getattr(r, "left", None), v) or _find_node(getattr(r, "right", None), v)\n'
+    )
+
+    function _pyLoadRuntime() {
+      if (_pyodideInstance) return Promise.resolve(_pyodideInstance)
+      if (_pyodideLoading) {
+        return new Promise(function(res, rej) { _pyodideQueue.push({ res: res, rej: rej }) })
+      }
+      _pyodideLoading = true
+      return new Promise(function(resolve, reject) {
+        var s = document.createElement('script')
+        s.src = 'https://cdn.jsdelivr.net/pyodide/v0.27.5/full/pyodide.js'
+        s.onload = function() {
+          window.loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.27.5/full/' })
+            .then(function(py) {
+              _pyodideInstance = py
+              _pyodideLoading = false
+              _pyodideQueue.forEach(function(p) { p.res(py) })
+              _pyodideQueue = []
+              resolve(py)
+            }).catch(function(e) {
+              _pyodideLoading = false
+              _pyodideQueue.forEach(function(p) { p.rej(e) })
+              _pyodideQueue = []
+              reject(e)
+            })
+        }
+        s.onerror = function() {
+          _pyodideLoading = false
+          var err = new Error('Failed to load Pyodide — check your connection')
+          _pyodideQueue.forEach(function(p) { p.rej(err) })
+          _pyodideQueue = []
+          reject(err)
+        }
+        document.head.appendChild(s)
+      })
+    }
+
+    function splitInputAssignments(line) {
+      var stmts = []
+      var cur = ''
+      var depth = 0
+      for (var i = 0; i < line.length; i++) {
+        var c = line[i]
+        if (c === '[' || c === '(' || c === '{') depth++
+        else if (c === ']' || c === ')' || c === '}') depth--
+        if (depth === 0 && c === ',') {
+          var rest = line.slice(i + 1).replace(/^\s+/, '')
+          if (/^\w+\s*=/.test(rest)) {
+            stmts.push(cur.trim())
+            cur = ''
+            continue
+          }
+        }
+        cur += c
+      }
+      if (cur.trim()) stmts.push(cur.trim())
+      return stmts
+    }
+
+    function inputToPython(inputStr) {
+      var s = inputStr
+        .replace(/\bnull\b/g, 'None')
+        .replace(/\btrue\b/g, 'True')
+        .replace(/\bfalse\b/g, 'False')
+        .replace(/=\s*\n\s*/g, '= ')
+      var lines = s.split('\n').map(function(l) { return l.trim() }).filter(Boolean)
+      var result = []
+      lines.forEach(function(line) {
+        splitInputAssignments(line).forEach(function(stmt) { result.push(stmt) })
+      })
+      return result.join('\n')
+    }
+
+    function parseExamples(q) {
+      var row = descriptions[String(q.id)] || {}
+      var desc = String(row.description || q.description || '')
+      var examples = []
+      var parts = desc.split(/Example\s+\d+/i)
+      for (var i = 1; i < parts.length; i++) {
+        var block = parts[i]
+        var inputM = block.match(/Input\s*\n([\s\S]*?)\n\s*\n\s*Output/)
+        if (!inputM) inputM = block.match(/Input\s*\n([\s\S]*?)(?=\nOutput)/)
+        var outputM = block.match(/Output\s*\n([\s\S]*?)(?:\n\s*\n|$)/)
+        if (!outputM) outputM = block.match(/Output\s*\n([\s\S]*)/)
+        if (inputM && outputM) {
+          examples.push({ input: inputM[1].trim(), output: outputM[1].split('\n')[0].trim() })
+        }
+      }
+      return examples
+    }
+
+    function isNaryQuestion(q, solutionCode) {
+      var blob = ((q && (q.title || '')) + ' ' + (q && (q.slug || '')) + ' ' + (solutionCode || '')).toLowerCase()
+      // Word-boundary required: /n-?ary/ falsely matches the "nary" inside "binary".
+      if (/\bn-?ary\b/.test(blob)) return true
+      if (/\.children\b/.test(solutionCode || '') && !/\.neighbors\b/.test(solutionCode || '')) return true
+      return false
+    }
+
+    function isGraphQuestion(q, solutionCode) {
+      var blob = ((q && (q.title || '')) + ' ' + (q && (q.slug || ''))).toLowerCase()
+      if (/clone-graph|clone graph/.test(blob)) return true
+      if (/\.neighbors\b/.test(solutionCode || '') && !/\.children\b/.test(solutionCode || '')) return true
+      return false
+    }
+
+    function buildTestHarness(solutionCode, examples, nary, parentPtr, graph) {
+      var solutionClassIdx = solutionCode.indexOf('class Solution')
+      var searchIn = solutionClassIdx >= 0 ? solutionCode.slice(solutionClassIdx) : solutionCode
+      var methodMatch = searchIn.match(/def\s+(\w+)\s*\(self/)
+      var methodName = methodMatch ? methodMatch[1] : 'solve'
+      var paramMatch = searchIn.match(/def\s+\w+\s*\(self(?:,\s*([^)]+))?\)/)
+      var params = []
+      if (paramMatch && paramMatch[1]) {
+        params = paramMatch[1].split(',').map(function(p) {
+          return p.trim().split(/[=:\s]/)[0].trim()
+        }).filter(function(p) { return p && !/^Optional|List|Dict|Tuple|Set/.test(p) })
+      }
+
+      var caseParts = examples.map(function(ex) {
+        var inputPy = inputToPython(ex.input)
+        var convLines = []
+        // Rename adjList → node for clone-graph style examples.
+        if (graph && /\badjList\s*=/.test(ex.input) && params.indexOf('node') !== -1) {
+          convLines.push('    node = adjList')
+        }
+        if (/\broot\s*=/.test(ex.input) && params.map(function(p) { return p.toLowerCase() }).indexOf('root') === -1) {
+          if (nary) convLines.push('    root = _make_nary(root) if isinstance(root, list) else root')
+          else convLines.push('    root = _make_tree(root) if isinstance(root, list) else root')
+        }
+        params.forEach(function(p) {
+          var pn = p.toLowerCase()
+          if (graph && (pn === 'node' || pn === 'graph')) {
+            convLines.push('    ' + p + ' = _make_graph(' + p + ') if isinstance(' + p + ', list) else ' + p)
+            return
+          }
+          if (TREE_ROOT_PARAMS.indexOf(pn) !== -1) {
+            if (nary) {
+              convLines.push('    ' + p + ' = _make_nary(' + p + ') if isinstance(' + p + ', list) else (_HNary(' + p + ') if isinstance(' + p + ', int) else ' + p + ')')
+            } else {
+              convLines.push('    ' + p + ' = _make_tree(' + p + ') if isinstance(' + p + ', list) else (_HTree(' + p + ') if isinstance(' + p + ', int) else ' + p + ')')
+            }
+            return
+          }
+          if (TREE_NODE_PARAMS.indexOf(pn) !== -1) {
+            if (nary) {
+              convLines.push('    ' + p + ' = _make_nary(' + p + ') if isinstance(' + p + ', list) else ((_find_node(root, ' + p + ') or _HNary(' + p + ')) if isinstance(' + p + ', int) else ' + p + ')')
+            } else {
+              convLines.push('    ' + p + ' = ((_find_node(root, ' + p + ') or _HTree(' + p + ')) if isinstance(' + p + ', int) else (_make_tree(' + p + ') if isinstance(' + p + ', list) else ' + p + '))')
+            }
+            return
+          }
+          if (LIST_PARAMS.indexOf(pn) !== -1) {
+            convLines.push('    ' + p + ' = _make_list(' + p + ') if isinstance(' + p + ', list) else ' + p)
+          }
+        })
+
+        var expectedPy = ex.output
+          .replace(/\bnull\b/g, 'None')
+          .replace(/\btrue\b/g, 'True')
+          .replace(/\bfalse\b/g, 'False')
+          .trim()
+        var expectedEsc = expectedPy.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+
+        var inputLines = inputPy.split('\n').map(function(l) { return '    ' + l }).join('\n')
+        var convBlock = convLines.length ? convLines.join('\n') + '\n' : ''
+        var primary = params.length ? params[0] : null
+
+        return (
+          'try:\n' +
+          inputLines + '\n' +
+          convBlock +
+          '    _ret = sol.' + methodName + '(' + params.join(', ') + ')\n' +
+          '    _exp = ' + expectedPy + '\n' +
+          '    _got = _ret\n' +
+          (primary
+            ? (
+              // In-place APIs mutate a list arg (board/nums). Don't treat Node/None returns as in-place.
+              '    if _got is None and isinstance(_exp, list) and isinstance(' + primary + ', list):\n' +
+              '        _got = ' + primary + '\n'
+            )
+            : '') +
+          '    _ok = _ser_cmp(_got, _exp)\n' +
+          '    _got_s = ([] if _got is None and _exp == [] else (_got.val if hasattr(_got, "val") and isinstance(_exp, int) and not isinstance(_got, (list, tuple, dict)) else _ser(_got)))\n' +
+          '    _results.append({"pass": _ok, "got": str(_got_s), "exp": str(_exp)})\n' +
+          'except Exception as _e:\n' +
+          '    _results.append({"pass": False, "error": str(_e), "got": "error", "exp": \'' + expectedEsc + '\'})'
+        )
+      })
+
+      return (
+        PYTHON_PREAMBLE + '\n' +
+        solutionCode + '\n\n' +
+        (nary
+          ? (
+            'class Node:\n' +
+            '    def __init__(self, val=None, children=None):\n' +
+            '        self.val = val\n' +
+            '        self.children = children if children is not None else []\n' +
+            'Node = _HNary\n\n'
+          )
+          : '') +
+        (graph
+          ? (
+            'class Node:\n' +
+            '    def __init__(self, val=0, neighbors=None):\n' +
+            '        self.val = val\n' +
+            '        self.neighbors = neighbors if neighbors is not None else []\n' +
+            'Node = _HGraph\n\n'
+          )
+          : '') +
+        (parentPtr
+          ? (
+            'class TreeNode:\n' +
+            '    def __init__(self, val=0, left=None, right=None, parent=None):\n' +
+            '        self.val = val; self.left = left; self.right = right; self.parent = parent\n' +
+            'TreeNode = _HTree\n' +
+            'Node = _HTree\n\n'
+          )
+          : '') +
+        'sol = Solution()\n' +
+        '_results = []\n\n' +
+        caseParts.join('\n\n') + '\n\n' +
+        'json.dumps(_results)'
+      )
+    }
+
+    function runSolution(btnId, panelId) {
+      var btn = document.getElementById(btnId)
+      if (!btn) return
+      btn.textContent = 'Loading...'
+      btn.classList.add('loading')
+      var panel = document.getElementById(panelId)
+      if (panel) {
+        panel.innerHTML = '<div class="run-loading">Loading Python runtime (~10 MB first run)…</div>'
+        panel.classList.add('visible')
+      }
+
+      if (lang !== 'python3') {
+        showRunError(panelId, btnId, 'Run only works for Python solutions.')
+        return
+      }
+
+      if (!navigator.onLine) {
+        showRunError(panelId, btnId, 'Run requires internet to load Pyodide. Write offline and run when online.')
+        return
+      }
+      var q = currentQuestion()
+      if (!q) { showRunError(panelId, btnId, 'No question selected.'); return }
+
+      var fullCode = editorHandle ? editorHandle.getDoc() : ''
+      var solutionCode = extractSolutionCode(fullCode)
+      if (!solutionCode) { showRunError(panelId, btnId, 'No solution code found in editor.'); return }
+
+      var examples = parseExamples(q)
+      if (!examples.length) { showRunError(panelId, btnId, 'No examples found in description.'); return }
+
+      var parentPtr = isParentPointerQuestion(q, solutionCode)
+      var graph = parentPtr ? false : isGraphQuestion(q, solutionCode)
+      var nary = (parentPtr || graph) ? false : isNaryQuestion(q, solutionCode)
+      var harness = buildTestHarness(solutionCode, examples, nary, parentPtr, graph)
+
+      _pyLoadRuntime().then(function(py) {
+        if (panel) panel.innerHTML = '<div class="run-loading">Running ' + examples.length + ' test' + (examples.length === 1 ? '' : 's') + '…</div>'
+        return py.runPythonAsync(harness)
+      }).then(function(pyResult) {
+        var arr = []
+        try { arr = JSON.parse(String(pyResult)) } catch (e) { arr = [] }
+        showRunResults(panelId, btnId, arr)
+      }).catch(function(e) {
+        showRunError(panelId, btnId, String(e && e.message ? e.message : e))
+      })
+    }
+    // === End Pyodide Offline Runner ===
 
     function loadEditorScript() {
       if (window.GrindOfflineEditor) return Promise.resolve()

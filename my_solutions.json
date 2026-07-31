@@ -1587,5 +1587,47 @@
     "title": "Longest Repeating Character Replacement",
     "lang": "python3",
     "code": "# Longest Repeating Character Replacement\nclass Solution:\n  def characterReplacement(self, s: str, k: int) -> int:\n    ans = 0\n    maxCount = 0\n    count = collections.Counter()\n\n    l = 0\n    for r, c in enumerate(s):\n      count[c] += 1\n      maxCount = max(maxCount, count[c])\n      while maxCount + k < r - l + 1:\n        count[s[l]] -= 1\n        l += 1\n      ans = max(ans, r - l + 1)\n\n    return ans"
+  },
+  "41": {
+    "qid": 41,
+    "slug": "first-missing-positive",
+    "title": "First Missing Positive",
+    "lang": "python3",
+    "code": "class Solution:\n    def firstMissingPositive(self, nums: List[int]) -> int:\n        def cyclicsort(nums):\n            i = 0\n            while i < len(nums):\n                ci = nums[i]-1\n                if 0 <= ci < len(nums) and nums[ci] != nums[i]:\n                    nums[ci], nums[i] = nums[i], nums[ci]\n\n                else:\n                    i+=1\n\n        cyclicsort(nums)\n        for i in range(len(nums)):\n            if nums[i] != i+1:\n                return i+1\n\n\n        return len(nums)+1"
+  },
+  "130": {
+    "qid": 130,
+    "slug": "surrounded-regions",
+    "title": "Surrounded Regions",
+    "lang": "python3",
+    "code": "class Solution:\n    def solve(self, board: List[List[str]]) -> None:\n        \"\"\"\n        Do not return anything, modify board in-place instead.\n        \"\"\"\n        rows = len(board)\n        cols = len(board[0])\n        def dfs(r,c):\n            if r<0 or r>=rows or c<0 or c>= cols or board[r][c] != 'O':\n                return\n            \n            #marking\n            board[r][c] = '#'\n            for dr,dc in [(0,1), (1,0), (0,-1),(-1,0)]:\n                dfs(r+dr, c+dc)\n\n        \n        for r in (0,rows-1):\n            for c in range(cols):\n                dfs(r,c)\n\n        for c in (0,cols-1):\n            for r in range(rows):\n                dfs(r,c)\n\n        for r in range(rows):\n            for c in range(cols):\n                if board[r][c] == 'O':\n                    board[r][c] = 'X'\n\n                elif board[r][c] == '#':\n                    board[r][c] = 'O'"
+  },
+  "261": {
+    "qid": 261,
+    "slug": "graph-valid-tree",
+    "title": "Graph Valid Tree",
+    "lang": "python3",
+    "code": "class Solution:\n    def validTree(self, n: int, edges: List[List[int]]) -> bool:\n        E = len(edges)\n        if E+1 != n:\n            return False\n\n        graph = defaultdict(list)\n        for frm, to in edges:\n            graph[frm].append(to)\n            graph[to].append(frm)\n\n        q = deque()\n        visited = set()\n        q.append(0)\n        visited.add(0)\n        while q:\n            node = q.popleft()\n            for child in graph[node]:\n                if child not in visited:\n                    visited.add(child)\n                    q.append(child)\n\n        return len(visited) == n\n"
+  },
+  "310": {
+    "qid": 310,
+    "slug": "minimum-height-trees",
+    "title": "Minimum Height Trees",
+    "lang": "python3",
+    "code": "from collections import defaultdict, deque\n\nclass Solution:\n    def findMinHeightTrees(self, N: int, edges: List[List[int]]) -> List[int]:\n        #using 0 to n-1 for this question \n        #if only 1 value 0 just wrap and return it as list\n        if N == 1: \n            return [0]\n        \n        # use set in defaultdict instead of list\n        #.. for easy removal of leaf nodes later by .remove\n        graph = defaultdict(set)\n        for u, v in edges:\n            graph[u].add(v)\n            graph[v].add(u)\n        \n        q_of_leaves = deque()\n        for node in range(N):\n            if len(graph[node]) == 1:\n                q_of_leaves.append(node)\n        \n        while N > 2:\n            qLen = len(q_of_leaves)\n            N -= qLen\n            for _ in range(qLen):\n                leafnode = q_of_leaves.popleft()\n                for neighbor in graph[leafnode]:\n                    graph[neighbor].remove(leafnode) # removing leaf nodes as you go\n                    if len(graph[neighbor]) == 1:\n                        q_of_leaves.append(neighbor)\n                    \n        \n        return list(q_of_leaves)"
+  },
+  "323": {
+    "qid": 323,
+    "slug": "number-of-connected-components-in-an-undirected-graph",
+    "title": "Number of Connected Components in an Undirected Graph",
+    "lang": "python3",
+    "code": "from collections import defaultdict\nfrom typing import List\n\nclass Solution:\n    def countComponents(self, n: int, edges: List[List[int]]) -> int:\n        # Build adjacency list\n        graph = defaultdict(list)\n        for a, b in edges:\n            graph[a].append(b)\n            graph[b].append(a)\n        \n        # DFS to visit all nodes in a component\n        visited = set()\n        \n        def dfs(node):\n            visited.add(node)\n            for neighbor in graph[node]:\n                if neighbor not in visited:\n                    dfs(neighbor)\n        \n        # Count components\n        count = 0\n        for node in range(n):\n            if node not in visited:\n                dfs(node)\n                count += 1\n        \n        return count"
+  },
+  "1236": {
+    "qid": 1236,
+    "slug": "web-crawler",
+    "title": "Web Crawler",
+    "lang": "python3",
+    "code": "from collections import deque\nfrom typing import List\n\nclass Solution:\n    def crawl(self, startUrl: str, htmlParser: 'HtmlParser') -> List[str]:\n        def get_hostname(url: str) -> str:\n            # Extract hostname from URL\n            # Example: \"http://news.yahoo.com/news\" → \"news.yahoo.com\"\n            return url.split('/')[2]\n        \n        target_host = get_hostname(startUrl)\n        visited = {startUrl}\n        queue = deque([startUrl])\n        \n        while queue:\n            url = queue.popleft()\n            \n            for link in htmlParser.getUrls(url):\n                if link not in visited and get_hostname(link) == target_host:\n                    visited.add(link)\n                    queue.append(link)\n        \n        return list(visited)"
   }
 }

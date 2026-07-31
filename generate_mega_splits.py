@@ -99,6 +99,20 @@ def build_sections(questions: list) -> list:
     return sections
 
 
+def build_qid_to_sec_field(sections: list) -> dict:
+    """Map each question id → shared ln_sec_* checkbox field name.
+    Same formula used by generate_splits_contents.py so ticks sync across PDFs."""
+    out = {}
+    for _rn, priority, diff, set_num, pat_groups in sections:
+        tier = f'{priority[0]}{DIFF_ABBREV.get(diff, diff[:1])}'
+        for pat_obj, qs in pat_groups:
+            abbr  = PATTERN_ABBREV.get(pat_obj['name'], pat_obj['name'])
+            field = f'ln_sec_{abbr}_S{set_num}_{tier}_{len(qs)}q'
+            for q in qs:
+                out[int(q['id'])] = field
+    return out
+
+
 def _build_mega_inner(
     sections: list, sites_cache: dict, doocs_cache: dict, inner_path: Path,
     my_solutions: dict | None = None,
@@ -354,11 +368,15 @@ def _add_qid_links_on_banner_pages(
 
 
 def _add_overview_qid_links(pdf_path: Path, overview_pages: set,
-                            qid_first_page: dict, overview_toc_rects: dict):
+                            qid_first_page: dict, overview_toc_rects: dict,
+                            sec_field_by_qid: dict | None = None):
     """
     On each master Contents page:
       • Make every inline #N token a direct clickable link to that question.
       • Draw one checkbox to the left of each pattern line (deduped by y-position).
+
+    If sec_field_by_qid is provided, checkbox field names use those shared section
+    names (e.g. ln_sec_A&H_S1_HH_1q) so ticks sync with Size Roster pages.
     """
     GAP, src_w, src_h, L_W, L_H = 8.0, 204.0, 264.0, 612.0, 792.0
     cw = L_W - 2 * GAP
@@ -420,7 +438,10 @@ def _add_overview_qid_links(pdf_path: Path, overview_pages: set,
             wd = fitz.Widget()
             wd.rect        = cb_rect
             wd.field_type  = fitz.PDF_WIDGET_TYPE_CHECKBOX
-            wd.field_name  = f'ov_done_{pg_idx}_{qid}'
+            if sec_field_by_qid and qid in sec_field_by_qid:
+                wd.field_name = sec_field_by_qid[qid]
+            else:
+                wd.field_name = f'ov_done_{pg_idx}_{qid}'
             wd.field_value = 'Off'
             wd.on_state    = 'Yes'
             page.add_widget(wd)
@@ -506,7 +527,11 @@ def main():
         # QID token (e.g. #1, #163) is directly clickable → jumps to that question.
         if overview_pages:
             print(f'  Adding inline QID links + checkboxes on {len(overview_pages)} overview page(s)…')
-            _add_overview_qid_links(imposed_tmp, overview_pages, qid_first_page, overview_toc_rects)
+            sec_fields = build_qid_to_sec_field(sections)
+            _add_overview_qid_links(
+                imposed_tmp, overview_pages, qid_first_page,
+                overview_toc_rects, sec_field_by_qid=sec_fields,
+            )
 
         print('  Adding QID links on banner/mini-TOC pages…')
         _add_qid_links_on_banner_pages(imposed_tmp, overview_pages, qid_first_page)
