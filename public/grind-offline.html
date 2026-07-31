@@ -1162,8 +1162,8 @@
           return { status: 'uncached' }
         }
         if (meta.kind === 'empty') {
-          writeLcAcceptedCache(q.id, '', 0)
-          return { status: 'empty' }
+          if (!cached || cached.empty) writeLcAcceptedCache(q.id, '', 0)
+          return { status: cached && !cached.empty ? 'ready' : 'empty', code: cached && !cached.empty ? cached.code : undefined }
         }
         if (
           cached &&
@@ -1268,8 +1268,13 @@
           var q = todo[i++]
           return fetchLcAcceptedCode(q.slug).then(function(fetched) {
             if (fetched !== null) {
-              writeLcAcceptedCache(q.id, fetched.code, fetched.submissionTs)
-              if (fetched.code && fetched.code.trim()) cached++
+              if (fetched.code && fetched.code.trim()) {
+                writeLcAcceptedCache(q.id, fetched.code, fetched.submissionTs)
+                cached++
+              } else {
+                var existing = readLcAcceptedCache(q.id)
+                if (!existing || existing.empty) writeLcAcceptedCache(q.id, '', fetched.submissionTs || 0)
+              }
             }
             done++
             setCacheBanner('Caching accepted solutions for offline (syncs across devices)… ' + done + '/' + pool.length + ' (' + cached + ' ready)', true)
