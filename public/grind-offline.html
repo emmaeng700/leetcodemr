@@ -3244,29 +3244,36 @@
       }
       _pyodideLoading = true
       return new Promise(function(resolve, reject) {
+        var settled = false
+        function fail(e) {
+          if (settled) return
+          settled = true
+          _pyodideLoading = false
+          _pyodideQueue.forEach(function(p) { p.rej(e) })
+          _pyodideQueue = []
+          reject(e)
+        }
+        var timer = setTimeout(function() {
+          fail(new Error('Python runtime took too long to load. Reload the page and try again.'))
+        }, 90000)
         var s = document.createElement('script')
         s.src = '/pyodide/pyodide.js'
         s.onload = function() {
           window.loadPyodide({ indexURL: '/pyodide/' })
             .then(function(py) {
+              if (settled) return
+              settled = true
+              clearTimeout(timer)
               _pyodideInstance = py
               _pyodideLoading = false
               _pyodideQueue.forEach(function(p) { p.res(py) })
               _pyodideQueue = []
               resolve(py)
-            }).catch(function(e) {
-              _pyodideLoading = false
-              _pyodideQueue.forEach(function(p) { p.rej(e) })
-              _pyodideQueue = []
-              reject(e)
-            })
+            }).catch(function(e) { clearTimeout(timer); fail(e) })
         }
         s.onerror = function() {
-          _pyodideLoading = false
-          var err = new Error('Failed to load Pyodide — check your connection')
-          _pyodideQueue.forEach(function(p) { p.rej(err) })
-          _pyodideQueue = []
-          reject(err)
+          clearTimeout(timer)
+          fail(new Error('Failed to load Python runtime — try reloading'))
         }
         document.head.appendChild(s)
       })
@@ -3795,10 +3802,7 @@
         return
       }
 
-      if (!navigator.onLine) {
-        showRunError(panelId, btnId, 'Run requires internet to load Pyodide. Write offline and run when online.')
-        return
-      }
+
       var q = currentQuestion()
       if (!q) { showRunError(panelId, btnId, 'No question selected.'); return }
 
