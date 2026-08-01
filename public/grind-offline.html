@@ -618,8 +618,8 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v56'
-    var SW_CACHE = 'lm-v47'
+    var OFFLINE_VERSION = 'v57'
+    var SW_CACHE = 'lm-v48'
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v2'
     var ALL_DIFFS = ['Easy', 'Medium', 'Hard']
     var ALL_PRIOS = ['High', 'Mid', 'Low']
@@ -2798,7 +2798,7 @@
 
     function fetchCached(url) {
       if (!('caches' in window)) return Promise.reject(new Error('no cache'))
-      var names = [SW_CACHE, 'lm-v46', 'lm-v45', 'lm-v44', 'lm-v43', 'lm-v32', 'lm-v31', 'lm-v30', 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
+      var names = [SW_CACHE, 'lm-v47', 'lm-v46', 'lm-v45', 'lm-v44', 'lm-v43', 'lm-v32', 'lm-v31', 'lm-v30', 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
       var i = 0
       function tryNext() {
         if (i >= names.length) return Promise.reject(new Error('missing'))
@@ -3320,11 +3320,37 @@
     }
 
     function inputToPython(inputStr) {
-      var s = normalizeExampleText(inputStr).replace(/=\s*\n\s*/g, '= ')
-      var lines = s.split('\n').map(function(l) { return l.trim() }).filter(Boolean)
+      var s = normalizeExampleText(inputStr)
+        .replace(/=\s*\n\s*/g, '= ')
+        // Join "varname\n= value" continuations (var on one line, = on next)
+        .replace(/([A-Za-z_]\w*)\s*\n\s*=/g, '$1 =')
+      // Bracket-aware line joining: join lines where brackets are unbalanced
+      var rawLines = s.split('\n')
+      var joinedLines = []
+      var depth = 0
+      var buf = ''
+      rawLines.forEach(function(rawLine) {
+        var stripped = rawLine.trim()
+        if (!stripped) {
+          if (depth === 0 && buf) { joinedLines.push(buf); buf = '' }
+          return
+        }
+        for (var ci = 0; ci < stripped.length; ci++) {
+          var ch = stripped[ci]
+          if (ch === '[' || ch === '(' || ch === '{') depth++
+          else if (ch === ']' || ch === ')' || ch === '}') depth--
+        }
+        if (depth > 0) {
+          buf += (buf ? ' ' : '') + stripped
+        } else {
+          joinedLines.push(buf + (buf ? ' ' : '') + stripped)
+          buf = ''
+          depth = 0
+        }
+      })
+      if (buf) joinedLines.push(buf)
       var result = []
-      lines.forEach(function(line) {
-        // Strip trailing explanation tails like "→ ..." already handled by parse.
+      joinedLines.forEach(function(line) {
         line = line.replace(/\s*→.*$/, '').replace(/\s*->.*$/, '')
         splitInputAssignments(line).forEach(function(stmt) { result.push(stmt) })
       })
@@ -3499,7 +3525,7 @@
       return false
     }
 
-    function findDesignClassName(solutionCode) {
+    function findDesignClassName(solutionCode, opsField) {
       var names = []
       var re = /class\s+([A-Za-z_]\w*)\s*(?:[:(\n])/g
       var m
@@ -3508,7 +3534,17 @@
           names.push(m[1])
         }
       }
-      return names[0] || null
+      if (!names.length) return null
+      // Use the first op (constructor call) to identify the correct class
+      if (opsField) {
+        try {
+          var opsList = JSON.parse(opsField.replace(/\n/g, ' '))
+          if (Array.isArray(opsList) && opsList.length && names.indexOf(opsList[0]) !== -1) {
+            return opsList[0]
+          }
+        } catch (e) {}
+      }
+      return names[0]
     }
 
     function isCodecQuestion(solutionCode) {
@@ -3537,11 +3573,12 @@
     }
 
     function buildDesignHarness(solutionCode, examples) {
-      var className = findDesignClassName(solutionCode)
+      var firstOps = examples.length ? (examples[0].ops || '') : ''
+      var className = findDesignClassName(solutionCode, firstOps)
       if (!className) return null
       var caseParts = examples.map(function(ex) {
         var exp = normalizeExampleText(ex.output)
-        var expEsc = exp.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+        var expEsc = exp.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ')
         return (
           'try:\n' +
           '    _ops = ' + ex.ops + '\n' +
@@ -3584,7 +3621,7 @@
       var caseParts = examples.filter(function(ex) { return ex.kind !== 'design' }).map(function(ex) {
         var inputPy = applyInputAliases(inputToPython(ex.input), ['root'])
         var expectedPy = normalizeExampleText(ex.output)
-        var expectedEsc = expectedPy.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+        var expectedEsc = expectedPy.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ')
         return (
           'try:\n' +
           inputPy.split('\n').map(function(l) { return '    ' + l }).join('\n') + '\n' +
@@ -3667,7 +3704,7 @@
         })
 
         var expectedPy = normalizeExampleText(ex.output)
-        var expectedEsc = expectedPy.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+        var expectedEsc = expectedPy.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ')
         var inputLines = inputPy.split('\n').map(function(l) { return '    ' + l }).join('\n')
         var convBlock = convLines.length ? convLines.join('\n') + '\n' : ''
         var primary = params.length ? params[0] : null

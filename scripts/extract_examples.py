@@ -47,6 +47,12 @@ def clean_output(output: str) -> str:
     o = normalize(str(output or '')).strip()
     if not o:
         return o
+    # Strip backtick code fences and everything after
+    o = re.sub(r'\s*```.*', '', o, flags=re.DOTALL).strip()
+    # Strip " Explanation:..." suffix (inline explanation on same line)
+    o = re.split(r'\s+Explanation\s*:', o)[0].strip()
+    if not o:
+        return o
     if o[0] == '[':
         g = match_bracket_group(o, 0)
         if g:
@@ -60,6 +66,12 @@ def clean_output(output: str) -> str:
                 depth -= 1
                 if depth == 0:
                     return o[:j + 1]
+    # Quoted string literal — extract just the quoted part
+    if o and o[0] in ('"', "'"):
+        qch = o[0]
+        end = o.find(qch, 1)
+        if end > 0:
+            return o[:end + 1]
     m = re.match(r'^(True|False|None|-?\d+(?:\.\d+)?(?:e-?\d+)?)', o)
     if m:
         return m.group(1)
@@ -111,12 +123,28 @@ def parse_design_examples(desc: str):
 def parse_examples(desc: str):
     examples = []
 
+    def clean_input(s: str) -> str:
+        """Strip trailing 'Output:...' and 'Explanation:...' from input field."""
+        s = normalize(s).strip()
+        # Strip inline Output: suffix (when Output is on the same line as the value)
+        s = re.sub(r'\s+Output\s*:.*$', '', s, flags=re.DOTALL)
+        # Strip inline Explanation: suffix
+        s = re.sub(r'\s+Explanation\s*:.*$', '', s, flags=re.DOTALL)
+        # Strip backtick code fences
+        s = re.sub(r'\s*```.*', '', s, flags=re.DOTALL)
+        return s.strip()
+
     def push_ex(inp, out):
-        if not inp or out is None or out == '':
+        inp_clean = clean_input(inp)
+        out_clean = clean_output(out)
+        # Skip truncated examples (input ends with '=' or is just a variable name)
+        if not inp_clean or out_clean is None or out_clean == '':
+            return
+        if re.match(r'^[A-Za-z_]\w*\s*=$', inp_clean):  # truncated: 's ='
             return
         examples.append({
-            'input': normalize(inp).strip(),
-            'output': clean_output(out),
+            'input': inp_clean,
+            'output': out_clean,
             'kind': 'normal',
         })
 
