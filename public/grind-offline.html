@@ -3413,7 +3413,7 @@
     }
 
     function parseExamples(q) {
-      if (q && q.examples && q.examples.length) return q.examples
+      if (q && q.examples) return q.examples  // stored examples (may be []) — never fall through
       var desc = getQuestionDescription(q)
       var examples = []
       function cleanOutput(output) {
