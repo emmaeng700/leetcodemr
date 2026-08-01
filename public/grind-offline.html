@@ -2952,7 +2952,8 @@
       }
       var sepIdx = fullCode.indexOf(LEARNING_SEP)
       if (sepIdx !== -1 && (cut === -1 || sepIdx < cut)) cut = sepIdx
-      return stripBuiltinHelperClasses((cut === -1 ? fullCode : fullCode.slice(0, cut)).trim())
+      var code = stripBuiltinHelperClasses((cut === -1 ? fullCode : fullCode.slice(0, cut)).trim())
+      return addPassToEmptyBodies(code)
     }
 
     function _runEscapeHtml(s) {
@@ -2960,12 +2961,30 @@
     }
 
     function syncRunButtonVisibility() {
-      var online = navigator.onLine
+      // Pyodide is self-hosted — Run works online and offline
       ;['btn-run', 'btn-run-fs'].forEach(function(id) {
         var btn = document.getElementById(id)
-        if (!btn) return
-        btn.style.display = online ? '' : 'none'
+        if (btn) btn.style.display = ''
       })
+    }
+
+    function addPassToEmptyBodies(code) {
+      var lines = code.split('\n')
+      var out = []
+      for (var i = 0; i < lines.length; i++) {
+        out.push(lines[i])
+        var stripped = lines[i].replace(/\s+$/, '')
+        if (stripped.match(/^\s*(def |class )\S/) && stripped.endsWith(':')) {
+          var indent = stripped.length - stripped.replace(/^\s+/, '').length
+          var j = i + 1
+          while (j < lines.length && lines[j].trim() === '') j++
+          var nextIndent = j < lines.length ? lines[j].length - lines[j].replace(/^\s+/, '').length : 0
+          if (j >= lines.length || nextIndent <= indent) {
+            out.push(Array(indent + 5).join(' ') + 'pass')
+          }
+        }
+      }
+      return out.join('\n')
     }
 
     function showRunResults(panelId, btnId, results) {
