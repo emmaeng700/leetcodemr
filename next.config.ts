@@ -18,6 +18,14 @@ const nextConfig: NextConfig = {
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
       : (process.env.NEXT_PUBLIC_APP_ORIGIN || "https://leetcodemr.vercel.app"),
   },
+  async headers() {
+    return [
+      {
+        source: '/pyodide/:file*.wasm',
+        headers: [{ key: 'Content-Type', value: 'application/wasm' }],
+      },
+    ]
+  },
   async rewrites() {
     return [
       // Grind is now served from the standalone offline-first HTML page,

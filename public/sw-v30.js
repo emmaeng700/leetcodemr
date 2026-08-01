@@ -223,6 +223,7 @@ self.addEventListener('fetch', e => {
 
   const isStatic =
     url.pathname.startsWith('/icons/')        ||
+    url.pathname.startsWith('/pyodide/')      ||
     url.pathname.endsWith('.json')            ||
     url.pathname.endsWith('.jpg')             ||
     url.pathname.endsWith('.png')             ||
