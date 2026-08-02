@@ -618,8 +618,8 @@
   <script>
     var questions = []
     var descriptions = {}
-    var OFFLINE_VERSION = 'v57'
-    var SW_CACHE = 'lm-v48'
+    var OFFLINE_VERSION = 'v58'
+    var SW_CACHE = 'lm-v50'
     var DESC_IMG_CACHE_KEY = 'lm_desc_images_cached_v2'
     var ALL_DIFFS = ['Easy', 'Medium', 'Hard']
     var ALL_PRIOS = ['High', 'Mid', 'Low']
@@ -2798,7 +2798,7 @@
 
     function fetchCached(url) {
       if (!('caches' in window)) return Promise.reject(new Error('no cache'))
-      var names = [SW_CACHE, 'lm-v47', 'lm-v46', 'lm-v45', 'lm-v44', 'lm-v43', 'lm-v32', 'lm-v31', 'lm-v30', 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
+      var names = [SW_CACHE, 'lm-v49', 'lm-v48', 'lm-v47', 'lm-v46', 'lm-v45', 'lm-v44', 'lm-v43', 'lm-v32', 'lm-v31', 'lm-v30', 'lm-v29', 'lm-v28', 'lm-v16', 'lm-v15', 'lm-v14', 'lm-v13']
       var i = 0
       function tryNext() {
         if (i >= names.length) return Promise.reject(new Error('missing'))
@@ -3253,7 +3253,16 @@
       '            found=_find_node(c, v)\n' +
       '            if found: return found\n' +
       '        return None\n' +
-      '    return _find_node(getattr(r, "left", None), v) or _find_node(getattr(r, "right", None), v)\n'
+      '    return _find_node(getattr(r, "left", None), v) or _find_node(getattr(r, "right", None), v)\n' +
+      'class _HtmlParser:\n' +
+      '    def __init__(self, urls, edges):\n' +
+      '        self._g = {u: [] for u in (urls or [])}\n' +
+      '        for a, b in (edges or []):\n' +
+      '            if isinstance(a, int) and isinstance(b, int) and 0 <= a < len(urls) and 0 <= b < len(urls):\n' +
+      '                self._g[urls[a]].append(urls[b])\n' +
+      '    def getUrls(self, url):\n' +
+      '        return list(self._g.get(url, []))\n' +
+      'HtmlParser = _HtmlParser\n'
     )
 
     function _pyLoadRuntime() {
@@ -3302,6 +3311,8 @@
       var stmts = []
       var cur = ''
       var depth = 0
+      var inStr = null
+      var esc = false
       function pushStmt(s) {
         s = String(s || '').trim()
         // Strip trailing comma only when (a) brackets are balanced (not a continuation
@@ -3318,6 +3329,18 @@
       }
       for (var i = 0; i < line.length; i++) {
         var c = line[i]
+        if (inStr) {
+          cur += c
+          if (esc) esc = false
+          else if (c === '\\') esc = true
+          else if (c === inStr) inStr = null
+          continue
+        }
+        if (c === '"' || c === "'") {
+          inStr = c
+          cur += c
+          continue
+        }
         if (c === '[' || c === '(' || c === '{') depth++
         else if (c === ']' || c === ')' || c === '}') depth--
         if (depth === 0 && c === ',') {
@@ -3326,6 +3349,15 @@
             pushStmt(cur)
             cur = ''
             continue
+          }
+        }
+        // Space-separated assignments (crawler examples):
+        //   urls = [...] edges = [[...]] startUrl = "..."
+        if (depth === 0 && /[A-Za-z_]/.test(c)) {
+          var ahead = line.slice(i)
+          if (/^[A-Za-z_]\w*\s*=/.test(ahead) && /=\s*\S/.test(cur)) {
+            pushStmt(cur)
+            cur = ''
           }
         }
         cur += c
@@ -3689,6 +3721,10 @@
 
         params.forEach(function(p) {
           var pn = p.toLowerCase()
+          if (pn === 'htmlparser') {
+            convLines.push('    ' + p + ' = _HtmlParser(urls, edges)')
+            return
+          }
           if (graph && (pn === 'node' || pn === 'graph')) {
             convLines.push('    ' + p + ' = _make_graph(' + p + ') if isinstance(' + p + ', list) else ' + p)
             return

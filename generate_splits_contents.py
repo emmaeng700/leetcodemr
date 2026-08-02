@@ -144,21 +144,9 @@ def _band_label(band: str) -> str:
     }[band]
 
 
-def _sort_key_asc(it: dict):
-    """High → Mid → Low, then Easy → Med → Hard, then larger n, then S1 → S2 → S3."""
+def _lts_within_band_key(it: dict):
+    """Within one priority + size band: Easy→Med→Hard, larger n, S1→S3, pattern."""
     return (
-        PRIORITY_ORDER.get(it['priority'], 9),
-        DIFF_ORDER.get(it['diff'], 9),
-        -it['n'],
-        it['set'],
-        it['pat'],
-    )
-
-
-def _sort_key_desc(it: dict):
-    """Same as asc for priority/diff; within that, larger n first."""
-    return (
-        PRIORITY_ORDER.get(it['priority'], 9),
         DIFF_ORDER.get(it['diff'], 9),
         -it['n'],
         it['set'],
@@ -177,72 +165,69 @@ def _split_label(it: dict) -> str:
     )
 
 
-def _append_band_list(story, items: list, band: str, order: str, key_prefix: str,
-                      with_checks: bool = False):
-    band_items = [it for it in items if _band_for(it['n']) == band]
-    if not band_items:
+def _append_priority_bands(story, items: list, priority: str, key_prefix: str,
+                           with_checks: bool = True):
+    """
+    One priority block: size bands Large→Small, sections in LTS study order.
+    Matches ALL Splits LtS: High (16+→…→1–4) then Mid then Low.
+    """
+    pri_items = [it for it in items if it['priority'] == priority]
+    if not pri_items:
         return
-    band_items = sorted(
-        band_items,
-        key=_sort_key_desc if order == 'desc' else _sort_key_asc,
-    )
-    hx = BAND_HEX[band]
-    story.append(Paragraph(
-        f'<font color="{hx}"><b>{_band_label(band)}</b></font>'
-        f'  <font color="{GRAY_600}">({len(band_items)} sections)</font>',
-        _inner_ps(f'{key_prefix}_{band}_h', 'body', spaceBefore=3, spaceAfter=1),
-    ))
-    if with_checks:
-        # One section per line so each gets its own checkbox.
-        # Insert a small priority subhead when the priority group changes.
-        cur_pri = None
-        for i, it in enumerate(band_items, 1):
-            if it['priority'] != cur_pri:
-                cur_pri = it['priority']
-                pri_hex = PRIORITY_HEX[cur_pri]
+
+    pri_hex = PRIORITY_HEX[priority]
+    banner = Table([[Paragraph(
+        f'<font color="white"><b>{priority}</b></font>',
+        _inner_ps(f'{key_prefix}_{priority}_ban', 'body_sm',
+                  alignment=TA_CENTER, textColor=white),
+    )]], colWidths=[USE_W])
+    banner.setStyle(TableStyle([
+        ('BACKGROUND',    (0, 0), (-1, -1), HexColor(pri_hex)),
+        ('TOPPADDING',    (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    story.append(Spacer(1, 3))
+    story.append(banner)
+
+    for band in ('long', 'medium', 'short', 'tiny'):
+        band_items = [it for it in pri_items if _band_for(it['n']) == band]
+        if not band_items:
+            continue
+        band_items = sorted(band_items, key=_lts_within_band_key)
+        hx = BAND_HEX[band]
+        story.append(Paragraph(
+            f'<font color="{hx}"><b>{_band_label(band)}</b></font>'
+            f'  <font color="{GRAY_600}">({len(band_items)} sections)</font>',
+            _inner_ps(f'{key_prefix}_{priority}_{band}_h', 'body',
+                      spaceBefore=2.5, spaceAfter=1),
+        ))
+        if with_checks:
+            for i, it in enumerate(band_items, 1):
                 story.append(Paragraph(
-                    f'<font color="{pri_hex}"><b>{cur_pri}</b></font>',
-                    _inner_ps(f'{key_prefix}_{band}_{cur_pri}_h', 'body_sm',
-                              spaceBefore=1.5, spaceAfter=0.3),
+                    _split_label(it),
+                    _inner_ps(f'{key_prefix}_{priority}_{band}_{i}', 'body_sm',
+                              spaceAfter=0.4),
                 ))
-            story.append(Paragraph(
-                _split_label(it),
-                _inner_ps(f'{key_prefix}_{band}_{i}', 'body_sm', spaceAfter=0.4),
-            ))
-    else:
-        cur_pri = None
-        row = []
-        for i, it in enumerate(band_items, 1):
-            if it['priority'] != cur_pri:
-                if row:
+        else:
+            row = []
+            for i, it in enumerate(band_items, 1):
+                d = DIFF_ABBREV.get(it['diff'], it['diff'][:1])
+                row.append(
+                    f'<font color="{it["hex"]}"><b>{safe_xml(it["abbr"])}</b></font>'
+                    f'  S{it["set"]} {it["priority"][0]}{d}  '
+                    f'<font color="{GRAY_600}">{it["n"]}q</font>'
+                )
+                if len(row) == 2 or i == len(band_items):
                     story.append(Paragraph(
                         '   ·   '.join(row),
-                        _inner_ps(f'{key_prefix}_{band}_{i}_flush', 'body_sm', spaceAfter=0.5),
+                        _inner_ps(f'{key_prefix}_{priority}_{band}_{i}', 'body_sm',
+                                  spaceAfter=0.5),
                     ))
                     row = []
-                cur_pri = it['priority']
-                pri_hex = PRIORITY_HEX[cur_pri]
-                story.append(Paragraph(
-                    f'<font color="{pri_hex}"><b>{cur_pri}</b></font>',
-                    _inner_ps(f'{key_prefix}_{band}_{cur_pri}_h', 'body_sm',
-                              spaceBefore=1.5, spaceAfter=0.3),
-                ))
-            d = DIFF_ABBREV.get(it['diff'], it['diff'][:1])
-            row.append(
-                f'<font color="{it["hex"]}"><b>{safe_xml(it["abbr"])}</b></font>'
-                f'  S{it["set"]} {it["priority"][0]}{d}  '
-                f'<font color="{GRAY_600}">{it["n"]}q</font>'
-            )
-            if len(row) == 2 or i == len(band_items):
-                story.append(Paragraph(
-                    '   ·   '.join(row),
-                    _inner_ps(f'{key_prefix}_{band}_{i}', 'body_sm', spaceAfter=0.5),
-                ))
-                row = []
 
 
 def append_learner_note(story, sections: list) -> None:
-    """Motivation page(s): size-sorted paths through the 138 pattern splits."""
+    """Motivation page(s): High→Mid→Low, each Large→Small (matches ALL Splits LtS)."""
     items = build_pattern_splits(sections)
     n_all = len(items)
     tiny = sum(1 for it in items if _band_for(it['n']) == 'tiny')
@@ -260,14 +245,13 @@ def append_learner_note(story, sections: list) -> None:
     story.append(Paragraph(
         f'These {n_all} pattern sections are not equal in size. '
         f'<b>{under10}</b> have under 10 questions — quick wins you can finish in one sitting. '
-        f'Use size to choose your pace. Tick any section below as you clear it '
+        f'Clear all Highs large→small, then Mid, then Low. Tick any section below as you clear it '
         f'(saved with the PDF).',
         _inner_ps('ln_intro', 'body_sm', spaceAfter=2, alignment=TA_LEFT),
     ))
 
-    # Strategy — Large → Small roster only
     card = Table([[Paragraph(
-        '<font color="white"><b>Study order — Heavy first (Large → Small)</b></font>',
+        '<font color="white"><b>Study order — High → Mid → Low, each Large → Small</b></font>',
         _inner_ps('ln_card_b', 'body_sm', alignment=TA_CENTER, textColor=white),
     )]], colWidths=[USE_W])
     card.setStyle(TableStyle([
@@ -278,8 +262,8 @@ def append_learner_note(story, sections: list) -> None:
     story.append(Spacer(1, 2))
     story.append(card)
     story.append(Paragraph(
-        'Knock out the 16+ and 10–15 sections while focus is freshest, '
-        'then zoom through the under-10s for a fast finish.',
+        'Within High (then Mid, then Low): knock out 16+ and 10–15 while focus is freshest, '
+        'then zoom through the under-10s.',
         _inner_ps('ln_body_b', 'body_sm', spaceBefore=1, spaceAfter=1),
     ))
 
@@ -298,12 +282,12 @@ def append_learner_note(story, sections: list) -> None:
         _inner_ps('ln_desc_title', 'title', spaceAfter=2),
     ))
     story.append(Paragraph(
-        'Tick sections as you finish them.',
+        'Tick sections as you finish them. High (16+ → 1–4) · Mid · Low — same as ALL Splits LtS.',
         _inner_ps('ln_desc_sub', 'body_sm', spaceAfter=1),
     ))
     story.append(hr(GRAY_300, 0.4))
-    for band in ('long', 'medium', 'short', 'tiny'):
-        _append_band_list(story, items, band, 'desc', 'desc', with_checks=True)
+    for priority in ('High', 'Mid', 'Low'):
+        _append_priority_bands(story, items, priority, 'desc', with_checks=True)
 
 
 def _add_learner_note_checkboxes(pdf_path: Path) -> None:
