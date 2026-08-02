@@ -1,4 +1,4 @@
-const CACHE     = 'lm-v48'
+const CACHE     = 'lm-v49'
 const IMG_CACHE = 'lm-images'
 
 const GRIND_OFFLINE = '/grind-offline.html'
@@ -182,8 +182,8 @@ self.addEventListener('fetch', e => {
     e.respondWith(
       (async () => {
         const path = url.pathname
-        const cached = await cacheGet(path, e.request)
-        if (cached) return cached
+        // Network-first: always try to serve the latest version when online.
+        // This ensures JS/HTML fixes deploy to all users without cache bumps.
         try {
           const res = await fetch(e.request)
           if (res.ok) {
@@ -192,8 +192,9 @@ self.addEventListener('fetch', e => {
             return res
           }
         } catch {}
-        const retry = await cacheGet(path)
-        if (retry) return retry
+        // Offline fallback: serve cached copy.
+        const cached = await cacheGet(path, e.request) || await cacheGet(path)
+        if (cached) return cached
         if (path === GRIND_EDITOR) {
           return new Response('// editor not cached', { status: 503, headers: { 'Content-Type': 'application/javascript' } })
         }
