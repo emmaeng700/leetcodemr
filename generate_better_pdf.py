@@ -1152,19 +1152,21 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
     ]))
     items.append(title_tbl)
     items.append(Spacer(1, 1))
-    # Yellow premium banner — mirrors LeetCode's visual treatment
+    # Small orange pill badge — mirrors LeetCode's "Premium" tag next to the title
     if is_premium_question(q):
         prem_tbl = Table([[Paragraph(
-            f'<b>{premium_star_markup()}  LeetCode Premium</b>',
-            ParagraphStyle(f'prem_lbl_{qid}', fontName='LG-Bold', fontSize=8,
-                           textColor=HexColor('#92400E'), leading=11),
-        )]], colWidths=[USE_W])
+            f'<b>{premium_star_markup()} Premium</b>',
+            ParagraphStyle(f'prem_lbl_{qid}', fontName='LG-Bold',
+                           fontSize=S['body_sm'].fontSize,
+                           textColor=white, leading=S['body_sm'].leading),
+        )]])
+        prem_tbl.hAlign = 'LEFT'
         prem_tbl.setStyle(TableStyle([
-            ('BACKGROUND',    (0, 0), (-1, -1), HexColor('#FEF3C7')),
-            ('TOPPADDING',    (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-            ('LEFTPADDING',   (0, 0), (-1, -1), 6),
-            ('RIGHTPADDING',  (0, 0), (-1, -1), 6),
+            ('BACKGROUND',    (0, 0), (-1, -1), HexColor('#FFA116')),
+            ('TOPPADDING',    (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('LEFTPADDING',   (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING',  (0, 0), (-1, -1), 4),
         ]))
         items.append(prem_tbl)
         items.append(Spacer(1, 1))
