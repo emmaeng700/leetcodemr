@@ -1,4 +1,4 @@
-const CACHE     = 'lm-v50'
+const CACHE     = 'lm-v52'
 const IMG_CACHE = 'lm-images'
 
 const GRIND_OFFLINE = '/grind-offline.html'
@@ -175,6 +175,26 @@ self.addEventListener('fetch', e => {
   // Never cache Next.js dev/build assets in the SW.
   if (isNextInternal) {
     e.respondWith(fetch(e.request))
+    return
+  }
+
+  // Network-first for grind_questions.json: always serve latest JSON when online
+  // so section/pattern fixes reach users without waiting for a SW cache bump.
+  if (url.pathname === GRIND_QUESTIONS) {
+    e.respondWith(
+      (async () => {
+        try {
+          const res = await fetch(e.request)
+          if (res.ok) {
+            const cache = await caches.open(CACHE)
+            await cache.put(url.pathname, res.clone())
+            return res
+          }
+        } catch {}
+        const cached = await cacheGet(url.pathname, e.request) || await cacheGet(url.pathname)
+        return cached || new Response('[]', { status: 503, headers: { 'Content-Type': 'application/json' } })
+      })()
+    )
     return
   }
 
