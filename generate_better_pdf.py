@@ -1152,14 +1152,17 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
     ]))
     items.append(title_tbl)
     items.append(Spacer(1, 1))
-    # Small orange pill badge — mirrors LeetCode's "Premium" tag next to the title
+    # Small orange pill badge — mirrors LeetCode's "Premium" tag next to the title.
+    # colWidths must be set explicitly; without it ReportLab expands the table to full width.
+    # Width = font size × 7.5 fits "★ Premium" + left/right padding at every scale.
     if is_premium_question(q):
+        _pill_w = S['body_sm'].fontSize * 7.5
         prem_tbl = Table([[Paragraph(
             f'<b>{premium_star_markup()} Premium</b>',
             ParagraphStyle(f'prem_lbl_{qid}', fontName='LG-Bold',
                            fontSize=S['body_sm'].fontSize,
                            textColor=white, leading=S['body_sm'].leading),
-        )]])
+        )]], colWidths=[_pill_w])
         prem_tbl.hAlign = 'LEFT'
         prem_tbl.setStyle(TableStyle([
             ('BACKGROUND',    (0, 0), (-1, -1), HexColor('#FFA116')),
