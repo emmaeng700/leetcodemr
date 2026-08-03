@@ -496,7 +496,7 @@ def main():
 
         print('  Analyzing links…')
         rounds_struct = [(rn, pri, diff, pgs) for rn, pri, diff, s, pgs in sections]
-        page_types, qid_first_page, toc_link_rects, toc_section_rects = \
+        page_types, qid_first_page, toc_link_rects, toc_section_rects, ia_first_page = \
             _analyze_inner_for_links(inner_path, rounds_struct)
 
         # Master Contents lists many Rounds per page; each section mini-TOC has one.
@@ -521,6 +521,7 @@ def main():
             round_page_registry, pat_page_registry,
             qid_difficulty=qid_difficulty,
             qid_to_slug=qid_to_slug,
+            ia_first_page=ia_first_page,
         )
 
         # Add word-level #N links on the master Contents pages so each inline

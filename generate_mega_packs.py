@@ -615,7 +615,7 @@ def main():
 
             print('  Analyzing links…')
             rounds_struct = [(rn, priority, 'All', [(pat_obj, qs)])]
-            page_types, qid_first_page, toc_link_rects, toc_section_rects = \
+            page_types, qid_first_page, toc_link_rects, toc_section_rects, ia_first_page = \
                 _analyze_inner_for_links(inner_tmp, rounds_struct)
 
             print('  Adding interactive features…')
@@ -625,6 +625,7 @@ def main():
                 round_pg_reg, pat_pg_reg,
                 qid_difficulty=qid_difficulty,
                 qid_to_slug=qid_to_slug,
+                ia_first_page=ia_first_page,
             )
 
             shutil.move(str(imp_tmp), str(out_file))
@@ -655,7 +656,7 @@ def main():
         print('  Analyzing links…')
         rounds_struct = [(rn, pri, 'All', [(po, qs)])
                          for rn, pri, po, qs in sections]
-        page_types_m, qid_first_page_m, toc_link_rects_m, toc_section_rects_m = \
+        page_types_m, qid_first_page_m, toc_link_rects_m, toc_section_rects_m, ia_first_page_m = \
             _analyze_inner_for_links(inner_mega, rounds_struct)
         # Master Contents lists many Rounds per page; each pack mini-TOC has one.
         # Do NOT use (banner_page - 1): multi-page mini-TOCs put the first page
@@ -678,6 +679,7 @@ def main():
             toc_link_secs_m, toc_section_secs_m,
             round_pg_reg_m, pat_pg_reg_m,
             qid_difficulty=qid_difficulty, qid_to_slug=qid_to_slug,
+            ia_first_page=ia_first_page_m,
         )
         if overview_pages_m:
             print(f'  Adding inline QID links on {len(overview_pages_m)} overview page(s)…')

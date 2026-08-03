@@ -433,7 +433,7 @@ def main():
             (sn, pri, diff, [(pat_obj, qs)])
             for sn, pri, diff, s, pat_obj, qs in sections
         ]
-        page_types, qid_first_page, toc_link_rects, toc_section_rects = \
+        page_types, qid_first_page, toc_link_rects, toc_section_rects, ia_first_page = \
             _analyze_inner_for_links(inner_path, rounds_struct)
 
         # Master Contents pages: those with 2+ round entries listed
@@ -452,6 +452,7 @@ def main():
             round_page_registry, pat_page_registry,
             qid_difficulty=qid_difficulty,
             qid_to_slug=qid_to_slug,
+            ia_first_page=ia_first_page,
         )
 
         # Overview QID links + checkboxes — use shared ln_sec_* field names

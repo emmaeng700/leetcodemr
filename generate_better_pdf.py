@@ -1152,6 +1152,22 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
     ]))
     items.append(title_tbl)
     items.append(Spacer(1, 1))
+    # Yellow premium banner — mirrors LeetCode's visual treatment
+    if is_premium_question(q):
+        prem_tbl = Table([[Paragraph(
+            f'<b>{premium_star_markup()}  LeetCode Premium</b>',
+            ParagraphStyle(f'prem_lbl_{qid}', fontName='LG-Bold', fontSize=8,
+                           textColor=HexColor('#92400E'), leading=11),
+        )]], colWidths=[USE_W])
+        prem_tbl.setStyle(TableStyle([
+            ('BACKGROUND',    (0, 0), (-1, -1), HexColor('#FEF3C7')),
+            ('TOPPADDING',    (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING',   (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING',  (0, 0), (-1, -1), 6),
+        ]))
+        items.append(prem_tbl)
+        items.append(Spacer(1, 1))
     # Prominent "Open on LeetCode" link right below the title
     # (URI re-injected after imposition in _add_links_1x1 via "Open on LeetCode" search)
     items.append(Paragraph(
@@ -1206,6 +1222,14 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
         else:
             items += plain_desc_to_paragraphs(desc_html, S['body'])
         items.append(Spacer(1, 2))
+    # Nav link from description page → first answers page (IA); PDF link injected
+    # in _add_links_1x1 using the ##IA=N## marker collected by _analyze_inner_for_links.
+    items.append(Paragraph(
+        '→ Interview Approach',
+        ParagraphStyle(f'to_ia_{qid}', fontName='LG-Bold', fontSize=8,
+                       textColor=HexColor('#0369A1'), leading=11, spaceAfter=1,
+                       alignment=2),
+    ))
 
     # ── Code Skeleton — own page; attempt before scrolling to solutions ─────────
     raw_starter = (q.get('starterPython') or '').strip()
@@ -1243,6 +1267,19 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
     merged['doocs'] = [{'code': b['code'], 'lang': b.get('lang','')} for b in doocs_blocks]
 
     # ── 1. Interview Approach · STAR-LC ──────────────────────────────────────────
+    # Invisible IA-start marker — _analyze_inner_for_links uses this to record
+    # which page the interview approach begins on for → Interview Approach links.
+    items.append(Paragraph(
+        f'##IA={qid}##',
+        ParagraphStyle(f'ia_mark_{qid}', fontName='LG-Bold', fontSize=0.5,
+                       textColor=HexColor('#FFFFFF'), leading=0.5, spaceAfter=0),
+    ))
+    # Visible ← Description nav link; PDF link injected in _add_links_1x1
+    items.append(Paragraph(
+        '← Description',
+        ParagraphStyle(f'back_desc_{qid}', fontName='LG-Bold', fontSize=8,
+                       textColor=HexColor('#0369A1'), leading=11, spaceAfter=2),
+    ))
     items += build_interview_approach(qid)
 
     # ── 2. My LeetCode Solution ───────────────────────────────────────────────
@@ -2700,16 +2737,19 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
       qid_first_page     {qid → inner_pg of first occurrence}
       toc_link_rects     {inner_pg → {qid → {line, title}}}
       toc_section_rects  {inner_pg → [(kind, key, fitz.Rect)]}  kind: 'round'|'pat'
+      ia_first_page      {qid → inner_pg where interview approach begins}
     """
     doc        = fitz.open(str(inner_pdf_path))
     all_ids    = {q['id'] for _, _, _, pgs in rounds for _, qs in pgs for q in qs}
     qid_re     = re.compile(r'#(\d+)')
     marker_re  = re.compile(r'##QID=(\d+)##')
+    ia_re      = re.compile(r'##IA=(\d+)##')
 
     page_types         = {}
     qid_first_page     = {}
     toc_link_rects     = {}
     toc_section_rects  = {}
+    ia_first_page      = {}
     prev_was_toc       = False
 
     for pg in range(len(doc)):
@@ -2717,6 +2757,12 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
         text   = page.get_text()
         found  = [int(m.group(1)) for m in qid_re.finditer(text) if int(m.group(1)) in all_ids]
         unique = list(dict.fromkeys(found))   # dedupe, preserve order
+
+        # Collect interview-approach start pages from ##IA=N## markers.
+        for _m in ia_re.finditer(text):
+            _ia_qid = int(_m.group(1))
+            if _ia_qid not in ia_first_page:
+                ia_first_page[_ia_qid] = pg
 
         # Round overview banner pages carry an invisible ##RNDBNR## marker so they
         # are always classified as 'chapter' regardless of prev_was_toc state.
@@ -2845,7 +2891,7 @@ def _analyze_inner_for_links(inner_pdf_path: Path, rounds: list):
             prev_was_toc = False
 
     doc.close()
-    return page_types, qid_first_page, toc_link_rects, toc_section_rects
+    return page_types, qid_first_page, toc_link_rects, toc_section_rects, ia_first_page
 
 
 def _add_links_2x2(output_path: Path, page_types: dict,
@@ -3056,6 +3102,7 @@ def _add_links_1x1(output_path: Path, page_types: dict,
                    pat_page_registry: dict,
                    qid_difficulty: dict = None,
                    qid_to_slug: dict = None,
+                   ia_first_page: dict = None,
                    GAP: float = 8.0,
                    src_w: float = 204.0, src_h: float = 264.0,
                    L_W: float = 612.0, L_H: float = 792.0):
@@ -3442,6 +3489,23 @@ def _add_links_1x1(output_path: Path, page_types: dict,
             out_pg.add_widget(wd)
             n_done += 1
 
+        # ── Nav links: ← Description (on IA pages) / → Interview Approach (on desc page) ──
+        if ia_first_page:
+            # ← Description — search on every question page; links back to desc page.
+            for _r in out_pg.search_for('← Description'):
+                _dest = qid_first_page.get(qid)
+                if _dest is not None:
+                    out_pg.insert_link({'kind': fitz.LINK_GOTO, 'from': _r,
+                                        'page': _dest, 'to': fitz.Point(0, 0), 'zoom': 0})
+
+            # → Interview Approach — only on the first page of each question.
+            if qid_first_page.get(qid) == sh:
+                for _r in out_pg.search_for('→ Interview Approach'):
+                    _ia_dest = ia_first_page.get(qid)
+                    if _ia_dest is not None:
+                        out_pg.insert_link({'kind': fitz.LINK_GOTO, 'from': _r,
+                                            'page': _ia_dest, 'to': fitz.Point(0, 0), 'zoom': 0})
+
     # ── Solution checkboxes (pre-scanned before modifications) ────────────────
     for sh, hits in sol_rects.items():
         out_pg = doc[sh]
@@ -3738,7 +3802,7 @@ if __name__ == '__main__':
             sets_and_rounds, sites, doocs, my_solutions)
 
         print('Analyzing inner PDF for link structure…')
-        page_types, qid_first_page, toc_link_rects, toc_section_rects = (
+        page_types, qid_first_page, toc_link_rects, toc_section_rects, ia_first_page = (
             _analyze_inner_for_links(INNER_PDF, rounds)
         )
 
@@ -3753,6 +3817,7 @@ if __name__ == '__main__':
             round_page_registry, pat_page_registry,
             qid_difficulty=qid_difficulty,
             qid_to_slug=qid_to_slug,
+            ia_first_page=ia_first_page,
         )
 
         INNER_PDF.unlink(missing_ok=True)
@@ -3793,7 +3858,7 @@ if __name__ == '__main__':
 
     if GRID_2X1:
         print('Analyzing inner PDF for link structure…')
-        page_types, qid_first_page, toc_link_rects, toc_section_rects = (
+        page_types, qid_first_page, toc_link_rects, toc_section_rects, ia_first_page = (
             _analyze_inner_for_links(INNER_PDF, rounds)
         )
         print('Imposing 2×1 landscape (2-up)…')
@@ -3807,7 +3872,7 @@ if __name__ == '__main__':
         )
     elif GRID_2X2:
         print('Analyzing inner PDF for link structure…')
-        page_types, qid_first_page, toc_link_rects, _toc_sec = (
+        page_types, qid_first_page, toc_link_rects, _toc_sec, ia_first_page = (
             _analyze_inner_for_links(INNER_PDF, rounds)
         )
         print('Imposing 2×2 landscape (4-up)…')
@@ -3835,6 +3900,7 @@ if __name__ == '__main__':
         OUTPUT_1UP, page_types, qid_first_page, toc_link_rects, toc_section_rects,
         round_page_registry, pat_page_registry,
         qid_difficulty=qid_difficulty,
+        ia_first_page=ia_first_page,
     )
 
     INNER_PDF.unlink(missing_ok=True)
