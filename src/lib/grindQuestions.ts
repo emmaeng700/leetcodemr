@@ -87,7 +87,7 @@ function toGrindRow(
   extraStarters?: { starterPython?: string; starterCpp?: string },
   playbookMap?: Record<number, string>,
 ): GrindQuestion {
-  const pattern = patternMap[q.id] ?? null
+  const pattern = patternMap[q.id] ?? QUESTION_ID_PATTERN_FALLBACKS[q.id] ?? null
   const interviewApproach = playbookMap?.[q.id]
   let starterPython = ENRICHED_STARTERS[q.id] ?? q.starter_python ?? extraStarters?.starterPython
   let starterCpp = q.starter_cpp ?? extraStarters?.starterCpp

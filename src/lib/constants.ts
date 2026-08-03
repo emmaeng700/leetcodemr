@@ -172,17 +172,19 @@ export const PATTERN_PRIORITY: Record<string, PatternPriority> = {
 // in old cached versions of grind_questions.json (before commit 29813a6).
 // This ensures filters AND display work regardless of which cached version the SW serves.
 export const QUESTION_ID_PATTERN_FALLBACKS: Partial<Record<number, string>> = {
+  // These 22 questions have no pattern in their primary set's pattern map.
+  // Assignments match the PDF section structure so they appear in all 3 mega PDFs.
   52: 'Backtracking', 473: 'Backtracking', 649: 'Greedy', 705: 'Arrays & Hashing',
-  715: 'Binary Search', 860: 'Greedy', 877: 'Dynamic Programming', 881: 'Greedy',
-  913: 'Dynamic Programming', 933: 'Sliding Window', 953: 'Arrays & Hashing', 997: 'Graphs',
+  715: 'Stack', 860: 'Greedy', 877: 'Dynamic Programming', 881: 'Two Pointers',
+  913: 'Dynamic Programming', 933: 'Stack', 953: 'Arrays & Hashing', 997: 'Arrays & Hashing',
   1137: 'Dynamic Programming', 1140: 'Dynamic Programming', 1325: 'Trees & BST',
-  1863: 'Bit Manipulation', 1929: 'Arrays & Hashing', 2392: 'Graphs',
-  2707: 'Dynamic Programming', 2709: 'Graphs', 2807: 'Linked List', 3133: 'Bit Manipulation',
+  1863: 'Bit Manipulation', 1929: 'Arrays & Hashing', 2392: 'DFS',
+  2707: 'Dynamic Programming', 2709: 'DFS', 2807: 'Linked List', 3133: 'Bit Manipulation',
 }
 
 export const QUESTION_ID_PRIORITY_FALLBACKS: Partial<Record<number, PatternPriority>> = {
-  52: 'Mid', 473: 'Mid', 649: 'Mid', 705: 'High', 715: 'High', 860: 'Mid',
-  877: 'Low', 881: 'Mid', 913: 'Low', 933: 'High', 953: 'High', 997: 'High',
+  52: 'Mid', 473: 'Mid', 649: 'Mid', 705: 'High', 715: 'Mid', 860: 'Mid',
+  877: 'Low', 881: 'High', 913: 'Low', 933: 'Mid', 953: 'High', 997: 'High',
   1137: 'Low', 1140: 'Low', 1325: 'High', 1863: 'Low', 1929: 'High',
   2392: 'High', 2707: 'Low', 2709: 'High', 2807: 'Mid', 3133: 'Low',
 }
