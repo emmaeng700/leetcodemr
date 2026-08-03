@@ -3500,13 +3500,13 @@ def _add_links_1x1(output_path: Path, page_types: dict,
                     out_pg.insert_link({'kind': fitz.LINK_GOTO, 'from': _r,
                                         'page': _dest, 'to': fitz.Point(0, 0), 'zoom': 0})
 
-            # → Interview Approach — only on the first page of each question.
-            if qid_first_page.get(qid) == sh:
-                for _r in out_pg.search_for('→ Interview Approach'):
-                    _ia_dest = ia_first_page.get(qid)
-                    if _ia_dest is not None:
-                        out_pg.insert_link({'kind': fitz.LINK_GOTO, 'from': _r,
-                                            'page': _ia_dest, 'to': fitz.Point(0, 0), 'zoom': 0})
+            # → Interview Approach — appears after the description, which may be on any
+            # page of the question (long descriptions overflow to page 2+), so search all pages.
+            for _r in out_pg.search_for('→ Interview Approach'):
+                _ia_dest = ia_first_page.get(qid)
+                if _ia_dest is not None:
+                    out_pg.insert_link({'kind': fitz.LINK_GOTO, 'from': _r,
+                                        'page': _ia_dest, 'to': fitz.Point(0, 0), 'zoom': 0})
 
     # ── Solution checkboxes (pre-scanned before modifications) ────────────────
     for sh, hits in sol_rects.items():
