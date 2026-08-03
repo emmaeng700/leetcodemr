@@ -147,18 +147,19 @@ def _lc_headers(session, csrf):
     }
 
 
-def _fetch_ac_submission(slug, session, csrf):
-    """Return (lang, code) of the most recent accepted LC submission, or (None, None)."""
-    q1 = """query($slug:String!,$offset:Int!,$limit:Int!){
+def _fetch_latest_ac(slug, session, csrf):
+    """Return (submission_id, lang) of the most recent accepted submission, or (None, None).
+    One GraphQL call — does NOT fetch code."""
+    q = """query($slug:String!,$offset:Int!,$limit:Int!){
       questionSubmissionList(questionSlug:$slug,offset:$offset,limit:$limit,status:10){
         submissions{ id lang }
       }
     }"""
     try:
-        r1 = requests.post(_LC_GQL,
-                           json={"query": q1, "variables": {"slug": slug, "offset": 0, "limit": 20}},
-                           headers=_lc_headers(session, csrf), timeout=15)
-        subs = r1.json().get("data", {}).get("questionSubmissionList", {}).get("submissions", [])
+        r = requests.post(_LC_GQL,
+                          json={"query": q, "variables": {"slug": slug, "offset": 0, "limit": 20}},
+                          headers=_lc_headers(session, csrf), timeout=15)
+        subs = r.json().get("data", {}).get("questionSubmissionList", {}).get("submissions", [])
     except Exception:
         return None, None
     if not subs:
@@ -166,15 +167,28 @@ def _fetch_ac_submission(slug, session, csrf):
     chosen = (next((s for s in subs if s["lang"] == "python3"), None)
               or next((s for s in subs if s["lang"] == "python"), None)
               or subs[0])
-    q2 = "query($id:Int!){submissionDetails(submissionId:$id){code}}"
+    return str(chosen["id"]), chosen["lang"]
+
+
+def _fetch_submission_code(sub_id, session, csrf):
+    """Fetch code for a known submission ID. One GraphQL call."""
+    q = "query($id:Int!){submissionDetails(submissionId:$id){code}}"
     try:
-        r2 = requests.post(_LC_GQL,
-                           json={"query": q2, "variables": {"id": int(chosen["id"])}},
-                           headers=_lc_headers(session, csrf), timeout=15)
-        code = r2.json().get("data", {}).get("submissionDetails", {}).get("code", "")
+        r = requests.post(_LC_GQL,
+                          json={"query": q, "variables": {"id": int(sub_id)}},
+                          headers=_lc_headers(session, csrf), timeout=15)
+        return r.json().get("data", {}).get("submissionDetails", {}).get("code", "")
     except Exception:
+        return None
+
+
+def _fetch_ac_submission(slug, session, csrf):
+    """Return (lang, code) of the most recent accepted LC submission, or (None, None)."""
+    sub_id, lang = _fetch_latest_ac(slug, session, csrf)
+    if sub_id is None:
         return None, None
-    return chosen["lang"], code
+    code = _fetch_submission_code(sub_id, session, csrf)
+    return lang, code
 
 
 _SOLUTIONS_JSON = SCRIPT_DIR / "my_solutions.json"   # full scraped solutions with metadata
@@ -208,11 +222,10 @@ def _lc_ac_questions(session: str, csrf: str) -> list:
 
 def scrape_solutions_to_json(session: str, csrf: str, force: bool = False) -> dict:
     """Scrape ALL accepted LC submissions → my_solutions.json.
-    Returns {str(qid): {qid, slug, title, lang, code}}.
-    Skips questions already in the JSON unless force=True."""
+    Returns {str(qid): {qid, slug, title, lang, code, submission_id}}.
+    For cached questions, checks whether a newer submission exists before skipping."""
     print("Scraping all LeetCode accepted solutions…")
 
-    # Load existing JSON so we don't re-fetch everything on every run
     existing: dict = {}
     if not force and _SOLUTIONS_JSON.exists():
         try:
@@ -223,33 +236,56 @@ def scrape_solutions_to_json(session: str, csrf: str, force: bool = False) -> di
     elif force:
         print("  force=True — re-fetching everything from scratch")
 
-    # Get full AC list with slugs straight from LC (no q_map lookup needed)
     ac_qs = _lc_ac_questions(session, csrf)
     print(f"  {len(ac_qs)} questions AC'd on LeetCode")
 
     result = dict(existing)
-    newly_fetched, failed = 0, []
+    newly_fetched, updated, failed = 0, 0, []
 
     for i, q in enumerate(ac_qs, 1):
         key = str(q["qid"])
-        if key in result and not force:
-            continue   # already have it
 
-        lang, code = _fetch_ac_submission(q["slug"], session, csrf)
-        if code:
-            result[key] = {"qid": q["qid"], "slug": q["slug"],
-                           "title": q["title"], "lang": lang, "code": code}
-            newly_fetched += 1
+        if key in result and not force:
+            # Check whether a newer submission has been made since we cached this entry.
+            cached_sub_id = result[key].get("submission_id")
+            latest_sub_id, latest_lang = _fetch_latest_ac(q["slug"], session, csrf)
+            time.sleep(0.35)
+            if latest_sub_id is None:
+                # Can't reach LC for this question — keep the cached version.
+                continue
+            if cached_sub_id and str(latest_sub_id) == str(cached_sub_id):
+                continue  # Same submission as before — nothing to do.
+            # A newer (or previously untracked) submission exists — fetch its code.
+            code = _fetch_submission_code(latest_sub_id, session, csrf)
+            if code:
+                result[key] = {"qid": q["qid"], "slug": q["slug"],
+                               "title": q["title"], "lang": latest_lang,
+                               "code": code, "submission_id": str(latest_sub_id)}
+                updated += 1
+            time.sleep(0.35)
         else:
-            failed.append(q)
+            # New question not yet in cache — fetch submission ID + code together.
+            sub_id, lang = _fetch_latest_ac(q["slug"], session, csrf)
+            time.sleep(0.35)
+            if sub_id:
+                code = _fetch_submission_code(sub_id, session, csrf)
+                if code:
+                    result[key] = {"qid": q["qid"], "slug": q["slug"],
+                                   "title": q["title"], "lang": lang,
+                                   "code": code, "submission_id": str(sub_id)}
+                    newly_fetched += 1
+                else:
+                    failed.append(q)
+            else:
+                failed.append(q)
+            time.sleep(0.35)
 
         if i % 10 == 0:
-            print(f"    {i}/{len(ac_qs)} processed…")
+            print(f"    {i}/{len(ac_qs)} processed… ({newly_fetched} new, {updated} updated)")
             _SOLUTIONS_JSON.write_text(json.dumps(result, ensure_ascii=False, indent=2))
-        time.sleep(0.35)
 
     _SOLUTIONS_JSON.write_text(json.dumps(result, ensure_ascii=False, indent=2))
-    print(f"  {newly_fetched} newly fetched · {len(result)} total → my_solutions.json")
+    print(f"  {newly_fetched} newly fetched · {updated} updated · {len(result)} total → my_solutions.json")
     if failed:
         print(f"  ⚠ {len(failed)} questions returned no code from LC:")
         for f in failed:
