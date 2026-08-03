@@ -1226,8 +1226,8 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
     # in _add_links_1x1 using the ##IA=N## marker collected by _analyze_inner_for_links.
     items.append(Paragraph(
         '→ Interview Approach',
-        ParagraphStyle(f'to_ia_{qid}', fontName='LG-Bold', fontSize=8,
-                       textColor=HexColor('#0369A1'), leading=11, spaceAfter=1,
+        ParagraphStyle(f'to_ia_{qid}', fontName='LG-Bold', fontSize=S['title'].fontSize,
+                       textColor=HexColor('#0369A1'), leading=S['title'].leading, spaceAfter=1,
                        alignment=2),
     ))
 
@@ -1277,8 +1277,8 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
     # Visible ← Description nav link; PDF link injected in _add_links_1x1
     items.append(Paragraph(
         '← Description',
-        ParagraphStyle(f'back_desc_{qid}', fontName='LG-Bold', fontSize=8,
-                       textColor=HexColor('#0369A1'), leading=11, spaceAfter=2),
+        ParagraphStyle(f'back_desc_{qid}', fontName='LG-Bold', fontSize=S['title'].fontSize,
+                       textColor=HexColor('#0369A1'), leading=S['title'].leading, spaceAfter=2),
     ))
     items += build_interview_approach(qid)
 
@@ -3755,9 +3755,17 @@ def _load_all727_data():
     if injected:
         print(f'  Injected {injected} descriptions from grind_questions.json into doocs cache')
 
+    # Build source lookup from questions_full.json so premium tags are preserved
+    _full_path = SCRIPT_DIR / 'public' / 'questions_full.json'
+    _full_by_id = {}
+    if _full_path.exists():
+        for _fq in json.loads(_full_path.read_text()):
+            _full_by_id[_fq['id']] = _fq
+
     # Normalise question objects
     questions = []
     for gq in grind_qs:
+        _fq = _full_by_id.get(gq['id'], {})
         questions.append({
             'id':         gq['id'],
             'title':      gq['title'],
@@ -3766,8 +3774,8 @@ def _load_all727_data():
             'pattern':    gq.get('pattern'),
             'section':    gq.get('section'),
             'set':        gq.get('set', 1),
-            'tags':       [],
-            'source':     [],
+            'tags':       _fq.get('tags', []),
+            'source':     _fq.get('source', []),
         })
 
     # Partition by set and build 9 rounds per set (27 total)
