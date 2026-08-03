@@ -460,6 +460,17 @@ def main():
         questions = json.load(f)
     print(f'Loaded {len(questions)} questions\n')
 
+    # Enrich with source/tags from questions_full.json so premium detection works
+    _full_path = SCRIPT_DIR / 'public' / 'questions_full.json'
+    if _full_path.exists():
+        _full_by_id = {q['id']: q for q in json.loads(_full_path.read_text())}
+        for q in questions:
+            _fq = _full_by_id.get(q['id'], {})
+            if 'source' not in q or not q['source']:
+                q['source'] = _fq.get('source', [])
+            if 'tags' not in q or not q['tags']:
+                q['tags'] = _fq.get('tags', [])
+
     sites_cache  = _load(SITES_CACHE) if SITES_CACHE.exists() else {}
     doocs_cache  = _load(DOOCS_CACHE) if DOOCS_CACHE.exists() else {}
     my_solutions = load_my_solutions()
