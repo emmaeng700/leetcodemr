@@ -1229,7 +1229,7 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
     ))
     items.append(Spacer(1, 8))
     items.append(Paragraph(
-        'Interview Approach  ·  Editorial  ·  My Solution  ·  Community',
+        'Interview Approach  ·  My Solution  ·  Community',
         ParagraphStyle('sol_div_s', fontName='LG-Bold', fontSize=9,
                        textColor=HexColor('#9CA3AF'), alignment=1, leading=13),
     ))
@@ -1245,15 +1245,7 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
     # ── 1. Interview Approach · STAR-LC ──────────────────────────────────────────
     items += build_interview_approach(qid)
 
-    # ── 2. LeetCode Editorial ─────────────────────────────────────────────────
-    editorial_code = (_EDITORIAL_MANUAL.get(str(qid)) or {}).get('editorial_code', '').strip()
-    if editorial_code:
-        items.append(Spacer(1, 3))
-        items.append(Paragraph('<b>★ LeetCode Editorial (Python)</b>', S['head2']))
-        items.append(site_label_p('Editorial'))
-        items += code_panel(editorial_code, lang='python')
-
-    # ── 3. My LeetCode Solution ───────────────────────────────────────────────
+    # ── 2. My LeetCode Solution ───────────────────────────────────────────────
     if my_solutions:
         my_sol = my_solutions.get(qid)
         if my_sol:
@@ -1272,7 +1264,7 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
                                textColor=HexColor('#6B7280'), leading=S['body_sm'].leading,
                                spaceAfter=2)))
 
-    # ── 4. Community Solutions ────────────────────────────────────────────────
+    # ── 3. Community Solutions ────────────────────────────────────────────────
     if is_js_pattern:
         js_langs = ('javascript', 'js', 'typescript', 'ts')
         has_any = False
