@@ -460,21 +460,9 @@ export async function POST(req: NextRequest) {
 
       let resolvedName = listName
 
-      if (body.existingHash) {
-        // User is recreating a list they previously created from this app — overwrite it.
-        await deleteLcFavorite(session, csrf, body.existingHash)
-      } else if (conflictAction === 'overwrite') {
-        const prior = await findFavoriteByName(session, csrf, listName)
-        if (prior) await deleteLcFavorite(session, csrf, prior.idHash)
-      } else if (conflictAction === 'rename') {
-        // Find next available numbered suffix.
-        const allLists = await listAllFavorites(session, csrf)
-        const takenNames = new Set(allLists.map(f => f.name))
-        let n = 2
-        while (takenNames.has(`${listName} ${n}`)) n++
-        resolvedName = `${listName} ${n}`
-      } else {
-        // No conflictAction — check if name is already taken by a list we didn't create.
+      if (!conflictAction) {
+        // Always check for an existing list first — even if we have an existingHash —
+        // so the user is always asked before anything gets deleted.
         const prior = await findFavoriteByName(session, csrf, listName)
         if (prior) {
           return NextResponse.json({
@@ -483,6 +471,22 @@ export async function POST(req: NextRequest) {
             error: `A list named "${listName}" already exists on LeetCode.`,
           }, { status: 409 })
         }
+        // Name is free — fall through and create fresh.
+      } else if (conflictAction === 'overwrite') {
+        // Use the stored hash when available (faster); fall back to name lookup.
+        if (body.existingHash) {
+          await deleteLcFavorite(session, csrf, body.existingHash)
+        } else {
+          const prior = await findFavoriteByName(session, csrf, listName)
+          if (prior) await deleteLcFavorite(session, csrf, prior.idHash)
+        }
+      } else if (conflictAction === 'rename') {
+        // Find next available numbered suffix.
+        const allLists = await listAllFavorites(session, csrf)
+        const takenNames = new Set(allLists.map(f => f.name))
+        let n = 2
+        while (takenNames.has(`${listName} ${n}`)) n++
+        resolvedName = `${listName} ${n}`
       }
 
       let { slug: favoriteSlug, raw: lcRaw, nameTaken } = await createLcFavorite(session, csrf, resolvedName)
