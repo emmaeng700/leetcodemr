@@ -756,6 +756,7 @@ export default function LeetCodeListPage() {
             csrf,
             listName: plan.listName,
             existingHash: existingSlug,
+            conflictAction: 'overwrite',
             questions: plan.questions.map(q => ({ id: q.id, slug: q.slug })),
           }),
         })
