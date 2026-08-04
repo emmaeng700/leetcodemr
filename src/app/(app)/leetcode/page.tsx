@@ -1568,7 +1568,7 @@ export default function LeetCodeListPage() {
               </button>
               <button
                 onClick={() => resolveConflict('rename')}
-                className="w-full rounded-xl bg-[var(--accent)] hover:opacity-90 text-white text-xs font-semibold py-2.5 transition-colors"
+                className="w-full rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold py-2.5 transition-colors"
               >
                 Create as new list (e.g. &ldquo;{lcConflict.listName} 2&rdquo;)
               </button>
