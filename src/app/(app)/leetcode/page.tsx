@@ -306,7 +306,11 @@ export default function LeetCodeListPage() {
     () => new Set(LC_PRIORITIES),
   )
   const [batchProgress, setBatchProgress] = useState<string | null>(null)
-  const [lcConflict, setLcConflict] = useState<{ listName: string; pendingBody: object } | null>(null)
+  const [lcConflict, setLcConflict] = useState<
+    | { mode: 'single'; listName: string; pendingBody: object }
+    | { mode: 'batch';  listName: string }
+    | null
+  >(null)
 
   const solvedSet = useMemo(() => new Set(lcSync?.solvedIds ?? []), [lcSync])
 
@@ -417,7 +421,7 @@ export default function LeetCodeListPage() {
     const data = await res.json()
 
     if (data.code === 'lc_name_conflict') {
-      setLcConflict({ listName: data.conflictName ?? listName, pendingBody: requestBody })
+      setLcConflict({ mode: 'single', listName: data.conflictName ?? listName, pendingBody: requestBody })
       return
     }
 
@@ -467,17 +471,22 @@ export default function LeetCodeListPage() {
 
   const resolveConflict = async (conflictAction: 'overwrite' | 'rename') => {
     if (!lcConflict) return
+    const conflict = lcConflict
     setLcConflict(null)
-    setLcListLoading(true)
-    try {
-      await handleCreateLcListWithBody(
-        { ...lcConflict.pendingBody, conflictAction },
-        lcConflict.listName,
-      )
-    } catch {
-      toast.error('Failed to create LC list')
+    if (conflict.mode === 'batch') {
+      await handleBatchCreate(conflictAction)
+    } else {
+      setLcListLoading(true)
+      try {
+        await handleCreateLcListWithBody(
+          { ...conflict.pendingBody, conflictAction },
+          conflict.listName,
+        )
+      } catch {
+        toast.error('Failed to create LC list')
+      }
+      setLcListLoading(false)
     }
-    setLcListLoading(false)
   }
 
   const loadRemoteLists = async () => {
@@ -717,7 +726,7 @@ export default function LeetCodeListPage() {
     })
   }
 
-  const handleBatchCreate = async () => {
+  const handleBatchCreate = async (conflictAction?: 'overwrite' | 'rename') => {
     if (lcListLoading || batchPlans.length === 0) return
     setLcListLoading(true)
     setBatchProgress(`0 / ${batchPlans.length}`)
@@ -756,7 +765,7 @@ export default function LeetCodeListPage() {
             csrf,
             listName: plan.listName,
             existingHash: existingSlug,
-            conflictAction: 'overwrite',
+            ...(conflictAction ? { conflictAction } : {}),
             questions: plan.questions.map(q => ({ id: q.id, slug: q.slug })),
           }),
         })
@@ -764,6 +773,12 @@ export default function LeetCodeListPage() {
         if (data.code === 'lc_not_logged_in' || /not logged in/i.test(data.error ?? '')) {
           toast.error('LeetCode session expired mid-batch — paste a fresh cookie and retry')
           break
+        }
+        if (data.code === 'lc_name_conflict') {
+          setBatchProgress(null)
+          setLcListLoading(false)
+          setLcConflict({ mode: 'batch', listName: data.conflictName ?? plan.listName })
+          return
         }
         const slug = data.favoriteSlug ?? data.favoriteIdHash
         if (slug) {
