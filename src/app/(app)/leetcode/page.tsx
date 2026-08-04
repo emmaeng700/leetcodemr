@@ -306,6 +306,7 @@ export default function LeetCodeListPage() {
     () => new Set(LC_PRIORITIES),
   )
   const [batchProgress, setBatchProgress] = useState<string | null>(null)
+  const [lcConflict, setLcConflict] = useState<{ listName: string; pendingBody: object } | null>(null)
 
   const solvedSet = useMemo(() => new Set(lcSync?.solvedIds ?? []), [lcSync])
 
@@ -407,6 +408,37 @@ export default function LeetCodeListPage() {
     [nameOrder, setFilter, tierFilter, patternFilter],
   )
 
+  const handleCreateLcListWithBody = async (requestBody: object, listName: string) => {
+    const res = await fetch('/api/lc-list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    })
+    const data = await res.json()
+
+    if (data.code === 'lc_name_conflict') {
+      setLcConflict({ listName: data.conflictName ?? listName, pendingBody: requestBody })
+      return
+    }
+
+    const slug = data.favoriteSlug ?? data.favoriteIdHash
+    const usedName = data.resolvedName ?? listName
+
+    if (slug && data.code !== 'lc_not_logged_in') {
+      saveLcLists({ ...lcLists, [lcListKey]: { slug, name: usedName } })
+      const openUrl = data.listUrl ?? leetCodeListUrl(slug)
+      openExternalUrl(openUrl)
+      toast.success(`"${usedName}" ready on LeetCode.`, { duration: 5000 })
+    } else {
+      const msg = data.code === 'lc_not_logged_in' || /not logged in/i.test(data.error ?? '')
+        ? 'LeetCode session expired — open leetcode.com, copy Cookie (F12 → Network), then Clipboard → Use'
+        : data.code === 'lc_name_taken'
+          ? (data.error as string)
+          : (data.error ?? 'Failed to create LC list')
+      toast.error(msg, { duration: 7000 })
+    }
+  }
+
   const handleCreateLcList = async () => {
     if (lcListLoading || filtered.length === 0) return
     setLcListLoading(true)
@@ -419,34 +451,29 @@ export default function LeetCodeListPage() {
         setLcListLoading(false)
         return
       }
-      const res = await fetch('/api/lc-list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'create',
-          session,
-          csrf,
-          listName,
-          existingHash: existingEntry?.slug ?? null,
-          questions: filtered.map(q => ({ id: q.id, slug: q.slug })),
-        }),
-      })
-      const data = await res.json()
-      const slug = data.favoriteSlug ?? data.favoriteIdHash
+      await handleCreateLcListWithBody({
+        action: 'create',
+        session,
+        csrf,
+        listName,
+        existingHash: existingEntry?.slug ?? null,
+        questions: filtered.map(q => ({ id: q.id, slug: q.slug })),
+      }, listName)
+    } catch {
+      toast.error('Failed to create LC list')
+    }
+    setLcListLoading(false)
+  }
 
-      if (slug && data.code !== 'lc_not_logged_in') {
-        saveLcLists({ ...lcLists, [lcListKey]: { slug, name: listName } })
-        const openUrl = data.listUrl ?? leetCodeListUrl(slug)
-        openExternalUrl(openUrl)
-        toast.success(`"${listName}" ready on LeetCode.`, { duration: 5000 })
-      } else {
-        const msg = data.code === 'lc_not_logged_in' || /not logged in/i.test(data.error ?? '')
-          ? 'LeetCode session expired — open leetcode.com, copy Cookie (F12 → Network), then Clipboard → Use'
-          : data.code === 'lc_name_taken'
-            ? (data.error as string)
-            : (data.error ?? 'Failed to create LC list')
-        toast.error(msg, { duration: 7000 })
-      }
+  const resolveConflict = async (conflictAction: 'overwrite' | 'rename') => {
+    if (!lcConflict) return
+    setLcConflict(null)
+    setLcListLoading(true)
+    try {
+      await handleCreateLcListWithBody(
+        { ...lcConflict.pendingBody, conflictAction },
+        lcConflict.listName,
+      )
     } catch {
       toast.error('Failed to create LC list')
     }
@@ -1508,6 +1535,37 @@ export default function LeetCodeListPage() {
           </div>
         </div>
       </div>
+
+      {lcConflict && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-xl">
+            <h2 className="text-sm font-bold text-[var(--text)] mb-1">List already exists</h2>
+            <p className="text-xs text-[var(--text-subtle)] mb-4">
+              A LeetCode list named <span className="font-semibold text-[var(--text)]">&ldquo;{lcConflict.listName}&rdquo;</span> already exists. What would you like to do?
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => resolveConflict('overwrite')}
+                className="w-full rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-semibold py-2.5 transition-colors"
+              >
+                Delete existing and replace it
+              </button>
+              <button
+                onClick={() => resolveConflict('rename')}
+                className="w-full rounded-xl bg-[var(--accent)] hover:opacity-90 text-white text-xs font-semibold py-2.5 transition-colors"
+              >
+                Create as new list (e.g. &ldquo;{lcConflict.listName} 2&rdquo;)
+              </button>
+              <button
+                onClick={() => setLcConflict(null)}
+                className="w-full rounded-xl border border-[var(--border)] text-[var(--text-subtle)] text-xs font-semibold py-2.5 hover:bg-[var(--bg-muted)] transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

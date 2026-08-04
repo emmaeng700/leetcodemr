@@ -394,6 +394,15 @@ def main():
 
     sites_cache  = _load(SITES_CACHE) if SITES_CACHE.exists() else {}
     doocs_cache  = _load(DOOCS_CACHE) if DOOCS_CACHE.exists() else {}
+    # Fill in LeetCode HTML for questions not in Doocs (20 questions lack Doocs entries).
+    _qdata_path = SCRIPT_DIR / 'public' / 'questions_data_all.json'
+    if _qdata_path.exists():
+        import json as _json
+        for _qid, _qd in _json.loads(_qdata_path.read_text()).items():
+            if not doocs_cache.get(_qid, {}).get('desc_html'):
+                _html = (_qd.get('description_html') or '').strip()
+                if _html:
+                    doocs_cache.setdefault(_qid, {})['desc_html'] = _html
     my_solutions = load_my_solutions()
     print(f'Caches: {len(sites_cache)} sites, {len(doocs_cache)} doocs\n')
 

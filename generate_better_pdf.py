@@ -697,6 +697,67 @@ def build_rounds(questions: list) -> list:
         result.append((round_num, priority, difficulty, pattern_groups))
     return result
 
+# ─── Description helpers ─────────────────────────────────────────────────────
+_RL_TAG_STRIP_RE = re.compile(
+    r'<(?!/?(?:b|i|super|sub|br)[\s>/])[^>]+>',
+    re.I,
+)
+
+def _inline_mini(html: str) -> str:
+    """Inline HTML → ReportLab XML for mini-PDF paragraphs.
+    Preserves <b>, <i>, <super>, <sub>, <br/> markup so O(n²) renders correctly.
+    Strips <code> font tags (hardcoded size=9 is wrong at 3pt scale) but keeps text.
+    """
+    html = re.sub(r'<strong[^>]*>(.*?)</strong>', r'<b>\1</b>',           html, flags=re.S|re.I)
+    html = re.sub(r'<b[^>]*>(.*?)</b>',           r'<b>\1</b>',           html, flags=re.S|re.I)
+    html = re.sub(r'<em[^>]*>(.*?)</em>',          r'<i>\1</i>',           html, flags=re.S|re.I)
+    html = re.sub(r'<i[^>]*>(.*?)</i>',            r'<i>\1</i>',           html, flags=re.S|re.I)
+    html = re.sub(r'<sup[^>]*>(.*?)</sup>',        r'<super>\1</super>',   html, flags=re.S|re.I)
+    html = re.sub(r'<sub[^>]*>(.*?)</sub>',        r'<sub>\1</sub>',       html, flags=re.S|re.I)
+    html = re.sub(r'<code[^>]*>(.*?)</code>',      r'\1',                  html, flags=re.S|re.I)
+    html = re.sub(r'<br\s*/?>',                    r'<br/>',               html, flags=re.I)
+    html = re.sub(r'<a[^>]*>(.*?)</a>',            r'\1',                  html, flags=re.S|re.I)
+    html = _RL_TAG_STRIP_RE.sub('', html)
+    html = (html.replace('&nbsp;', ' ').replace('&lt;', '<').replace('&gt;', '>')
+               .replace('&amp;', '&').replace('&quot;', '"').replace('&#39;', "'"))
+    return re.sub(r'\s{2,}', ' ', html).strip()
+
+
+def _example_block_to_pre(html: str) -> str:
+    """Convert <div class="example-block"> (newer LeetCode format) to <pre>.
+    The <pre> handler in desc_to_mini_flowables renders bordered boxes.
+    Also extracts <table> rows inside explanation blocks (e.g. Q#190, Q#3651).
+    """
+    def _plain(raw: str) -> str:
+        text = re.sub(r'<[^>]+>', '', raw)
+        return (text.replace('&nbsp;', ' ').replace('&lt;', '<').replace('&gt;', '>')
+                   .replace('&amp;', '&').replace('&quot;', '"').replace('&#39;', "'").strip())
+
+    def _div_to_pre(m: re.Match) -> str:
+        inner = m.group(1)
+        lines: list[str] = []
+        for item in re.finditer(r'<p[^>]*>(.*?)</p>|<tr[^>]*>(.*?)</tr>', inner, re.I|re.S):
+            if item.group(1) is not None:
+                text = _plain(item.group(1))
+            else:
+                cells = re.findall(r'<t[dh][^>]*>(.*?)</t[dh]>', item.group(2) or '', re.I|re.S)
+                text = ' | '.join(_plain(c) for c in cells if _plain(c))
+            if text:
+                lines.append(text)
+        if not lines:
+            return ''
+        safe = '\n'.join(
+            l.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            for l in lines
+        )
+        return f'<pre>{safe}</pre>'
+
+    return re.sub(
+        r'<div[^>]+class="[^"]*\bexample-block\b[^"]*"[^>]*>(.*?)</div>',
+        _div_to_pre, html, flags=re.I|re.S,
+    )
+
+
 # ─── Description renderer ─────────────────────────────────────────────────────
 def desc_to_mini_flowables(desc_html: str) -> list:
     if not desc_html:
@@ -709,6 +770,9 @@ def desc_to_mini_flowables(desc_html: str) -> list:
                              textColor=BLACK, leading=S['head2'].leading, spaceAfter=1, spaceBefore=3)
     pre_st  = ParagraphStyle('dpre',  fontName='Menlo-Bold', fontSize=S['code'].fontSize,
                              textColor=BLACK, leading=S['code'].leading)
+
+    # Convert newer LeetCode example-block divs (and embedded tables) to <pre> first.
+    desc_html = _example_block_to_pre(desc_html)
 
     flowables = []
     block_re  = re.compile(
@@ -760,15 +824,21 @@ def desc_to_mini_flowables(desc_html: str) -> list:
             continue
         if m.group(7) is not None:
             for li in re.findall(r'<li[^>]*>([\s\S]*?)</li>', m.group(7) or '', re.I):
-                text = _inline(li, printable=True, bold=True).strip()
+                text = _inline_mini(li).strip()
                 if text:
-                    flowables.append(Paragraph(f'• {text}', li_st))
+                    try:
+                        flowables.append(Paragraph(f'• {text}', li_st))
+                    except Exception:
+                        flowables.append(Paragraph(f'• {safe_xml(re.sub(chr(60)+r"[^>]+>","",text))}', li_st))
             continue
         if m.group(10) is not None:
             for i, li in enumerate(re.findall(r'<li[^>]*>([\s\S]*?)</li>', m.group(10) or '', re.I), 1):
-                text = _inline(li, printable=True, bold=True).strip()
+                text = _inline_mini(li).strip()
                 if text:
-                    flowables.append(Paragraph(f'{i}. {text}', li_st))
+                    try:
+                        flowables.append(Paragraph(f'{i}. {text}', li_st))
+                    except Exception:
+                        flowables.append(Paragraph(f'{i}. {safe_xml(re.sub(chr(60)+r"[^>]+>","",text))}', li_st))
             continue
         if m.group(13) is not None:
             inner = m.group(13) or ''
@@ -781,7 +851,7 @@ def desc_to_mini_flowables(desc_html: str) -> list:
                     if img:
                         flowables += [Spacer(1, 3), img, Spacer(1, 3)]
                         continue
-            text = _inline(inner, printable=True, bold=True).strip()
+            text = _inline_mini(inner).strip()
             if text and text != ' ':
                 try:
                     flowables.append(Paragraph(text, body_st))
@@ -789,9 +859,12 @@ def desc_to_mini_flowables(desc_html: str) -> list:
                     flowables.append(Paragraph(safe_xml(re.sub(r'<[^>]+>', '', text)), body_st))
             continue
         if m.group(16) is not None:
-            text = _inline(m.group(16) or '', printable=True, bold=True).strip()
+            text = _inline_mini(m.group(16) or '').strip()
             if text:
-                flowables.append(Paragraph(f'<b>{safe_xml(text)}</b>', hdr_st))
+                try:
+                    flowables.append(Paragraph(f'<b>{text}</b>', hdr_st))
+                except Exception:
+                    flowables.append(Paragraph(f'<b>{safe_xml(re.sub(chr(60)+r"[^>]+>","",text))}</b>', hdr_st))
             continue
     return flowables
 
@@ -1136,43 +1209,52 @@ def build_question_block(q: dict, sites_cache: dict, doocs_cache: dict,
         ('LEFTPADDING',   (0,0), (-1,-1), 2),
         ('RIGHTPADDING',  (0,0), (-1,-1), 2),
     ]))
-    title_tbl = Table([[
-        Paragraph(
-            f'<b>{premium_question_prefix(q)}#{qid} {safe_xml(q["title"])}{premium_question_suffix(q)}</b>',
-            S['title'],
-        ),
-        pill,
-    ]], colWidths=[USE_W - 0.38 * inch, 0.38 * inch])
-    title_tbl.setStyle(TableStyle([
-        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING',    (0,0), (-1,-1), 0),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-        ('LEFTPADDING',   (0,0), (-1,-1), 0),
-        ('RIGHTPADDING',  (0,0), (-1,-1), 0),
-    ]))
-    items.append(title_tbl)
-    items.append(Spacer(1, 1))
-    # Small orange pill badge — mirrors LeetCode's "Premium" tag next to the title.
-    # colWidths must be set explicitly; without it ReportLab expands the table to full width.
-    # Width = font size × 7.5 fits "★ Premium" + left/right padding at every scale.
+    _title_para = Paragraph(
+        f'<b>#{qid} {safe_xml(q["title"])}</b>',
+        S['title'],
+    )
     if is_premium_question(q):
-        _pill_w = S['body_sm'].fontSize * 7.5
-        prem_tbl = Table([[Paragraph(
-            f'<b>{premium_star_markup()} Premium</b>',
+        _prem_pill_w = S['body_sm'].fontSize * 7.5
+        _prem_cell = Table([[Paragraph(
+            '<b>Premium</b>',
             ParagraphStyle(f'prem_lbl_{qid}', fontName='LG-Bold',
                            fontSize=S['body_sm'].fontSize,
                            textColor=white, leading=S['body_sm'].leading),
-        )]], colWidths=[_pill_w])
-        prem_tbl.hAlign = 'LEFT'
-        prem_tbl.setStyle(TableStyle([
+        )]], colWidths=[_prem_pill_w])
+        _prem_cell.setStyle(TableStyle([
             ('BACKGROUND',    (0, 0), (-1, -1), HexColor('#FFA116')),
             ('TOPPADDING',    (0, 0), (-1, -1), 2),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
             ('LEFTPADDING',   (0, 0), (-1, -1), 4),
             ('RIGHTPADDING',  (0, 0), (-1, -1), 4),
         ]))
-        items.append(prem_tbl)
-        items.append(Spacer(1, 1))
+        title_tbl = Table([[
+            _title_para,
+            _prem_cell,
+            pill,
+        ]], colWidths=[USE_W - 0.38 * inch - _prem_pill_w, _prem_pill_w, 0.38 * inch])
+        title_tbl.setStyle(TableStyle([
+            ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
+            ('TOPPADDING',    (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+            ('LEFTPADDING',   (0,0), (-1,-1), 0),
+            ('RIGHTPADDING',  (0,0), (-1,-1), 0),
+            ('RIGHTPADDING',  (0,0), (0,0), 4),
+        ]))
+    else:
+        title_tbl = Table([[
+            _title_para,
+            pill,
+        ]], colWidths=[USE_W - 0.38 * inch, 0.38 * inch])
+        title_tbl.setStyle(TableStyle([
+            ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
+            ('TOPPADDING',    (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+            ('LEFTPADDING',   (0,0), (-1,-1), 0),
+            ('RIGHTPADDING',  (0,0), (-1,-1), 0),
+        ]))
+    items.append(title_tbl)
+    items.append(Spacer(1, 1))
     # Prominent "Open on LeetCode" link right below the title
     # (URI re-injected after imposition in _add_links_1x1 via "Open on LeetCode" search)
     items.append(Paragraph(

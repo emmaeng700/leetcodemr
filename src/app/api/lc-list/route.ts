@@ -454,28 +454,48 @@ export async function POST(req: NextRequest) {
         listName: string
         questions: { id: number; slug: string }[]
       }
+      const conflictAction = body.conflictAction as 'overwrite' | 'rename' | undefined
 
       if (!questions?.length) return NextResponse.json({ error: 'no questions' }, { status: 400 })
 
+      let resolvedName = listName
+
       if (body.existingHash) {
+        // User is recreating a list they previously created from this app — overwrite it.
         await deleteLcFavorite(session, csrf, body.existingHash)
-      } else {
-        // Get Latest / new device may lose local hash while the LC list still exists.
+      } else if (conflictAction === 'overwrite') {
         const prior = await findFavoriteByName(session, csrf, listName)
         if (prior) await deleteLcFavorite(session, csrf, prior.idHash)
-      }
-
-      let { slug: favoriteSlug, raw: lcRaw, nameTaken } = await createLcFavorite(session, csrf, listName)
-      if (!favoriteSlug && nameTaken) {
+      } else if (conflictAction === 'rename') {
+        // Find next available numbered suffix.
+        const allLists = await listAllFavorites(session, csrf)
+        const takenNames = new Set(allLists.map(f => f.name))
+        let n = 2
+        while (takenNames.has(`${listName} ${n}`)) n++
+        resolvedName = `${listName} ${n}`
+      } else {
+        // No conflictAction — check if name is already taken by a list we didn't create.
         const prior = await findFavoriteByName(session, csrf, listName)
         if (prior) {
+          return NextResponse.json({
+            code: 'lc_name_conflict',
+            conflictName: listName,
+            error: `A list named "${listName}" already exists on LeetCode.`,
+          }, { status: 409 })
+        }
+      }
+
+      let { slug: favoriteSlug, raw: lcRaw, nameTaken } = await createLcFavorite(session, csrf, resolvedName)
+      if (!favoriteSlug && nameTaken) {
+        const prior = await findFavoriteByName(session, csrf, resolvedName)
+        if (prior) {
           await deleteLcFavorite(session, csrf, prior.idHash)
-          ;({ slug: favoriteSlug, raw: lcRaw, nameTaken } = await createLcFavorite(session, csrf, listName))
+          ;({ slug: favoriteSlug, raw: lcRaw, nameTaken } = await createLcFavorite(session, csrf, resolvedName))
         }
       }
       if (!favoriteSlug && nameTaken) {
         // Last resort: unique name so create still succeeds.
-        const uniqueName = `${listName} · ${new Date().toISOString().slice(5, 16).replace('T', ' ')}`
+        const uniqueName = `${resolvedName} · ${new Date().toISOString().slice(5, 16).replace('T', ' ')}`
         ;({ slug: favoriteSlug, raw: lcRaw } = await createLcFavorite(session, csrf, uniqueName))
       }
       if (!favoriteSlug) {
@@ -518,7 +538,7 @@ export async function POST(req: NextRequest) {
 
       // Brief pause so favoritesLists reflects newly added questions.
       await new Promise(r => setTimeout(r, 400))
-      const verified = await countFavoriteQuestions(session, csrf, listName)
+      const verified = await countFavoriteQuestions(session, csrf, resolvedName)
       const authFailed = addErrors.some(e => /not logged in/i.test(e))
       const added = Math.max(reportedAdded, verified)
 
@@ -551,6 +571,7 @@ export async function POST(req: NextRequest) {
         ok: true,
         favoriteIdHash: favoriteSlug,
         favoriteSlug,
+        resolvedName,
         added: effectiveAdded,
         verified,
         reportedAdded,
