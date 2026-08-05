@@ -720,6 +720,8 @@ def main():
     inner_mega  = SCRATCHPAD / '_all_packs_inner.pdf'
     imposed_mega = SCRATCHPAD / '_all_packs_imposed.pdf'
     out_mega    = OUTPUT_DIR / '00 ALL Packs.pdf'
+    inner_mega.unlink(missing_ok=True)
+    imposed_mega.unlink(missing_ok=True)
     try:
         round_pg_reg_m, pat_pg_reg_m = _build_all_packs_inner(
             sections, sites_cache, doocs_cache, inner_mega,

@@ -510,6 +510,8 @@ def main():
     SCRATCHPAD = Path(tempfile.gettempdir())
     inner_path  = SCRATCHPAD / '_mega_splits_inner.pdf'
     imposed_tmp = SCRATCHPAD / '_mega_splits_imposed.pdf'
+    inner_path.unlink(missing_ok=True)
+    imposed_tmp.unlink(missing_ok=True)
 
     try:
         round_page_registry, pat_page_registry = _build_mega_inner(
