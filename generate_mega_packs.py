@@ -66,7 +66,7 @@ GRAY_300     = HexColor('#D1D5DB')
 def build_sections(questions: list) -> list:
     """Returns [(rn, priority, pat_obj, qs), ...] — 21 sections.
     Order: High → Mid → Low, within each priority sorted largest pack first.
-    Questions sorted: set(1→2→3) → difficulty(Easy→Med→Hard) → id."""
+    Questions sorted: difficulty(Easy→Med→Hard) → id."""
     bucket: dict = defaultdict(list)
     for q in questions:
         section = q.get('section') or ''
@@ -83,7 +83,6 @@ def build_sections(questions: list) -> list:
         pri_pats.sort(key=lambda x: -len(x[1]))  # largest pack first
         for pat, raw_qs in pri_pats:
             qs_sorted = sorted(raw_qs, key=lambda q: (
-                q.get('set', 1),
                 DIFF_KEY.get(q.get('difficulty', 'Easy'), 0),
                 q.get('id', 0),
             ))

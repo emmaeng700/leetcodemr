@@ -169,8 +169,13 @@ export function planBatchLcLists(
     keys = ['1', '2', '3'].filter(k => groups.has(k))
   }
 
+  const DIFF_ORD: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 }
+
   return keys.map(key => {
-    const qs = groups.get(key)!
+    const qs = [...groups.get(key)!].sort((a, b) => {
+      const da = DIFF_ORD[a.difficulty] ?? 1, db = DIFF_ORD[b.difficulty] ?? 1
+      return da !== db ? da - db : a.id - b.id
+    })
     const set =
       filters.setFilter !== 'all'
         ? filters.setFilter

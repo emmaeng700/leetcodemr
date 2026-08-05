@@ -4,7 +4,7 @@ generate_splits_contents.py
 Standalone script that generates ONLY the cover + learner note + master
 contents pages from the ALL Splits PDF — without building all 700+ question pages.
 
-Output: ~/Desktop/pdf study splits/Study Splits/Contents - 00 ALL Splits.pdf
+Output: ~/Desktop/pdf study splits/Study Splits/Contents - 00 ALL Packs.pdf
 """
 
 import sys as _sys
@@ -24,7 +24,7 @@ _sys.argv = [_sys.argv[0], '--all']
 from generate_better_pdf import (
     _impose_1up, _analyze_inner_for_links,
     S, USE_W, USE_H, MP_W, MP_H, MG, hr, _inner_ps, safe_xml,
-    PageCounter,
+    PageCounter, PACK_STUDY_ORDER,
 )
 from generate_mega_splits import _add_overview_qid_links
 from generate_patterns_pdf import QUICK_PATTERNS, PATTERN_DISPLAY_ORDER, _load
@@ -32,8 +32,8 @@ _sys.argv = _orig_argv
 
 SCRIPT_DIR = Path(__file__).parent
 GRIND_JSON = SCRIPT_DIR / 'public' / 'grind_questions.json'
-OUTPUT_DIR = Path.home() / 'Desktop' / 'pdf study splits' / 'Study Splits'
-OUTPUT_FILE = OUTPUT_DIR / 'Contents - 00 ALL Splits.pdf'
+OUTPUT_DIR = Path.home() / 'Desktop' / 'pdf study splits' / 'Priority Packs'
+OUTPUT_FILE = OUTPUT_DIR / 'Contents - 00 ALL Packs.pdf'
 
 PATTERN_ORDER = PATTERN_DISPLAY_ORDER
 PAT_COLOR = {p['name']: p['hex'] for p in QUICK_PATTERNS}
@@ -104,6 +104,7 @@ def build_pattern_splits(sections: list) -> list:
                 'pat': pat_obj['name'],
                 'abbr': PATTERN_ABBREV.get(pat_obj['name'], pat_obj['name']),
                 'hex': pat_obj.get('hex', '#6366F1'),
+                'qs': sorted(qs, key=lambda q: int(q.get('id', 0))),
             })
     return items
 
@@ -202,12 +203,38 @@ def _append_priority_bands(story, items: list, priority: str, key_prefix: str,
                       spaceBefore=2.5, spaceAfter=1),
         ))
         if with_checks:
+            half = USE_W / 2
             for i, it in enumerate(band_items, 1):
                 story.append(Paragraph(
                     _split_label(it),
                     _inner_ps(f'{key_prefix}_{priority}_{band}_{i}', 'body_sm',
                               spaceAfter=0.4),
                 ))
+                q_cells = []
+                for q in it.get('qs', []):
+                    qid   = q.get('id', 0)
+                    title = safe_xml(q.get('title', ''))
+                    q_cells.append(Paragraph(
+                        f'<font color="{it["hex"]}"><b>#{qid}</b></font>'
+                        f'  <font color="#374151">{title}</font>',
+                        _inner_ps(f'lr_q_{qid}', 'body_sm',
+                                  fontSize=2.2, leading=3.0, spaceAfter=0),
+                    ))
+                if q_cells:
+                    rows = []
+                    for j in range(0, len(q_cells), 2):
+                        right = q_cells[j+1] if j+1 < len(q_cells) else Paragraph('', _inner_ps(f'lr_e_{i}_{j}', 'body_sm'))
+                        rows.append([q_cells[j], right])
+                    tbl = Table(rows, colWidths=[half, half])
+                    tbl.setStyle(TableStyle([
+                        ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
+                        ('TOPPADDING',    (0, 0), (-1, -1), 0),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+                        ('LEFTPADDING',   (0, 0), (-1, -1), 6),
+                        ('RIGHTPADDING',  (0, 0), (-1, -1), 1),
+                    ]))
+                    story.append(tbl)
+                story.append(Spacer(1, 3))
         else:
             row = []
             for i, it in enumerate(band_items, 1):
@@ -290,6 +317,171 @@ def append_learner_note(story, sections: list) -> None:
         _append_priority_bands(story, items, priority, 'desc', with_checks=True)
 
 
+def _add_pack_size_roster_checkboxes(pdf_path: Path) -> None:
+    """
+    Pack-level checkboxes (lines ending in Nq) and per-question checkboxes
+    (lines starting with #NNN) on the Pack Size Order pages.
+    """
+    import fitz
+
+    nq_re  = re.compile(r'^(\d+)q$')
+    qid_re = re.compile(r'^#(\d+)$')
+
+    GAP, src_w, src_h, L_W, L_H = 8.0, 204.0, 264.0, 612.0, 792.0
+    cw = L_W - 2 * GAP
+    ch = L_H - 2 * GAP
+    sc = min(cw / src_w, ch / src_h)
+    from generate_better_pdf import TOC_CB_PT, TOC_CB_GAP
+    cb_h = TOC_CB_PT * sc
+    gap  = TOC_CB_GAP * sc
+
+    doc = fitz.open(str(pdf_path))
+    n_pack_boxes = 0
+    n_q_boxes    = 0
+    in_roster    = False
+    pack_idx     = 0
+
+    for page in doc:
+        page_text = page.get_text('text')
+        if 'Pack Size Order' in page_text:
+            in_roster = True
+        if in_roster and 'Note to the Learner' in page_text:
+            in_roster = False
+        if not in_roster:
+            continue
+
+        words = list(page.get_text('words'))
+        lines: dict = defaultdict(list)
+        for w in words:
+            lines[(w[5], w[6])].append(w)
+
+        seen: set = set()
+        for (_b, _ln), ws in sorted(lines.items()):
+            ws   = sorted(ws, key=lambda w: w[0])
+            toks = [w[4] for w in ws]
+            if not toks:
+                continue
+
+            is_pack = bool(nq_re.match(toks[-1])) and len(toks) >= 2
+            qm      = qid_re.match(toks[0])
+            if not is_pack and not qm:
+                continue
+
+            y0  = min(w[1] for w in ws)
+            y1  = max(w[3] for w in ws)
+            x0  = min(w[0] for w in ws)
+            key = (round(y0, 1), round(x0 / (L_W / 2)))
+            if key in seen:
+                continue
+            seen.add(key)
+
+            line_h = max(y1 - y0, cb_h)
+            cb_y0  = y0 + (line_h - cb_h) / 2
+            cb_x1  = x0 - gap * 0.35
+            cb_x0  = cb_x1 - cb_h
+            if cb_x0 < 8:
+                cb_x0 = 10
+                cb_x1 = cb_x0 + cb_h
+            cb_rect = fitz.Rect(cb_x0, cb_y0, cb_x1, cb_y0 + cb_h)
+            page.draw_rect(cb_rect, color=(0.2, 0.2, 0.2),
+                           fill=(1.0, 1.0, 1.0), width=0.8, overlay=True)
+            wd            = fitz.Widget()
+            wd.rect       = cb_rect
+            wd.field_type = fitz.PDF_WIDGET_TYPE_CHECKBOX
+            if is_pack:
+                pack_idx      += 1
+                wd.field_name  = f'psr_pack_{pack_idx}'
+                n_pack_boxes  += 1
+            else:
+                wd.field_name  = f'qtrack_{qm.group(1)}'
+                n_q_boxes     += 1
+            wd.field_value = 'Off'
+            wd.on_state    = 'Yes'
+            page.add_widget(wd)
+
+    doc.save(str(pdf_path), incremental=True, encryption=fitz.PDF_ENCRYPT_KEEP)
+    doc.close()
+    print(f'    {n_pack_boxes} pack + {n_q_boxes} question checkboxes added')
+
+
+def _add_study_order_checkboxes(pdf_path: Path) -> None:
+    """Add a tickable checkbox left of each numbered pack row on the study order page."""
+    import fitz
+
+    num_re = re.compile(r'^(\d{1,2})\.$')
+
+    GAP, src_w, src_h, L_W, L_H = 8.0, 204.0, 264.0, 612.0, 792.0
+    cw = L_W - 2 * GAP
+    ch = L_H - 2 * GAP
+    sc = min(cw / src_w, ch / src_h)
+    from generate_better_pdf import TOC_CB_PT, TOC_CB_GAP
+    cb_h = TOC_CB_PT * sc
+    gap  = TOC_CB_GAP * sc
+
+    doc = fitz.open(str(pdf_path))
+    n_boxes = 0
+    in_study_order = False
+
+    for page in doc:
+        page_text = page.get_text('text')
+        if 'Recommended Study Order' in page_text:
+            in_study_order = True
+        # Stop once we hit a page that belongs to the next section
+        if in_study_order and ('Note to the Learner' in page_text or 'Size Roster' in page_text):
+            in_study_order = False
+        if not in_study_order:
+            continue
+
+        words = list(page.get_text('words'))
+        lines: dict = defaultdict(list)
+        for w in words:
+            lines[(w[5], w[6])].append(w)
+
+        seen_y: set = set()
+        for (_b, _ln), ws in lines.items():
+            ws = sorted(ws, key=lambda w: w[0])
+            toks = [w[4] for w in ws]
+            if not toks:
+                continue
+            m = num_re.match(toks[0])
+            if not m:
+                continue
+            pack_num = int(m.group(1))
+            if not (1 <= pack_num <= 21):
+                continue
+
+            y0 = min(w[1] for w in ws)
+            y1 = max(w[3] for w in ws)
+            x0 = min(w[0] for w in ws)
+            y_key = round(y0, 1)
+            if y_key in seen_y:
+                continue
+            seen_y.add(y_key)
+
+            line_h = max(y1 - y0, cb_h)
+            cb_y0 = y0 + (line_h - cb_h) / 2
+            cb_x1 = x0 - gap * 0.35
+            cb_x0 = cb_x1 - cb_h
+            if cb_x0 < 8:
+                cb_x0 = 10
+                cb_x1 = cb_x0 + cb_h
+            cb_rect = fitz.Rect(cb_x0, cb_y0, cb_x1, cb_y0 + cb_h)
+            page.draw_rect(cb_rect, color=(0.2, 0.2, 0.2),
+                           fill=(1.0, 1.0, 1.0), width=0.8, overlay=True)
+            wd = fitz.Widget()
+            wd.rect        = cb_rect
+            wd.field_type  = fitz.PDF_WIDGET_TYPE_CHECKBOX
+            wd.field_name  = f'so_pack_{pack_num}'
+            wd.field_value = 'Off'
+            wd.on_state    = 'Yes'
+            page.add_widget(wd)
+            n_boxes += 1
+
+    doc.save(str(pdf_path), incremental=True, encryption=fitz.PDF_ENCRYPT_KEEP)
+    doc.close()
+    print(f'    {n_boxes} study order checkboxes added')
+
+
 def _add_learner_note_checkboxes(pdf_path: Path) -> None:
     """
     Draw a checkbox left of each roster line on the Size Roster pages.
@@ -334,47 +526,57 @@ def _add_learner_note_checkboxes(pdf_path: Path) -> None:
         for w in words:
             lines[(w[5], w[6])].append(w)
 
-        seen_y: set = set()
+        qid_re  = re.compile(r'^#(\d+)$')
+        seen: set = set()
         for (_b, _ln), ws in lines.items():
-            ws = sorted(ws, key=lambda w: w[0])
+            ws   = sorted(ws, key=lambda w: w[0])
             toks = [w[4] for w in ws]
-            # Need … S# XX Nq somewhere on the line
-            set_i = next((i for i, t in enumerate(toks) if set_tier_re.match(t)), None)
-            if set_i is None or set_i + 2 >= len(toks):
+            if not toks:
                 continue
-            if not tier_re.match(toks[set_i + 1]):
-                continue
-            if not nq_re.match(toks[set_i + 2]):
-                continue
-            n_q = int(nq_re.match(toks[set_i + 2]).group(1))
 
-            # Pattern abbr is the token(s) just before S#
-            abbr = toks[set_i - 1] if set_i > 0 else 'X'
-            set_num = toks[set_i][1]
-            tier = toks[set_i + 1]
-            y0 = min(w[1] for w in ws)
-            y1 = max(w[3] for w in ws)
-            x0 = min(w[0] for w in ws)
-            y_key = round(y0, 1)
-            if y_key in seen_y:
+            # Section label row: … S# XX Nq
+            set_i = next((i for i, t in enumerate(toks) if set_tier_re.match(t)), None)
+            is_section = (
+                set_i is not None and set_i + 2 < len(toks)
+                and tier_re.match(toks[set_i + 1])
+                and nq_re.match(toks[set_i + 2])
+            )
+            # Question row: first token is #NNN
+            qm = qid_re.match(toks[0])
+
+            if not is_section and not qm:
                 continue
-            seen_y.add(y_key)
+
+            y0  = min(w[1] for w in ws)
+            y1  = max(w[3] for w in ws)
+            x0  = min(w[0] for w in ws)
+            # For question rows use (y, x_column) so 2-column rows aren't deduped
+            key = (round(y0, 1), round(x0 / (L_W / 2))) if qm else round(y0, 1)
+            if key in seen:
+                continue
+            seen.add(key)
 
             line_h = max(y1 - y0, cb_h)
-            cb_y0 = y0 + (line_h - cb_h) / 2
-            cb_x1 = x0 - gap * 0.35
-            cb_x0 = cb_x1 - cb_h
+            cb_y0  = y0 + (line_h - cb_h) / 2
+            cb_x1  = x0 - gap * 0.35
+            cb_x0  = cb_x1 - cb_h
             if cb_x0 < 8:
                 cb_x0 = 10
                 cb_x1 = cb_x0 + cb_h
             cb_rect = fitz.Rect(cb_x0, cb_y0, cb_x1, cb_y0 + cb_h)
             page.draw_rect(cb_rect, color=(0.2, 0.2, 0.2),
                            fill=(1.0, 1.0, 1.0), width=0.8, overlay=True)
-            wd = fitz.Widget()
-            wd.rect        = cb_rect
-            wd.field_type  = fitz.PDF_WIDGET_TYPE_CHECKBOX
-            # Shared name with Contents overview checkboxes → ticks sync when saved
-            wd.field_name  = f'ln_sec_{abbr}_S{set_num}_{tier}_{n_q}q'
+            wd            = fitz.Widget()
+            wd.rect       = cb_rect
+            wd.field_type = fitz.PDF_WIDGET_TYPE_CHECKBOX
+            if is_section:
+                abbr    = toks[set_i - 1] if set_i > 0 else 'X'
+                set_num = toks[set_i][1]
+                tier    = toks[set_i + 1]
+                n_q     = int(nq_re.match(toks[set_i + 2]).group(1))
+                wd.field_name = f'ln_sec_{abbr}_S{set_num}_{tier}_{n_q}q'
+            else:
+                wd.field_name = f'qtrack_{qm.group(1)}'
             wd.field_value = 'Off'
             wd.on_state    = 'Yes'
             page.add_widget(wd)
@@ -382,7 +584,171 @@ def _add_learner_note_checkboxes(pdf_path: Path) -> None:
 
     doc.save(str(pdf_path), incremental=True, encryption=fitz.PDF_ENCRYPT_KEEP)
     doc.close()
-    print(f'    {n_boxes} section checkboxes added on Size Roster pages')
+    print(f'    {n_boxes} section + question checkboxes added on Size Roster pages')
+
+
+def _add_master_contents_checkboxes(pdf_path: Path) -> None:
+    """Add per-question checkboxes on the Master Contents pages (qtrack_{qid})."""
+    import fitz
+
+    qid_re = re.compile(r'^#(\d+)$')
+
+    GAP, src_w, src_h, L_W, L_H = 8.0, 204.0, 264.0, 612.0, 792.0
+    cw = L_W - 2 * GAP
+    ch = L_H - 2 * GAP
+    sc = min(cw / src_w, ch / src_h)
+    from generate_better_pdf import TOC_CB_PT, TOC_CB_GAP
+    cb_h = TOC_CB_PT * sc
+    gap  = TOC_CB_GAP * sc
+
+    doc = fitz.open(str(pdf_path))
+    n_boxes    = 0
+    in_contents = False
+
+    for page in doc:
+        page_text = page.get_text('text')
+        if 'Round 1 |' in page_text:
+            in_contents = True
+        if not in_contents:
+            continue
+
+        words = list(page.get_text('words'))
+        lines: dict = defaultdict(list)
+        for w in words:
+            lines[(w[5], w[6])].append(w)
+
+        seen: set = set()
+        for (_b, _ln), ws in sorted(lines.items()):
+            ws   = sorted(ws, key=lambda w: w[0])
+            toks = [w[4] for w in ws]
+            if not toks:
+                continue
+            qm = qid_re.match(toks[0])
+            if not qm:
+                continue
+
+            y0  = min(w[1] for w in ws)
+            y1  = max(w[3] for w in ws)
+            x0  = min(w[0] for w in ws)
+            key = (round(y0, 1), round(x0 / (L_W / 2)))
+            if key in seen:
+                continue
+            seen.add(key)
+
+            line_h = max(y1 - y0, cb_h)
+            cb_y0  = y0 + (line_h - cb_h) / 2
+            cb_x1  = x0 - gap * 0.35
+            cb_x0  = cb_x1 - cb_h
+            if cb_x0 < 8:
+                cb_x0 = 10
+                cb_x1 = cb_x0 + cb_h
+            cb_rect = fitz.Rect(cb_x0, cb_y0, cb_x1, cb_y0 + cb_h)
+            page.draw_rect(cb_rect, color=(0.2, 0.2, 0.2),
+                           fill=(1.0, 1.0, 1.0), width=0.8, overlay=True)
+            wd            = fitz.Widget()
+            wd.rect       = cb_rect
+            wd.field_type = fitz.PDF_WIDGET_TYPE_CHECKBOX
+            wd.field_name = f'qtrack_{qm.group(1)}'
+            wd.field_value = 'Off'
+            wd.on_state   = 'Yes'
+            page.add_widget(wd)
+            n_boxes += 1
+
+    doc.save(str(pdf_path), incremental=True, encryption=fitz.PDF_ENCRYPT_KEEP)
+    doc.close()
+    print(f'    {n_boxes} question checkboxes added on Master Contents pages')
+
+
+def build_pack_size_roster(story: list, sections: list) -> None:
+    """
+    Pack Size Order page: 21 packs sorted largest → smallest within each priority,
+    with every question listed underneath its pack (ticked via PDF checkboxes).
+    """
+    diff_order = {'Easy': 0, 'Medium': 1, 'Hard': 2}
+    DIFF_COLOR  = {'Easy': '#16A34A', 'Medium': '#D97706', 'Hard': '#DC2626'}
+
+    pack_totals: dict = defaultdict(int)
+    pack_qs: dict     = defaultdict(list)  # pat_name → [(diff_ord, qid, diff, q)]
+
+    for _, _pri, diff, set_num, pat_groups in sections:
+        for pat_obj, qs in pat_groups:
+            n = pat_obj['name']
+            pack_totals[n] += len(qs)
+            for q in qs:
+                pack_qs[n].append((diff_order.get(diff, 1), int(q.get('id', 0)), diff, q))
+
+    for n in pack_qs:
+        pack_qs[n].sort()
+
+    story.append(Paragraph(
+        '<b>Pack Size Order — Large → Small</b>',
+        _inner_ps('psr_title', 'title', spaceAfter=1),
+    ))
+    story.append(Paragraph(
+        'High → Mid → Low, each sorted largest first. '
+        'Tick questions as you finish them — stays checked every time you reopen the PDF.',
+        _inner_ps('psr_intro', 'body_sm', spaceAfter=2),
+    ))
+    story.append(hr(GRAY_300, 0.4))
+
+    for priority in ('High', 'Mid', 'Low'):
+        pri_packs = [
+            (pat_name, pat_hex, pack_totals.get(pat_name, 0))
+            for pri, pat_name, pat_hex, _ in PACK_STUDY_ORDER
+            if pri == priority
+        ]
+        pri_packs.sort(key=lambda t: -t[2])
+        if not pri_packs:
+            continue
+
+        banner = Table([[Paragraph(
+            f'<font color="white"><b>{priority}</b></font>',
+            _inner_ps(f'psr_ban_{priority}', 'body_sm',
+                      alignment=TA_CENTER, textColor=white),
+        )]], colWidths=[USE_W])
+        banner.setStyle(TableStyle([
+            ('BACKGROUND',    (0, 0), (-1, -1), HexColor(PRIORITY_HEX[priority])),
+            ('TOPPADDING',    (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ]))
+        story.append(Spacer(1, 3))
+        story.append(banner)
+
+        half = USE_W / 2
+        for pat_name, pat_hex, total in pri_packs:
+            story.append(Spacer(1, 4))
+            story.append(Paragraph(
+                f'<b><font color="{pat_hex}">{safe_xml(pat_name)}</font></b>'
+                f'  <font color="{GRAY_600}">{total}q</font>',
+                _inner_ps(f'psr_{priority}_{pat_name[:8]}', 'title', spaceAfter=1),
+            ))
+            q_cells = []
+            for _di, qid, diff, q in pack_qs.get(pat_name, []):
+                dc    = DIFF_COLOR.get(diff, GRAY_600)
+                title = safe_xml(q.get('title', ''))
+                q_cells.append(Paragraph(
+                    f'<font color="{pat_hex}"><b>#{qid}</b></font>'
+                    f'  <font color="#374151">{title}</font>'
+                    f'  <font color="{dc}">·{diff[0]}</font>',
+                    _inner_ps(f'psr_q_{qid}', 'body_sm',
+                              fontSize=2.2, leading=3.0, spaceAfter=0),
+                ))
+            if q_cells:
+                rows = []
+                for i in range(0, len(q_cells), 2):
+                    right = q_cells[i + 1] if i + 1 < len(q_cells) else Paragraph('', _inner_ps(f'psr_empty_{i}', 'body_sm'))
+                    rows.append([q_cells[i], right])
+                tbl = Table(rows, colWidths=[half, half])
+                tbl.setStyle(TableStyle([
+                    ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
+                    ('TOPPADDING',    (0, 0), (-1, -1), 0),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+                    ('LEFTPADDING',   (0, 0), (-1, -1), 6),
+                    ('RIGHTPADDING',  (0, 0), (-1, -1), 1),
+                ]))
+                story.append(tbl)
+
+    story.append(PageBreak())
 
 
 def build_contents_pdf(sections: list, inner_path: Path) -> None:
@@ -429,46 +795,8 @@ def build_contents_pdf(sections: list, inner_path: Path) -> None:
     ))
     story.append(PageBreak())
 
-    # ── Learner note + size rosters (before Contents) ─────────────────────────
-    append_learner_note(story, sections)
-    story.append(PageBreak())
-
-    # ── Master Contents ───────────────────────────────────────────────────────
-    story.append(Paragraph('<b>Contents</b>',
-                           _inner_ps('ov_title', 'title', spaceAfter=3)))
-    story.append(hr(GRAY_300, 0.4))
-    cur_pri, cur_s = None, None
-    for rn, priority, diff, set_num, pat_groups in sections:
-        n_qs = sum(len(qs) for _, qs in pat_groups)
-        if priority != cur_pri or set_num != cur_s:
-            cur_pri, cur_s = priority, set_num
-            story.append(Spacer(1, 3))
-            grp = Table([[Paragraph(
-                f'<font color="white"><b>{priority}  ·  Set {set_num}</b></font>',
-                _inner_ps(f'ov_g_{priority}_{set_num}', 'body',
-                          alignment=TA_CENTER, textColor=white),
-            )]], colWidths=[USE_W])
-            grp.setStyle(TableStyle([
-                ('BACKGROUND',    (0, 0), (-1, -1), HexColor(PRIORITY_HEX[priority])),
-                ('TOPPADDING',    (0, 0), (-1, -1), 2),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-            ]))
-            story.append(grp)
-
-        story.append(Paragraph(
-            f'<b>Round {rn}  |  {priority}</b>'
-            f'  <font color="{DIFF_COL[diff]}">{diff}</font>  S{set_num}  ({n_qs}q)',
-            _inner_ps(f'ov_r{rn}', 'body', spaceBefore=2),
-        ))
-        for pat_obj, qs in pat_groups:
-            pat_hex = pat_obj['hex']
-            story.append(Paragraph(
-                f'  <font color="{pat_hex}"><b>'
-                f'{safe_xml(pat_obj["name"])}</b></font> ({len(qs)})'
-                f'  <font color="#6B7280">'
-                + '  '.join(f'#{q["id"]}' for q in qs) + '</font>',
-                _inner_ps(f'ov_p{rn}_{pat_obj["name"][:6]}', 'body_sm', spaceAfter=1),
-            ))
+    # ── Pack size order — largest → smallest within each priority ─────────────
+    build_pack_size_roster(story, sections)
 
     def _footer(canvas, doc):
         counter.on_page(canvas, doc)
@@ -505,29 +833,8 @@ def main():
         print('Imposing 1×1…')
         _impose_1up(inner_path, imposed_tmp)
 
-        print('Analyzing overview links…')
-        rounds_struct = [(rn, pri, diff, pgs) for rn, pri, diff, s, pgs in sections]
-        _page_types, qid_first_page, toc_link_rects, _toc_section_rects = (
-            _analyze_inner_for_links(inner_path, rounds_struct)
-        )
-        # Only master Contents pages get overview checkboxes — skip learner-note pages.
-        overview_pages = {
-            pg for pg, rects in toc_link_rects.items()
-            if len(rects) >= 20
-        }
-        if not overview_pages:
-            overview_pages = set(toc_link_rects.keys())
-
-        print(f'Adding inline QID links + checkboxes on {len(overview_pages)} overview page(s)…')
-        sec_fields = build_qid_to_sec_field(sections)
-        _add_overview_qid_links(
-            imposed_tmp, overview_pages, qid_first_page,
-            {pg: toc_link_rects[pg] for pg in overview_pages},
-            sec_field_by_qid=sec_fields,
-        )
-
-        print('Adding Size Roster section checkboxes…')
-        _add_learner_note_checkboxes(imposed_tmp)
+        print('Adding pack size roster checkboxes…')
+        _add_pack_size_roster_checkboxes(imposed_tmp)
 
         # Drop any stale name from before the rename.
         old = OUTPUT_DIR / '00 ALL Splits - Contents.pdf'
