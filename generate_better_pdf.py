@@ -1303,6 +1303,7 @@ def build_section_complete_page(pat_name: str, n_qs: int, pat_hex: str | None = 
         ParagraphStyle('sc_s', fontName='LG-Bold', fontSize=7,
                        textColor=HexColor('#9CA3AF'), alignment=TA_CENTER, leading=10),
     ))
+    items.append(PageBreak())
     return items
 
 
