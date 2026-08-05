@@ -26,7 +26,7 @@ from reportlab.lib.enums import TA_CENTER
 _orig_argv = _sys.argv[:]
 _sys.argv = [_sys.argv[0], '--all']
 from generate_better_pdf import (
-    build_question_block, build_section_complete_page,
+    build_question_block, build_section_complete_page, build_study_order_page,
     _impose_1up, _analyze_inner_for_links, _add_links_1x1,
     S, USE_W, USE_H, MP_W, MP_H, MG, hr, _inner_ps, safe_xml,
     PageCounter, RoundPageMark, PatPageMark,
@@ -157,6 +157,7 @@ def _build_pack_inner(rn, priority, pat_obj, qs, sites_cache, doocs_cache, inner
         _inner_ps(f'cov_sites_{rn}', 'body_sm', alignment=TA_CENTER),
     ))
     story.append(PageBreak())
+    story += build_study_order_page(pat_name)
 
     # ── Mini-TOC page ─────────────────────────────────────────────────────────
     # Needle line that _analyze_inner_for_links looks for: "Round N  |  Priority"
@@ -312,6 +313,7 @@ def _build_all_packs_inner(sections, sites_cache, doocs_cache, inner_path, my_so
         _inner_ps('ap_sites', 'body_sm', alignment=TA_CENTER),
     ))
     story.append(PageBreak())
+    story += build_study_order_page()
 
     # ── Master Contents (overview pages) ───────────────────────────────────────
     # Each pack gets two lines:

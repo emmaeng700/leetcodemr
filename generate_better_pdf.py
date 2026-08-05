@@ -1172,6 +1172,115 @@ def build_interview_approach(qid: int) -> list:
     return items
 
 
+# Recommended learning sequence for the 21 packs.
+# Each entry: (priority, pattern_name, hex_color, why_this_comes_next)
+PACK_STUDY_ORDER: list[tuple[str, str, str, str]] = [
+    ('High', 'Arrays & Hashing',    '#6366F1',
+     'Foundation — every other pattern builds on array manipulation'),
+    ('High', 'Two Pointers',         '#10B981',
+     'Arrays with two controlled indices — same skills, no extra space'),
+    ('High', 'Sliding Window',       '#3B82F6',
+     'Two Pointers with a shrinkable constraint — identical template'),
+    ('High', 'Binary Search',        '#8B5CF6',
+     'Narrows an index space on sorted arrays — extends array skills'),
+    ('High', 'String',               '#EC4899',
+     'Char arrays — sliding window and binary search apply directly'),
+    ('High', 'Sorting',              '#14B8A6',
+     'Preprocessing step that unlocks two-pointer and greedy solutions'),
+    ('High', 'Matrix',               '#F97316',
+     '2-D arrays — sorting and pointer logic in grid form'),
+    ('High', 'Trees & BST',          '#22C55E',
+     'Sorted recursive structure — where recursion finally clicks'),
+    ('High', 'DFS',                 '#EF4444',
+     'Tree recursion extended to graphs — the same recursive template'),
+    ('High', 'BFS',                 '#F59E0B',
+     'DFS with a queue — shortest paths and level-order traversal'),
+    ('High', 'Graphs',              '#6B7280',
+     'DFS + BFS + Union-Find on arbitrary edges'),
+    ('Mid',  'Stack',               '#A855F7',
+     'Explicit stack for DFS; monotone stack for span and range'),
+    ('Mid',  'Linked List',         '#06B6D4',
+     'Two-pointer tricks revisited on node chains'),
+    ('Mid',  'Heap',                '#F59E0B',
+     'Priority ordering — K-th element and merge-K-lists problems'),
+    ('Mid',  'Trie',                '#10B981',
+     'Prefix tree — string search that a hash map cannot solve'),
+    ('Mid',  'Greedy',              '#F97316',
+     'Local optimum equals global — often pairs with heaps and sorting'),
+    ('Low',  'Dynamic Programming', '#6366F1',
+     'Optimal substructure — learn this BEFORE Backtracking'),
+    ('Mid',  'Backtracking',        '#EF4444',
+     'DP without memoization — understanding DP first shows why memo works'),
+    ('Low',  'Bit Manipulation',    '#8B5CF6',
+     'Bitwise tricks inside DP, math, and array problems'),
+    ('Low',  'Math',                '#14B8A6',
+     'Number theory, GCD, primes, modular arithmetic'),
+    ('Low',  'JavaScript',          '#F59E0B',
+     'Language-specific — closures, promises, prototypes'),
+]
+
+_STUDY_PRI_HEX = {'High': '#DC2626', 'Mid': '#D97706', 'Low': '#6B7280'}
+
+
+def build_study_order_page(current_pat_name: str | None = None) -> list:
+    """
+    Renders the 21-pack recommended study order as a reader note.
+    No leading PageBreak (caller is responsible); ends with PageBreak.
+    If current_pat_name is given, highlights that pack and dims past ones
+    — used in individual pack PDFs so readers know where they are in the chain.
+    """
+    cur_idx = None
+    if current_pat_name:
+        for i, (_, pn, _, _) in enumerate(PACK_STUDY_ORDER):
+            if pn == current_pat_name:
+                cur_idx = i
+                break
+
+    items = []
+    items.append(Paragraph(
+        '<b>Recommended Study Order</b>',
+        _inner_ps('so_hdr', 'title', spaceAfter=1),
+    ))
+    items.append(Paragraph(
+        'Study these 21 packs in this sequence. '
+        'Each topic builds directly on the one before it.',
+        _inner_ps('so_intro', 'body_sm', spaceAfter=2),
+    ))
+    items.append(hr(GRAY_300, 0.4))
+
+    cur_pri = None
+    for i, (priority, pat_name, pat_hex, note) in enumerate(PACK_STUDY_ORDER):
+        is_current = (i == cur_idx)
+        is_past    = (cur_idx is not None and i < cur_idx)
+
+        if priority != cur_pri:
+            cur_pri = priority
+            items.append(Spacer(1, 2))
+            items.append(Paragraph(
+                f'<b><font color="{_STUDY_PRI_HEX[priority]}">{priority}</font></b>',
+                _inner_ps(f'so_pg_{priority}_{i}', 'body_sm', spaceAfter=1),
+            ))
+
+        name_col = '#9CA3AF' if is_past else pat_hex
+        note_col = '#C4C4C4' if is_past else '#6B7280'
+        marker   = '  [HERE]' if is_current else ''
+
+        items.append(Paragraph(
+            f'<b><font color="{name_col}">'
+            f'{i + 1}. {safe_xml(pat_name)}'
+            f'<font color="{pat_hex}">{marker}</font>'
+            f'</font></b>',
+            _inner_ps(f'so_p_{i}', 'body', spaceAfter=0),
+        ))
+        items.append(Paragraph(
+            f'<font color="{note_col}">{safe_xml(note)}</font>',
+            _inner_ps(f'so_n_{i}', 'body_sm', spaceAfter=2),
+        ))
+
+    items.append(PageBreak())
+    return items
+
+
 def build_section_complete_page(pat_name: str, n_qs: int, pat_hex: str | None = None) -> list:
     """Full-page congratulatory splash inserted after the last question in a section."""
     fg = HexColor(pat_hex) if pat_hex else GRAY_500
