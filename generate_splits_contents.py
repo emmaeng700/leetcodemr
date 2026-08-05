@@ -764,33 +764,34 @@ def build_contents_pdf(sections: list, inner_path: Path) -> None:
     counter = PageCounter()
     story   = []
 
+    n_packs = len(PACK_STUDY_ORDER)
+
     # ── Cover ────────────────────────────────────────────────────────────────
     story.append(Spacer(1, USE_H * 0.1))
     story.append(Paragraph(
-        '<b>ALL SPLITS</b>',
+        '<b>ALL PACKS</b>',
         _inner_ps('cov_h1', 'title', alignment=TA_CENTER,
                   fontSize=S['title'].fontSize * 2, leading=S['title'].leading * 2),
     ))
     story.append(Spacer(1, 4))
     story.append(Paragraph(
-        'Complete Study Split Collection',
+        'Priority Pack Tracker',
         _inner_ps('cov_h2', 'title', alignment=TA_CENTER),
     ))
     story.append(Spacer(1, 5))
     story.append(hr(GRAY_300, 0.4))
     story.append(Spacer(1, 3))
     story.append(Paragraph(
-        f'{total_qs} questions  ·  {n_splits} pattern sections  ·  '
-        f'{total_rounds} rounds  ·  3 Sets',
+        f'{total_qs} questions  ·  {n_packs} packs  ·  High → Mid → Low',
         _inner_ps('cov_stats', 'body', alignment=TA_CENTER),
     ))
     story.append(Paragraph(
-        'High (S1→S2→S3, Easy→Med→Hard)  →  Mid  →  Low',
+        'Each pack: Easy → Medium → Hard',
         _inner_ps('cov_order', 'body', alignment=TA_CENTER),
     ))
     story.append(Spacer(1, 3))
     story.append(Paragraph(
-        'WalkCC · LeetDoocs · SimplyLeet · LC.ca  ·  Python',
+        'Tick each question as you solve it — checkboxes sync across the PDF',
         _inner_ps('cov_sites', 'body_sm', alignment=TA_CENTER),
     ))
     story.append(PageBreak())
