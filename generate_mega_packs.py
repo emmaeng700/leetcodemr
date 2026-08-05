@@ -60,7 +60,7 @@ GRAY_300     = HexColor('#D1D5DB')
 
 def build_sections(questions: list) -> list:
     """Returns [(rn, priority, pat_obj, qs), ...] — 21 sections.
-    Order: High → Mid → Low, each in PATTERN_DISPLAY_ORDER.
+    Order: High → Mid → Low, within each priority sorted largest pack first.
     Questions sorted: set(1→2→3) → difficulty(Easy→Med→Hard) → id."""
     bucket: dict = defaultdict(list)
     for q in questions:
@@ -73,11 +73,11 @@ def build_sections(questions: list) -> list:
 
     sections, rn = [], 0
     for priority in ['High', 'Mid', 'Low']:
-        for pat in PATTERN_ORDER:
-            qs = bucket.get((priority, pat))
-            if not qs:
-                continue
-            qs_sorted = sorted(qs, key=lambda q: (
+        pri_pats = [(pat, bucket[(priority, pat)])
+                    for pat in PATTERN_ORDER if bucket.get((priority, pat))]
+        pri_pats.sort(key=lambda x: -len(x[1]))  # largest pack first
+        for pat, raw_qs in pri_pats:
+            qs_sorted = sorted(raw_qs, key=lambda q: (
                 q.get('set', 1),
                 DIFF_KEY.get(q.get('difficulty', 'Easy'), 0),
                 q.get('id', 0),
@@ -86,30 +86,6 @@ def build_sections(questions: list) -> list:
             rn += 1
             sections.append((rn, priority, obj, qs_sorted))
     return sections
-
-
-_DIFF_ORDER_KEY = {'Easy': 0, 'Medium': 1, 'Hard': 2}
-
-
-def _pack_lts_groups(qs):
-    """Group questions by (difficulty, set), sorted large → small (then diff, then set)."""
-    buckets: dict = defaultdict(list)
-    for q in qs:
-        key = (q.get('difficulty', 'Easy'), q.get('set', 1))
-        buckets[key].append(q)
-    for key in buckets:
-        buckets[key].sort(key=lambda q: q.get('id', 0))
-    return sorted(
-        buckets.items(),
-        key=lambda kv: (-len(kv[1]), _DIFF_ORDER_KEY.get(kv[0][0], 1), kv[0][1]),
-    )
-
-
-def _lts_tier_label(n: int) -> str:
-    if n >= 16: return '16+q · deep work'
-    if n >= 10: return '10–15q · solid blocks'
-    if n >= 5:  return '5–9q · short sections'
-    return '1–4q · tiny wins'
 
 
 def _build_pack_inner(rn, priority, pat_obj, qs, sites_cache, doocs_cache, inner_path, my_solutions=None):
@@ -207,28 +183,23 @@ def _build_pack_inner(rn, priority, pat_obj, qs, sites_cache, doocs_cache, inner
         _inner_ps(f'toc_stat{rn}', 'body_sm', spaceAfter=3),
     ))
 
-    # Question list — Large → Small groups (diff × set), with LtS-style tier labels
-    sorted_groups = _pack_lts_groups(qs)
-    cur_tier = None
-    for (diff, s), grp_qs in sorted_groups:
-        tier = _lts_tier_label(len(grp_qs))
-        if tier != cur_tier:
-            cur_tier = tier
+    # Question list, grouped by set
+    cur_set = None
+    for q in qs:
+        s = q.get('set', 1)
+        if s != cur_set:
+            cur_set = s
             story.append(Paragraph(
-                f'<b><font color="#6B7280">{tier}</font></b>',
-                _inner_ps(f'toc_tier{rn}_{tier[:3]}', 'body_sm', spaceBefore=4, spaceAfter=1),
+                f'<b><font color="#6B7280">— Set {s} —</font></b>',
+                _inner_ps(f'toc_s{rn}_{s}', 'body_sm', spaceBefore=3, spaceAfter=1),
             ))
-        dc = DIFF_COL.get(diff, '#6B7280')
+        d = q.get('difficulty', '')
+        dc = DIFF_COL.get(d, '#6B7280')
         story.append(Paragraph(
-            f'<font color="{dc}"><b>{diff} S{s} ({len(grp_qs)}q)</b></font>',
-            _inner_ps(f'toc_grphdr{rn}_{diff}{s}', 'body_sm', spaceBefore=2, spaceAfter=1),
+            f'<b>#{q["id"]} {safe_xml(q["title"])}</b>'
+            f'  <font color="{dc}">[{d[:3].upper()}]</font>',
+            _inner_ps(f'toc_e{rn}_{q["id"]}', 'body', spaceAfter=2),
         ))
-        for q in grp_qs:
-            story.append(Paragraph(
-                f'<b>#{q["id"]} {safe_xml(q["title"])}</b>'
-                f'  <font color="{dc}">[{diff[:3].upper()}]</font>',
-                _inner_ps(f'toc_e{rn}_{q["id"]}', 'body', spaceAfter=2),
-            ))
 
     story.append(PageBreak())
 
@@ -263,36 +234,23 @@ def _build_pack_inner(rn, priority, pat_obj, qs, sites_cache, doocs_cache, inner
     story.append(Spacer(1, 4))
     story.append(hr(GRAY_300, 0.4))
 
-    # Per-group sub-headers with IDs, Large → Small
-    cur_tier = None
-    for (diff, s), grp_qs in sorted_groups:
-        tier = _lts_tier_label(len(grp_qs))
-        if tier != cur_tier:
-            cur_tier = tier
-            story.append(Paragraph(
-                f'<b><font color="#6B7280">{tier}</font></b>',
-                _inner_ps(f'rspl_tier{rn}_{tier[:3]}', 'body_sm', spaceBefore=3, spaceAfter=1),
-            ))
-        dc = DIFF_COL.get(diff, '#6B7280')
-        grp_ids = '  '.join(f'#{q["id"]}' for q in grp_qs)
-        story.append(Paragraph(
-            f'<font color="{dc}"><b>{diff} S{s}</b></font>  {safe_xml(grp_ids)}',
-            _inner_ps(f'rspl_grp{rn}_{diff}{s}', 'body', spaceAfter=2),
-        ))
+    # All question IDs as a single flat line
+    q_ids = '  '.join(f'#{q["id"]}' for q in qs)
+    story.append(Paragraph(
+        f'<font color="#6B7280">{safe_xml(q_ids)}</font>',
+        _inner_ps(f'rspl_ids{rn}', 'body_sm', spaceAfter=2),
+    ))
     story.append(PageBreak())
 
-    i = 0
-    for (diff, s), grp_qs in sorted_groups:
-        for q in grp_qs:
-            i += 1
-            story += build_question_block(
-                q, sites_cache, doocs_cache,
-                pattern_name=pat_name,
-                pattern_obj=pat_obj,
-                my_solutions=my_solutions,
-            )
-            if i % 5 == 0:
-                print(f'      {i}/{n_qs} q  [{pat_abbr} {priority}]')
+    for i, q in enumerate(qs, 1):
+        story += build_question_block(
+            q, sites_cache, doocs_cache,
+            pattern_name=pat_name,
+            pattern_obj=pat_obj,
+            my_solutions=my_solutions,
+        )
+        if i % 5 == 0:
+            print(f'      {i}/{n_qs} q  [{pat_abbr} {priority}]')
 
     def _footer(canvas, doc):
         counter.on_page(canvas, doc)
@@ -433,28 +391,23 @@ def _build_all_packs_inner(sections, sites_cache, doocs_cache, inner_path, my_so
             '  ·  '.join(diff_parts) + '     ' + '  ·  '.join(set_parts),
             _inner_ps(f'ap_toc_stat{rn}', 'body_sm', spaceAfter=3),
         ))
-        # Large → Small groups (diff × set), with LtS-style tier labels
-        sorted_groups = _pack_lts_groups(qs)
-        cur_tier = None
-        for (diff, s), grp_qs in sorted_groups:
-            tier = _lts_tier_label(len(grp_qs))
-            if tier != cur_tier:
-                cur_tier = tier
+        # Question list, grouped by set
+        cur_set = None
+        for q in qs:
+            s = q.get('set', 1)
+            if s != cur_set:
+                cur_set = s
                 story.append(Paragraph(
-                    f'<b><font color="#6B7280">{tier}</font></b>',
-                    _inner_ps(f'ap_toc_tier{rn}_{tier[:3]}', 'body_sm', spaceBefore=4, spaceAfter=1),
+                    f'<b><font color="#6B7280">— Set {s} —</font></b>',
+                    _inner_ps(f'ap_toc_s{rn}_{s}', 'body_sm', spaceBefore=3, spaceAfter=1),
                 ))
-            dc = DIFF_COL.get(diff, '#6B7280')
+            d = q.get('difficulty', '')
+            dc = DIFF_COL.get(d, '#6B7280')
             story.append(Paragraph(
-                f'<font color="{dc}"><b>{diff} S{s} ({len(grp_qs)}q)</b></font>',
-                _inner_ps(f'ap_toc_grphdr{rn}_{diff}{s}', 'body_sm', spaceBefore=2, spaceAfter=1),
+                f'<b>#{q["id"]} {safe_xml(q["title"])}</b>'
+                f'  <font color="{dc}">[{d[:3].upper()}]</font>',
+                _inner_ps(f'ap_toc_e{rn}_{q["id"]}', 'body', spaceAfter=2),
             ))
-            for q in grp_qs:
-                story.append(Paragraph(
-                    f'<b>#{q["id"]} {safe_xml(q["title"])}</b>'
-                    f'  <font color="{dc}">[{diff[:3].upper()}]</font>',
-                    _inner_ps(f'ap_toc_e{rn}_{q["id"]}', 'body', spaceAfter=2),
-                ))
         story.append(PageBreak())
 
         # Single section banner (Round == Pattern in packs — don't duplicate)
@@ -486,34 +439,21 @@ def _build_all_packs_inner(sections, sites_cache, doocs_cache, inner_path, my_so
         story.append(Spacer(1, 4))
         story.append(hr(GRAY_300, 0.4))
 
-        # Per-group sub-headers with IDs, Large → Small
-        cur_tier = None
-        for (diff, s), grp_qs in sorted_groups:
-            tier = _lts_tier_label(len(grp_qs))
-            if tier != cur_tier:
-                cur_tier = tier
-                story.append(Paragraph(
-                    f'<b><font color="#6B7280">{tier}</font></b>',
-                    _inner_ps(f'ap_rspl_tier{rn}_{tier[:3]}', 'body_sm', spaceBefore=3, spaceAfter=1),
-                ))
-            dc = DIFF_COL.get(diff, '#6B7280')
-            grp_ids = '  '.join(f'#{q["id"]}' for q in grp_qs)
-            story.append(Paragraph(
-                f'<font color="{dc}"><b>{diff} S{s}</b></font>  {safe_xml(grp_ids)}',
-                _inner_ps(f'ap_rspl_grp{rn}_{diff}{s}', 'body', spaceAfter=2),
-            ))
+        # All question IDs as a single flat line
+        q_ids = '  '.join(f'#{q["id"]}' for q in qs)
+        story.append(Paragraph(
+            f'<font color="#6B7280">{safe_xml(q_ids)}</font>',
+            _inner_ps(f'ap_rspl_ids{rn}', 'body_sm', spaceAfter=2),
+        ))
         story.append(PageBreak())
 
-        i = 0
-        for (diff, s), grp_qs in sorted_groups:
-            for q in grp_qs:
-                i += 1
-                story += build_question_block(
-                    q, sites_cache, doocs_cache,
-                    pattern_name=pat_name, pattern_obj=pat_obj, my_solutions=my_solutions,
-                )
-                if i % 5 == 0:
-                    print(f'      {i}/{n_qs} q  [{pat_abbr} {priority}]')
+        for i, q in enumerate(qs, 1):
+            story += build_question_block(
+                q, sites_cache, doocs_cache,
+                pattern_name=pat_name, pattern_obj=pat_obj, my_solutions=my_solutions,
+            )
+            if i % 5 == 0:
+                print(f'      {i}/{n_qs} q  [{pat_abbr} {priority}]')
 
     def _footer(canvas, doc):
         counter.on_page(canvas, doc)
