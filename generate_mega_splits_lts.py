@@ -34,7 +34,8 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT
 _orig_argv = _sys.argv[:]
 _sys.argv = [_sys.argv[0], '--all']
 from generate_better_pdf import (
-    build_question_block, _impose_1up, _analyze_inner_for_links, _add_links_1x1,
+    build_question_block, build_section_complete_page,
+    _impose_1up, _analyze_inner_for_links, _add_links_1x1,
     S, USE_W, USE_H, MP_W, MP_H, MG, hr, _inner_ps, safe_xml,
     PageCounter, RoundPageMark, PatPageMark, PRIORITY_COLORS,
     SITES_CACHE, DOOCS_CACHE, TOC_CB_PT, TOC_CB_GAP, load_my_solutions,
@@ -363,6 +364,7 @@ def _build_lts_inner(
             )
             if i % 5 == 0:
                 print(f'      {i}/{n_qs} q  [{pat_abbr} S{set_num} {tier} | sec {sn}]')
+        story += build_section_complete_page(pat_name, n_qs, pat_hex=pat_hex)
 
     def _footer(canvas, doc):
         counter.on_page(canvas, doc)
