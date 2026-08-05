@@ -29,19 +29,19 @@ echo "🗑  Removing old mega PDFs…"
 rm -f "$SPLITS_OUT" "$LTS_OUT" "$PACKS_OUT"
 
 echo ""
-echo "📚 Building 00 ALL Splits.pdf (study order)…"
-python3 generate_mega_splits.py
+echo "📦 Building 00 ALL Packs.pdf…"
+python3 generate_mega_packs.py --mega-only
 
 echo ""
 echo "📚 Building 00 ALL Splits LtS.pdf (large → small)…"
 python3 generate_mega_splits_lts.py
 
 echo ""
-echo "📦 Building 00 ALL Packs.pdf…"
-python3 generate_mega_packs.py --mega-only
+echo "📚 Building 00 ALL Splits.pdf (study order)…"
+python3 generate_mega_splits.py
 
 echo ""
 echo "✅ Done!"
-echo "   Splits (study order) → $SPLITS_OUT"
-echo "   Splits (large→small) → $LTS_OUT"
 echo "   Packs                → $PACKS_OUT"
+echo "   Splits (large→small) → $LTS_OUT"
+echo "   Splits (study order) → $SPLITS_OUT"
