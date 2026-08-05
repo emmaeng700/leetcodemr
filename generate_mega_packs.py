@@ -564,6 +564,39 @@ def _add_overview_qid_links_packs(pdf_path, overview_pages, qid_first_page,
     print(f'    {n_links} inline QID links  |  {n_boxes} checkboxes  |  {n_arrows} round arrows')
 
 
+def _add_qid_links_on_packs_banners(pdf_path: Path, skip_pages: set, qid_first_page: dict):
+    """Add word-level #N GOTO links on every page not in skip_pages.
+    Covers the per-pack section banner lines (e.g. 'Arrays & Hashing  #1  #163 …')
+    and per-pack mini-TOC rows that are not part of the master Contents overview.
+    """
+    qid_re = re.compile(r'^#(\d+)$')
+    doc = fitz.open(str(pdf_path))
+    n_links = 0
+    for pg_idx in range(len(doc)):
+        if pg_idx in skip_pages:
+            continue
+        page = doc[pg_idx]
+        for x0, y0, x1, y1, word, *_ in page.get_text('words'):
+            m = qid_re.match(word.strip())
+            if not m:
+                continue
+            qid = int(m.group(1))
+            dest = qid_first_page.get(qid)
+            if dest is None:
+                continue
+            page.insert_link({
+                'kind': fitz.LINK_GOTO,
+                'from': fitz.Rect(x0, y0, x1, y1),
+                'page': dest,
+                'to':   fitz.Point(0, 0),
+                'zoom': 0,
+            })
+            n_links += 1
+    doc.save(str(pdf_path), incremental=True, encryption=fitz.PDF_ENCRYPT_KEEP)
+    doc.close()
+    print(f'    {n_links} section-banner QID links added')
+
+
 def main():
     mega_only = '--mega-only' in _sys.argv
 
@@ -647,6 +680,7 @@ def main():
                 qid_to_slug=qid_to_slug,
                 ia_first_page=ia_first_page,
             )
+            _add_qid_links_on_packs_banners(imp_tmp, set(), qid_first_page)
 
             shutil.move(str(imp_tmp), str(out_file))
             kb = os.path.getsize(out_file) // 1024
@@ -707,6 +741,8 @@ def main():
                 imposed_mega, overview_pages_m, qid_first_page_m, overview_toc_rects_m,
                 round_page_registry=round_pg_reg_m,
             )
+        print('  Adding section-banner QID links…')
+        _add_qid_links_on_packs_banners(imposed_mega, overview_pages_m, qid_first_page_m)
         shutil.move(str(imposed_mega), str(out_mega))
         kb = os.path.getsize(out_mega) // 1024
         print(f'\n🎉  00 ALL Packs.pdf  ({kb:,} KB)\n→  {out_mega}')
