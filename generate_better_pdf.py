@@ -1281,28 +1281,47 @@ def build_study_order_page(current_pat_name: str | None = None) -> list:
     return items
 
 
-def build_section_complete_page(pat_name: str, n_qs: int, pat_hex: str | None = None) -> list:
-    """Full-page congratulatory splash inserted after the last question in a section."""
-    fg = HexColor(pat_hex) if pat_hex else GRAY_500
+def build_section_complete_page(
+    pat_name: str, n_qs: int,
+    pat_hex: str | None = None,
+    next_pat_name: str | None = None,
+    next_pat_hex: str | None = None,
+) -> list:
+    """Full-page splash after the last question: shows what just completed and what starts next."""
+    fg      = HexColor(pat_hex)      if pat_hex      else GRAY_500
+    next_fg = HexColor(next_pat_hex) if next_pat_hex else GRAY_500
+
     items = [PageBreak()]
-    items.append(Spacer(1, USE_H * 0.30))
+    items.append(Spacer(1, USE_H * 0.22))
+
     items.append(Paragraph(
         f'<b>{safe_xml(pat_name)}</b>',
         ParagraphStyle('sc_pat', fontName='LG-Bold', fontSize=20,
                        textColor=fg, alignment=TA_CENTER, leading=26),
     ))
-    items.append(Spacer(1, 8))
+    items.append(Spacer(1, 4))
     items.append(Paragraph(
-        '<b>Section Complete</b>',
-        ParagraphStyle('sc_h', fontName='LG-Bold', fontSize=9,
-                       textColor=GRAY_500, alignment=TA_CENTER, leading=12),
+        f'Section Complete  ·  {n_qs} question{"s" if n_qs != 1 else ""}',
+        ParagraphStyle('sc_h', fontName='LG-Bold', fontSize=7,
+                       textColor=GRAY_500, alignment=TA_CENTER, leading=10),
     ))
-    items.append(Spacer(1, 3))
-    items.append(Paragraph(
-        f'{n_qs} question{"s" if n_qs != 1 else ""}',
-        ParagraphStyle('sc_s', fontName='LG-Bold', fontSize=7,
-                       textColor=HexColor('#9CA3AF'), alignment=TA_CENTER, leading=10),
-    ))
+
+    if next_pat_name:
+        items.append(Spacer(1, 10))
+        items.append(hr(GRAY_300, 0.3))
+        items.append(Spacer(1, 8))
+        items.append(Paragraph(
+            'Starting Next',
+            ParagraphStyle('sc_nxt_lbl', fontName='LG-Bold', fontSize=6,
+                           textColor=HexColor('#9CA3AF'), alignment=TA_CENTER, leading=9),
+        ))
+        items.append(Spacer(1, 3))
+        items.append(Paragraph(
+            f'<b>{safe_xml(next_pat_name)}</b>',
+            ParagraphStyle('sc_nxt', fontName='LG-Bold', fontSize=14,
+                           textColor=next_fg, alignment=TA_CENTER, leading=18),
+        ))
+
     items.append(PageBreak())
     return items
 

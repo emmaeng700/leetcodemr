@@ -27,12 +27,16 @@ _orig_argv = _sys.argv[:]
 _sys.argv = [_sys.argv[0], '--all']
 from generate_better_pdf import (
     build_question_block, build_section_complete_page, build_study_order_page,
+    PACK_STUDY_ORDER,
     _impose_1up, _analyze_inner_for_links, _add_links_1x1,
     S, USE_W, USE_H, MP_W, MP_H, MG, hr, _inner_ps, safe_xml,
     PageCounter, RoundPageMark, PatPageMark,
     TOC_CB_PT, TOC_CB_GAP,
     SITES_CACHE, DOOCS_CACHE, load_my_solutions,
 )
+
+_SO_NAMES = [e[1] for e in PACK_STUDY_ORDER]
+_SO_HEX   = [e[2] for e in PACK_STUDY_ORDER]
 from generate_patterns_pdf import QUICK_PATTERNS, PATTERN_DISPLAY_ORDER, _load
 _sys.argv = _orig_argv
 
@@ -253,7 +257,14 @@ def _build_pack_inner(rn, priority, pat_obj, qs, sites_cache, doocs_cache, inner
         )
         if i % 5 == 0:
             print(f'      {i}/{n_qs} q  [{pat_abbr} {priority}]')
-    story += build_section_complete_page(pat_name, n_qs, pat_hex=pat_hex)
+    try:
+        _so_i = _SO_NAMES.index(pat_name)
+        _nxt_name = _SO_NAMES[_so_i + 1] if _so_i + 1 < len(_SO_NAMES) else None
+        _nxt_hex  = _SO_HEX[_so_i + 1]  if _so_i + 1 < len(_SO_HEX)   else None
+    except ValueError:
+        _nxt_name = _nxt_hex = None
+    story += build_section_complete_page(pat_name, n_qs, pat_hex=pat_hex,
+                                         next_pat_name=_nxt_name, next_pat_hex=_nxt_hex)
 
     def _footer(canvas, doc):
         counter.on_page(canvas, doc)
@@ -363,7 +374,7 @@ def _build_all_packs_inner(sections, sites_cache, doocs_cache, inner_path, my_so
     story.append(PageBreak())
 
     # ── Per-section: mini-TOC + banners + questions ────────────────────────────
-    for rn, priority, pat_obj, qs in sections:
+    for _sec_i, (rn, priority, pat_obj, qs) in enumerate(sections):
         n_qs     = len(qs)
         pat_name = pat_obj['name']
         pat_hex  = pat_obj['hex']
@@ -458,7 +469,12 @@ def _build_all_packs_inner(sections, sites_cache, doocs_cache, inner_path, my_so
             )
             if i % 5 == 0:
                 print(f'      {i}/{n_qs} q  [{pat_abbr} {priority}]')
-        story += build_section_complete_page(pat_name, n_qs, pat_hex=pat_hex)
+        _nxt_s = sections[_sec_i + 1] if _sec_i + 1 < len(sections) else None
+        story += build_section_complete_page(
+            pat_name, n_qs, pat_hex=pat_hex,
+            next_pat_name=_nxt_s[2]['name'] if _nxt_s else None,
+            next_pat_hex=_nxt_s[2]['hex']  if _nxt_s else None,
+        )
 
     def _footer(canvas, doc):
         counter.on_page(canvas, doc)

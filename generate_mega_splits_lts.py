@@ -260,7 +260,7 @@ def _build_lts_inner(
     story.append(PageBreak())
 
     # ── Per-section: section banner → mini-TOC → pattern banner → questions ──
-    for sn, priority, diff, set_num, pat_obj, qs in sections:
+    for _sec_i, (sn, priority, diff, set_num, pat_obj, qs) in enumerate(sections):
         n_qs    = len(qs)
         band    = _band_for(n_qs)
         pri_hex = PRIORITY_HEX[priority]
@@ -364,7 +364,12 @@ def _build_lts_inner(
             )
             if i % 5 == 0:
                 print(f'      {i}/{n_qs} q  [{pat_abbr} S{set_num} {tier} | sec {sn}]')
-        story += build_section_complete_page(pat_name, n_qs, pat_hex=pat_hex)
+        _nxt_s = sections[_sec_i + 1] if _sec_i + 1 < len(sections) else None
+        story += build_section_complete_page(
+            pat_name, n_qs, pat_hex=pat_hex,
+            next_pat_name=_nxt_s[4]['name'] if _nxt_s else None,
+            next_pat_hex=_nxt_s[4]['hex']  if _nxt_s else None,
+        )
 
     def _footer(canvas, doc):
         counter.on_page(canvas, doc)

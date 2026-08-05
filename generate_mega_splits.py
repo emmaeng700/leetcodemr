@@ -216,6 +216,8 @@ def _build_mega_inner(
     story.append(PageBreak())
 
     # ── Per-section: round banner → (per-pattern: mini-TOC + banner + questions) ─
+    _flat_pats = [(p['name'], p['hex']) for _, _, _, _, pgs in sections for p, _ in pgs]
+    _flat_idx  = 0
     for rn, priority, diff, set_num, pat_groups in sections:
         n_qs    = sum(len(qs) for _, qs in pat_groups)
         pri_hex = PRIORITY_HEX[priority]
@@ -321,7 +323,10 @@ def _build_mega_inner(
                 )
                 if i % 5 == 0:
                     print(f'      {i}/{len(qs)} q  [{pat_abbr} S{set_num} {priority} {DIFF_ABBREV[diff]}]')
-            story += build_section_complete_page(pat_name, len(qs), pat_hex=pat_hex)
+            _nxt = _flat_pats[_flat_idx + 1] if _flat_idx + 1 < len(_flat_pats) else (None, None)
+            story += build_section_complete_page(pat_name, len(qs), pat_hex=pat_hex,
+                                                 next_pat_name=_nxt[0], next_pat_hex=_nxt[1])
+            _flat_idx += 1
 
     def _footer(canvas, doc):
         counter.on_page(canvas, doc)
