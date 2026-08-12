@@ -14,7 +14,7 @@ import { lcCheck, lcGraphql, lcRunTest, lcSubmit } from '@/lib/leetcodeClient'
 import toast from 'react-hot-toast'
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror').then(m => m.default), { ssr: false })
-type SupportedLang = 'python3' | 'cpp' | 'javascript'
+type SupportedLang = 'python3' | 'javascript'
 
 /* ─── Types ──────────────────────────────────────────────── */
 interface LCQuestion {
@@ -60,9 +60,9 @@ const STATUS_CLS: Record<number, string> = {
   10: 'text-green-500', 11: 'text-red-500', 12: 'text-red-500',
   13: 'text-red-500', 14: 'text-orange-500', 15: 'text-red-500', 20: 'text-red-500',
 }
-const LANG_LC: Record<SupportedLang, string> = { python3: 'python3', cpp: 'cpp', javascript: 'javascript' }
-const LANG_LABEL: Record<SupportedLang, string> = { python3: 'Python 3', cpp: 'C++', javascript: 'JavaScript' }
-const SUPPORTED_LANGS: SupportedLang[] = ['python3', 'cpp', 'javascript']
+const LANG_LC: Record<SupportedLang, string> = { python3: 'python3', javascript: 'javascript' }
+const LANG_LABEL: Record<SupportedLang, string> = { python3: 'Python 3', javascript: 'JavaScript' }
+const SUPPORTED_LANGS: SupportedLang[] = ['python3', 'javascript']
 
 /* ─── Pre-submit syntax checker ─────────────────────────── */
 /**
@@ -608,9 +608,8 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
   /* ── Load CodeMirror extensions ── */
   useEffect(() => {
     async function loadExts() {
-      const [{ python }, { cpp }, { javascript }, { oneDark }, viewMod, stateMod, cmdMod] = await Promise.all([
+      const [{ python }, { javascript }, { oneDark }, viewMod, stateMod, cmdMod] = await Promise.all([
         import('@codemirror/lang-python'),
-        import('@codemirror/lang-cpp'),
         import('@codemirror/lang-javascript'),
         import('@codemirror/theme-one-dark'),
         import('@codemirror/view'),
@@ -653,7 +652,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
           cursorPosRef.current = { from: sel.from, to: sel.to }
         }
       })
-      const languageExtension = lang === 'python3' ? python() : lang === 'cpp' ? cpp() : javascript()
+      const languageExtension = lang === 'python3' ? python() : javascript()
       setExtensions([
         languageExtension,
         keys,
@@ -756,9 +755,10 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
         if (nextLang !== lang) setLang(nextLang)
         const raw = q.codeSnippets?.find(s => s.langSlug === nextLang)?.code ?? ''
         const starter = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\t/g, '    ')
-        // Restore in-progress draft if the user had one; fall back to LeetCode starter code
+        // Restore in-progress draft if the user had one; fall back to LeetCode starter code.
+        // Use || (not ??) so an accidentally-saved empty draft also falls back to the skeleton.
         const savedDraft = typeof window !== 'undefined' ? localStorage.getItem(`lm_draft_${appQuestionId}_${nextLang}`) : null
-        const initialCode = savedDraft ?? starter
+        const initialCode = savedDraft || starter
         setCode(questionTitle ? ensureTitleComment(initialCode, nextLang, questionTitle) : initialCode)
       })
       .catch(e => setLcErr(String(e)))
@@ -811,7 +811,7 @@ export default function LeetCodeEditor({ appQuestionId, slug, onAccepted, syncTo
     if (lcQ) {
       const starter = normalizeCode(lcQ.codeSnippets?.find(s => s.langSlug === l)?.code ?? '')
       const savedDraft = typeof window !== 'undefined' ? localStorage.getItem(`lm_draft_${appQuestionId}_${l}`) : null
-      const initialCode = savedDraft ?? starter
+      const initialCode = savedDraft || starter
       setCode(questionTitle ? ensureTitleComment(initialCode, l, questionTitle) : initialCode)
     }
     setResult(null)
